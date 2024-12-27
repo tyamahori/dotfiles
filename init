@@ -1,0 +1,37 @@
+#!/bin/bash
+
+if [ "$(uname)" != "Darwin" ] ; then
+	echo "Must be Mac OS. Unknown OS is detected"
+	exit 1
+fi
+
+THIS_DIR=$(cd "$(dirname $0)" || exit; pwd)
+echo $THIS_DIR
+
+# xcode
+softwareupdate --install-rosetta --agree-to-license
+
+# brew for intel
+arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# brew for apple silicon
+arch -arm64e /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+
+curl -fsSL https://get.jetify.com/devbox | bash
+
+# dotfiles
+for dotfile in "${THIS_DIR}"/dotfiles/*; do
+	ln -snfv "${THIS_DIR}/dotfiles/$dotfile" "$HOME/$dotfile"
+done
+
+source "$HOME/.zshrc"
+
+# .gitignore
+mkdir -p $HOME/.config/git
+ln -snfv "${THIS_DIR}/.gitignore_global" "$HOME/.config/git/ignore"
+
+brew bundle --file=${THIS_DIR}/Brewfile
+
+devbox global add php go direnv git bun
+
+source "$HOME/.profile"
