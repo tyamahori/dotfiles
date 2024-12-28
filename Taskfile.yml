@@ -1,0 +1,24 @@
+version: '3'
+silent: false
+vars:
+  USER_NAME:
+    sh: whoami
+  USER_ID:
+    sh: id -u
+  GROUP_ID:
+    sh: id -g
+  SSH_PATH: .ssh
+
+tasks:
+  default:
+    cmds:
+      - echo Welcome! {{ .USER_NAME }}!
+  images:
+    cmds:
+      - docker images
+  cleanImages:
+    cmds:
+      - docker image prune -f
+  cleanImages:
+    cmds:
+      - docker image prune -f

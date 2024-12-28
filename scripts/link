@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# dotfiles
+DOTFILE_DIR=$(cd $(dirname $0)/../dotfiles && pwd)
+# ln -fnsv "$DOTFILE_DIR/.zshrc" "$HOME"
+# ln -fnsv "$DOTFILE_DIR/.profile" "$HOME"
+# ln -fnsv "$DOTFILE_DIR/.Brewfile" "$HOME"
+# source "$HOME/.zshrc"
+# source "$HOME/.profile"
+
+# .gitignore
+GIT_DIR=$(cd $(dirname $0)/../git && pwd)
+# mkdir -p $HOME/.config/git
+# ln -snfv "${GIT_DIR}/ignore" "$HOME/.config/git/ignore"

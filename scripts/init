@@ -1,0 +1,18 @@
+#!/bin/bash
+
+if [ "$(uname)" != "Darwin" ] ; then
+	echo "Must be Mac OS. Unknown OS is detected"
+	exit 1
+fi
+
+# xcode
+softwareupdate --install-rosetta --agree-to-license
+
+# brew for intel
+arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# brew for apple silicon
+arch -arm64e /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+
+# devbox
+curl -fsSL https://get.jetify.com/devbox | bash

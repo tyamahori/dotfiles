@@ -1,0 +1,3 @@
+#!/bin/bash
+
+devbox global add php go direnv git bun
