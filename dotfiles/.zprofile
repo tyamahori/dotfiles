@@ -1,9 +1,8 @@
 eval "$(devbox global shellenv)"
 eval "$(direnv hook zsh)"
 
-# go
-export GOPATH=$(go env GOPATH)
-export PATH=$PATH:$GOPATH/bin
-
 # composer
-export PATH="$PATH:$HOME/.composer/vendor/bin"
+export COMPOSERPATH=$PWD/.composer/vendor/bin
+export GOPATH=$PWD/.go-tools
+export PATH=$GOPATH/bin:COMPOSERPATH:$PATH
+typeset -U PATH

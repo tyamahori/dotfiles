@@ -2,6 +2,8 @@
 
 # dotfiles
 DOTFILE_DIR=$(cd $(dirname $0)/../dotfiles && pwd)
+DOTFILES_DIR="$(cd "$(dirname "$1")/dotfiles" && pwd)"
+echo "$DOTFILES_DIR"
 # ln -fnsv "$DOTFILE_DIR/.zshrc" "$HOME"
 # ln -fnsv "$DOTFILE_DIR/.profile" "$HOME"
 # ln -fnsv "$DOTFILE_DIR/.Brewfile" "$HOME"
