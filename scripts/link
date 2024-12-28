@@ -1,16 +1,20 @@
 #!/bin/bash
 
 # dotfiles
-DOTFILE_DIR=$(cd $(dirname $0)/../dotfiles && pwd)
 DOTFILES_DIR="$(cd "$(dirname "$1")/dotfiles" && pwd)"
-echo "$DOTFILES_DIR"
-# ln -fnsv "$DOTFILE_DIR/.zshrc" "$HOME"
-# ln -fnsv "$DOTFILE_DIR/.profile" "$HOME"
-# ln -fnsv "$DOTFILE_DIR/.Brewfile" "$HOME"
-# source "$HOME/.zshrc"
-# source "$HOME/.profile"
+
+# for dotfile in "${DOTFILES_DIR}"/.??* ; do
+#     if [[ $dotfile == "$DOTFILES_DIR/." || $dotfile == "$DOTFILES_DIR/.." ]]; then
+#         continue
+#     fi
+
+#     ln -fnsv "$dotfile" "$HOME"
+# done
+
+
 
 # .gitignore
-GIT_DIR=$(cd $(dirname $0)/../git && pwd)
+GIT_DIR="$(cd "$(dirname "$1")/git" && pwd)"
 # mkdir -p $HOME/.config/git
 # ln -snfv "${GIT_DIR}/ignore" "$HOME/.config/git/ignore"
+echo ${GIT_DIR}/ignore "$HOME/.config/git/ignore"

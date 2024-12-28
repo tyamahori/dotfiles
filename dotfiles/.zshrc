@@ -1,4 +1,10 @@
-# brew settings
+eval "$(devbox global shellenv)"
+eval "$(direnv hook zsh)"
+
+export COMPOSERPATH=$PWD/.composer/vendor/bin
+export GOPATH=$PWD/.go-tools
+export PATH=$GOPATH/bin:COMPOSERPATH:$PATH
+
 typeset -U path PATH
 path=(
         /opt/homebrew/bin(N-/)
