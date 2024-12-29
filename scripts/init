@@ -15,4 +15,5 @@ arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebr
 arch -arm64e /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
 
 # devbox
+sh <(curl -L https://nixos.org/nix/install)
 curl -fsSL https://get.jetify.com/devbox | bash

@@ -3,18 +3,18 @@
 # dotfiles
 DOTFILES_DIR="$(cd "$(dirname "$1")/dotfiles" && pwd)"
 
-# for dotfile in "${DOTFILES_DIR}"/.??* ; do
-#     if [[ $dotfile == "$DOTFILES_DIR/." || $dotfile == "$DOTFILES_DIR/.." ]]; then
-#         continue
-#     fi
+for dotfile in "${DOTFILES_DIR}"/.??* ; do
+     if [[ $dotfile == "$DOTFILES_DIR/." || $dotfile == "$DOTFILES_DIR/.." ]]; then
+         continue
+     fi
 
-#     ln -fnsv "$dotfile" "$HOME"
-# done
+     ln -fnsv "$dotfile" "$HOME"
+done
 
 
 
 # .gitignore
 GIT_DIR="$(cd "$(dirname "$1")/git" && pwd)"
-# mkdir -p $HOME/.config/git
-# ln -snfv "${GIT_DIR}/ignore" "$HOME/.config/git/ignore"
+mkdir -p $HOME/.config/git
+ln -snfv "${GIT_DIR}/ignore" "$HOME/.config/git/ignore"
 echo ${GIT_DIR}/ignore "$HOME/.config/git/ignore"
