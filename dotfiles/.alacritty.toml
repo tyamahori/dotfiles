@@ -1,0 +1,18 @@
+[general]
+
+[window]
+padding = { x = 4, y = 2 }
+opacity = 0.75
+blur = true
+
+[scrolling]
+history = 100000
+multiplier = 5
+
+[font]
+size = 18.0
+offset = { x = 0, y = 4 }
+normal = { family = "Cica", style="Regular" }
+bold = { family = "Cica", style="Bold" }
+italic = { family = "Cica", style="Italic" }
+bold_italic = { family = "Cica", style="Bold Italic" }
