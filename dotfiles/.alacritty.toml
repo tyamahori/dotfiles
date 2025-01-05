@@ -4,6 +4,7 @@
 padding = { x = 4, y = 2 }
 opacity = 0.75
 blur = true
+option_as_alt = 'Both'
 
 [scrolling]
 history = 100000
@@ -16,3 +17,10 @@ normal = { family = "Cica", style="Regular" }
 bold = { family = "Cica", style="Bold" }
 italic = { family = "Cica", style="Italic" }
 bold_italic = { family = "Cica", style="Bold Italic" }
+
+[keyboard]
+bindings = [
+  { key = "Right", mods = "Alt", chars = "\u001BF" },
+  { key = "Left",  mods = "Alt", chars = "\u001BB" },
+]
+# https://stackoverflow.com/questions/58516583/move-cursor-word-by-word-in-alacritty
