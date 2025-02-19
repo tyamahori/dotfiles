@@ -1,3 +1,3 @@
 #!/bin/bash
 
-devbox global add php go direnv git bun git curl
+devbox global add php go direnv bun git node mas httpie cmake curl
