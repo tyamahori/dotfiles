@@ -48,6 +48,8 @@ cask "visual-studio-code"
 cask "warp"
 cask "whatsapp"
 cask "zoom"
+cask "camo-studio"
+cask "obs"
 cask "notion-calendar"
 mas "AudioSwitcher", id: 561712678
 mas "GarageBand", id: 682658836
