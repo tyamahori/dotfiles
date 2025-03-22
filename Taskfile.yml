@@ -19,6 +19,10 @@ tasks:
   cleanImages:
     cmds:
       - docker image prune -f
-  cleanImages:
+  pruneEverything:
     cmds:
-      - docker image prune -f
+      - docker rm -f `docker ps -a -q`
+      - docker rmi -f `docker images -q`
+      - docker volume rm `docker volume ls -q`
+      - docker builder prune -af
+      - docker system prune -af --volumes
