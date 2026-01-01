@@ -1,19 +1,17 @@
 eval "$(devbox global shellenv)"
 eval "$(direnv hook zsh)"
 
-export GOPATH=$HOME/.go-tools
 
 typeset -U path PATH
 path=(
         $HOME/.composer/vendor/bin
-        $GOPATH/bin
-        $HOME/.nix-profile/bin
+        $HOME/.go-tools/bin
         $HOME/.local/bin
         $HOME/.orbstack/bin
         $HOME/.local/share/devbox/global/default/.devbox/nix/profile/default/bin
         $HOME/.local/share/devbox/global/default/.devbox/virtenv/runx/bin
+        $HOME/.bun/bin
         /opt/homebrew/bin(N-/)
-        /usr/local/bin(N-/)
         $path
 )
 if (( $+commands[sw_vers] )) && (( $+commands[arch] )); then
