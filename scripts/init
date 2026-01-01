@@ -5,15 +5,13 @@ if [ "$(uname)" != "Darwin" ] ; then
 	exit 1
 fi
 
-# xcode
-softwareupdate --install-rosetta --agree-to-license
-
-# brew for intel
-arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# brew for apple silicon
-arch -arm64e /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+# brew
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # devbox
 curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 curl -fsSL https://get.jetify.com/devbox | bash
+
+# Disable spotlight
+sudo mdutil -a -i off
+sudo chmod 0 /System/Library/CoreServices/Search.bundle/Contents/MacOS/Search
