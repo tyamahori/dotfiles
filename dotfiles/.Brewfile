@@ -1,6 +1,5 @@
-tap "siketyan/mozc"
-cask "mozc"
-cask "mozc@pre"
+cask "siketyan/mozc/mozc"
+cask "siketyan/mozc/mozc@pre"
 cask "1password"
 cask "1password-cli"
 cask "google-chrome"
