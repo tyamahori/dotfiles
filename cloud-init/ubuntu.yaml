@@ -9,6 +9,11 @@
 #   - Nix (Determinate Systems) + Devbox with the same global packages as scripts/devbox
 #   - gh CLI (apt) + gh-copilot extension
 # macOS-only items (Homebrew casks, mas) are intentionally skipped.
+#
+# OrbStack deletes the cloud image's default `ubuntu` user (uid 1000) and creates a
+# user matching the macOS account. cloud-init's runcmd races with that step, so all
+# user-touching work (chsh, usermod, su -) is deferred to /usr/local/sbin/dev-bootstrap.sh
+# fired via `systemd-run --no-block` and waits for the rename to complete.
 
 package_update: true
 package_upgrade: false
@@ -22,12 +27,42 @@ packages:
   - build-essential
   - direnv
 
-runcmd:
-  # Resolve the OrbStack-provisioned user (uid 1000) and switch their shell to zsh.
-  - bash -c 'id -nu 1000 > /tmp/default_user'
-  - bash -c 'chsh -s /usr/bin/zsh "$(cat /tmp/default_user)"'
+write_files:
+  - path: /usr/local/sbin/dev-bootstrap.sh
+    permissions: '0755'
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
 
-  # Nix (Determinate Systems, multi-user with systemd).
+      DONE=/var/lib/dev-bootstrap.done
+      [ -e "$DONE" ] && exit 0
+
+      # Wait for OrbStack to remove the cloud image's default `ubuntu` user and
+      # provision the real one (matching the macOS username).
+      while id -u ubuntu >/dev/null 2>&1; do sleep 2; done
+      USER_NAME=""
+      while [ -z "$USER_NAME" ]; do
+        USER_NAME=$(awk -F: '$6 ~ /^\/home\/[^/]+$/ {print $1; exit}' /etc/passwd)
+        [ -z "$USER_NAME" ] && sleep 2
+      done
+
+      chsh -s /usr/bin/zsh "$USER_NAME"
+      usermod -aG docker "$USER_NAME"
+
+      su - "$USER_NAME" -c 'curl -fsSL https://get.jetify.com/devbox | bash -s -- -f'
+      su - "$USER_NAME" -c '
+        mkdir -p ~/project
+        [ -d ~/project/dotfiles ] || git clone https://github.com/tyamahori/dotfiles.git ~/project/dotfiles
+        ~/project/dotfiles/scripts/link
+      '
+      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:/nix/var/nix/profiles/default/bin:$PATH devbox global add php go direnv bun git nodejs httpie cmake curl go-task'
+      su - "$USER_NAME" -c 'gh extension install github/gh-copilot || true'
+
+      touch "$DONE"
+
+runcmd:
+  # Nix (Determinate Systems, multi-user with systemd). Root-only — safe to run synchronously.
   - bash -c 'curl --proto "=https" --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install linux --no-confirm'
 
   # gh CLI from official apt repo.
@@ -36,18 +71,9 @@ runcmd:
   # Docker CE from official apt repo.
   - bash -c 'install -dm 0755 /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && chmod a+r /etc/apt/keyrings/docker.asc && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list && apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin'
   - systemctl enable --now docker
-  - bash -c 'usermod -aG docker "$(cat /tmp/default_user)"'
 
-  # Devbox (installed as the default user).
-  - bash -c 'su - "$(cat /tmp/default_user)" -c "curl -fsSL https://get.jetify.com/devbox | bash -s -- -f"'
+  # User-specific setup (chsh, usermod, devbox, dotfiles, gh-copilot) is fired in the
+  # background — it polls for the OrbStack user rename before touching the new user.
+  - systemd-run --no-block --unit=dev-bootstrap --description="Dev environment bootstrap" /usr/local/sbin/dev-bootstrap.sh
 
-  # Clone dotfiles repo and symlink into $HOME via scripts/link.
-  - bash -c 'su - "$(cat /tmp/default_user)" -c "mkdir -p ~/project && git clone https://github.com/tyamahori/dotfiles.git ~/project/dotfiles && ~/project/dotfiles/scripts/link"'
-
-  # Same packages as scripts/devbox on macOS, minus mas (mac-only).
-  - bash -c 'su - "$(cat /tmp/default_user)" -c "PATH=\$HOME/.local/bin:/nix/var/nix/profiles/default/bin:\$PATH devbox global add php go direnv bun git nodejs httpie cmake curl go-task"'
-
-  # gh-copilot extension (no-op until the user runs gh auth login).
-  - bash -c 'su - "$(cat /tmp/default_user)" -c "gh extension install github/gh-copilot || true"'
-
-final_message: "dotfiles setup finished. Run `gh auth login` and open a new shell."
+final_message: "VM is up. User bootstrap runs in background — tail with `orb run -m <name> sudo journalctl -u dev-bootstrap -f`. Done when `/var/lib/dev-bootstrap.done` exists."
