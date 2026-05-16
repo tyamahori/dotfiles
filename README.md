@@ -56,13 +56,6 @@ NIXPKGS_ALLOW_UNFREE=1 nix profile add <package> --impure
 NIXPKGS_ALLOW_UNFREE=1 nix profile upgrade --all --impure
 ```
 
-### Extra casks (uncomment in `.Brewfile` if desired)
-
-```bash
-brew install --cask codex-app
-brew install --cask obsidian
-```
-
 ### gh extensions
 
 ```bash
