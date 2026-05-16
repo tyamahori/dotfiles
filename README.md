@@ -28,8 +28,12 @@ orb shell dev   # default user inherits from the macOS host
 
 What it installs: zsh, Nix (Determinate Systems), Devbox + global packages
 (`php go direnv bun git nodejs httpie cmake curl task`), `gh` + `gh-copilot`
-extension, and links dotfiles from this repo. macOS-only items
-(Homebrew casks, `mas`) are skipped.
+extension, Docker CE (with the default user added to the `docker` group), and
+links dotfiles from this repo. macOS-only items (Homebrew casks, `mas`) are
+skipped.
+
+> Note: the docker group membership only takes effect after the next login —
+> reconnect with `orb shell dev` or run `newgrp docker` once.
 
 ## Maintenance
 
