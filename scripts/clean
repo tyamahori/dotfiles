@@ -1,0 +1,3 @@
+#!/bin/bash
+
+sudo du --si -xct 1000000000 /System/Volumes/Data | tee >(grep -ve $'*	' > ~/Desktop/DiskSpace.txt) | sort -nr > ~/Desktop/SortedDiskSpace.txt

@@ -1,6 +1,7 @@
 #!/bin/bash
+set -euo pipefail
 
-if [ "$(uname)" != "Darwin" ] ; then
+if [ "$(uname)" != "Darwin" ]; then
 	echo "Must be Mac OS. Unknown OS is detected"
 	exit 1
 fi
@@ -9,9 +10,23 @@ fi
 sudo mdutil -a -i off
 sudo chmod 0 /System/Library/CoreServices/Search.bundle/Contents/MacOS/Search
 
-# brew
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# Homebrew
+if ! command -v brew >/dev/null 2>&1; then
+	/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+fi
+eval "$(/opt/homebrew/bin/brew shellenv)"
 
-# devbox
-curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
-curl -fsSL https://get.jetify.com/devbox | bash
+# Nix (Determinate Systems installer)
+if ! command -v nix >/dev/null 2>&1; then
+	curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+fi
+
+# Devbox
+if ! command -v devbox >/dev/null 2>&1; then
+	curl -fsSL https://get.jetify.com/devbox | bash
+fi
+
+# gh extensions (requires gh installed via devbox or brew)
+if command -v gh >/dev/null 2>&1; then
+	gh extension install github/gh-copilot || true
+fi

@@ -1,20 +1,18 @@
 #!/bin/bash
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+DOTFILES_DIR="${REPO_ROOT}/dotfiles"
+GIT_DIR="${REPO_ROOT}/git"
 
 # dotfiles
-DOTFILES_DIR="$(cd "$(dirname "$1")/dotfiles" && pwd)"
-
-for dotfile in "${DOTFILES_DIR}"/.??* ; do
-     if [[ $dotfile == "$DOTFILES_DIR/." || $dotfile == "$DOTFILES_DIR/.." ]]; then
-         continue
-     fi
-
-     ln -fnsv "$dotfile" "$HOME"
+for dotfile in "${DOTFILES_DIR}"/.??*; do
+	if [[ $dotfile == "$DOTFILES_DIR/." || $dotfile == "$DOTFILES_DIR/.." ]]; then
+		continue
+	fi
+	ln -fnsv "$dotfile" "$HOME"
 done
 
-
-
-# .gitignore
-GIT_DIR="$(cd "$(dirname "$1")/git" && pwd)"
-mkdir -p $HOME/.config/git
+# global gitignore
+mkdir -p "$HOME/.config/git"
 ln -snfv "${GIT_DIR}/ignore" "$HOME/.config/git/ignore"
-echo ${GIT_DIR}/ignore "$HOME/.config/git/ignore"

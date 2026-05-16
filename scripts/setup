@@ -1,0 +1,11 @@
+#!/bin/bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+"${SCRIPT_DIR}/init"
+"${SCRIPT_DIR}/link"
+"${SCRIPT_DIR}/apps"
+"${SCRIPT_DIR}/devbox"
+
+echo "Setup completed. Open a new shell to load environment changes."
