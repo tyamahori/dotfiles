@@ -24,7 +24,7 @@ packages:
 
 runcmd:
   # Resolve the OrbStack-provisioned user (uid 1000) and switch their shell to zsh.
-  - bash -c 'getent passwd 1000 | cut -d: -f1 > /tmp/default_user'
+  - bash -c 'id -nu 1000 > /tmp/default_user'
   - bash -c 'chsh -s /usr/bin/zsh "$(cat /tmp/default_user)"'
 
   # Nix (Determinate Systems, multi-user with systemd).
@@ -45,7 +45,7 @@ runcmd:
   - bash -c 'su - "$(cat /tmp/default_user)" -c "mkdir -p ~/project && git clone https://github.com/tyamahori/dotfiles.git ~/project/dotfiles && ~/project/dotfiles/scripts/link"'
 
   # Same packages as scripts/devbox on macOS, minus mas (mac-only).
-  - bash -c 'su - "$(cat /tmp/default_user)" -c "PATH=\$HOME/.local/bin:/nix/var/nix/profiles/default/bin:\$PATH devbox global add php go direnv bun git nodejs httpie cmake curl task"'
+  - bash -c 'su - "$(cat /tmp/default_user)" -c "PATH=\$HOME/.local/bin:/nix/var/nix/profiles/default/bin:\$PATH devbox global add php go direnv bun git nodejs httpie cmake curl go-task"'
 
   # gh-copilot extension (no-op until the user runs gh auth login).
   - bash -c 'su - "$(cat /tmp/default_user)" -c "gh extension install github/gh-copilot || true"'
