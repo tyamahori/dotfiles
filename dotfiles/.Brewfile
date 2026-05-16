@@ -1,6 +1,5 @@
 brew "zsh-completions"
 brew "zsh-autosuggestions"
-brew "git-lfs"
 cask "siketyan/mozc/mozc"
 cask "siketyan/mozc/mozc@pre"
 cask "1password"
