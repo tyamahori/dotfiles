@@ -8,5 +8,5 @@ if type brew &>/dev/null; then
 fi
 
 if [[ "$(uname)" == "Linux" ]]; then
-  PROMPT='%m@%n %~ %# '
+  PROMPT='%n@%m %~ %# '
 fi
