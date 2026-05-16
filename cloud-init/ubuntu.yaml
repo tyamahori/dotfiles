@@ -28,6 +28,15 @@ packages:
   - direnv
 
 write_files:
+
+  - path: /usr/local/bin/refresh-global
+    permissions: '0755'
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      # Update all devbox global packages. Run as the user that owns the devbox global profile.
+      exec devbox global update "$@"
+
   - path: /usr/local/sbin/dev-bootstrap.sh
     permissions: '0755'
     owner: root:root
@@ -67,6 +76,8 @@ write_files:
         npm config set prefix ~/.npm-global
         npm install -g @anthropic-ai/claude-code @openai/codex @github/copilot
       '
+
+      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:/nix/var/nix/profiles/default/bin:$PATH refresh-global'
 
       touch "$DONE"
 

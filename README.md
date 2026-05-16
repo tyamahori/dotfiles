@@ -22,7 +22,7 @@ cd ~/project/dotfiles
 Reproduces this dev environment in an OrbStack Linux VM via cloud-init.
 
 ```bash
-orb create -c cloud-init/ubuntu.yaml ubuntu:24.04 dev
+orb create --isolated --forward-ssh-agent -c cloud-init/ubuntu.yaml ubuntu:24.04 dev
 orb shell dev   # default user inherits from the macOS host
 ```
 
