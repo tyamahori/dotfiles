@@ -5,6 +5,7 @@ command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"
 
 typeset -U path PATH
 path=(
+        $HOME/.npm-global/bin
         $HOME/.composer/vendor/bin
         $HOME/.go-tools/bin
         $HOME/go/bin

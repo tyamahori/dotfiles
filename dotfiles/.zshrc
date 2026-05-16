@@ -6,5 +6,3 @@ if type brew &>/dev/null; then
   autoload -Uz compinit
   compinit
 fi
-
-export PATH="$HOME/.npm-global/bin:$PATH"

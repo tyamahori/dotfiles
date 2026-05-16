@@ -59,6 +59,15 @@ write_files:
       su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:/nix/var/nix/profiles/default/bin:$PATH devbox global add php go direnv bun git nodejs httpie cmake curl go-task'
       su - "$USER_NAME" -c 'gh extension install github/gh-copilot || true'
 
+      # AI CLIs (Claude Code, OpenAI Codex, GitHub Copilot CLI) via npm.
+      # devbox's nodejs lives in a read-only nix store, so global installs go to ~/.npm-global
+      # (added to PATH by .zprofile).
+      su - "$USER_NAME" -c '
+        mkdir -p ~/.npm-global
+        npm config set prefix ~/.npm-global
+        npm install -g @anthropic-ai/claude-code @openai/codex @github/copilot
+      '
+
       touch "$DONE"
 
 runcmd:
