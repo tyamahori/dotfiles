@@ -1,6 +1,6 @@
-eval "$(/opt/homebrew/bin/brew shellenv)"
-eval "$(devbox global shellenv)"
-eval "$(direnv hook zsh)"
+[ -x /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
+command -v devbox >/dev/null 2>&1 && eval "$(devbox global shellenv)"
+command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"
 
 
 typeset -U path PATH

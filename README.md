@@ -17,6 +17,20 @@ cd ~/project/dotfiles
 3. `scripts/apps` — `brew bundle --global` from `~/.Brewfile`
 4. `scripts/devbox` — install global devbox packages (php, go, direnv, bun, git, nodejs, mas, httpie, cmake, curl, task)
 
+## OrbStack VM (Ubuntu 24.04)
+
+Reproduces this dev environment in an OrbStack Linux VM via cloud-init.
+
+```bash
+orb create -c cloud-init/ubuntu.yaml ubuntu:24.04 dev
+orb shell dev   # default user inherits from the macOS host
+```
+
+What it installs: zsh, Nix (Determinate Systems), Devbox + global packages
+(`php go direnv bun git nodejs httpie cmake curl task`), `gh` + `gh-copilot`
+extension, and links dotfiles from this repo. macOS-only items
+(Homebrew casks, `mas`) are skipped.
+
 ## Maintenance
 
 ```bash
