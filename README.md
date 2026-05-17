@@ -49,12 +49,17 @@ skipped.
 
 These are not run automatically. Copy & paste as needed.
 
-### Install unfree Nix packages
+### Nix vs Devbox
 
-```bash
-NIXPKGS_ALLOW_UNFREE=1 nix profile add <package> --impure
-NIXPKGS_ALLOW_UNFREE=1 nix profile upgrade --all --impure
-```
+- **`scripts/devbox`** — packages installed via `devbox global` (default for global tools).
+- **`scripts/nix-extras`** — raw `nix profile add` for things devbox can't carry well
+  (unfree packages, custom flake refs). Edit the script to add packages, then run it:
+
+  ```bash
+  ./scripts/nix-extras
+  ```
+
+  Same package should never live in both — pick one path per tool.
 
 ### gh extensions
 

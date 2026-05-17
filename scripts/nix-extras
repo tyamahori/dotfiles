@@ -1,0 +1,15 @@
+#!/bin/bash
+set -euo pipefail
+
+# Packages installed via raw `nix profile` instead of devbox.
+# Use this only for what devbox can't carry well:
+#   - unfree packages (NIXPKGS_ALLOW_UNFREE=1 + --impure)
+#   - bleeding-edge / custom flake refs
+# Rule: never duplicate a package that already lives in scripts/devbox.
+
+# Add packages here. Examples (uncomment and adjust):
+# NIXPKGS_ALLOW_UNFREE=1 nix profile add nixpkgs#some-unfree-pkg --impure
+# NIXPKGS_ALLOW_UNFREE=1 nix profile add github:owner/repo --impure
+
+# Upgrade everything previously installed via nix profile.
+NIXPKGS_ALLOW_UNFREE=1 nix profile upgrade --all --impure
