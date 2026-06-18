@@ -15,7 +15,8 @@ cd ~/project/dotfiles
 1. `scripts/init` — install Homebrew, Nix, Devbox, and `gh` extensions
 2. `scripts/link` — symlink dotfiles into `$HOME` and global gitignore into `$HOME/.config/git/ignore`
 3. `scripts/apps` — `brew bundle --global` from `~/.Brewfile`
-4. `scripts/devbox` — install global devbox packages (php, go, direnv, bun, git, nodejs, mas, httpie, cmake, curl, task)
+4. `scripts/devbox` — install global devbox packages (php, go, direnv, bun, git, nodejs, mas, httpie, cmake, curl, task, uv)
+5. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`
 
 ## OrbStack VM (Ubuntu 24.04)
 
@@ -27,10 +28,10 @@ orb shell dev   # default user inherits from the macOS host
 ```
 
 What it installs: zsh, Nix (Determinate Systems), Devbox + global packages
-(`php go direnv bun git nodejs httpie cmake curl task`), `gh` + `gh-copilot`
-extension, Docker CE (with the default user added to the `docker` group), and
-links dotfiles from this repo. macOS-only items (Homebrew casks, `mas`) are
-skipped.
+(`php go direnv bun git nodejs httpie cmake curl task uv`), the latest CPython
+via `uv` as the global `python` / `python3`, `gh` + `gh-copilot` extension,
+Docker CE (with the default user added to the `docker` group), and links
+dotfiles from this repo. macOS-only items (Homebrew casks, `mas`) are skipped.
 
 > Note: the docker group membership only takes effect after the next login —
 > reconnect with `orb shell dev` or run `newgrp docker` once.

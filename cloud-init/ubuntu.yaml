@@ -65,7 +65,7 @@ write_files:
         [ -d ~/project/dotfiles ] || git clone https://github.com/tyamahori/dotfiles.git ~/project/dotfiles
         ~/project/dotfiles/scripts/link
       '
-      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:/nix/var/nix/profiles/default/bin:$PATH devbox global add php go direnv bun git git-lfs nodejs httpie cmake curl go-task'
+      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:/nix/var/nix/profiles/default/bin:$PATH devbox global add php go direnv bun git git-lfs nodejs httpie cmake curl go-task uv'
       su - "$USER_NAME" -c 'gh extension install github/gh-copilot || true'
 
       # AI CLIs (Claude Code, OpenAI Codex, GitHub Copilot CLI) via npm.
@@ -78,6 +78,9 @@ write_files:
       '
 
       su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:/nix/var/nix/profiles/default/bin:$PATH refresh-global'
+
+      # Global Python via uv: latest CPython, registered as python/python3 in ~/.local/bin.
+      su - "$USER_NAME" -c 'uv python install --default --preview-features python-install-default'
 
       touch "$DONE"
 
