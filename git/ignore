@@ -3,3 +3,6 @@
 .tyamahori
 .envrc
 .idea
+.pnpm-store
+**/.claude/settings.local.json
+**/.codex/hooks.json
