@@ -19,8 +19,18 @@ on `PATH` resolve to `~/.local/bin/python`, a uv-managed CPython installed via
 - Run Python through the `python` / `python3` already on `PATH`. Do **not**
   hard-code `/usr/bin/python3`, Homebrew, pyenv, or nix interpreters, and do
   not install a separate interpreter just to "get Python working".
-- One-off scripts that need dependencies: prefer `uv run script.py`
-  (or `uv run --with <pkg> ...`) over hand-rolled virtualenvs.
+- **A missing third-party package is not a blocker and not a reason to
+  downgrade the approach.** The global interpreter is intentionally bare. If a
+  task is cleaner with pandas / numpy / requests / etc., pull them in on the
+  fly with uv — adding a dependency here is cheap and isolated, so do it.
+  Do **not** fall back to a stdlib-only workaround to avoid a dependency
+  unless the user explicitly asked to keep it dependency-free.
+- One-off scripts and analysis with dependencies: run them through an
+  **ephemeral uv environment**, which is fast and leaves the global
+  interpreter untouched — no install step, no cleanup:
+  - `uv run --with pandas --with matplotlib script.py`
+  - inline: `uv run --with pandas - <<'PY'` … `PY`
+  - `uvx <tool>` (= `uv tool run`) to run a Python CLI without installing it
 - Project work: use `uv venv` + `uv pip install ...`, or `uv sync` when a
   `pyproject.toml` / `uv.lock` is present. Don't `pip install` into the global
   interpreter.
