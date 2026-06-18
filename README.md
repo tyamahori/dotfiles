@@ -13,10 +13,24 @@ cd ~/project/dotfiles
 `scripts/setup` runs the following in order:
 
 1. `scripts/init` — install Homebrew, Nix, Devbox, and `gh` extensions
-2. `scripts/link` — symlink dotfiles into `$HOME` and global gitignore into `$HOME/.config/git/ignore`
+2. `scripts/link` — symlink dotfiles into `$HOME`, global gitignore into `$HOME/.config/git/ignore`, and shared agent instructions (see below) into each LLM CLI's config
 3. `scripts/apps` — `brew bundle --global` from `~/.Brewfile`
 4. `scripts/devbox` — install global devbox packages (php, go, direnv, bun, git, nodejs, mas, httpie, cmake, curl, task, uv)
 5. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`
+
+## Agent instructions
+
+`agents/global-instructions.md` is a single set of guidance for the LLM coding
+CLIs on this machine (Claude Code, OpenAI Codex, GitHub Copilot CLI). `scripts/link`
+symlinks it into each tool's always-loaded global instruction file:
+
+- Claude Code → `~/.claude/CLAUDE.md`
+- Codex       → `~/.codex/AGENTS.md`
+- Copilot CLI → `~/.copilot/copilot-instructions.md`
+
+Edit that one file to change the rules for all three. It currently tells the
+agents to default to the uv-managed Python (`scripts/python`) rather than system,
+Homebrew, or nix interpreters.
 
 ## OrbStack VM (Ubuntu 24.04)
 

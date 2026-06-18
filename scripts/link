@@ -4,6 +4,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DOTFILES_DIR="${REPO_ROOT}/dotfiles"
 GIT_DIR="${REPO_ROOT}/git"
+AGENTS_DIR="${REPO_ROOT}/agents"
 
 # dotfiles
 for dotfile in "${DOTFILES_DIR}"/.??*; do
@@ -16,3 +17,12 @@ done
 # global gitignore
 mkdir -p "$HOME/.config/git"
 ln -snfv "${GIT_DIR}/ignore" "$HOME/.config/git/ignore"
+
+# global agent instructions, shared across LLM CLIs (Claude Code, Codex, Copilot)
+for agent_target in \
+	"$HOME/.claude/CLAUDE.md" \
+	"$HOME/.codex/AGENTS.md" \
+	"$HOME/.copilot/copilot-instructions.md"; do
+	mkdir -p "$(dirname "$agent_target")"
+	ln -snfv "${AGENTS_DIR}/global-instructions.md" "$agent_target"
+done
