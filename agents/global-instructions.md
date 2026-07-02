@@ -10,6 +10,29 @@ symlinked into each tool's global instruction path by `scripts/link`:
 
 Edit this one file in the dotfiles repo to change the rules for all three.
 
+## Claude Code: delegate implementation to subagents
+
+Claude Code only — Codex and Copilot CLI have no equivalent and should
+ignore this section.
+
+When the main session runs on a top-tier model (Fable 5), conserve its
+tokens: the main session's job is **design, task decomposition, auditing
+subagent output, and code review** — not typing out routine code.
+
+- Delegate implementation to subagents via the Agent tool with an
+  explicit model override:
+  - `model: "sonnet"` — routine, well-specified implementation:
+    mechanical edits, boilerplate, tests, changes with a clear spec.
+  - `model: "opus"` — harder but well-scoped implementation:
+    multi-file refactors, non-trivial logic that a written spec can
+    fully capture.
+- Give each implementation subagent a precise, self-contained spec
+  (files, constraints, acceptance criteria), then review its diff in
+  the main session before moving on.
+- Exception: implementation that is genuinely hard — subtle algorithms,
+  ambiguous requirements, or work that needs the full conversation
+  context — may be done directly in the main (Fable 5) session.
+
 ## Python
 
 Python on this machine is managed by **uv**. The default `python` / `python3`
