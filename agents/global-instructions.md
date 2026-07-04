@@ -41,6 +41,25 @@ subagent output, and code review** — not typing out routine code.
   ambiguous requirements, or work that needs the full conversation
   context — may be done directly in the main (Fable 5) session.
 
+## Commits and pull requests
+
+Applies to all agents, in every repository.
+
+- **Commits: stack them in logical, self-contained units.** Never squash a
+  whole feature into one commit. Split along dependency order (e.g. spec →
+  schema/migration → shared pieces → feature body + tests → docs sync); each
+  commit must make sense and build on its own. Follow the repo's existing
+  message conventions.
+- **Pull requests: create as draft by default.** Only open a ready-for-review
+  PR when explicitly asked.
+- **PR body: if the repo has a PR template** (`.github/pull_request_template.md`
+  or `PULL_REQUEST_TEMPLATE/`), the description must follow it — fill every
+  section, and tick checkboxes only for things actually verified. Note that
+  `gh pr create --body` does NOT auto-apply the template; read it and write
+  the body to match.
+- **PR title and description must describe the actual change** — what was done
+  and why, matching the repo's title conventions. No generic or leftover text.
+
 ## Scope discipline
 
 Applies to all agents. Don't add features, refactor, or introduce
