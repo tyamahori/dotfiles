@@ -29,9 +29,29 @@ subagent output, and code review** — not typing out routine code.
 - Give each implementation subagent a precise, self-contained spec
   (files, constraints, acceptance criteria), then review its diff in
   the main session before moving on.
+- Dispatch independent subtasks to subagents in parallel and keep
+  working while they run; don't block on one subagent when other work
+  is ready. For follow-ups in an area a subagent already knows, continue
+  that subagent via SendMessage instead of spawning a fresh one — it
+  keeps its context and cache.
+- Verify nontrivial work with a separate fresh-context subagent checked
+  against the spec, rather than relying on the implementer's own
+  self-review.
 - Exception: implementation that is genuinely hard — subtle algorithms,
   ambiguous requirements, or work that needs the full conversation
   context — may be done directly in the main (Fable 5) session.
+
+## Scope discipline
+
+Applies to all agents. Don't add features, refactor, or introduce
+abstractions beyond what the task requires. A bug fix doesn't need
+surrounding cleanup, and a one-shot operation usually doesn't need a
+helper. Don't design for hypothetical future requirements: do the
+simplest thing that works well. Don't add error handling, fallbacks, or
+validation for scenarios that cannot happen — trust internal code and
+framework guarantees, and validate only at system boundaries (user
+input, external APIs). Don't use feature flags or backwards-compatibility
+shims when you can just change the code.
 
 ## Python
 
