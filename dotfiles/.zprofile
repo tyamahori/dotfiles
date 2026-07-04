@@ -4,7 +4,9 @@
 
 
 [ -x /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
-command -v devbox >/dev/null 2>&1 && eval "$(devbox global shellenv)"
+if [[ -z "$CODEX_SHELL" && -z "$CODEX_SANDBOX" ]]; then
+  command -v devbox >/dev/null 2>&1 && eval "$(devbox global shellenv)"
+fi
 command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"
 
 
