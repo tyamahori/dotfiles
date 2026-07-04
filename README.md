@@ -13,7 +13,7 @@ cd ~/project/dotfiles
 `scripts/setup` runs the following in order:
 
 1. `scripts/init` — install Homebrew, Nix, Devbox, and `gh` extensions
-2. `scripts/link` — symlink dotfiles into `$HOME`, global gitignore into `$HOME/.config/git/ignore`, and shared agent instructions (see below) into each LLM CLI's config
+2. `scripts/link` — symlink dotfiles into `$HOME`, global gitignore into `$HOME/.config/git/ignore`, Claude Code settings (`claude/settings.json`, machine-local overrides go to the gitignored `~/.claude/settings.local.json`) into `$HOME/.claude/settings.json`, and shared agent instructions (see below) into each LLM CLI's config
 3. `scripts/apps` — `brew bundle --global` from `~/.Brewfile`
 4. `scripts/devbox` — install global devbox packages (php, go, direnv, bun, git, nodejs, mas, httpie, cmake, curl, task, uv)
 5. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`

@@ -5,6 +5,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DOTFILES_DIR="${REPO_ROOT}/dotfiles"
 GIT_DIR="${REPO_ROOT}/git"
 AGENTS_DIR="${REPO_ROOT}/agents"
+CLAUDE_DIR="${REPO_ROOT}/claude"
 
 # dotfiles
 for dotfile in "${DOTFILES_DIR}"/.??*; do
@@ -17,6 +18,10 @@ done
 # global gitignore
 mkdir -p "$HOME/.config/git"
 ln -snfv "${GIT_DIR}/ignore" "$HOME/.config/git/ignore"
+
+# claude code global settings (machine-local overrides go to ~/.claude/settings.local.json, gitignored)
+mkdir -p "$HOME/.claude"
+ln -snfv "${CLAUDE_DIR}/settings.json" "$HOME/.claude/settings.json"
 
 # global agent instructions, shared across LLM CLIs (Claude Code, Codex, Copilot)
 for agent_target in \
