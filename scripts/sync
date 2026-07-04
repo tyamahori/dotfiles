@@ -1,0 +1,47 @@
+#!/bin/bash
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+message=""
+while getopts ":m:" opt; do
+	case "$opt" in
+		m) message="$OPTARG" ;;
+		*) echo "usage: sync [-m message]" >&2; exit 1 ;;
+	esac
+done
+
+git -C "$REPO_ROOT" fetch origin
+
+dirty="$(git -C "$REPO_ROOT" status --porcelain)"
+read -r behind ahead <<<"$(git -C "$REPO_ROOT" rev-list --left-right --count '@{upstream}...HEAD')"
+
+if [[ -n "$dirty" ]]; then
+	echo "$dirty"
+fi
+echo "behind $behind / ahead $ahead"
+
+if (( behind > 0 )); then
+	if ! git -C "$REPO_ROOT" pull --rebase --autostash; then
+		echo "rebase failed — resolve conflicts in $REPO_ROOT, then re-run sync" >&2
+		exit 1
+	fi
+fi
+
+if [[ -n "$dirty" ]]; then
+	git -C "$REPO_ROOT" add -A
+	if [[ -n "$message" ]]; then
+		git -C "$REPO_ROOT" commit -m "$message"
+	else
+		git -C "$REPO_ROOT" commit -v
+	fi
+fi
+
+read -r behind ahead <<<"$(git -C "$REPO_ROOT" rev-list --left-right --count '@{upstream}...HEAD')"
+if (( ahead > 0 )); then
+	git -C "$REPO_ROOT" push
+fi
+
+if [[ -z "$dirty" && "$behind" -eq 0 && "$ahead" -eq 0 ]]; then
+	echo "already in sync"
+fi

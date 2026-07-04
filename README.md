@@ -53,6 +53,9 @@ dotfiles from this repo. macOS-only items (Homebrew casks, `mas`) are skipped.
 ## Maintenance
 
 ```bash
+# Sync dotfiles with remote (pull --rebase, commit local diff, push)
+./scripts/sync
+
 # Update brew formulae and casks
 ./scripts/brewUpdate
 
