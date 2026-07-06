@@ -88,8 +88,10 @@ Exempt: trivial mechanical tasks — typo fixes, renames, running a
 command the user dictated exactly.
 
 The full checklist (with the template the user fills in) lives at
-`~/projects/dotfiles/agents/task-briefing.md`; read it when judging
-whether a brief is complete.
+`~/projects/dotfiles/agents/task-briefing.md`. **Read that file at the
+start of every non-trivial task** (Codex / Copilot CLI: with the Read
+tool, before doing anything else; Claude Code receives it automatically
+via a UserPromptSubmit hook and need not re-read it).
 
 ## Scope discipline
 
