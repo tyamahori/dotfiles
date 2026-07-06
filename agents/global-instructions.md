@@ -160,6 +160,32 @@ not just in chat:
   resolved — a concurrent agent session may have handled it, especially
   when the session spans days.
 
+## Cross-review between agents
+
+Applies to all agents. Both Claude Code and Codex are installed on this
+machine; use the other one as an independent reviewer.
+
+- **When**: run a cross-review when the user asks for one ("クロス
+  レビュー", "second opinion", etc.). For large or risky changes, offer
+  it before opening the PR — but don't run it unprompted on every task;
+  it is slow and costs tokens.
+- **From Claude Code** (reviewer = Codex):
+  - Diff review: `codex exec review --uncommitted` for working-tree
+    changes; `codex exec review --base main` or
+    `codex exec review --commit <sha>` for committed work.
+  - Opinion on a design or investigation: `codex exec "<question +
+    enough context to answer standalone>"`.
+- **From Codex** (reviewer = Claude Code):
+  - `claude -p "Review the uncommitted changes in this repo for bugs
+    and design issues. Respond in Japanese."` — adapt the prompt to the
+    diff being reviewed (base branch, specific commit, etc.).
+- **Triage the findings — don't apply them blindly.** Fix what is
+  actually right, reject false positives with a stated reason, and
+  include both (fixed and rejected, with reasons) in the report to the
+  user. The calling agent owns the final judgment.
+- **Guard**: check `command -v codex` / `command -v claude` first; if
+  the counterpart is missing, skip and fall back to normal self-review.
+
 ## Containerized dev (OrbStack)
 
 Containers on this machine run under OrbStack. Recurring gotchas:
