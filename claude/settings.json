@@ -1,12 +1,17 @@
 {
+  "model": "claude-fable-5[1m]",
   "hooks": {
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x '/Users/tyamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/tyamahori/.orca/agent-hooks/claude-hook.sh'; fi",
+            "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; fi",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "cat \"$HOME/projects/dotfiles/agents/task-briefing.md\" 2>/dev/null || true"
           }
         ]
       }
@@ -16,7 +21,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x '/Users/tyamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/tyamahori/.orca/agent-hooks/claude-hook.sh'; fi",
+            "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; fi",
             "timeout": 10
           }
         ]
@@ -27,7 +32,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x '/Users/tyamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/tyamahori/.orca/agent-hooks/claude-hook.sh'; fi",
+            "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; fi",
             "timeout": 10
           }
         ]
@@ -39,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x '/Users/tyamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/tyamahori/.orca/agent-hooks/claude-hook.sh'; fi",
+            "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; fi",
             "timeout": 10
           }
         ]
@@ -51,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x '/Users/tyamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/tyamahori/.orca/agent-hooks/claude-hook.sh'; fi",
+            "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; fi",
             "timeout": 10
           }
         ]
@@ -63,7 +68,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x '/Users/tyamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/tyamahori/.orca/agent-hooks/claude-hook.sh'; fi",
+            "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; fi",
             "timeout": 10
           }
         ]
@@ -75,7 +80,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -x '/Users/tyamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/tyamahori/.orca/agent-hooks/claude-hook.sh'; fi",
+            "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; fi",
             "timeout": 10
           }
         ]
@@ -100,8 +105,5 @@
       }
     }
   },
-  "effortLevel": "high",
-  "tui": "fullscreen",
-  "theme": "dark",
-  "model": "claude-fable-5[1m]"
+  "skipAutoPermissionPrompt": true
 }
