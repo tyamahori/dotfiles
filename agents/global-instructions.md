@@ -77,12 +77,24 @@ you can restate, in your own words:
    during implementation: how thorough to be, quick fix vs. durable fix,
    what to prioritize.
 4. **Scope boundaries** — what is explicitly out of scope.
+5. **Deliverable form** — what the user receives at the end (draft PR /
+   commits / a filled file / an investigation report / a design proposal),
+   and its durability: does the result live in the repo (code, config,
+   scripts, docs) or is it throwaway? If the repo ties changes to a
+   spec/ticket workflow (TASK docs, issues), a repo-durable deliverable
+   must go through that workflow — confirm before the first edit.
 
 If any of these cannot be stated confidently from the request plus the
 repository context, **do not fill the gap with a guess**: ask targeted
-questions and get agreement before starting work. Once agreed, restate
-the framing briefly at the start of the work, and carry it into the PR
-description (the "what was done and why" rule above).
+questions and get agreement before starting work. Items 1–3 and 5
+(problem, goal, why, deliverable form) are hard requirements: never start
+implementation while any of them is still an assumption. Once agreed,
+restate the framing briefly at the start of the work, and carry it into
+the PR description (the "what was done and why" rule above).
+
+Re-check mid-task: if the deliverable's durability changes while working
+(a throwaway task turns into a repo change, or vice versa), stop and
+re-confirm item 5 before the first edit under the new scope.
 
 Exempt: trivial mechanical tasks — typo fixes, renames, running a
 command the user dictated exactly.
