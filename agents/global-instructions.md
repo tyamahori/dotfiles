@@ -63,6 +63,34 @@ Applies to all agents, in every repository.
 - **PR title and description must describe the actual change** — what was done
   and why, matching the repo's title conventions. No generic or leftover text.
 
+## Task intake: confirm the framing before starting
+
+Applies to all agents. Before starting any non-trivial task, check that
+you can restate, in your own words:
+
+1. **Problem** — what is broken or missing, and for whom. The underlying
+   problem, not the requested operation: the user may have asked for a
+   specific change when a different one solves their problem better.
+2. **Goal / success criteria** — the end state, in verifiable terms
+   ("after doing X, Y happens" / "this test passes"), not "it works".
+3. **Why** — why this matters now. This drives trade-off decisions
+   during implementation: how thorough to be, quick fix vs. durable fix,
+   what to prioritize.
+4. **Scope boundaries** — what is explicitly out of scope.
+
+If any of these cannot be stated confidently from the request plus the
+repository context, **do not fill the gap with a guess**: ask targeted
+questions and get agreement before starting work. Once agreed, restate
+the framing briefly at the start of the work, and carry it into the PR
+description (the "what was done and why" rule above).
+
+Exempt: trivial mechanical tasks — typo fixes, renames, running a
+command the user dictated exactly.
+
+The full checklist (with the template the user fills in) lives at
+`~/projects/dotfiles/agents/task-briefing.md`; read it when judging
+whether a brief is complete.
+
 ## Scope discipline
 
 Applies to all agents. Don't add features, refactor, or introduce
