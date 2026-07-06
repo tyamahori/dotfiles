@@ -9,6 +9,9 @@ symlinked into each tool's global instruction path by `scripts/link`:
 - Copilot CLI → `~/.copilot/copilot-instructions.md`
 
 Edit this one file in the dotfiles repo to change the rules for all three.
+Keep it to machine-wide facts and preferences that apply across all
+repositories; project-specific knowledge belongs in each project's own
+memory or docs.
 
 ## Claude Code: delegate implementation to subagents
 
@@ -99,3 +102,49 @@ on `PATH` resolve to `~/.local/bin/python`, a uv-managed CPython installed via
 - Need a different Python version: `uv python install <version>`
   (`scripts/python` installs the latest and registers it as the global
   default). Don't reach for pyenv / asdf / system package managers.
+
+## Git & SSH
+
+The SSH agent on this machine is **1Password**. SSH signing and pushes
+require GUI approval in the 1Password app.
+
+- While 1Password is locked, `git push` fails with
+  `communication with agent failed`. This is **not** a network or auth
+  configuration problem — do not start rewriting remotes or SSH config.
+  Ask the user to unlock 1Password, or use a repo-sanctioned token-based
+  fallback if the repository documents one.
+
+## Code review delivery
+
+When asked to review a GitHub pull request, deliver the review **on GitHub**,
+not just in chat:
+
+- Post one overall summary comment **in Japanese**, plus **inline** code
+  comments **in Japanese** anchored to specific lines (a single review via
+  `gh api .../pulls/<N>/reviews` with a `comments` array works well).
+- Review only by default — do **not** modify code unless explicitly asked.
+- Validate every inline comment's `(path, line)` against the PR's actual
+  diff hunks (`gh api .../pulls/<N>/files`) before posting, or the whole
+  review is rejected with a 422. The PR diff base is **`origin/main`** —
+  a stale local `main` silently widens the apparent scope.
+- Before acting on a CI event or review-comment notification, check the
+  PR's current state (already merged?) and whether the thread is already
+  resolved — a concurrent agent session may have handled it, especially
+  when the session spans days.
+
+## Containerized dev (OrbStack)
+
+Containers on this machine run under OrbStack. Recurring gotchas:
+
+- In projects that bind-mount `node_modules` between host and container,
+  **never run the package manager from both sides** — the store directories
+  differ, so each side rebuilds `node_modules` from scratch and breaks the
+  other (ping-pong). Run installs on whichever side the project designates.
+- If a build fails only inside the container but succeeds on the host,
+  suspect an environment difference first, not a code bug.
+- If an `*.local` dev domain stops resolving while all containers are
+  healthy, OrbStack's domain registration (`dev.orbstack.domains` label)
+  has likely dropped — commonly after an OrbStack daemon restart or sleep.
+  Diagnose with `dscacheutil -q host -a name <domain>` (empty = not
+  registered) and `dns-sd -Q <domain> A` (No Such Record = registration
+  lost); fix with `docker restart <container serving the domain>`.
