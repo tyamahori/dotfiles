@@ -171,7 +171,8 @@ machine; use the other one as an independent reviewer.
   it is slow and costs tokens.
 - **From Claude Code** (reviewer = Codex):
   - Diff review: `codex exec review --uncommitted` for working-tree
-    changes; `codex exec review --base main` or
+    changes; `codex exec review --base origin/main` (fetch first — a
+    stale local base yields a misleading diff) or
     `codex exec review --commit <sha>` for committed work.
   - Opinion on a design or investigation: `codex exec "<question +
     enough context to answer standalone>"`.
