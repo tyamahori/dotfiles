@@ -44,6 +44,33 @@ subagent output, and code review** — not typing out routine code.
   ambiguous requirements, or work that needs the full conversation
   context — may be done directly in the main (Fable 5) session.
 
+## Where each kind of knowledge lives
+
+Applies to all agents, in every repository. Each artifact answers one
+question; put information where it belongs and don't duplicate it:
+
+- **Code carries the How.** The implementation itself is the only place
+  the How is recorded. Write it clean enough that no prose walkthrough
+  of it is needed.
+- **Tests carry the What.** Test code states the expected behavior —
+  specification by example. Name tests after the behavior they pin
+  down, not after the method they call.
+- **Commit logs carry the Why.** The reason the change was needed and
+  the context behind it go in the commit message (see the commit rules
+  below).
+- **Code comments carry the Why-not.** Comment only what the code
+  cannot express: rejected alternatives, non-obvious constraints,
+  "this looks wrong but isn't because…". Never narrate what the next
+  line does.
+
+Corollary — **do not maintain detailed design docs as a source to
+(re)generate code from.** Experience says it fails: keeping documents
+consistent with each other and with the code is harder than keeping
+the code consistent. Instead, make the code clean enough that such
+documents are unnecessary, record what code cannot express (Why,
+Why-not) in the places above — plus ADR-style docs for decisions that
+outlive a single commit — and version-control all of it together.
+
 ## Commits and pull requests
 
 Applies to all agents, in every repository.
@@ -226,6 +253,15 @@ SQLite inbox. Claude Code invokes it as `/agmsg`, Codex as `$agmsg`.
 - **Scope**: the reviewer role reviews — it does not edit the working
   tree the implementer owns. Hand findings back as messages; the
   implementer applies them. Two sessions editing one tree conflict.
+
+## Calendar preferences
+
+Applies to all agents. When checking my Google Calendar, include these
+calendar IDs by default:
+
+- `primary`
+- `kazuki.tamahori@gmail.com`
+- `tyamahori@gmail.com`
 
 ## Containerized dev (OrbStack)
 
