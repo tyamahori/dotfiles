@@ -144,6 +144,16 @@ framework guarantees, and validate only at system boundaries (user
 input, external APIs). Don't use feature flags or backwards-compatibility
 shims when you can just change the code.
 
+## Japanese writing: run natural-japanese first
+
+Applies to all agents. Before producing any substantial Japanese prose
+as a deliverable — documents, reports, minutes, guides, emails, PR
+descriptions, review summaries, articles — load and follow the
+**natural-japanese** skill (`~/.claude/skills/natural-japanese` /
+`~/.agents/skills/natural-japanese`) first, then write the output to
+its standards. Short conversational replies and code comments are
+exempt; anything the user will read as a document is not.
+
 ## Python
 
 Python on this machine is managed by **uv**. The default `python` / `python3`
