@@ -23,6 +23,16 @@ ln -snfv "${GIT_DIR}/ignore" "$HOME/.config/git/ignore"
 mkdir -p "$HOME/.claude"
 ln -snfv "${CLAUDE_DIR}/settings.json" "$HOME/.claude/settings.json"
 
+# personal skills, shared across LLM CLIs (officially distributed skills stay
+# unmanaged in ~/.claude/skills; ~/.agents/skills is openskills' universal dir)
+for skill in "${AGENTS_DIR}/skills"/*/; do
+	skill="${skill%/}"
+	for skills_dir in "$HOME/.claude/skills" "$HOME/.agents/skills"; do
+		mkdir -p "$skills_dir"
+		ln -snfv "$skill" "$skills_dir/$(basename "$skill")"
+	done
+done
+
 # global agent instructions, shared across LLM CLIs (Claude Code, Codex, Copilot)
 for agent_target in \
 	"$HOME/.claude/CLAUDE.md" \
