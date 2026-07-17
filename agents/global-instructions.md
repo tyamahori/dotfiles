@@ -182,6 +182,23 @@ on `PATH` resolve to `~/.local/bin/python`, a uv-managed CPython installed via
   (`scripts/python` installs the latest and registers it as the global
   default). Don't reach for pyenv / asdf / system package managers.
 
+## Fetching & scraping web content: use ax
+
+Applies to all agents. [ax](https://github.com/yusukebe/ax) — the AI-era
+curl: fetch, discover, extract in one command — is installed on this
+machine (`/opt/homebrew/bin/ax`).
+
+- **Before the first fetch/scrape/API call in a task, run
+  `ax agent-context`** to load its current usage guide, and use ax
+  instead of `curl` piped into throwaway parsing scripts (grep/sed/
+  Python one-offs over raw HTML).
+- Typical flow: fetch or `--outline` once → `--locate` / `--count` to
+  confirm a selector → one `--row` / `--table` / `--md` extraction.
+  Parse-mode results are cached, so probing is free; output is
+  structured and token-capped by design.
+- Plain `curl` remains fine where ax adds nothing (e.g. piping an
+  install script to `sh`, or when the user dictated a curl command).
+
 ## Git & SSH
 
 The SSH agent on this machine is **1Password**. SSH signing and pushes
