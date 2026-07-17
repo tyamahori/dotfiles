@@ -144,15 +144,21 @@ framework guarantees, and validate only at system boundaries (user
 input, external APIs). Don't use feature flags or backwards-compatibility
 shims when you can just change the code.
 
-## Japanese writing: run natural-japanese first
+## Japanese writing: run natural-japanese and cognitive-rhythm-writing first
 
 Applies to all agents. Before producing any substantial Japanese prose
 as a deliverable — documents, reports, minutes, guides, emails, PR
-descriptions, review summaries, articles — load and follow the
-**natural-japanese** skill (`~/.claude/skills/natural-japanese` /
-`~/.agents/skills/natural-japanese`) first, then write the output to
-its standards. Short conversational replies and code comments are
-exempt; anything the user will read as a document is not.
+descriptions, review summaries, articles — load and follow **both** of
+these skills first, then write the output to their standards:
+
+- **natural-japanese** — readability, clarity, and removal of
+  AI-sounding phrasing.
+- **cognitive-rhythm-writing** — pacing and rhythm design so the prose
+  reads as writing, not a flat information dump.
+
+Both live under `~/.claude/skills/<name>` and `~/.agents/skills/<name>`.
+Short conversational replies and code comments are exempt; anything the
+user will read as a document is not.
 
 ## Python
 
