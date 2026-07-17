@@ -1,5 +1,6 @@
 {
   "model": "claude-fable-5[1m]",
+  "cleanupPeriodDays": 365,
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -89,7 +90,8 @@
   },
   "enabledPlugins": {
     "phpstorm-plugin@phpstorm-marketplace": true,
-    "warp@claude-code-warp": true
+    "warp@claude-code-warp": true,
+    "claude-md-management@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "phpstorm-marketplace": {
