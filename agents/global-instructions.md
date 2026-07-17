@@ -157,8 +157,18 @@ these skills first, then write the output to their standards:
   reads as writing, not a flat information dump.
 
 Both live under `~/.claude/skills/<name>` and `~/.agents/skills/<name>`.
-Short conversational replies and code comments are exempt; anything the
-user will read as a document is not.
+
+Scope by output kind:
+
+- **Deliverables** (anything the user will read as a document): load
+  and follow both skills, as above.
+- **Short conversational replies**: no mandatory skill load, but always
+  follow natural-japanese's core norms — no AI-sounding phrasing,
+  natural word order and comma placement, one idea per sentence.
+  cognitive-rhythm-writing does not apply; pacing design is meaningless
+  at this length.
+- **Code comments**: exempt from both. They follow the Why-not comment
+  rules above — terse and minimal, never prose.
 
 ## Python
 
