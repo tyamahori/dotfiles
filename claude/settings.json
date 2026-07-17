@@ -12,7 +12,7 @@
           },
           {
             "type": "command",
-            "command": "cat \"$HOME/projects/dotfiles/agents/task-briefing.md\" 2>/dev/null || true"
+            "command": "cat \"$HOME/dotfiles/agents/task-briefing.md\" 2>/dev/null || true"
           }
         ]
       }
@@ -46,6 +46,16 @@
           {
             "type": "command",
             "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; fi",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/claude/hooks/deny-bare-python.sh\"",
             "timeout": 10
           }
         ]

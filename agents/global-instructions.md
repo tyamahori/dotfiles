@@ -127,7 +127,7 @@ Exempt: trivial mechanical tasks — typo fixes, renames, running a
 command the user dictated exactly.
 
 The full checklist (with the template the user fills in) lives at
-`~/projects/dotfiles/agents/task-briefing.md`. **Read that file at the
+`~/dotfiles/agents/task-briefing.md`. **Read that file at the
 start of every non-trivial task** (Codex / Copilot CLI: with the Read
 tool, before doing anything else; Claude Code receives it automatically
 via a UserPromptSubmit hook and need not re-read it).
@@ -176,9 +176,14 @@ Python on this machine is managed by **uv**. The default `python` / `python3`
 on `PATH` resolve to `~/.local/bin/python`, a uv-managed CPython installed via
 `scripts/python`. Use it by default.
 
-- Run Python through the `python` / `python3` already on `PATH`. Do **not**
-  hard-code `/usr/bin/python3`, Homebrew, pyenv, or nix interpreters, and do
-  not install a separate interpreter just to "get Python working".
+- **Never invoke `python` / `python3` directly — always go through uv**:
+  `uv run script.py`, `uv run python -c ...`, `uv run --with <pkg> ...`,
+  `uvx <tool>`. On Claude Code a PreToolUse hook
+  (`claude/hooks/deny-bare-python.sh`) enforces this by denying bare
+  python invocations; a denied command means switch to the uv form, not
+  retry. Do **not** hard-code `/usr/bin/python3`, Homebrew, pyenv, or nix
+  interpreters, and do not install a separate interpreter just to "get
+  Python working".
 - **A missing third-party package is not a blocker and not a reason to
   downgrade the approach.** The global interpreter is intentionally bare. If a
   task is cleaner with pandas / numpy / requests / etc., pull them in on the
