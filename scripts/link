@@ -27,7 +27,7 @@ ln -snfv "${CLAUDE_DIR}/settings.json" "$HOME/.claude/settings.json"
 # unmanaged; ~/.agents/skills is openskills' universal dir)
 for skill in "${AGENTS_DIR}/skills"/*/; do
 	skill="${skill%/}"
-	for skills_dir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.agents/skills"; do
+	for skills_dir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills" "$HOME/.agents/skills"; do
 		mkdir -p "$skills_dir"
 		ln -snfv "$skill" "$skills_dir/$(basename "$skill")"
 	done
