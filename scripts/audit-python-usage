@@ -36,6 +36,22 @@ INLINE = re.compile(
     r"\bpython3?\s+-c\b|\buv\s+run\s+(?:python3?\s+)?-c\b|<<\s*['\"]?(?:PY|EOF|PYTHON|PYEOF)"
 )
 
+# command-position anchored so args/paths (node_modules, script names) don't
+# count; wrapped invocations (docker exec ... php) are missed — rough signal
+# for "does this runtime deserve its own skill", not an exact census
+RUNTIMES = {
+    name: re.compile(rf"(^|[;&|(])\s*(?:[A-Za-z_]\w*=\S+\s+)*{name_re}", re.M)
+    for name, name_re in {
+        "node": r"node\b",
+        "npx": r"npx\b",
+        "bun": r"bunx?\b",
+        "deno": r"deno\b",
+        "php": r"php\b",
+        "ruby": r"ruby\b",
+        "perl": r"perl\b",
+    }.items()
+}
+
 MODULE_NOT_FOUND = re.compile(r"ModuleNotFoundError|No module named")
 ERROR_SIG = re.compile(
     r"Traceback \(most recent|SyntaxError|NameError|\bTypeError\b|\bKeyError\b"
@@ -96,7 +112,10 @@ def scan_file(path):
                     continue
                 if block.get("type") == "tool_use" and block.get("name") == "Bash":
                     command = (block.get("input") or {}).get("command", "")
-                    if command and PY_CMD.search(command):
+                    if command and (
+                        PY_CMD.search(command)
+                        or any(marker.search(command) for marker in RUNTIMES.values())
+                    ):
                         uses.append((block.get("id"), entry.get("timestamp"), command))
                 elif block.get("type") == "tool_result":
                     results[block.get("tool_use_id")] = (
@@ -136,7 +155,7 @@ def rerun_clusters(commands):
 def audit(projects_dir, window_days):
     now = datetime.now(UTC)
     cutoff = now - timedelta(days=window_days)
-    totals, errors, inline = Counter(), Counter(), Counter()
+    totals, errors, inline, runtimes = Counter(), Counter(), Counter(), Counter()
     per_project = defaultdict(Counter)
     clusters = []
     files_scanned = skipped_lines = 0
@@ -155,6 +174,11 @@ def audit(projects_dir, window_days):
                 totals["undated"] += 1
                 continue
             if ts < cutoff:
+                continue
+            for name, marker in RUNTIMES.items():
+                if marker.search(command):
+                    runtimes[name] += 1
+            if not PY_CMD.search(command):
                 continue
             denied = DENY_PHRASE in text
             has_error = is_error or denied or bool(ERROR_SIG.search(text))
@@ -232,6 +256,7 @@ def audit(projects_dir, window_days):
                 "comprehensions",
             )
         },
+        "other_runtimes": {name: runtimes[name] for name in RUNTIMES},
         "per_project": [
             {
                 "project": name,
@@ -247,7 +272,7 @@ def audit(projects_dir, window_days):
 
 def numeric_metrics(snapshot):
     metrics = {"meta.files_scanned": snapshot.get("meta", {}).get("files_scanned")}
-    for section in ("totals", "errors", "inline_style"):
+    for section in ("totals", "errors", "inline_style", "other_runtimes"):
         for key, value in snapshot.get(section, {}).items():
             metrics[f"{section}.{key}"] = value
     return metrics
