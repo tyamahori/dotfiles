@@ -174,34 +174,24 @@ Scope by output kind:
 
 Python on this machine is managed by **uv**. The default `python` / `python3`
 on `PATH` resolve to `~/.local/bin/python`, a uv-managed CPython installed via
-`scripts/python`. Use it by default.
+`scripts/python`.
 
-- **Never invoke `python` / `python3` directly — always go through uv**:
-  `uv run script.py`, `uv run python -c ...`, `uv run --with <pkg> ...`,
-  `uvx <tool>`. On Claude Code a PreToolUse hook
-  (`claude/hooks/deny-bare-python.sh`) enforces this by denying bare
-  python invocations; a denied command means switch to the uv form, not
-  retry. Do **not** hard-code `/usr/bin/python3`, Homebrew, pyenv, or nix
-  interpreters, and do not install a separate interpreter just to "get
-  Python working".
-- **A missing third-party package is not a blocker and not a reason to
-  downgrade the approach.** The global interpreter is intentionally bare. If a
-  task is cleaner with pandas / numpy / requests / etc., pull them in on the
-  fly with uv — adding a dependency here is cheap and isolated, so do it.
-  Do **not** fall back to a stdlib-only workaround to avoid a dependency
-  unless the user explicitly asked to keep it dependency-free.
-- One-off scripts and analysis with dependencies: run them through an
-  **ephemeral uv environment**, which is fast and leaves the global
-  interpreter untouched — no install step, no cleanup:
-  - `uv run --with pandas --with matplotlib script.py`
-  - inline: `uv run --with pandas - <<'PY'` … `PY`
-  - `uvx <tool>` (= `uv tool run`) to run a Python CLI without installing it
-- Project work: use `uv venv` + `uv pip install ...`, or `uv sync` when a
-  `pyproject.toml` / `uv.lock` is present. Don't `pip install` into the global
-  interpreter.
-- Need a different Python version: `uv python install <version>`
-  (`scripts/python` installs the latest and registers it as the global
-  default). Don't reach for pyenv / asdf / system package managers.
+- **Never invoke `python` / `python3` directly — always go through uv**
+  (`uv run script.py`, `uv run --with <pkg> ...`, `uvx <tool>`). On Claude
+  Code a PreToolUse hook (`claude/hooks/deny-bare-python.sh`) enforces this
+  by denying bare python invocations; a denied command means switch to the
+  uv form, not retry.
+- **Before writing or running any Python, load the `efficient-python`
+  skill** (Claude Code: Skill tool; Codex / Copilot CLI: read
+  `~/.agents/skills/efficient-python/SKILL.md`). It carries the invocation
+  forms (ephemeral `--with` envs, PEP 723 scripts, uvx), when to prefer
+  jq/shell/ax over Python, one-shot style rules, and default libraries for
+  throwaway scripts — derived from an audit of real session logs.
+- A missing third-party package is never a reason to downgrade the
+  approach: pull it in with `uv run --with <pkg>` on the fly. Project work
+  uses `uv venv` + `uv pip install ...` or `uv sync`; never `pip install`
+  into the global interpreter, and never reach for pyenv / asdf / system
+  package managers.
 
 ## Fetching & scraping web content: use ax
 
