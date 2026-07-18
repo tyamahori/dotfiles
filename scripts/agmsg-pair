@@ -1,0 +1,100 @@
+#!/bin/bash
+set -euo pipefail
+
+# Register this machine's paired agent identities for a project with agmsg and
+# set each type's delivery mode, in one shot. Idempotent: re-running never
+# duplicates a registration or errors. agmsg lives at ~/.agents/skills/agmsg;
+# all mutation goes through its scripts (never its teams/ or config directly).
+#
+# Usage: agmsg-pair [--with-copilot] [--team <name>] [project_path]
+#   project_path    defaults to $PWD
+#   --team <name>   defaults to the basename of the project's git toplevel
+#                   (or the basename of project_path when not a git repo)
+#   --with-copilot  also register copilot->copilot (delivery: turn); its hook
+#                   file lands at <project>/.github/hooks/agmsg.json (gitignored)
+#
+# Pairs registered: claude-code->impl (delivery both), codex->reviewer (turn),
+# and with --with-copilot copilot->copilot (turn).
+
+AGMSG_SCRIPTS="$HOME/.agents/skills/agmsg/scripts"
+JOIN="$AGMSG_SCRIPTS/join.sh"
+IDENTITIES="$AGMSG_SCRIPTS/identities.sh"
+DELIVERY="$AGMSG_SCRIPTS/delivery.sh"
+
+WITH_COPILOT=0
+TEAM=""
+PROJECT=""
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--with-copilot) WITH_COPILOT=1; shift ;;
+		--team) TEAM="${2:?--team needs a value}"; shift 2 ;;
+		-h|--help) sed -n '5,17p' "$0"; exit 0 ;;
+		-*) echo "Unknown option: $1" >&2; exit 1 ;;
+		*) PROJECT="$1"; shift ;;
+	esac
+done
+
+# join.sh is the entry point every other step depends on; without it there is
+# nothing to do, so fail loud rather than half-register.
+if [ ! -x "$JOIN" ]; then
+	echo "agmsg join.sh not found at $JOIN — is the agmsg skill linked (scripts/link)?" >&2
+	exit 1
+fi
+
+PROJECT="${PROJECT:-$PWD}"
+# Resolve to an absolute path: agmsg stores and looks up registrations by
+# resolved project path, and passing a relative path would split the identity.
+PROJECT="$(cd "$PROJECT" && pwd)"
+
+if [ -z "$TEAM" ]; then
+	# Default the team to the repo's toplevel basename so paired sessions on the
+	# same repo (even from different worktrees/subdirs) share one team; off-repo,
+	# fall back to the project path's basename.
+	if TOPLEVEL="$(git -C "$PROJECT" rev-parse --show-toplevel 2>/dev/null)"; then
+		TEAM="$(basename "$TOPLEVEL")"
+	else
+		TEAM="$(basename "$PROJECT")"
+	fi
+fi
+
+# type role delivery-mode, one triple per element.
+PAIRS=(
+	"claude-code impl both"
+	"codex reviewer turn"
+)
+if [ "$WITH_COPILOT" -eq 1 ]; then
+	PAIRS+=("copilot copilot turn")
+fi
+
+echo "agmsg-pair: team '$TEAM' — project $PROJECT"
+
+for entry in "${PAIRS[@]}"; do
+	read -r type role mode <<<"$entry"
+
+	# identities.sh is scoped to the exact (project, type) and prints one line
+	# per registered pair (empty when none). Non-empty means we are already
+	# joined for this type, so skip the join. join.sh is itself idempotent for an
+	# identical registration, but honoring an existing identity also preserves a
+	# role/team the user set by hand.
+	existing="$("$IDENTITIES" "$PROJECT" "$type")"
+	if [ -n "$existing" ]; then
+		join_status="already joined"
+		# Report the identity that actually exists — it may have been joined by
+		# hand under a different team/role than the standard one.
+		role="$(printf '%s\n' "$existing" | head -1 | cut -f2)"
+	else
+		"$JOIN" "$TEAM" "$role" "$type" "$PROJECT" >/dev/null
+		join_status="joined"
+	fi
+
+	# delivery.sh set takes the project path explicitly (it does not derive it
+	# from $PWD), so no cd is needed. Re-setting the same mode is a no-op.
+	"$DELIVERY" set "$mode" "$type" "$PROJECT" >/dev/null
+
+	printf '  %-11s -> %-8s %-14s delivery: %s\n' "$type" "$role" "$join_status" "$mode"
+done
+
+if [ "$WITH_COPILOT" -eq 1 ]; then
+	echo "Copilot delivery hook written to $PROJECT/.github/hooks/agmsg.json (globally gitignored)."
+fi

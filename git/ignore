@@ -6,3 +6,4 @@
 .pnpm-store
 **/.claude/settings.local.json
 **/.codex/hooks.json
+**/.github/hooks/agmsg.json
