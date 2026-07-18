@@ -23,13 +23,54 @@ ln -snfv "${GIT_DIR}/ignore" "$HOME/.config/git/ignore"
 mkdir -p "$HOME/.claude"
 ln -snfv "${CLAUDE_DIR}/settings.json" "$HOME/.claude/settings.json"
 
-# personal skills, shared across LLM CLIs (officially distributed skills stay
-# unmanaged; ~/.agents/skills is openskills' universal dir)
+# personal skills, shared across LLM CLIs
 for skill in "${AGENTS_DIR}/skills"/*/; do
 	skill="${skill%/}"
 	for skills_dir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills" "$HOME/.agents/skills"; do
 		mkdir -p "$skills_dir"
 		ln -snfv "$skill" "$skills_dir/$(basename "$skill")"
+	done
+done
+
+# OpenSkills installs these into its universal directory. Point each CLI at
+# that one copy so agents that scan both locations do not register duplicates.
+shared_openskills=(
+	agents-sdk
+	cloudflare
+	cloudflare-email-service
+	cloudflare-one
+	cloudflare-one-migrations
+	durable-objects
+	sandbox-sdk
+	turnstile-spin
+	web-perf
+	workers-best-practices
+	wrangler
+)
+skill_backup_dir=""
+for skill_name in "${shared_openskills[@]}"; do
+	skill="$HOME/.agents/skills/$skill_name"
+	if [[ ! -d $skill ]]; then
+		echo "Missing shared skill: $skill" >&2
+		exit 1
+	fi
+
+	for skills_dir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills"; do
+		mkdir -p "$skills_dir"
+		target="$skills_dir/$skill_name"
+		if [[ -e $target && ! -L $target ]]; then
+			if ! diff -qr "$skill" "$target" >/dev/null; then
+				echo "Refusing to replace divergent skill: $target" >&2
+				exit 1
+			fi
+			if [[ -z $skill_backup_dir ]]; then
+				mkdir -p "$HOME/.Trash"
+				skill_backup_dir="$(mktemp -d "$HOME/.Trash/shared-openskills.XXXXXX")"
+			fi
+			cli_name="$(basename "${skills_dir%/skills}")"
+			mv "$target" "$skill_backup_dir/$cli_name-$skill_name"
+		fi
+		ln -snfv "$skill" "$target"
 	done
 done
 
