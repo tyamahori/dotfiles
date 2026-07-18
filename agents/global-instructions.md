@@ -284,18 +284,25 @@ below are the invariants; the skill is the procedure.
 ### agmsg paired sessions
 
 - **Setup is one command**: `~/dotfiles/scripts/agmsg-pair` joins the
-  current project's team (team = repo name; roles `impl` = claude-code,
-  `reviewer` = codex; `--with-copilot` adds `copilot`) and sets the
-  standard delivery modes: claude-code = `both`, codex and copilot =
-  `turn`. Codex's `monitor` mode (beta bridge) is not used. Run it
-  instead of hand-joining when a project isn't paired yet.
+  current project's team (team = repo name; type-based identities
+  `claude` = claude-code, `codex` = codex; `--with-copilot` adds
+  `copilot`) and sets the standard delivery modes: claude-code =
+  `both`, codex and copilot = `turn`. Codex's `monitor` mode (beta
+  bridge) is not used. Run it instead of hand-joining when a project
+  isn't paired yet.
+- **Roles are per task, not per agent.** The implementer / reviewer
+  role is declared when a flow starts — the user's assignment wins;
+  absent one, the session holding the work to be reviewed is the
+  implementer. The sender of `[REVIEW-REQ]` is that thread's
+  implementer, so either agent can implement or review.
 - **Wake the peer or the message sits unread.** `turn` delivery only
   fires when the peer's session takes a turn — an idle or closed peer
   receives nothing. After sending, either spawn the peer
-  (`/agmsg spawn codex reviewer` launches it pre-joined in a tmux pane,
-  or a new terminal window outside tmux; claude-code and codex only)
-  or tell the user which session to open or poke. Never report "sent"
-  as if that alone completes the round-trip.
+  (`/agmsg spawn codex codex --boot-prompt "..."` launches it
+  pre-joined in a tmux pane, or a new terminal window outside tmux;
+  claude-code and codex only) or tell the user which session to open
+  or poke. Never report "sent" as if that alone completes the
+  round-trip.
 - **Message conventions**: tag the intent — `[REVIEW-REQ]`,
   `[FINDINGS]`, `[APPLIED]`, `[HANDOFF]`, `[FYI]` — and keep the body short prose
   plus file / commit / PR references. Never paste diffs or long

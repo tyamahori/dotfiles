@@ -13,8 +13,10 @@ set -euo pipefail
 #   --with-copilot  also register copilot->copilot (delivery: turn); its hook
 #                   file lands at <project>/.github/hooks/agmsg.json (gitignored)
 #
-# Pairs registered: claude-code->impl (delivery both), codex->reviewer (turn),
-# and with --with-copilot copilot->copilot (turn).
+# Pairs registered: claude-code->claude (delivery both), codex->codex (turn),
+# and with --with-copilot copilot->copilot (turn). Names are type-based on
+# purpose — the impl/reviewer role is declared per task in the message flow
+# (agent-collab skill), so either agent can take either role.
 
 AGMSG_SCRIPTS="$HOME/.agents/skills/agmsg/scripts"
 JOIN="$AGMSG_SCRIPTS/join.sh"
@@ -60,8 +62,8 @@ fi
 
 # type role delivery-mode, one triple per element.
 PAIRS=(
-	"claude-code impl both"
-	"codex reviewer turn"
+	"claude-code claude both"
+	"codex codex turn"
 )
 if [ "$WITH_COPILOT" -eq 1 ]; then
 	PAIRS+=("copilot copilot turn")
