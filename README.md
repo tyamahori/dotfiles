@@ -60,6 +60,36 @@ the ecosystem move, a self-checking loop keeps it honest:
   gui/$(id -u)/com.tyamahori.python-skill-review`) to trigger a review
   off-schedule.
 
+### Agent collaboration (agmsg pairing)
+
+Added 2026-07: the agents collaborate over
+[agmsg](https://github.com/fujibee/agmsg) (a shared local SQLite inbox)
+instead of you copy-pasting between sessions. Human cheat-sheet — what to
+run and say; the agents handle the rest:
+
+- **Once per project**: run `~/dotfiles/scripts/agmsg-pair`
+  (`--with-copilot` to include Copilot CLI). It joins a team named after
+  the repo with type-based identities (`claude` / `codex` / `copilot`)
+  and sets delivery modes (claude-code `both`, others `turn`).
+  Idempotent; safe to re-run.
+- **Then just ask an agent in plain words**:
+  - 「Codex にレビューさせて」 — one-shot goes headless (`codex exec`),
+    multi-turn goes `[REVIEW-REQ]` → `[FINDINGS]` → `[APPLIED]` over agmsg.
+  - 「Codex が実装、Claude がレビューで」 — roles are assigned per task,
+    either direction works.
+  - 「この調査結果を Codex に共有して」 — `[FYI]` with a file reference.
+  - 「このタスクを Codex に渡して」 — `[HANDOFF]` with a briefing file.
+- **Idle peers are woken automatically**: the sending agent spawns the
+  peer via `agmsg spawn` (a new terminal window, or tmux pane inside
+  tmux). Close the spawned window once the round-trip is done.
+- **Inspect a conversation**: `/agmsg history` (Claude Code) or
+  `$agmsg history` (Codex) inside the project.
+
+Sources of truth (this section is only the human entry points): routing
+rules and invariants live in `agents/global-instructions.md` ("Agent
+collaboration"); procedures and message templates in
+`agents/skills/agent-collab/`.
+
 ## OrbStack VM (Ubuntu 24.04)
 
 Reproduces this dev environment in an OrbStack Linux VM via cloud-init.
