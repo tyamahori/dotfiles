@@ -1,0 +1,314 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = []
+# ///
+"""Audit Python invocation habits in Claude Code transcripts.
+
+Scans Bash tool_use commands in ~/.claude/projects session logs, joins them to
+their tool_result by tool_use_id, and prints one JSON snapshot to stdout.
+With --save, archives the snapshot under ~/.local/state/python-usage-audit/
+and prints a compact delta against the previous snapshot to stderr.
+"""
+
+import argparse
+import json
+import re
+import sys
+from collections import Counter, defaultdict
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+SNAPSHOT_DIR = Path.home() / ".local/state/python-usage-audit"
+DENY_PHRASE = "Bare python/python3 is blocked"
+RESULT_CAP = 4000
+
+PY_CMD = re.compile(r"\bpython3?\b|\buv\s+run\b|\buvx\b|\bpip3?\b")
+BARE_PYTHON = re.compile(
+    r"(^|[;&|(])\s*(?:[A-Za-z_]\w*=\S+\s+)*(?:command\s+)?python3?(\s|$)", re.M
+)
+UV_RUN = re.compile(r"\buv\s+run\b")
+UV_WITH = re.compile(r"\buv\s+run\b.*--with\b", re.S)
+UVX = re.compile(r"\buvx\b")
+PEP723 = re.compile(r"\buv\s+run\b[^\n]*--script\b|# /// script")
+PIP_DIRECT = re.compile(r"(^|[;&|(])\s*pip3?\s+install\b", re.M)
+INLINE = re.compile(
+    r"\bpython3?\s+-c\b|\buv\s+run\s+(?:python3?\s+)?-c\b|<<\s*['\"]?(?:PY|EOF|PYTHON|PYEOF)"
+)
+
+MODULE_NOT_FOUND = re.compile(r"ModuleNotFoundError|No module named")
+ERROR_SIG = re.compile(
+    r"Traceback \(most recent|SyntaxError|NameError|\bTypeError\b|\bKeyError\b"
+    r"|AttributeError|FileNotFoundError|No such file|ImportError|\bValueError\b"
+    r"|IndentationError|command not found|JSONDecodeError|Expecting value"
+    r"|Permission denied|EACCES|error: |No solution found"
+)
+
+STYLE_MARKERS = {
+    "os_path": re.compile(r"os\.path\."),
+    "manual_open": re.compile(r"open\([^)]*\)\.read|for line in open|readlines\(\)"),
+    "pathlib": re.compile(r"from pathlib|import pathlib|Path\("),
+    "print_debug": re.compile(r"print\("),
+    "f_strings": re.compile(r"""f["']"""),
+    "comprehensions": re.compile(r"\bfor\b.+\bin\b.+[\]\}]"),
+}
+
+
+def result_text(block):
+    content = block.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(
+            str(part.get("text", "")) for part in content if isinstance(part, dict)
+        )
+    return str(content)
+
+
+def parse_ts(raw):
+    if not raw:
+        return None
+    try:
+        ts = datetime.fromisoformat(raw)
+    except (ValueError, TypeError):
+        return None
+    return ts if ts.tzinfo else ts.replace(tzinfo=UTC)
+
+
+def scan_file(path):
+    uses, results, skipped = [], {}, 0
+    with path.open("rb") as fh:
+        for line in fh:
+            if not line.strip():
+                continue
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                skipped += 1
+                continue
+            message = entry.get("message") if isinstance(entry, dict) else None
+            if not isinstance(message, dict) or not isinstance(
+                message.get("content"), list
+            ):
+                continue
+            for block in message["content"]:
+                if not isinstance(block, dict):
+                    continue
+                if block.get("type") == "tool_use" and block.get("name") == "Bash":
+                    command = (block.get("input") or {}).get("command", "")
+                    if command and PY_CMD.search(command):
+                        uses.append((block.get("id"), entry.get("timestamp"), command))
+                elif block.get("type") == "tool_result":
+                    results[block.get("tool_use_id")] = (
+                        bool(block.get("is_error")),
+                        result_text(block)[:RESULT_CAP],
+                    )
+    records = [
+        (parse_ts(raw_ts), command, *results.get(tool_id, (False, "")))
+        for tool_id, raw_ts, command in uses
+    ]
+    return records, skipped
+
+
+def jaccard(a, b):
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
+def rerun_clusters(commands):
+    tokens = [
+        set(re.sub(r"\s+", " ", cmd.strip())[:200].split()) for cmd, _ in commands
+    ]
+    clusters = []
+    i = 0
+    while i < len(commands):
+        j = i + 1
+        while j < len(commands) and jaccard(tokens[i], tokens[j]) > 0.6:
+            j += 1
+        group = commands[i:j]
+        if len(group) >= 2 and any(err for _, err in group[:-1]):
+            clusters.append(len(group))
+        i = j if len(group) >= 2 else i + 1
+    return clusters
+
+
+def audit(projects_dir, window_days):
+    now = datetime.now(UTC)
+    cutoff = now - timedelta(days=window_days)
+    totals, errors, inline = Counter(), Counter(), Counter()
+    per_project = defaultdict(Counter)
+    clusters = []
+    files_scanned = skipped_lines = 0
+
+    for path in sorted(projects_dir.glob("*/*.jsonl")):
+        try:
+            records, skipped = scan_file(path)
+        except OSError:
+            continue
+        files_scanned += 1
+        skipped_lines += skipped
+        project = per_project[path.parent.name]
+        sequence = []
+        for ts, command, is_error, text in records:
+            if ts is None:
+                totals["undated"] += 1
+                continue
+            if ts < cutoff:
+                continue
+            denied = DENY_PHRASE in text
+            has_error = is_error or denied or bool(ERROR_SIG.search(text))
+            totals["python_cmds"] += 1
+            project["python_cmds"] += 1
+            if BARE_PYTHON.search(command):
+                totals["bare_python"] += 1
+                project["bare_python"] += 1
+            if denied:
+                totals["hook_denials"] += 1
+            if UV_RUN.search(command):
+                totals["uv_run"] += 1
+            if UV_WITH.search(command):
+                totals["uv_run_with"] += 1
+            if UVX.search(command):
+                totals["uvx"] += 1
+            if PEP723.search(command):
+                totals["pep723_scripts"] += 1
+            if PIP_DIRECT.search(command):
+                totals["pip_direct"] += 1
+            if has_error:
+                errors["error_cmds"] += 1
+                project["error_cmds"] += 1
+            if MODULE_NOT_FOUND.search(text):
+                errors["module_not_found"] += 1
+            if INLINE.search(command):
+                inline["inline_cmds"] += 1
+                for key, marker in STYLE_MARKERS.items():
+                    if marker.search(command):
+                        inline[key] += 1
+            sequence.append((command, has_error))
+        clusters.extend(rerun_clusters(sequence))
+
+    python_cmds = totals["python_cmds"]
+    top_projects = sorted(
+        per_project.items(), key=lambda item: item[1]["python_cmds"], reverse=True
+    )
+    return {
+        "meta": {
+            "generated_at": now.isoformat(timespec="seconds"),
+            "window_days": window_days,
+            "projects_dir": str(projects_dir),
+            "files_scanned": files_scanned,
+            "skipped_lines": skipped_lines,
+        },
+        "totals": {
+            "python_cmds": python_cmds,
+            "undated": totals["undated"],
+            "bare_python": totals["bare_python"],
+            "bare_python_rate": round(totals["bare_python"] / python_cmds, 4)
+            if python_cmds
+            else 0.0,
+            "hook_denials": totals["hook_denials"],
+            "uv_run": totals["uv_run"],
+            "uv_run_with": totals["uv_run_with"],
+            "uvx": totals["uvx"],
+            "pep723_scripts": totals["pep723_scripts"],
+            "pip_direct": totals["pip_direct"],
+        },
+        "errors": {
+            "error_cmds": errors["error_cmds"],
+            "module_not_found": errors["module_not_found"],
+            "unchanged_rerun_loops": len(clusters),
+            "redundant_reruns": sum(size - 1 for size in clusters),
+        },
+        "inline_style": {
+            key: inline[key]
+            for key in (
+                "inline_cmds",
+                "os_path",
+                "manual_open",
+                "pathlib",
+                "print_debug",
+                "f_strings",
+                "comprehensions",
+            )
+        },
+        "per_project": [
+            {
+                "project": name,
+                "python_cmds": counts["python_cmds"],
+                "bare_python": counts["bare_python"],
+                "error_cmds": counts["error_cmds"],
+            }
+            for name, counts in top_projects[:10]
+            if counts["python_cmds"]
+        ],
+    }
+
+
+def numeric_metrics(snapshot):
+    metrics = {"meta.files_scanned": snapshot.get("meta", {}).get("files_scanned")}
+    for section in ("totals", "errors", "inline_style"):
+        for key, value in snapshot.get(section, {}).items():
+            metrics[f"{section}.{key}"] = value
+    return metrics
+
+
+def print_delta(previous, current, previous_name):
+    old_metrics = numeric_metrics(previous)
+    changes = [
+        f"  {name}: {old_metrics[name]} -> {value} ({value - old_metrics[name]:+g})"
+        for name, value in numeric_metrics(current).items()
+        if isinstance(old_metrics.get(name), (int, float))
+        and old_metrics[name] != value
+    ]
+    print(f"delta vs {previous_name}:", file=sys.stderr)
+    print("\n".join(changes) if changes else "  no change", file=sys.stderr)
+
+
+def save_snapshot(snapshot):
+    SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
+    existing = sorted(SNAPSHOT_DIR.glob("????-??-??.json"))
+    previous = None
+    if existing:
+        try:
+            previous = json.loads(existing[-1].read_text())
+        except ValueError:
+            pass
+    target = SNAPSHOT_DIR / f"{datetime.now(UTC):%Y-%m-%d}.json"
+    target.write_text(json.dumps(snapshot, indent=2) + "\n")
+    print(f"saved {target}", file=sys.stderr)
+    if previous:
+        print_delta(previous, snapshot, existing[-1].name)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Audit Python invocation habits in Claude Code transcripts."
+    )
+    parser.add_argument(
+        "--since",
+        type=int,
+        default=90,
+        metavar="DAYS",
+        help="only count commands within the last DAYS days (default: 90)",
+    )
+    parser.add_argument(
+        "--projects-dir",
+        type=Path,
+        default=Path.home() / ".claude/projects",
+        help="transcripts root (default: ~/.claude/projects)",
+    )
+    parser.add_argument(
+        "--save",
+        action="store_true",
+        help="archive the snapshot and print a delta vs the previous one to stderr",
+    )
+    args = parser.parse_args()
+    snapshot = audit(args.projects_dir.expanduser(), args.since)
+    print(json.dumps(snapshot, indent=2))
+    if args.save:
+        save_snapshot(snapshot)
+
+
+if __name__ == "__main__":
+    main()

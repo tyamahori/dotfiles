@@ -6,9 +6,10 @@ description: Token-efficient Python usage for coding agents on this machine — 
 # efficient-python
 
 Goal: every Python invocation runs correctly on the first try with the fewest
-tokens. These rules come from an audit of real session logs (2026-07); the
-waste there was bare-python denials, missing-module retries, and re-running
-failed commands unchanged — not slow code.
+tokens. These rules come from an audit of real session logs (2026-07,
+re-runnable via `~/dotfiles/scripts/audit-python-usage`); the waste there was
+bare-python denials, missing-module retries, and re-running failed commands
+unchanged — not slow code.
 
 ## Invocation: always uv
 
