@@ -32,6 +32,34 @@ Edit that one file to change the rules for all three. It currently tells the
 agents to default to the uv-managed Python (`scripts/python`) rather than system,
 Homebrew, or nix interpreters.
 
+### efficient-python skill & quarterly review
+
+How the agents use Python is governed by the `efficient-python` skill
+(`agents/skills/efficient-python/`), written 2026-07 from an audit of real
+session logs to cut token waste (bare-python denials, missing-module retries,
+re-running failed commands unchanged). Because its advice can rot as uv and
+the ecosystem move, a self-checking loop keeps it honest:
+
+- **`scripts/audit-python-usage`** — re-runs the audit over
+  `~/.claude/projects` transcripts any time; fixed-schema JSON to stdout,
+  `--save` archives a snapshot to `~/.local/state/python-usage-audit/` and
+  prints a delta vs the previous one. This is how to tell whether the skill
+  is actually improving agent behavior.
+- **`launchd/com.tyamahori.python-skill-review.plist`** (linked & loaded by
+  `scripts/link`) fires **`scripts/python-skill-review`** quarterly
+  (Jan/Apr/Jul/Oct 15th, 09:47; a sleeping Mac runs it on wake). It runs a
+  headless `claude -p` that re-audits, checks uv release notes, and writes a
+  **proposal-only** report (no files are edited) to
+  `~/.local/state/python-usage-audit/review-YYYY-MM-DD.md`, announced via a
+  macOS notification.
+- **When the notification appears**: read the report; if it proposes skill
+  changes, apply the ones you agree with to
+  `agents/skills/efficient-python/SKILL.md` (or hand the report to an agent
+  session) and commit. Applying is deliberately manual.
+- Run `./scripts/python-skill-review` (or `launchctl kickstart
+  gui/$(id -u)/com.tyamahori.python-skill-review`) to trigger a review
+  off-schedule.
+
 ## OrbStack VM (Ubuntu 24.04)
 
 Reproduces this dev environment in an OrbStack Linux VM via cloud-init.
