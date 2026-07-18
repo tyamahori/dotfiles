@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.tyamahori.python-skill-review</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/tyamahori/dotfiles/scripts/python-skill-review</string>
+	</array>
+	<!-- quarterly: Jan/Apr/Jul/Oct 15th 09:47; launchd runs a missed
+	     interval once on wake, so a sleeping Mac only delays it -->
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict>
+			<key>Month</key><integer>1</integer>
+			<key>Day</key><integer>15</integer>
+			<key>Hour</key><integer>9</integer>
+			<key>Minute</key><integer>47</integer>
+		</dict>
+		<dict>
+			<key>Month</key><integer>4</integer>
+			<key>Day</key><integer>15</integer>
+			<key>Hour</key><integer>9</integer>
+			<key>Minute</key><integer>47</integer>
+		</dict>
+		<dict>
+			<key>Month</key><integer>7</integer>
+			<key>Day</key><integer>15</integer>
+			<key>Hour</key><integer>9</integer>
+			<key>Minute</key><integer>47</integer>
+		</dict>
+		<dict>
+			<key>Month</key><integer>10</integer>
+			<key>Day</key><integer>15</integer>
+			<key>Hour</key><integer>9</integer>
+			<key>Minute</key><integer>47</integer>
+		</dict>
+	</array>
+	<key>StandardOutPath</key>
+	<string>/Users/tyamahori/.local/state/python-usage-audit/launchd.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/tyamahori/.local/state/python-usage-audit/launchd.log</string>
+</dict>
+</plist>

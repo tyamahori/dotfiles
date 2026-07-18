@@ -41,3 +41,12 @@ for agent_target in \
 	mkdir -p "$(dirname "$agent_target")"
 	ln -snfv "${AGENTS_DIR}/global-instructions.md" "$agent_target"
 done
+
+# launchd agents: link, then (re)load so schedule edits take effect
+mkdir -p "$HOME/Library/LaunchAgents"
+for plist in "${REPO_ROOT}/launchd"/*.plist; do
+	target="$HOME/Library/LaunchAgents/$(basename "$plist")"
+	ln -snfv "$plist" "$target"
+	launchctl bootout "gui/$(id -u)" "$target" 2>/dev/null || true
+	launchctl bootstrap "gui/$(id -u)" "$target"
+done

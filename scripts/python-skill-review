@@ -1,0 +1,42 @@
+#!/bin/bash
+# Quarterly review of the efficient-python skill, fired by launchd
+# (launchd/com.tyamahori.python-skill-review.plist). Report-only: proposals
+# land in a dated markdown file, a human applies them to the skill.
+set -euo pipefail
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+# launchd env has no devbox profile, and uv lives there — without this the
+# audit script's uv shebang fails inside the headless session
+eval "$(/usr/local/bin/devbox global shellenv)"
+
+STATE_DIR="$HOME/.local/state/python-usage-audit"
+mkdir -p "$STATE_DIR"
+REPORT="$STATE_DIR/review-$(date +%Y-%m-%d).md"
+
+claude -p \
+	--allowedTools "Read" "Glob" "Grep" "Bash" "WebFetch" "WebSearch" \
+	>"$REPORT" <<'PROMPT'
+efficient-python スキルの四半期レビューを実行する。ファイルの編集は一切禁止
+（監査スクリプトの --save が書くスナップショットは除く）。成果物はこのセッションの
+標準出力に書く日本語 Markdown レポートのみ。
+
+手順:
+1. `~/dotfiles/scripts/audit-python-usage --since 100 --save` を実行し、
+   stdout の JSON と、前回スナップショットとの差分（stderr)を読む。
+2. スキルの効果を判定する: bare python の deny、ModuleNotFoundError ループ、
+   失敗コマンドの無変更再実行、古いイディオム率が前回から減っているか。
+3. uv のリリースノート（https://github.com/astral-sh/uv/releases）を確認し、
+   スキルの記述に影響する変更（フラグの追加・改名・非推奨、PEP 723 まわり、
+   推奨ワークフローの変化）を拾う。uv 以外は追わない。
+4. ~/dotfiles/agents/skills/efficient-python/SKILL.md と
+   ~/dotfiles/agents/global-instructions.md の Python セクションを読み、
+   2〜3 の結果と突き合わせる。
+
+レポート構成（日本語 Markdown）:
+- メトリクスのトレンド: 前回比の表と、スキルが効いているかの判定
+- uv の関係する変更: なければ「なし」と明記
+- スキルへの差分提案: 修正すべき行を旧→新の形で具体的に引用。
+  提案がなければ「変更不要」と明記
+- 次回レビューまでに人間が判断すべきこと（あれば）
+PROMPT
+
+osascript -e "display notification \"レポート: ${REPORT/#$HOME/~}\" with title \"python-skill-review\"" || true
