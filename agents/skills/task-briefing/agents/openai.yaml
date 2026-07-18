@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task Briefing"
+  short_description: "粗い依頼を実行可能なタスク定義に整える"
+  default_prompt: "Use $task-briefing to turn my rough request into a clear task briefing."
