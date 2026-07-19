@@ -87,6 +87,10 @@ done
 mkdir -p "$HOME/Library/Application Support/com.mitchellh.ghostty"
 ln -snfv "${REPO_ROOT}/ghostty/config" "$HOME/Library/Application Support/com.mitchellh.ghostty/config"
 
+# herdr config (session state and logs stay unmanaged in ~/.config/herdr)
+mkdir -p "$HOME/.config/herdr"
+ln -snfv "${REPO_ROOT}/herdr/config.toml" "$HOME/.config/herdr/config.toml"
+
 # launchd agents: link, then (re)load so schedule edits take effect
 mkdir -p "$HOME/Library/LaunchAgents"
 for plist in "${REPO_ROOT}/launchd"/*.plist; do
