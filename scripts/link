@@ -83,6 +83,10 @@ for agent_target in \
 	ln -snfv "${AGENTS_DIR}/global-instructions.md" "$agent_target"
 done
 
+# ghostty config (macOS reads the Application Support path; XDG is not needed)
+mkdir -p "$HOME/Library/Application Support/com.mitchellh.ghostty"
+ln -snfv "${REPO_ROOT}/ghostty/config" "$HOME/Library/Application Support/com.mitchellh.ghostty/config"
+
 # launchd agents: link, then (re)load so schedule edits take effect
 mkdir -p "$HOME/Library/LaunchAgents"
 for plist in "${REPO_ROOT}/launchd"/*.plist; do
