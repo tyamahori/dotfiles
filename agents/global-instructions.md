@@ -297,12 +297,16 @@ below are the invariants; the skill is the procedure.
   implementer, so either agent can implement or review.
 - **Wake the peer or the message sits unread.** `turn` delivery only
   fires when the peer's session takes a turn — an idle or closed peer
-  receives nothing. After sending, either spawn the peer
-  (`/agmsg spawn codex codex --boot-prompt "..."` launches it
-  pre-joined in a tmux pane, or a new terminal window outside tmux;
-  claude-code and codex only) or tell the user which session to open
-  or poke. Never report "sent" as if that alone completes the
-  round-trip.
+  receives nothing. After sending: a peer that is NOT running yet may
+  be spawned ONCE (`/agmsg spawn codex codex --boot-prompt "..."`
+  launches it pre-joined in a tmux pane, or a new terminal window
+  outside tmux; claude-code and codex only); a peer that is (or should
+  be) already running is woken via the herdr nudge (agent-collab skill)
+  or by asking the user to poke its window — **never by spawning
+  again**. Spawn is a launch mechanism, not a wake mechanism: each
+  re-spawn opens another terminal window and a duplicate process under
+  the same identity (a real incident opened 3+ windows in one task).
+  Never report "sent" as if that alone completes the round-trip.
 - **Message conventions**: tag the intent — `[REVIEW-REQ]`,
   `[FINDINGS]`, `[APPLIED]`, `[HANDOFF]`, `[FYI]` — and keep the body short prose
   plus file / commit / PR references. Never paste diffs or long
