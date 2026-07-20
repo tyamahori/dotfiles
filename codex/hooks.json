@@ -1,0 +1,17 @@
+{
+  "description": "Notify when Codex is waiting for user approval.",
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.local/bin/codex-notify permission-request",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,17 +1,33 @@
 #!/bin/sh
 set -eu
 
-payload=${1:-{}}
+case "${1:-}" in
+	permission-request)
+		notification_type=permission-request
+		payload=$(cat)
+		;;
+	*)
+		notification_type=turn-complete
+		payload=${1:-{}}
+		;;
+esac
+
 sky_client="$HOME/.codex/computer-use/Codex Computer Use.app/Contents/SharedSupport/SkyComputerUseClient.app/Contents/MacOS/SkyComputerUseClient"
 
-if [ "${CODEX_NOTIFY_SKIP_SKY:-0}" != 1 ] && [ -x "$sky_client" ]; then
+if [ "$notification_type" = turn-complete ] && [ "${CODEX_NOTIFY_SKIP_SKY:-0}" != 1 ] && [ -x "$sky_client" ]; then
 	"$sky_client" turn-ended "$payload"
 fi
 
-event_type=$(printf '%s' "$payload" | jq -r '.type // empty' 2>/dev/null || true)
-if [ "$event_type" != agent-turn-complete ]; then
-	exit 0
-fi
+case "$notification_type" in
+	turn-complete)
+		event_type=$(printf '%s' "$payload" | jq -r '.type // empty' 2>/dev/null || true)
+		[ "$event_type" = agent-turn-complete ] || exit 0
+		;;
+	permission-request)
+		event_type=$(printf '%s' "$payload" | jq -r '.hook_event_name // empty' 2>/dev/null || true)
+		[ "$event_type" = PermissionRequest ] || exit 0
+		;;
+esac
 
 workspace_id=${HERDR_WORKSPACE_ID:-}
 tab_ref=${HERDR_TAB_ID:-}
@@ -69,11 +85,27 @@ fi
 
 agent_name=${CODEX_AGENT_NAME:-Codex}
 location="$terminal_name / $space_name / $tab_name / $pane_name / $agent_name"
-message=$(printf '%s' "$payload" | jq -r '.["last-assistant-message"] // "作業が完了しました"' 2>/dev/null || printf '%s' '作業が完了しました')
-thread_id=$(printf '%s' "$payload" | jq -r '.["thread-id"] // empty' 2>/dev/null || true)
+
+case "$notification_type" in
+	turn-complete)
+		title="Codex 作業完了"
+		message=$(printf '%s' "$payload" | jq -r '.["last-assistant-message"] // "作業が完了しました"' 2>/dev/null || printf '%s' '作業が完了しました')
+		notification_id=$(printf '%s' "$payload" | jq -r '.["thread-id"] // empty' 2>/dev/null || true)
+		;;
+	permission-request)
+		title="Codex 許可待ち"
+		tool_name=$(printf '%s' "$payload" | jq -r '.tool_name // empty' 2>/dev/null || true)
+		if [ -n "$tool_name" ]; then
+			message="${tool_name}の実行許可が必要です"
+		else
+			message="操作の許可が必要です"
+		fi
+		notification_id=$(printf '%s' "$payload" | jq -r '.session_id // empty' 2>/dev/null || true)
+		;;
+esac
 
 /opt/homebrew/bin/terminal-notifier \
-	-title "Codex 作業完了" \
+	-title "$title" \
 	-subtitle "$location" \
 	-message "$message" \
-	-group "codex-${thread_id:-default}"
+	-group "codex-${notification_id:-default}"
