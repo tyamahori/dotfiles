@@ -35,7 +35,24 @@ title=$(herdr api snapshot 2>/dev/null | jq -r \
 [ "$title" = "FOCUSED" ] && exit 0
 
 case "$event" in
-  Stop) body="完了しました" ;;
+  Stop)
+    # Show the tail of Claude's final reply instead of a fixed string.
+    # tail -n keeps whole lines (tail -c could split a JSON line and
+    # break the slurp); the final text is always near the end at Stop.
+    transcript=$(printf '%s' "$input" | jq -r '.transcript_path // empty')
+    body=""
+    if [ -n "$transcript" ] && [ -f "$transcript" ]; then
+      body=$(tail -n 100 "$transcript" 2>/dev/null | jq -rs '
+        [ .[]
+          | select(.type == "assistant" and ((.isSidechain // false) | not))
+          | .message.content // []
+          | map(select(.type == "text") | .text)
+          | join(" ")
+          | select(length > 0)
+        ] | last // "" | gsub("\\s+"; " ") | .[0:120]' 2>/dev/null)
+    fi
+    body="${body:-完了しました}"
+    ;;
   Notification) body="${msg:-要対応です}" ;;
   *) body="${msg:-$event}" ;;
 esac
