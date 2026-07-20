@@ -26,6 +26,15 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/claude/hooks/herdr-notify.sh\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "StopFailure": [
@@ -92,6 +101,17 @@
           {
             "type": "command",
             "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/claude/hooks/herdr-notify.sh\"",
             "timeout": 10
           }
         ]
