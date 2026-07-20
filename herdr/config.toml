@@ -4,8 +4,11 @@ onboarding = false
 agent_panel_sort = "priority"
 show_agent_labels_on_pane_borders = true
 
+# Claude Code の Stop/Notification フック(claude/hooks/herdr-notify.sh)が
+# terminal-notifier で独自フォーマットの macOS 通知を出すため、標準通知は無効。
+# 注意: codex / copilot ペインはフック未対応なので現状は通知なし。
 [ui.toast]
-delivery = "system"
+delivery = "off"
 
 [ui.sound]
 enabled = false
