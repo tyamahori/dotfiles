@@ -1,0 +1,79 @@
+#!/bin/sh
+set -eu
+
+payload=${1:-{}}
+sky_client="$HOME/.codex/computer-use/Codex Computer Use.app/Contents/SharedSupport/SkyComputerUseClient.app/Contents/MacOS/SkyComputerUseClient"
+
+if [ "${CODEX_NOTIFY_SKIP_SKY:-0}" != 1 ] && [ -x "$sky_client" ]; then
+	"$sky_client" turn-ended "$payload"
+fi
+
+event_type=$(printf '%s' "$payload" | jq -r '.type // empty' 2>/dev/null || true)
+if [ "$event_type" != agent-turn-complete ]; then
+	exit 0
+fi
+
+workspace_id=${HERDR_WORKSPACE_ID:-}
+tab_ref=${HERDR_TAB_ID:-}
+pane_ref=${HERDR_PANE_ID:-}
+tab_number=${tab_ref##*:t}
+pane_number=${pane_ref##*:p}
+
+if [ -n "$workspace_id" ]; then
+	# The herdr server can retain TERM_PROGRAM from the terminal that first started it.
+	terminal_name=Ghostty
+else
+	terminal_name=${TERM_PROGRAM:-Terminal}
+	case "$terminal_name" in
+		ghostty | Ghostty) terminal_name=Ghostty ;;
+		WarpTerminal) terminal_name=Warp ;;
+	esac
+fi
+
+if [ -z "$workspace_id" ] && [ -n "$tab_ref" ]; then
+	workspace_id=${tab_ref%%:*}
+fi
+
+space_name=$workspace_id
+tab_name=
+pane_name=
+session_file="$HOME/.config/herdr/session.json"
+
+if [ -r "$session_file" ] && [ -n "$workspace_id" ]; then
+	space_name=$(jq -r --arg workspace "$workspace_id" \
+		'.workspaces[] | select(.id == $workspace) | .custom_name // .id' \
+		"$session_file" 2>/dev/null || true)
+
+	if [ -n "$tab_number" ]; then
+		tab_name=$(jq -r --arg workspace "$workspace_id" --argjson number "$tab_number" '
+			.workspaces[]
+			| select(.id == $workspace)
+			| (.public_tab_numbers | index($number)) as $index
+			| if $index == null then empty else .tabs[$index].custom_name // "Tab \($number)" end
+		' "$session_file" 2>/dev/null || true)
+	fi
+
+	if [ -n "$pane_number" ]; then
+		pane_name=$(jq -r --arg workspace "$workspace_id" --argjson number "$pane_number" '
+			.workspaces[]
+			| select(.id == $workspace)
+			| (.public_pane_numbers | to_entries[] | select(.value == $number) | .key) as $pane_id
+			| ([.tabs[].panes[$pane_id].custom_name // empty] | first) // "Pane \($number)"
+		' "$session_file" 2>/dev/null || true)
+	fi
+fi
+
+[ -n "$space_name" ] || space_name=Unknown
+[ -n "$tab_name" ] || tab_name=${tab_ref:-Unknown}
+[ -n "$pane_name" ] || pane_name=${pane_ref:-Unknown}
+
+agent_name=${CODEX_AGENT_NAME:-Codex}
+location="$terminal_name / $space_name / $tab_name / $pane_name / $agent_name"
+message=$(printf '%s' "$payload" | jq -r '.["last-assistant-message"] // "作業が完了しました"' 2>/dev/null || printf '%s' '作業が完了しました')
+thread_id=$(printf '%s' "$payload" | jq -r '.["thread-id"] // empty' 2>/dev/null || true)
+
+/opt/homebrew/bin/terminal-notifier \
+	-title "Codex 作業完了" \
+	-subtitle "$location" \
+	-message "$message" \
+	-group "codex-${thread_id:-default}"

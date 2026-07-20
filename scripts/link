@@ -83,6 +83,10 @@ for agent_target in \
 	ln -snfv "${AGENTS_DIR}/global-instructions.md" "$agent_target"
 done
 
+# Codex turn-completion notifications
+mkdir -p "$HOME/.local/bin"
+ln -snfv "${REPO_ROOT}/scripts/codex-notify" "$HOME/.local/bin/codex-notify"
+
 # ghostty config (macOS reads the Application Support path; XDG is not needed)
 mkdir -p "$HOME/Library/Application Support/com.mitchellh.ghostty"
 ln -snfv "${REPO_ROOT}/ghostty/config" "$HOME/Library/Application Support/com.mitchellh.ghostty/config"
