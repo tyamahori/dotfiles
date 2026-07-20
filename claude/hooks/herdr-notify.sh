@@ -17,14 +17,23 @@ msg=$(printf '%s' "$input" | jq -r '.message // empty')
 if [ -n "$HERDR_PANE_ID" ]; then
   command -v herdr >/dev/null 2>&1 || exit 0
 
+  # herdr's pane focus persists while Ghostty itself is in the background,
+  # so pane focus alone would suppress notifications the user can't see.
+  # lsappinfo (unlike osascript/System Events) needs no automation permission.
+  ghostty_front=0
+  case "$(lsappinfo info -only bundleid "$(lsappinfo front)" 2>/dev/null)" in
+    *com.mitchellh.ghostty*) ghostty_front=1 ;;
+  esac
+
   title=$(herdr api snapshot 2>/dev/null | jq -r \
+    --arg front "$ghostty_front" \
     --arg ws "$HERDR_WORKSPACE_ID" --arg tab "$HERDR_TAB_ID" --arg pane "$HERDR_PANE_ID" '
     .result.snapshot as $s |
     ([$s.workspaces[]? | select(.workspace_id == $ws)][0]) as $w |
     ([$s.tabs[]?       | select(.tab_id       == $tab)][0]) as $t |
     ([$s.panes[]?      | select(.pane_id      == $pane)][0]) as $p |
     # The user is already looking at this pane; a notification would be noise.
-    if $s.focused_workspace_id == $ws and $s.focused_pane_id == $pane then "FOCUSED"
+    if $front == "1" and $s.focused_workspace_id == $ws and $s.focused_pane_id == $pane then "FOCUSED"
     else
       ["Ghostty",
        ($w.label // $ws),
