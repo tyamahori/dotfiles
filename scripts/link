@@ -51,8 +51,8 @@ skill_backup_dir=""
 for skill_name in "${shared_openskills[@]}"; do
 	skill="$HOME/.agents/skills/$skill_name"
 	if [[ ! -d $skill ]]; then
-		echo "Missing shared skill: $skill" >&2
-		exit 1
+		echo "Skipping shared skill not installed on this machine: $skill" >&2
+		continue
 	fi
 
 	for skills_dir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills"; do
