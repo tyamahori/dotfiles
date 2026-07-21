@@ -1,5 +1,10 @@
 {
   "model": "claude-fable-5[1m]",
+  "statusLine": {
+    "type": "command",
+    "command": "npx -y ccusage statusline",
+    "padding": 0
+  },
   "cleanupPeriodDays": 365,
   "hooks": {
     "UserPromptSubmit": [
@@ -12,7 +17,8 @@
           },
           {
             "type": "command",
-            "command": "cat \"$HOME/dotfiles/agents/task-briefing.md\" 2>/dev/null || true"
+            "command": "\"$HOME/dotfiles/claude/hooks/task-briefing-once.sh\"",
+            "timeout": 10
           }
         ]
       }
