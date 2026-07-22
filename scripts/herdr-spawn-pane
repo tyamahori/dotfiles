@@ -1,0 +1,29 @@
+#!/bin/bash
+# agmsg spawn.sh --terminal helper for herdr >= 0.7.5.
+#
+# 0.7.5 の `herdr agent start` は「既存ペインで検証済みエージェント種別を
+# 起動する」コマンドになり、spawn.sh が生成する boot スクリプトを直接
+# 実行できない。代わりにペインを分割し、その中で boot スクリプトを走らせる。
+#
+# $1 = boot script path (spawn.sh が {cmd} に差し込む)
+# env: AGMSG_HERDR_PARENT_PANE   分割元ペイン (default: 自ペイン $HERDR_PANE_ID)
+#      AGMSG_HERDR_SPLIT_DIRECTION  right|down (default: down)
+#      AGMSG_HERDR_SPLIT_RATIO      新ペインの比率 (default: 0.35)
+set -euo pipefail
+BOOT="${1:?usage: herdr-spawn-pane <boot-script>}"
+PARENT="${AGMSG_HERDR_PARENT_PANE:-${HERDR_PANE_ID:?not inside a herdr pane}}"
+
+out="$(herdr pane split "$PARENT" \
+  --direction "${AGMSG_HERDR_SPLIT_DIRECTION:-down}" \
+  --ratio "${AGMSG_HERDR_SPLIT_RATIO:-0.35}" \
+  --no-focus)"
+pane="$(printf '%s' "$out" | jq -r '.. | .pane_id? // empty' | head -1)"
+[ -n "$pane" ] || { echo "herdr-spawn-pane: no pane_id in: $out" >&2; exit 1; }
+
+# 片付け・rename 用に直近の pane id を残す
+STATE_DIR="${TMPDIR:-/tmp}/agmsg-spawn"
+mkdir -p "$STATE_DIR"
+printf '%s\n' "$pane" | tee "$STATE_DIR/last-herdr-pane"
+
+sleep 1  # 新ペインのシェルが立つ前に pane run すると取りこぼす
+herdr pane run "$pane" "$BOOT"
