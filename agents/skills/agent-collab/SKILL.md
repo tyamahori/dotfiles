@@ -133,6 +133,13 @@ spawn する 1 回には、経路によらず 2 つを守る:
    - claude-code ピア: `herdr agent prompt <target> '/agmsg'`
    - codex ピア: `herdr agent prompt <target> '$agmsg'`（シェル展開
      させないよう必ずシングルクォート）
+   - **送信後は必ず着火を確認する**: 数秒待って
+     `herdr agent get <target>` の `agent_status` が `working` に
+     変わらなければ、テキストが入力欄に残ったまま Enter だけ落ちて
+     いる（codex ピアで頻発。stalled エラーが返らないこともある）。
+     その場合は `herdr agent send-keys <target> enter` で発火させる。
+     prompt の出力を `>/dev/null` で捨てない —
+     `agent_prompt_stalled` を見逃す。
 4. 返答を待つなら
    `herdr agent wait <target> --until idle --until blocked --until done`
    （`blocked` = 承認・入力待ちで止まっている状態。放置せず内容を
