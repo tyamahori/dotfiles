@@ -115,32 +115,48 @@ spawn する 1 回には、経路によらず 2 つを守る:
 場合はこちら。codex の 2 巡目以降（従来はユーザーが手で起こして
 いた）もこれで済む。
 
-1. `herdr pane list --workspace "$HERDR_WORKSPACE_ID"` で相手の
-   ペインを特定する（`agent` / `agent_status` を見る）。
+1. `herdr agent list` で相手を特定する（`agent` / `name` /
+   `agent_status` を見る）。spawn したら
+   `herdr agent rename <pane_id> <名前>` で名前を付けておくと、以後の
+   コマンドはすべて名前で指せて pane ID に依存しない（名前は herdr
+   0.7.5 以降で一意制約あり・占有者の終了で自動クリア。例:
+   `scrape-codex` のようにプロジェクト接頭辞を付ける）。
 2. `agent_status` が `idle` / `done` なら次へ。`working` なら
-   `herdr wait agent-status <pane_id> --status idle --timeout 300000`
-   で完了を待つ（バックグラウンドタブでは完了が `done` になるので、
-   timeout したら `herdr pane get <pane_id>` で再確認）。working 中に
-   nudge を注入しない — 相手のターンに割り込む。
-3. inbox チェックを発火する（`pane run` は Enter 込みで送信）:
-   - claude-code ピア: `herdr pane run <pane_id> '/agmsg'`
-   - codex ピア: `herdr pane run <pane_id> '$agmsg'`（シェル展開
+   `herdr agent wait <target> --until idle --until done --timeout 300000`
+   で完了を待つ（0.7.5 で旧 `herdr wait agent-status` は
+   `agent wait` に置き換え）。working 中に nudge を注入しない —
+   相手のターンに割り込む。
+3. inbox チェックを発火する — `herdr agent prompt` を使う
+   （アトミック送信。bracketed paste を尊重し、送信後 5 秒状態が
+   変わらないと `agent_prompt_stalled` を返すので「送れたつもりで
+   届いていない」を検出できる。旧 `pane run` より堅い）:
+   - claude-code ピア: `herdr agent prompt <target> '/agmsg'`
+   - codex ピア: `herdr agent prompt <target> '$agmsg'`（シェル展開
      させないよう必ずシングルクォート）
+4. 返答を待つなら
+   `herdr agent wait <target> --until idle --until blocked --until done`
+   （`blocked` = 承認・入力待ちで止まっている状態。放置せず内容を
+   確認する）。agmsg の配送 Monitor と併用してよい。
 
 **新規 spawn を herdr ペインに開く** — 通常の spawn コマンドに
 `--terminal` テンプレートを足すだけ。spawn.sh の join・actas・
-boot-prompt はそのまま効き、配置だけが herdr になる:
+boot-prompt はそのまま効き、配置だけが herdr になる。herdr 0.7.5 で
+`herdr agent start` は「既存ペインで検証済みエージェント種別を起動
+する」コマンドに変わり boot スクリプトを直接実行できないため、
+テンプレートにはペイン分割 + `pane run` を行うヘルパーを渡す:
 
 ```
 ~/.agents/skills/agmsg/scripts/spawn.sh codex codex \
   --project "$(git rev-parse --show-toplevel)" \
   --boot-prompt "inbox を確認して対応して" \
-  --terminal 'herdr agent start codex --split right --no-focus -- {cmd}'
+  --terminal '~/dotfiles/scripts/herdr-spawn-pane {cmd}'
 ```
 
-- `herdr agent start <name>` の name（ペインのラベル）は actas 名に
-  合わせる。
-- 出力される JSON の `pane_id` を控える — 後の wake と片付けに使う。
+- 新しい pane_id はヘルパーが stdout と
+  `${TMPDIR}/agmsg-spawn/last-herdr-pane` に書く — 後の rename・
+  wake・片付けに使う。分割元/方向/比率は `AGMSG_HERDR_PARENT_PANE` /
+  `AGMSG_HERDR_SPLIT_DIRECTION` / `AGMSG_HERDR_SPLIT_RATIO` で
+  上書きできる（既定: 自ペインの下に 0.35）。
 - `$TMUX` が立っていると spawn.sh は tmux 経路を優先して
   `--terminal` を無視する（herdr 内で tmux を入れ子にしている場合は
   tmux 経路のまま）。
