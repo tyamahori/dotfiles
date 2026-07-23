@@ -4,7 +4,7 @@
 .envrc
 .idea
 .pnpm-store
-.agents/
+.agent-msgs/
 **/.claude/settings.local.json
 **/.codex/hooks.json
 **/.github/hooks/agmsg.json
