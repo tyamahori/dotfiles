@@ -8,8 +8,10 @@ set -euo pipefail
 #
 # Usage: agmsg-pair [--with-copilot] [--team <name>] [project_path]
 #   project_path    defaults to $PWD
-#   --team <name>   defaults to the basename of the project's git toplevel
-#                   (or the basename of project_path when not a git repo)
+#   --team <name>   defaults to <main-repo-basename>-<path-hash>, derived from
+#                   the repo's git common dir so every worktree of a repo maps
+#                   to one team and same-named repos in different places don't
+#                   collide (off-repo: same scheme over project_path)
 #   --with-copilot  also register copilot->copilot (delivery: turn); its hook
 #                   file lands at <project>/.github/hooks/agmsg.json (gitignored)
 #
@@ -50,14 +52,19 @@ PROJECT="${PROJECT:-$PWD}"
 PROJECT="$(cd "$PROJECT" && pwd)"
 
 if [ -z "$TEAM" ]; then
-	# Default the team to the repo's toplevel basename so paired sessions on the
-	# same repo (even from different worktrees/subdirs) share one team; off-repo,
-	# fall back to the project path's basename.
-	if TOPLEVEL="$(git -C "$PROJECT" rev-parse --show-toplevel 2>/dev/null)"; then
-		TEAM="$(basename "$TOPLEVEL")"
+	# Default the team to <main-repo-basename>-<6-char path hash>. The main repo
+	# comes from --git-common-dir, not --show-toplevel: in a linked worktree the
+	# toplevel is the worktree dir (often named after the branch), which leaked
+	# branch names into team names and let same-named branches of different
+	# projects join one team. The hash keys the team to the repo's absolute path
+	# so same-named repos elsewhere can't collide either; off-repo, the same
+	# scheme applies to the project path itself.
+	if COMMON="$(git -C "$PROJECT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; then
+		MAIN="$(dirname "$COMMON")"
 	else
-		TEAM="$(basename "$PROJECT")"
+		MAIN="$PROJECT"
 	fi
+	TEAM="$(basename "$MAIN")-$(printf '%s' "$MAIN" | shasum | cut -c1-6)"
 fi
 
 # type role delivery-mode, one triple per element.
