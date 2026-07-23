@@ -9,9 +9,12 @@ set -euo pipefail
 # Usage: agmsg-pair [--with-copilot] [--team <name>] [project_path]
 #   project_path    defaults to $PWD
 #   --team <name>   defaults to <main-repo-basename>-<path-hash>, derived from
-#                   the repo's git common dir so every worktree of a repo maps
-#                   to one team and same-named repos in different places don't
-#                   collide (off-repo: same scheme over project_path)
+#                   the repo's git common dir so same-named repos in different
+#                   places don't collide (off-repo: same scheme over
+#                   project_path). In a linked worktree the worktree id is
+#                   appended (<basename>-<hash>-<worktree>) so each worktree of
+#                   a repo gets its OWN team — separate paired sessions in one
+#                   repo then keep separate inboxes instead of sharing one.
 #   --with-copilot  also register copilot->copilot (delivery: turn); its hook
 #                   file lands at <project>/.github/hooks/agmsg.json (gitignored)
 #
@@ -53,18 +56,29 @@ PROJECT="$(cd "$PROJECT" && pwd)"
 
 if [ -z "$TEAM" ]; then
 	# Default the team to <main-repo-basename>-<6-char path hash>. The main repo
-	# comes from --git-common-dir, not --show-toplevel: in a linked worktree the
-	# toplevel is the worktree dir (often named after the branch), which leaked
-	# branch names into team names and let same-named branches of different
-	# projects join one team. The hash keys the team to the repo's absolute path
-	# so same-named repos elsewhere can't collide either; off-repo, the same
-	# scheme applies to the project path itself.
+	# comes from --git-common-dir, not --show-toplevel: --show-toplevel in a
+	# linked worktree is the worktree dir (often named after the branch), which
+	# would leak branch names into the hash. The hash keys the team to the repo's
+	# absolute path so same-named repos elsewhere can't collide; off-repo, the
+	# same scheme applies to the project path itself.
+	#
+	# Then, in a linked worktree, append the worktree id so each worktree gets
+	# its OWN team (one team per worktree is the intent — see the header). A
+	# linked worktree is exactly the case where --git-dir differs from
+	# --git-common-dir: --git-dir is <common>/worktrees/<id>, whose basename is a
+	# stable per-worktree name. The main checkout has git-dir == common-dir, so
+	# it keeps the bare <basename>-<hash> and existing teams are unaffected.
+	GITDIR=""
 	if COMMON="$(git -C "$PROJECT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; then
 		MAIN="$(dirname "$COMMON")"
+		GITDIR="$(git -C "$PROJECT" rev-parse --path-format=absolute --git-dir 2>/dev/null)"
 	else
 		MAIN="$PROJECT"
 	fi
 	TEAM="$(basename "$MAIN")-$(printf '%s' "$MAIN" | shasum | cut -c1-6)"
+	if [ -n "$GITDIR" ] && [ "$GITDIR" != "$COMMON" ]; then
+		TEAM="$TEAM-$(basename "$GITDIR")"
+	fi
 fi
 
 # type role delivery-mode, one triple per element.
