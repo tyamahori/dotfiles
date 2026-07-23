@@ -13,6 +13,13 @@ delivery = "off"
 [ui.sound]
 enabled = false
 
+# reviewr サイドバーのトグル。auto-open は worktree.created 限定なので、
+# worktree を使わない workspace ではこのキーで開閉する。
+[[keys.command]]
+key = "cmd+r"
+type = "plugin_action"
+command = "persiyanov.reviewr.toggle"
+
 [experimental]
 pane_history = true
 switch_ascii_input_source_in_prefix = true
