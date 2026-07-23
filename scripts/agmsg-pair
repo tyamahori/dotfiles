@@ -11,10 +11,12 @@ set -euo pipefail
 #   --team <name>   defaults to <main-repo-basename>-<path-hash>, derived from
 #                   the repo's git common dir so same-named repos in different
 #                   places don't collide (off-repo: same scheme over
-#                   project_path). In a linked worktree the worktree id is
-#                   appended (<basename>-<hash>-<worktree>) so each worktree of
-#                   a repo gets its OWN team — separate paired sessions in one
-#                   repo then keep separate inboxes instead of sharing one.
+#                   project_path). Each working tree of a repo gets its OWN team
+#                   so separate paired sessions keep separate inboxes: the
+#                   primary checkout is <basename>-<hash>-main and a linked
+#                   worktree is <basename>-<hash>-wt-<worktree>. The "wt-" infix
+#                   keeps the forms disjoint (a worktree named "main" -> -wt-main
+#                   never collides with the primary -main).
 #   --with-copilot  also register copilot->copilot (delivery: turn); its hook
 #                   file lands at <project>/.github/hooks/agmsg.json (gitignored)
 #
@@ -62,12 +64,15 @@ if [ -z "$TEAM" ]; then
 	# absolute path so same-named repos elsewhere can't collide; off-repo, the
 	# same scheme applies to the project path itself.
 	#
-	# Then, in a linked worktree, append the worktree id so each worktree gets
-	# its OWN team (one team per worktree is the intent — see the header). A
-	# linked worktree is exactly the case where --git-dir differs from
-	# --git-common-dir: --git-dir is <common>/worktrees/<id>, whose basename is a
-	# stable per-worktree name. The main checkout has git-dir == common-dir, so
-	# it keeps the bare <basename>-<hash> and existing teams are unaffected.
+	# Then give each working tree of a git repo its OWN team (one team per
+	# working tree is the intent — see the header), tagging which tree it is:
+	#   - linked worktree -> "-wt-<id>": --git-dir is <common>/worktrees/<id>,
+	#     whose basename is a stable per-worktree name.
+	#   - primary checkout -> "-main": git-dir == common-dir.
+	# The "wt-" infix keeps the two forms structurally disjoint, so a worktree
+	# that happens to be named "main" (-> -wt-main) can never collide with the
+	# primary tree's -main. Off-repo (no git dir) keeps the bare
+	# <basename>-<hash> — there is only one tree, so nothing to disambiguate.
 	GITDIR=""
 	if COMMON="$(git -C "$PROJECT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; then
 		MAIN="$(dirname "$COMMON")"
@@ -77,7 +82,9 @@ if [ -z "$TEAM" ]; then
 	fi
 	TEAM="$(basename "$MAIN")-$(printf '%s' "$MAIN" | shasum | cut -c1-6)"
 	if [ -n "$GITDIR" ] && [ "$GITDIR" != "$COMMON" ]; then
-		TEAM="$TEAM-$(basename "$GITDIR")"
+		TEAM="$TEAM-wt-$(basename "$GITDIR")"
+	elif [ -n "$GITDIR" ]; then
+		TEAM="$TEAM-main"
 	fi
 fi
 
