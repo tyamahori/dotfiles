@@ -27,8 +27,11 @@ gh api repos/<owner>/<repo>/pulls/<N>/reviews \
   -F 'comments[][body]=<inline comment in Japanese>'
 ```
 
-For anything beyond a couple of comments, build the JSON and pipe it in with
-`--input -` instead of repeating `-F` flags.
+`gh` merges repeated `comments[][key]` fields into one object per comment, so
+the `-F` form scales to any number of comments. What it does not survive is the
+BODY text: a Japanese review comment containing quotes, backticks, or newlines
+breaks shell quoting long before the comment count matters. Build the JSON in a
+file and pipe it in with `--input -` whenever the bodies are more than a phrase.
 
 ## The 422
 
