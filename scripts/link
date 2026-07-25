@@ -32,47 +32,10 @@ for skill in "${AGENTS_DIR}/skills"/*/; do
 	done
 done
 
-# OpenSkills installs these into its universal directory. Point each CLI at
-# that one copy so agents that scan both locations do not register duplicates.
-shared_openskills=(
-	agents-sdk
-	cloudflare
-	cloudflare-email-service
-	cloudflare-one
-	cloudflare-one-migrations
-	durable-objects
-	sandbox-sdk
-	turnstile-spin
-	web-perf
-	workers-best-practices
-	wrangler
-)
-skill_backup_dir=""
-for skill_name in "${shared_openskills[@]}"; do
-	skill="$HOME/.agents/skills/$skill_name"
-	if [[ ! -d $skill ]]; then
-		echo "Skipping shared skill not installed on this machine: $skill" >&2
-		continue
-	fi
-
-	for skills_dir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills"; do
-		mkdir -p "$skills_dir"
-		target="$skills_dir/$skill_name"
-		if [[ -e $target && ! -L $target ]]; then
-			if ! diff -qr "$skill" "$target" >/dev/null; then
-				echo "Refusing to replace divergent skill: $target" >&2
-				exit 1
-			fi
-			if [[ -z $skill_backup_dir ]]; then
-				mkdir -p "$HOME/.Trash"
-				skill_backup_dir="$(mktemp -d "$HOME/.Trash/shared-openskills.XXXXXX")"
-			fi
-			cli_name="$(basename "${skills_dir%/skills}")"
-			mv "$target" "$skill_backup_dir/$cli_name-$skill_name"
-		fi
-		ln -snfv "$skill" "$target"
-	done
-done
+# OpenSkills-installed vendor skills (Cloudflare et al.) are deliberately NOT
+# linked globally: their descriptions sit in every session's context whether or
+# not the work touches that vendor. Install them per project instead —
+# `ln -s ~/.agents/skills/<name> <repo>/.claude/skills/<name>`.
 
 # global agent instructions, shared across LLM CLIs (Claude Code, Codex, Copilot)
 for agent_target in \
