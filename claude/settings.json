@@ -8,11 +8,6 @@
             "type": "command",
             "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; fi",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "\"$HOME/dotfiles/claude/hooks/task-briefing-once.sh\"",
-            "timeout": 10
           }
         ]
       }

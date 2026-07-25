@@ -61,29 +61,17 @@ Applies to all agents, in every repository.
 
 ## Task intake: confirm the framing before starting
 
-Applies to all agents. Before any non-trivial task, confirm you can
-restate five things in your own words:
+Applies to all agents. Before a non-trivial task, four things must be
+agreed rather than guessed: the underlying **problem** (not the requested
+operation), the **goal** in verifiable terms, **why it matters now**, and
+the **deliverable form** and its durability — repo-durable work under a
+spec/ticket workflow goes through that workflow, confirmed before the
+first edit. Ask about whatever is still a guess, restate the agreed
+framing when you start and in the PR description, and re-confirm if
+durability changes mid-task. Trivial mechanical tasks — typo fixes,
+renames, a command dictated verbatim — are exempt.
 
-1. **Problem** — what is broken/missing and for whom (the underlying
-   problem, not the requested operation).
-2. **Goal / success criteria** — the end state in verifiable terms.
-3. **Why** — why it matters now (drives thoroughness, quick-vs-durable
-   trade-offs).
-4. **Scope boundaries** — what is explicitly out of scope.
-5. **Deliverable form** — what the user receives and its durability
-   (repo-durable vs. throwaway); repo-durable work under a spec/ticket
-   workflow must go through it — confirm before the first edit.
-
-Items 1–3 and 5 are hard requirements: never start implementation while
-any is still a guess — ask and get agreement, then restate the agreed
-framing at the start of work and in the PR description. If durability
-changes mid-task, stop and re-confirm item 5. Exempt: trivial mechanical
-tasks (typo fixes, renames, a command dictated verbatim).
-
-The full checklist and template live at
-`~/dotfiles/agents/task-briefing.md` — Claude Code receives it via a
-UserPromptSubmit hook (no re-read needed); Codex / Copilot CLI read it
-with the Read tool before starting.
+The checklist, examples, and template live in the `task-briefing` skill.
 
 ## Scope discipline
 
