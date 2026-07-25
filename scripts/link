@@ -36,6 +36,34 @@ done
 # linked globally: their descriptions sit in every session's context whether or
 # not the work touches that vendor. Install them per project instead —
 # `ln -s ~/.agents/skills/<name> <repo>/.claude/skills/<name>`.
+#
+# Machines linked before that decision still carry the old symlinks, and this
+# script's whole point is that running it reproduces the intended state — so
+# retire them here rather than by hand. Only links INTO the OpenSkills
+# directory are removed: the personal-skill loop above runs first, so a
+# same-named skill in this repo must survive.
+retired_global_skills=(
+	agents-sdk
+	cloudflare
+	cloudflare-email-service
+	cloudflare-one
+	cloudflare-one-migrations
+	durable-objects
+	sandbox-sdk
+	turnstile-spin
+	web-perf
+	workers-best-practices
+	wrangler
+)
+for skill_name in "${retired_global_skills[@]}"; do
+	for skills_dir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills"; do
+		target="$skills_dir/$skill_name"
+		if [[ -L $target && "$(readlink "$target")" == "$HOME/.agents/skills/"* ]]; then
+			rm "$target"
+			echo "Retired global vendor skill: $target" >&2
+		fi
+	done
+done
 
 # global agent instructions, shared across LLM CLIs (Claude Code, Codex, Copilot)
 for agent_target in \
