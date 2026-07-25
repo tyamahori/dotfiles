@@ -10,6 +10,11 @@ symlinked into each tool's global instruction path by `scripts/link`:
 
 Edit this one file in the dotfiles repo to change the rules for all three.
 
+Skills live at `~/.agents/skills/<name>/SKILL.md`. Claude Code loads them
+with the Skill tool; Codex and Copilot CLI have no skill mechanism of their
+own, so they read that file directly — which is why the sections below name
+skills without repeating the path.
+
 Every word here is loaded on every request, so it earns its place only if
 it is (a) a preference that holds across all repositories, or (b) a fact
 about this machine an agent would otherwise get wrong. Procedures — how
