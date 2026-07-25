@@ -1,6 +1,6 @@
 ---
 name: agent-collab
-description: agmsg を使ったエージェント間ペアフロー（レビュー往復・タスク受け渡し・調査共有）の手順とメッセージテンプレ。ペアレビューを始めるとき、agmsg でレビュー依頼・受け渡し・共有をするとき、[REVIEW-REQ] 等のタグ付きメッセージを受信したとき、herdr ペイン内からピアを起こす・spawn するときに使用する。impl / reviewer の役割は identity に固定せず、フロー開始時にタスク単位で決める。不変条件（trust boundary、レビュアーはツリーを編集しない等）は global-instructions の「Agent collaboration」節が正本で、このスキルは手順とテンプレだけを持つ。
+description: Claude Code / Codex / Copilot CLI 間の協働手順。ヘッドレスワンショットの実コマンド、agmsg ペアセッションの全手順、メッセージテンプレ、役割別プレイブックを持つ。クロスレビューや第二意見を求められたとき、タスクをピアに渡すとき、[REVIEW-REQ] 等のタグ付きメッセージを受信したとき、herdr ペインからピアを起こすときに使用する。不変条件の正本は global-instructions の「Agent collaboration」節。
 ---
 
 # agent-collab

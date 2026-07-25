@@ -9,9 +9,13 @@ symlinked into each tool's global instruction path by `scripts/link`:
 - Copilot CLI → `~/.copilot/copilot-instructions.md`
 
 Edit this one file in the dotfiles repo to change the rules for all three.
-Keep it to machine-wide facts and preferences that apply across all
-repositories; project-specific knowledge belongs in each project's own
-memory or docs.
+
+Every word here is loaded on every request, so it earns its place only if
+it is (a) a preference that holds across all repositories, or (b) a fact
+about this machine an agent would otherwise get wrong. Procedures — how
+to run a review, how to drive a tool — belong in a skill that loads when
+the work calls for it. Project-specific knowledge belongs in the
+project's own memory or docs.
 
 ## Where each kind of knowledge lives
 
