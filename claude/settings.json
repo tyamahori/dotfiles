@@ -1,11 +1,8 @@
 {
-  "model": "claude-fable-5[1m]",
-  "statusLine": {
-    "type": "command",
-    "command": "npx -y ccusage statusline",
-    "padding": 0
-  },
   "cleanupPeriodDays": 365,
+  "permissions": {
+    "defaultMode": "auto"
+  },
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -13,11 +10,6 @@
           {
             "type": "command",
             "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; fi",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "\"$HOME/dotfiles/claude/hooks/task-briefing-once.sh\"",
             "timeout": 10
           }
         ]
@@ -123,6 +115,11 @@
         ]
       }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "npx -y ccusage statusline",
+    "padding": 0
   },
   "enabledPlugins": {
     "phpstorm-plugin@phpstorm-marketplace": true,

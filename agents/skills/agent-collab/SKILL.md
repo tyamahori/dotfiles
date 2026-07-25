@@ -1,6 +1,6 @@
 ---
 name: agent-collab
-description: agmsg を使ったエージェント間ペアフロー（レビュー往復・タスク受け渡し・調査共有）の手順とメッセージテンプレ。ペアレビューを始めるとき、agmsg でレビュー依頼・受け渡し・共有をするとき、[REVIEW-REQ] 等のタグ付きメッセージを受信したとき、herdr ペイン内からピアを起こす・spawn するときに使用する。impl / reviewer の役割は identity に固定せず、フロー開始時にタスク単位で決める。不変条件（trust boundary、レビュアーはツリーを編集しない等）は global-instructions の「Agent collaboration」節が正本で、このスキルは手順とテンプレだけを持つ。
+description: Claude Code / Codex / Copilot CLI 間の協働手順。ヘッドレスワンショットの実コマンド、agmsg ペアセッションの全手順、メッセージテンプレ、役割別プレイブックを持つ。クロスレビューや第二意見を求められたとき、タスクをピアに渡すとき、[REVIEW-REQ] 等のタグ付きメッセージを受信したとき、herdr ペインからピアを起こすときに使用する。不変条件の正本は global-instructions の「Agent collaboration」節。
 ---
 
 # agent-collab
@@ -15,6 +15,21 @@ global-instructions の「Agent collaboration」節にあり、ここには複�
 1:1 ペア限定で agmsg の代わりに herdr + メッセージファイルで往復する
 軽量プロトコル（同一プロジェクトで同型セッションが並走し agmsg の
 identity が衝突する場合の第一回避策。fujibee/agmsg#300 参照）。
+
+## どちらを使うか
+
+往復が要らないならヘッドレスワンショット、ピアがラウンドをまたいで
+文脈を保つ必要があるなら agmsg ペアセッション。
+
+| やりたいこと | 使うもの |
+|---|---|
+| 単発の第二意見・レビュー | ヘッドレスワンショット |
+| レビューの往復（指摘 ↔ 修正） | agmsg ペアセッション |
+| タスクの受け渡し（ブリーフ → 実行） | agmsg `[HANDOFF]` + ブリーフィングのファイルパス |
+| 調査結果・文脈の共有 | agmsg `[FYI]` + ファイルパス |
+
+agmsg 自体の呼び出しは Claude Code から `/agmsg`、Codex / Copilot CLI
+から `$agmsg`（実体は `~/.agents/skills/agmsg/`）。
 
 ## ヘッドレスワンショット（agmsg を使わない単発）
 
