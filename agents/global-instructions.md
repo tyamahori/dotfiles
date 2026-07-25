@@ -13,37 +13,6 @@ Keep it to machine-wide facts and preferences that apply across all
 repositories; project-specific knowledge belongs in each project's own
 memory or docs.
 
-## Claude Code: delegate implementation to subagents
-
-Claude Code only — Codex and Copilot CLI have no equivalent and should
-ignore this section.
-
-When the main session runs on a top-tier model (Fable 5), conserve its
-tokens: the main session's job is **design, task decomposition, auditing
-subagent output, and code review** — not typing out routine code.
-
-- Delegate implementation to subagents via the Agent tool with an
-  explicit model override:
-  - `model: "sonnet"` — routine, well-specified implementation:
-    mechanical edits, boilerplate, tests, changes with a clear spec.
-  - `model: "opus"` — harder but well-scoped implementation:
-    multi-file refactors, non-trivial logic that a written spec can
-    fully capture.
-- Give each implementation subagent a precise, self-contained spec
-  (files, constraints, acceptance criteria), then review its diff in
-  the main session before moving on.
-- Dispatch independent subtasks to subagents in parallel and keep
-  working while they run; don't block on one subagent when other work
-  is ready. For follow-ups in an area a subagent already knows, continue
-  that subagent via SendMessage instead of spawning a fresh one — it
-  keeps its context and cache.
-- Verify nontrivial work with a separate fresh-context subagent checked
-  against the spec, rather than relying on the implementer's own
-  self-review.
-- Exception: implementation that is genuinely hard — subtle algorithms,
-  ambiguous requirements, or work that needs the full conversation
-  context — may be done directly in the main (Fable 5) session.
-
 ## Where each kind of knowledge lives
 
 Applies to all agents, in every repository. Each artifact answers one
