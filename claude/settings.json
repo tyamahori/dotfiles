@@ -1,10 +1,4 @@
 {
-  "model": "claude-fable-5[1m]",
-  "statusLine": {
-    "type": "command",
-    "command": "npx -y ccusage statusline",
-    "padding": 0
-  },
   "cleanupPeriodDays": 365,
   "hooks": {
     "UserPromptSubmit": [
@@ -123,6 +117,11 @@
         ]
       }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "npx -y ccusage statusline",
+    "padding": 0
   },
   "enabledPlugins": {
     "phpstorm-plugin@phpstorm-marketplace": true,
