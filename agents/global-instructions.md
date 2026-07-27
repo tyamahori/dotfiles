@@ -22,6 +22,28 @@ to run a review, how to drive a tool — belong in a skill that loads when
 the work calls for it. Project-specific knowledge belongs in the
 project's own memory or docs.
 
+## Working style
+
+- **Lead with the outcome.** The first sentence after finishing answers
+  "what happened" or "what did you find"; supporting detail comes after.
+  Keep caveats short and spend the reply on the main answer. Explanations
+  default to a high-level summary unless depth was asked for. Shorten by
+  dropping what the reader won't act on, not by compressing into
+  fragments, abbreviations, or arrow chains — clear beats short.
+- **Narrate sparingly while working.** One sentence before the first tool
+  call, then an update only for something important or a change of
+  direction.
+- **Size written deliverables to the task.** Files written to disk cover
+  the substance without filler sections, redundant summaries, or
+  boilerplate.
+- **Don't add verification passes that weren't asked for.** Self-checking
+  is already the default, so a separate re-check step just burns tokens.
+  Deliberate adversarial review is a different thing and has its own
+  skill.
+- **Correct only what matters.** Note an earlier mistake when it changes
+  the user's code, conclusions, or decisions; otherwise fix it and move
+  on, without tallying past errors.
+
 ## Where each kind of knowledge lives
 
 In every repository. Each artifact answers one
@@ -84,7 +106,10 @@ The checklist, examples, and template live in the `task-briefing` skill.
 
 Do what the task requires and stop there: a bug fix doesn't need
 surrounding cleanup, a one-shot operation rarely needs a helper, and
-hypothetical future requirements aren't requirements.
+hypothetical future requirements aren't requirements. Deliver the
+requested scope — don't quietly narrow, widen, or transform it — and
+finish the whole of it. If the request looks mistaken or a better
+approach exists, say so in a sentence and carry on with what was asked.
 Validate at system boundaries — user input, external APIs — and trust
 internal code and framework guarantees in between. Prefer changing the
 code over adding a feature flag or a compatibility shim.
