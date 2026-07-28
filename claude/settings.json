@@ -1,9 +1,6 @@
 {
-  "model": "opus[1m]",
-  "switchModelsOnFlag": false,
   "cleanupPeriodDays": 365,
   "permissions": {
-    "defaultMode": "auto",
     "allow": [
       "Bash(herdr *)",
       "Bash(awk *)",
@@ -74,7 +71,14 @@
       "Skill(artifact-design)",
       "Skill(update-config)",
       "mcp__claude-in-chrome__tabs_context_mcp"
-    ]
+    ],
+    "defaultMode": "auto"
+  },
+  "model": "claude-fable-5[1m]",
+  "skillOverrides": {
+    "freee-api-skill": "off",
+    "japanese-tech-writing": "off",
+    "orbstack-dev": "off"
   },
   "hooks": {
     "UserPromptSubmit": [
@@ -246,10 +250,6 @@
       }
     }
   },
-  "skipAutoPermissionPrompt": true,
-  "skillOverrides": {
-    "freee-api-skill": "off",
-    "japanese-tech-writing": "off",
-    "orbstack-dev": "off"
-  }
+  "switchModelsOnFlag": false,
+  "skipAutoPermissionPrompt": true
 }
