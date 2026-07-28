@@ -21,6 +21,8 @@ type = "plugin_action"
 command = "persiyanov.reviewr.toggle"
 
 [experimental]
+# herdr-browser（Chromiumをペインに描画）が要求。Kitty graphics対応ターミナル前提。
+kitty_graphics = true
 pane_history = true
 switch_ascii_input_source_in_prefix = true
 reveal_hidden_cursor_for_cjk_ime = true
