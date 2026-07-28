@@ -55,9 +55,23 @@ agmsg 自体の呼び出しは Claude Code から `/agmsg`、Codex / Copilot CLI
 whoami 手順）。未登録なら `~/dotfiles/scripts/agmsg-pair` を実行する
 （team=リポ名、identity は型ベースで `claude` / `codex`、
 `--with-copilot` で `copilot` 追加。delivery mode も標準値
-（claude-code=`both`、codex/copilot=`turn`。codex の `monitor` モード
-＝beta bridge は使わない）まで設定される）。手動 join は名前やモードが
-ぶれるので使わない。
+（claude-code=`both`、codex/copilot=`turn`）まで設定される）。手動 join は
+名前やモードがぶれるので使わない。
+
+**codex は `turn` を使う（`monitor` にしない）。** agmsg 1.1.11 で monitor は
+既定・推奨に昇格し beta 表記も外れた（fujibee/agmsg#497）が、この環境では
+turn を維持する。理由は 2 つ:
+
+- **fujibee/agmsg#300 が未解決**。identity が (project, agent_type) だけで
+  解決されるため、同一プロジェクトで同型セッションが並走すると、特定の
+  team-agent 宛メッセージが全セッションへ配送される。この環境は herdr で
+  同型セッションを並走させるので踏みやすい。
+- **monitor は `codex` の起動経路そのものを変える**（シェル関数か PATH shim を
+  入れ、bridge は新セッションの初回ターンで起動する）。既存のセッション運用に
+  波及する変更を、#300 が残ったまま入れる利得がない。
+
+`agmsg-pair` は codex=`turn` を明示設定するので、これを使う限り実挙動は
+turn のまま。#300 が閉じたら monitor 移行を再検討する（移行時の前提変化は §3 末尾）。
 
 ## 1. 役割はタスクごとに決める
 
@@ -187,35 +201,47 @@ spawn する 1 回には、経路によらず 2 つを守る:
    （`blocked` = 承認・入力待ちで止まっている状態。放置せず内容を
    確認する）。agmsg の配送 Monitor と併用してよい。
 
-**新規 spawn を herdr ペインに開く** — 通常の spawn コマンドに
-`--terminal` テンプレートを足すだけ。spawn.sh の join・actas・
-boot-prompt はそのまま効き、配置だけが herdr になる。**この経路は
-agmsg の team join を伴う**（起動段で team に登録が残る）ので、agmsg で
-メッセージを流す通常フロー専用。**agmsg を一切使わない herdr-only
-フロー（§5）では spawn.sh を使わず §5 手順 0 の直接起動を使う。**
-herdr 0.7.5 で
-`herdr agent start` は「既存ペインで検証済みエージェント種別を起動
-する」コマンドに変わり boot スクリプトを直接実行できないため、
-テンプレートにはペイン分割 + `pane run` を行うヘルパーを渡す:
+**新規 spawn を herdr ペインに開く** — agmsg 1.1.11 で spawn.sh が herdr を
+**ネイティブサポートした**（fujibee/agmsg#495）。`--terminal` テンプレートも
+自作ヘルパーも要らない。素の spawn コマンドでよい:
 
 ```
 ~/.agents/skills/agmsg/scripts/spawn.sh codex codex \
   --project "$(git rev-parse --show-toplevel)" \
-  --boot-prompt "inbox を確認して対応して" \
-  --terminal '~/dotfiles/scripts/herdr-spawn-pane {cmd}'
+  --boot-prompt "inbox を確認して対応して"
 ```
 
-- 新しい pane_id はヘルパーが stdout と
-  `${TMPDIR}/agmsg-spawn/last-herdr-pane` に書く — 後の rename・
-  wake・片付けに使う。分割元/方向/比率は `AGMSG_HERDR_PARENT_PANE` /
-  `AGMSG_HERDR_SPLIT_DIRECTION` / `AGMSG_HERDR_SPLIT_RATIO` で
-  上書きできる（既定: 自ペインの下に 0.35）。
-- `$TMUX` が立っていると spawn.sh は tmux 経路を優先して
-  `--terminal` を無視する（herdr 内で tmux を入れ子にしている場合は
-  tmux 経路のまま）。
-- 片付け: herdr 経路では spawn placement が記録されず
-  `despawn --force` はペインを畳めない。graceful despawn の後に
-  `herdr pane close <pane_id>` で畳む。
+- spawn.sh は `HERDR_ENV=1` かつ `HERDR_PANE_ID` があり `herdr` が PATH に
+  いるとき、自動で herdr 経路を選ぶ。通常は
+  `herdr pane split --direction right --no-focus`（`--split v` で down）、
+  `--window` を付けると `herdr tab create`（`$HERDR_WORKSPACE_ID` 必須・
+  未設定なら split へフォールバック）。
+- **ペイン名は spawn.sh が `herdr pane rename <pane_id> <name>` で自動で
+  付ける**（agmsg の agent 名と同じ）。手動 rename は不要。以後のコマンドは
+  この名前で指せる。
+- **片付けはピアの型で分かれる。** spawn.sh は placement を
+  `herdr:<pane_id>` 形式で記録し、despawn.sh はそれを見て
+  `herdr pane close` まで実行できる。ただしそこへ到達する経路が型で違う:
+  - **claude-code ピア** → `despawn <name>`（graceful）でよい。watcher が
+    ctrl:despawn を受けて自分の role を落とし、自分のペインを閉じる。
+  - **codex ピア** → **最初から `despawn <name> --force` を使う。**
+    codex には watcher がなく actas lock を持たないため、graceful は
+    lock state が `free` と判定され、**placement 記録を削除したうえで
+    `status=ok note=no-live-lock` を返して終わる — ペインは開いたまま**。
+    この時点で記録が消えているので、あとから `--force` を打っても
+    `no placement record` で失敗し、`herdr pane close <pane_id>` を
+    手で叩くしかなくなる（実測 2026-07-28）。**順序を間違えると復旧不能**。
+  - 迷ったら型を確認してから。agmsg 自身の SKILL.md にも
+    「A codex member has no watcher to respond, so use `--force` for it」
+    と書かれている。
+- `$TMUX` が立っていると tmux 経路が優先される（herdr 内で tmux を
+  入れ子にしている場合はそのまま tmux 経路）。
+
+**この経路は agmsg の team join を伴う**（起動段で team に登録が残る）ので、
+agmsg でメッセージを流す通常フロー専用。**agmsg を一切使わない herdr-only
+フロー（§5）では spawn.sh を使わず §5 手順 0 の直接起動を使う。**
+ネイティブサポートが入って spawn.sh が herdr で「そのまま動いてしまう」
+ようになったぶん、§5 で誤って使う事故は起きやすくなっている。
 
 ### 従来経路（herdr 外）
 
@@ -233,6 +259,37 @@ herdr 0.7.5 で
   されるので wake 不要のことが多い。codex は turn 配送のみなので
   必ずこの依頼をする。迷ったら（相手の生死が分からないときも）
   再 spawn ではなくこちら。
+
+### 送信が弾かれたとき
+
+agmsg 1.1.11 から **send.sh は from / to が team に登録済みかを検証し、
+未登録なら送信を拒否する**（fujibee/agmsg#409）。`--force` でバイパスできるが、
+**まず弾かれた理由を潰す** — たいていはペアが崩れている:
+
+1. `~/.agents/skills/agmsg/scripts/team.sh <team>` でロスターを見る。
+2. 相手が居ない → `~/dotfiles/scripts/agmsg-pair` を（相手側のプロジェクト
+   パスで）流し直す。自分が居ない → 同じく自分側で流す。
+3. 名前は合っているのに弾かれる → rename 済みの旧名を使っている可能性がある。
+   1.1.11 は rename した名前を tombstone として残し、`join.sh` は旧名を
+   黙って復活させず、対応する新名を表示して拒否する。表示された新名で送る。
+
+`--force` を使うのは、登録状態が正しいと確認できたうえで検証側が誤っている
+と判断できるときだけ。恒常的に付けない（宛先の打ち間違いが素通りする）。
+
+### monitor へ移行する場合の前提変化
+
+§0 のとおり今は codex=`turn` で運用するが、#300 が閉じて monitor へ移る
+場合は次の 2 点で前提が変わる:
+
+- **ライブ配送されたメッセージには `read_at` が打たれる**
+  （fujibee/agmsg#439）。あとから `inbox.sh` を叩いても再生されない。
+  「配送で見逃しても inbox でもう一度読める」という turn 時代の前提が
+  消えるので、**受信したその場で処理する**か、処理を後回しにするなら
+  内容を自分側に書き写す。
+- **送信後の wake が原則不要になる**（§3 冒頭の「送信しただけでは届かない」は
+  turn 配送の話）。ただし bridge は**新セッションの初回ターンで起動する**ため、
+  相手がまだ 1 度も発話していないセッションには届かない。spawn 直後は
+  `--boot-prompt` が初回ターンを兼ねる。
 
 ## 4. フロー別手順
 
@@ -297,7 +354,10 @@ herdr のペイン名は一意制約付きなので、宛先をペイン名に�
    名をそのまま**起動する（spawn.sh の boot script を渡さないのが要点。
    agmsg には一切触れない）。新 pane_id は stdout と
    `${TMPDIR}/agmsg-spawn/last-herdr-pane` に出る（rename・片付けに使う）。
-   分割元/方向/比率は §3 と同じ環境変数で上書きできる。boot-prompt は
+   分割元/方向/比率はヘルパー側の環境変数 `AGMSG_HERDR_PARENT_PANE` /
+   `AGMSG_HERDR_SPLIT_DIRECTION` / `AGMSG_HERDR_SPLIT_RATIO` で上書きできる
+   （既定: 自ペインの下に 0.35）。※これはこのヘルパー固有の変数で、
+   spawn.sh のネイティブ herdr 経路（§3）とは別系統。boot-prompt は
    spawn.sh 抜きでは注入されないので、CLI が idle になってから
    （`herdr agent wait <pane> --until idle`）手順 3 の配送で最初の
    REVIEW-REQ / HANDOFF ファイルを渡す（役割・作業指示・「このファイルを
