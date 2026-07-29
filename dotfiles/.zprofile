@@ -23,6 +23,7 @@ path=(
         $HOME/.local/share/devbox/global/default/.devbox/nix/profile/default/bin
         $HOME/.local/share/devbox/global/default/.devbox/virtenv/runx/bin
         $HOME/.bun/bin
+        $HOME/.dotnet/tools
         /opt/homebrew/bin(N-/)
         $path
 )
