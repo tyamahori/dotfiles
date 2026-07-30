@@ -87,6 +87,9 @@ outlive a single commit — and version-control all of it together.
   the body to match.
 - **PR title and description must describe the actual change** — what was done
   and why, matching the repo's title conventions. No generic or leftover text.
+- **Reviewing a GitHub PR goes through the `github-pr-review` skill** — it
+  owns both the review itself and its delivery on GitHub as one Japanese
+  review (summary + inline comments).
 
 ## Task intake: confirm the framing before starting
 
@@ -151,6 +154,12 @@ require GUI approval in the 1Password app.
   configuration problem — do not start rewriting remotes or SSH config.
   Ask the user to unlock 1Password, or use a repo-sanctioned token-based
   fallback if the repository documents one.
+
+## Containerized dev (OrbStack)
+
+Gotchas for container work on this machine live in the `orbstack-dev`
+skill — load it when working in a Dockerized project, debugging a
+container-only failure, or when a `*.local` dev domain stops resolving.
 
 ## Agent collaboration (Claude Code / Codex / Copilot CLI)
 
