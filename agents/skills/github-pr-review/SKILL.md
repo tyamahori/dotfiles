@@ -1,64 +1,77 @@
 ---
 name: github-pr-review
-description: Deliver a GitHub pull request review on GitHub itself — summary plus line-anchored inline comments, written in Japanese, posted as one review. Load when asked to review a PR, when acting on a CI failure or review-comment notification, or before posting anything to a PR via gh.
+description: GitHub の PR をレビューして、結果を GitHub 上に日本語で投稿するまでやりきる手順の正本。全体サマリと行アンカーのインラインコメントを1つのレビューにまとめて投稿する。PR のレビューを頼まれたとき、CI 失敗やレビューコメント通知に対応するとき、gh で PR に何かを投稿する前に読む。
 ---
 
 # github-pr-review
 
-A review that only exists in the chat window never reaches the author. Post it
-on the PR.
+チャットの中にしか存在しないレビューは作者に届かない。PR に投稿して初めて完了。
 
-## Delivery shape
+## 守備範囲
 
-One review, containing:
+GitHub の PR に対するレビューの実施と配送は、このスキルが正本。近縁の仕組みとの
+役割分担:
 
-- an overall summary comment **in Japanese**, and
-- **inline** comments **in Japanese**, each anchored to a specific line.
+- 作業中 diff・ブランチのレビュー → 組み込みの /code-review
+- 成果物の深掘り・反証 → adversarial-verification（コードは反例・エッジケース観点）
+- 別モデルの目が欲しい → agent-collab のクロスレビュー
 
-Review only by default. Do not modify code unless the user explicitly asks.
+これらで得た指摘も、対象が PR なら最終的に本スキルの形式で PR 上に配送する。
 
-Post it as a single review rather than a stream of separate comments:
+## レビューの実施
+
+1. **PR の現状を確認する。** merged / closed になっていないか、対象スレッドが
+   解決済みでないか。並行するエージェントセッションが処理済みのことがある
+   （日をまたぐ作業では特に）。
+2. **diff は PR の base ブランチ基準で読む。** base は main とは限らない
+   （develop 宛ての PR もある）。ローカルの base が古いと変更が実際より大きく
+   見え、PR が触っていないコードまでレビューしてしまう。読む前に fetch する。
+3. **観点**: 正しさ（バグ・境界・競合）、設計（変更の形が課題に合っているか）、
+   テスト（変更後の挙動が仕様として固定されているか）、セキュリティ
+   （システム境界での検証）。スタイルの指摘は `nit:` を付けて区別する。
+4. **コードは変更しない。** レビューのみが既定。修正まで行うのは明示的に
+   頼まれたときだけ。
+
+## 配送の形
+
+単発コメントの連投ではなく、**1つのレビュー**として投稿する。中身は日本語の
+全体サマリと、日本語の行アンカー付きインラインコメント。
+
+event は **COMMENT 固定**。APPROVE / REQUEST_CHANGES はマージ可否の判断であり、
+エージェントではなく人間が行う。
+
+日本語本文は引用符・バッククォート・改行でシェル引用が壊れるので、`-f` / `-F` を
+並べる形は使わず、JSON を組んで `--input -` で渡す:
 
 ```sh
-gh api repos/<owner>/<repo>/pulls/<N>/reviews \
-  -f event=COMMENT \
-  -f body='<summary in Japanese>' \
-  -F 'comments[][path]=src/foo.ts' -F 'comments[][line]=42' \
-  -F 'comments[][body]=<inline comment in Japanese>'
+gh api repos/<owner>/<repo>/pulls/<N>/reviews --input - <<'JSON'
+{
+  "event": "COMMENT",
+  "body": "<全体サマリ（日本語）>",
+  "comments": [
+    { "path": "src/foo.ts", "line": 42, "body": "<単一行への指摘>" },
+    { "path": "src/foo.ts", "start_line": 10, "line": 14, "body": "<複数行（10〜14行）への指摘>" },
+    { "path": "src/bar.ts", "side": "LEFT", "line": 7, "body": "<削除された行への指摘>" }
+  ]
+}
+JSON
 ```
 
-`gh` merges repeated `comments[][key]` fields into one object per comment, so
-the `-F` form scales to any number of comments. What it does not survive is the
-BODY text: a Japanese review comment containing quotes, backticks, or newlines
-breaks shell quoting long before the comment count matters. Build the JSON in a
-file and pipe it in with `--input -` whenever the bodies are more than a phrase.
+- `line` は diff 適用後のファイル行。複数行にまたがる指摘は `start_line`（先頭）と
+  `line`（末尾）で範囲指定する。
+- `side` の既定は RIGHT（追加行・文脈行）。削除された行は RIGHT 側に存在しない
+  ので `"side": "LEFT"` を指定する。
 
-## The 422
+## 422 を避ける
 
-GitHub rejects the **entire** review — summary included — if any single inline
-comment points at a line that is not in the PR's diff. Validate every
-`(path, line)` pair against the actual hunks before posting:
+インラインコメントが1つでも diff に含まれない行を指すと、GitHub はサマリ込みで
+レビュー**全体**を拒否する（422）。投稿前に全 `(path, line)` をハンクと突き合わせる:
 
 ```sh
-gh api repos/<owner>/<repo>/pulls/<N>/files --jq '.[] | "\(.filename)\n\(.patch)"'
+gh api repos/<owner>/<repo>/pulls/<N>/files --paginate \
+  --jq '.[] | "\(.filename)\n\(.patch)"'
 ```
 
-Only lines present in a hunk are addressable. To comment on context the diff
-does not touch, put it in the summary instead.
-
-## The diff base is `origin/main`
-
-The PR's diff is computed against `origin/main`, not your local `main`. A stale
-local branch silently makes the change look larger than it is, and you end up
-reviewing code the PR never touched. Fetch before reading the diff locally.
-
-## Reacting to notifications
-
-Before acting on a CI event or a review-comment notification, check the current
-state of the PR:
-
-- Is it already merged or closed?
-- Is the thread already resolved?
-
-A concurrent agent session may have handled it — especially when the work spans
-days.
+`--paginate` を忘れない。既定では30ファイルで切れるため、大きい PR では検証漏れが
+そのまま 422 になる。ハンクに現れる行だけがアンカー可能で、diff が触っていない
+箇所への言及はサマリに書く。
