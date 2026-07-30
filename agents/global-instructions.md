@@ -90,6 +90,9 @@ outlive a single commit — and version-control all of it together.
 - **Reviewing a GitHub PR goes through the `github-pr-review` skill** — it
   owns both the review itself and its delivery on GitHub as one Japanese
   review (summary + inline comments).
+- **Responding to review comments on your own PR goes through the
+  `github-pr-respond` skill** — watch the PR, triage every unresolved
+  thread, get approval, then fix-or-reply and resolve.
 
 ## Task intake: confirm the framing before starting
 
