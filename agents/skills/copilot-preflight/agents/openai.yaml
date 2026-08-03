@@ -1,0 +1,4 @@
+interface:
+  display_name: "Copilot Preflight"
+  short_description: "Catch likely Copilot findings before PR review"
+  default_prompt: "Use $copilot-preflight to review the current diff before requesting GitHub Copilot review."
