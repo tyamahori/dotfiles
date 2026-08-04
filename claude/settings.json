@@ -224,6 +224,30 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/tyamahori/.jbcontext/bin/jbcontext_binary index --silent",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/tyamahori/.jbcontext/bin/jbcontext_binary index --silent",
+            "async": true
+          }
+        ]
+      }
     ]
   },
   "statusLine": {

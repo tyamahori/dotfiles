@@ -18,3 +18,5 @@ fi
 
 # Kiro CLI post block. Keep at the bottom of this file.
 [[ -f "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh" ]] && builtin source "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh"
+# Added by JetBrains Context CLI installer
+export PATH="$PATH:/Users/tyamahori/.jbcontext/bin"
