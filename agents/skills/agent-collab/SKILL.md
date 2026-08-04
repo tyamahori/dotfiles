@@ -143,6 +143,11 @@ briefing: <ファイルの絶対パス>
 経路は自分のセッションの居場所で決まる:
 `test "${HERDR_ENV:-}" = 1` が通れば herdr 経路（第一選択）、
 通らなければ従来経路。herdr の外から herdr セッションを操作しない。
+herdr CLI 一般（コマンド体系・`idle`/`blocked` 等の状態の意味）の
+正本はバイナリ同梱の `herdr` スキル（`herdr --skill` の出力を
+scripts/link と brewUpdate が `~/.agents/skills/herdr/` に生成する。
+常に稼働バージョンと一致）。本節が持つのは協働プロトコル固有の
+手順と実測済みの罠だけ。
 
 **spawn は起動手段であって wake 手段ではない。** 1 フローにつき
 同一ピアの spawn は最大 1 回。既に spawn した(または生きているはず
@@ -189,11 +194,13 @@ spawn する 1 回には、経路によらず 2 つを守る:
    - claude-code ピア: `herdr agent prompt <target> '/agmsg'`
    - codex ピア: `herdr agent prompt <target> '$agmsg'`（シェル展開
      させないよう必ずシングルクォート）
-   - **送信後は必ず着火を確認する**: 数秒待って
+   - **送信後は着火を確認する**: 数秒待って
      `herdr agent get <target>` の `agent_status` が `working` に
      変わらなければ、テキストが入力欄に残ったまま Enter だけ落ちて
-     いる（codex ピアで頻発。stalled エラーが返らないこともある）。
-     その場合は `herdr agent send-keys <target> enter` で発火させる。
+     いる — `herdr agent send-keys <target> enter` で発火させる。
+     根本原因（テキスト送信直後に Enter が落ちる）は 0.8.0 で
+     修正済み（herdr#1878）なので、この確認は保険。0.7.x では
+     codex ピアで頻発し、stalled エラーが返らないこともあった。
      prompt の出力を `>/dev/null` で捨てない —
      `agent_prompt_stalled` を見逃す。
 4. 返答を待つなら
@@ -392,7 +399,9 @@ herdr のペイン名は一意制約付きなので、宛先をペイン名に�
    `herdr agent wait <target> --until idle --until blocked --until done --timeout 300000`
    で待ってから注入する。`blocked` で返ってきたら注入せず、
    `pane read` で承認待ちの内容を確認してユーザーへ報告する
-   （解消されるまで prompt を保留）。timeout したら再送ではなく
+   （解消されるまで prompt を保留。0.8.0 以降は read 応答の
+   `truncated: true` で古い行が切れているかを判別できる）。
+   timeout したら再送ではなく
    ペインの生死をユーザーに確認する。注入は
    `herdr agent prompt <target> '[<TAG> from <自ペイン名>] <ファイル絶対パス> を読んで対応して'`。
    §3 と同じく着火確認まで行う（数秒後に `agent_status` が working に
