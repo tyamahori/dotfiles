@@ -1,3 +1,10 @@
 #!/bin/bash
 
 brew update && brew upgrade && brew upgrade --cask --greedy && brew cleanup
+
+# herdr upgrades ship a new bundled agent skill; keep the local copy in sync
+if command -v herdr >/dev/null 2>&1 && herdr --skill >/dev/null 2>&1; then
+	mkdir -p "$HOME/.agents/skills/herdr"
+	herdr --skill >"$HOME/.agents/skills/herdr/SKILL.md"
+	echo "Regenerated ~/.agents/skills/herdr/SKILL.md from herdr --skill" >&2
+fi

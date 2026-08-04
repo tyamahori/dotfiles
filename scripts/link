@@ -32,6 +32,21 @@ for skill in "${AGENTS_DIR}/skills"/*/; do
 	done
 done
 
+# herdr's bundled agent skill (herdr 0.8.0+): generated from the installed
+# binary so it always matches the running version. Unlike the OpenSkills
+# vendor skills below, herdr is a machine-level tool relevant in any repo, so
+# it IS linked globally. brewUpdate regenerates it after upgrades; this block
+# covers fresh machines and manual re-links.
+if command -v herdr >/dev/null 2>&1 && herdr --skill >/dev/null 2>&1; then
+	mkdir -p "$HOME/.agents/skills/herdr"
+	herdr --skill >"$HOME/.agents/skills/herdr/SKILL.md"
+	echo "Generated $HOME/.agents/skills/herdr/SKILL.md from herdr --skill" >&2
+	for skills_dir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills"; do
+		mkdir -p "$skills_dir"
+		ln -snfv "$HOME/.agents/skills/herdr" "$skills_dir/herdr"
+	done
+fi
+
 # OpenSkills-installed vendor skills (Cloudflare et al.) are deliberately NOT
 # linked globally: their descriptions sit in every session's context whether or
 # not the work touches that vendor. Install them per project instead —
