@@ -16,7 +16,7 @@ if [[ "$(uname)" == "Linux" ]]; then
   PROMPT='%n@%m %~ %# '
 fi
 
-alias brewup='sudo -v && brew update && brew upgrade --greedy && brew cleanup'
+alias brewup='sudo -v && brew update && brew upgrade --greedy --yes && brew cleanup'
 
 # Kiro CLI post block. Keep at the bottom of this file.
 [[ -f "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh" ]] && builtin source "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh"
