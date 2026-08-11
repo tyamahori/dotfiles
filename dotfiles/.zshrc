@@ -17,7 +17,7 @@ if [[ "$(uname)" == "Linux" ]]; then
 fi
 
 export HOMEBREW_NO_ASK=1
-alias brewup='sudo -v && brew update && brew upgrade --greedy && brew cleanup'
+alias brewup='sudo -v && brew update && brew upgrade --greedy && brew cleanup --prune=all'
 
 # Kiro CLI post block. Keep at the bottom of this file.
 [[ -f "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh" ]] && builtin source "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh"
