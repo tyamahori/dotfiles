@@ -13,7 +13,7 @@ pattern='(^|[;&|(])[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]
 
 if printf '%s' "$cmd" | grep -Eq "$pattern"; then
   cat <<'EOF'
-{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Bare python/python3 is blocked on this machine. Run Python through uv instead: `uv run script.py`, `uv run python -c ...`, `uv run --with <pkg> ...`, or `uvx <tool>`. Inside a project with pyproject.toml/uv.lock, `uv run` uses the project environment."}}
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Bare python/python3 is blocked on this machine. FIRST load the `efficient-python` skill (Skill tool) if you have not already this session — it defines the required uv invocation forms and style rules. Then run Python through uv: `uv run script.py`, `uv run python -c ...`, `uv run --with <pkg> ...`, or `uvx <tool>`. Inside a project with pyproject.toml/uv.lock, `uv run` uses the project environment."}}
 EOF
 fi
 
