@@ -3,12 +3,23 @@
   "hooks": {
     "PermissionRequest": [
       {
-        "matcher": "*",
         "hooks": [
           {
-            "type": "command",
             "command": "$HOME/.local/bin/codex-notify permission-request",
-            "timeout": 5
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "bash '/Users/tyamahori/.codex/herdr-agent-state.sh' session",
+            "timeout": 10,
+            "type": "command"
           }
         ]
       }
