@@ -6,6 +6,7 @@ DOTFILES_DIR="${REPO_ROOT}/dotfiles"
 GIT_DIR="${REPO_ROOT}/git"
 AGENTS_DIR="${REPO_ROOT}/agents"
 CLAUDE_DIR="${REPO_ROOT}/claude"
+OMP_DIR="${REPO_ROOT}/omp"
 
 # dotfiles
 for dotfile in "${DOTFILES_DIR}"/.??*; do
@@ -102,6 +103,14 @@ ln -snfv "${REPO_ROOT}/ghostty/config" "$HOME/Library/Application Support/com.mi
 # herdr config (session state and logs stay unmanaged in ~/.config/herdr)
 mkdir -p "$HOME/.config/herdr"
 ln -snfv "${REPO_ROOT}/herdr/config.toml" "$HOME/.config/herdr/config.toml"
+
+# OMP (Oh My Pi) agent config. Only user-authored files are managed; state
+# (agent.db with credentials, sessions, history, logs) stays unmanaged in
+# ~/.omp. Legacy ~/.pi is not linked: OMP does not read ~/.pi/agent/extensions.
+mkdir -p "$HOME/.omp/agent"
+ln -snfv "${OMP_DIR}/config.yml" "$HOME/.omp/agent/config.yml"
+ln -snfv "${OMP_DIR}/APPEND_SYSTEM.md" "$HOME/.omp/agent/APPEND_SYSTEM.md"
+ln -snfv "${OMP_DIR}/extensions" "$HOME/.omp/agent/extensions"
 
 # launchd agents: link, then (re)load so schedule edits take effect
 mkdir -p "$HOME/Library/LaunchAgents"

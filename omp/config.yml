@@ -1,0 +1,41 @@
+providers: 
+  webSearchOrder: 
+    - google
+    - perplexity
+    - gemini
+    - anthropic
+    - codex
+    - xai
+    - zai
+    - exa
+    - tinyfish
+    - jina
+    - kagi
+    - tavily
+    - firecrawl
+    - brave
+    - kimi
+    - parallel
+    - synthetic
+    - searxng
+    - startpage
+    - duckduckgo
+    - ecosia
+    - mojeek
+    - public
+modelRoles: 
+  default: anthropic/claude-fable-5
+  vision: anthropic/claude-fable-5:high
+  smol: openai-codex/gpt-5.6-luna
+  task: openai-codex/gpt-5.6-terra
+retry: 
+  fallbackChains: 
+    anthropic/*: 
+      - openai-codex/gpt-5.6-sol
+      - openai-codex/gpt-5.4
+  usageAwareFallback: true
+  usageReservePct: 10
+  usageReservePolicy: auto
+symbolPreset: unicode
+colorBlindMode: true
+setupVersion: 1
