@@ -74,7 +74,7 @@
     ],
     "defaultMode": "auto"
   },
-  "model": "claude-opus-5[1m]",
+  "model": "claude-fable-5[1m]",
   "skillOverrides": {
     "freee-api-skill": "off",
     "japanese-tech-writing": "off",
@@ -221,30 +221,6 @@
             "type": "command",
             "command": "if [ -f '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh'; else cat >/dev/null 2>&1 || :; fi",
             "timeout": 10
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$HOME/.jbcontext/bin/jbcontext_binary\" index --silent",
-            "async": true
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$HOME/.jbcontext/bin/jbcontext_binary\" index --silent",
-            "async": true
           }
         ]
       }
