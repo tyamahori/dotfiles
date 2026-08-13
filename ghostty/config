@@ -1,9 +1,8 @@
 # This is the configuration file for Ghostty.
 #
-# This template file has been automatically created at the following
-# path since Ghostty couldn't find any existing config files on your system:
+# This file is managed in the dotfiles repo and linked by scripts/link to:
 #
-#   /Users/tyamahori/Library/Application Support/com.mitchellh.ghostty/config
+#   ~/Library/Application Support/com.mitchellh.ghostty/config
 #
 # The template does not set any default options, since Ghostty ships
 # with sensible defaults for all options. Users should only need to set
