@@ -9,7 +9,8 @@
 # 本文: --body FILE / --body - (stdin) / 引数なしで stdin。
 # --file は作成済みファイルの再配送 (blocked 後のリトライ) 用。新規ファイルを作らない。
 # 置き場所: <root>/.agent-msgs/<flow>/NN-<tag>.md (root default: git toplevel、なければ $PWD)。
-# exit: 0=配送済み 2=引数エラー 3=ファイルは在るが未配送 (blocked / timeout / stalled 未着火)
+# exit: 0=配送済み (宛先の working 遷移=着火まで確認。未観測なら警告を添えて 0)
+#       2=引数エラー 3=ファイルは在るが未配送 (blocked / timeout / stalled 未着火)
 set -euo pipefail
 
 die() { echo "send.sh: $*" >&2; exit 2; }
@@ -102,4 +103,17 @@ if ! prompt_out="$(herdr agent prompt "$TO" "$PROMPT_TEXT" 2>&1)"; then
   esac
 fi
 
-echo "sent=$ABS to=$TO"
+# 着火確認: prompt 受理後、宛先の working 遷移を短時間ポーリングする。
+# これをしないと、呼び出し側が直後に `herdr agent wait` したとき配送前の
+# settle を拾い、まだ書かれていない返信を「完了済み」と誤判定するレースになる。
+ignited=0
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  st="$(herdr agent get "$TO" 2>/dev/null | jq -r '.result.agent.agent_status // empty')"
+  [ "$st" = working ] && { ignited=1; break; }
+  sleep 1
+done
+if [ "$ignited" = 1 ]; then
+  echo "sent=$ABS to=$TO"
+else
+  echo "sent=$ABS to=$TO (working 遷移を 10 秒間観測できず。超高速タスクなら settle 済みの可能性もある — \`herdr agent read $TO\` で確認)"
+fi

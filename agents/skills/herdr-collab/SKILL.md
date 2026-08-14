@@ -60,7 +60,11 @@ $S/inbox.sh --flow fix-auth
 $S/despawn.sh myrepo-claude
 ```
 
-`send.sh` は working 中の宛先に注入しない（settle を待つ）。exit 3 は
+`send.sh` は working 中の宛先に注入しない（settle を待つ）。配送成功時は宛先の
+working 遷移（着火）を最大 10 秒確認してから返るので、成功直後にそのまま
+`herdr agent wait` してよい（着火確認前にこれをやると配送前の settle を拾う
+レースになる — 警告付き成功が出たときだけ `herdr agent read` で確認する）。
+settle 状態は `idle` / `done` / `blocked` のいずれか。exit 3 は
 「ファイルは書けたが未配送」— 宛先が `blocked`（承認・入力待ち）なら
 `herdr agent read <target>` で内容を確認してユーザーへ報告し、解消後に
 `--file <パス>` で再配送する。timeout ならペインの生死をユーザーに確認する。
@@ -95,6 +99,15 @@ $S/despawn.sh myrepo-claude
   ピアは「ファイルを書いて idle に戻る」だけで、herdr の権限が一切要らない。
   コーディネータは各ピアの settle を `herdr agent wait` で監視し、新番号
   ファイルが現れたら宛先へ send.sh（`--file`）で届ける。
+  - ハブが出す handoff に必ず書く: ピアの役割、返信の書き先を**番号込みの
+    絶対パスで明示**（採番をピアに任せない — 並行ファンアウト時の採番衝突が
+    構造的に消える）、`from:` / `to:` / `date:` ヘッダをピア自身が書くこと、
+    send.sh / herdr を一切使わずファイルを書いたら idle に戻ること。
+  - コーディネータ自身が herdr agent 未登録だと `from:` が再起動で変わる
+    ペイン ID になる。`--from <安定名>` を明示して trust boundary の
+    「期待する送信元」を安定させる。
+  - 実測（2026-08、omp ハブ + claude/codex の討論フロー全 5 配送）: ピアに
+    herdr コマンドを要求しないため codex の承認ブロックは 0 回だった。
 
 ## trust boundary（herdr-only 固有・ここが正本）
 
