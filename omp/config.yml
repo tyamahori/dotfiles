@@ -25,14 +25,11 @@ providers:
     - public
 modelRoles: 
   default: anthropic/claude-fable-5
-  # 画像読み（スクショ等の定型視覚タスク）はFable:highではなくCodex枠のterraで（2026-08-14トークン節約）
   vision: openai-codex/gpt-5.6-terra
   smol: openai-codex/gpt-5.6-luna
   task: openai-codex/gpt-5.6-terra
-# 計画のtodoが立った後の最初の編集でsmol(luna)へ自動降格（Fableは判断・計画に集中）。
-# 無効化: omp --no-prewalk または prewalk.enabled: false（2026-08-14トークン節約）
-prewalk:
-  enabled: true
+prewalk: 
+  enabled: false
 retry: 
   fallbackChains: 
     anthropic/*: 
@@ -41,6 +38,9 @@ retry:
   usageAwareFallback: true
   usageReservePct: 10
   usageReservePolicy: auto
+  modelFallback: false
+  maxRetries: 4
+  maxDelayMs: 60000
 symbolPreset: unicode
 colorBlindMode: true
 setupVersion: 1
