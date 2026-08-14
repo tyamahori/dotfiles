@@ -86,7 +86,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "if [ -f '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh'; else cat >/dev/null 2>&1 || :; fi",
+                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
                         "timeout": 10
                     }
                 ]
@@ -106,7 +106,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "if [ -f '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh'; else cat >/dev/null 2>&1 || :; fi",
+                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
                         "timeout": 10
                     }
                 ]
@@ -117,7 +117,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "if [ -f '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh'; else cat >/dev/null 2>&1 || :; fi",
+                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
                         "timeout": 10
                     }
                 ]
@@ -139,7 +139,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "if [ -f '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh'; else cat >/dev/null 2>&1 || :; fi",
+                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
                         "timeout": 10
                     }
                 ]
@@ -151,7 +151,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "if [ -f '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh'; else cat >/dev/null 2>&1 || :; fi",
+                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
                         "timeout": 10
                     }
                 ]
@@ -163,7 +163,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "if [ -f '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh'; else cat >/dev/null 2>&1 || :; fi",
+                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
                         "timeout": 10
                     }
                 ]
@@ -175,7 +175,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "if [ -f '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh'; else cat >/dev/null 2>&1 || :; fi",
+                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
                         "timeout": 10
                     }
                 ]
@@ -197,7 +197,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "if [ -f '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh'; else cat >/dev/null 2>&1 || :; fi",
+                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
                         "timeout": 10
                     }
                 ]
@@ -208,7 +208,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "if [ -f '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh'; else cat >/dev/null 2>&1 || :; fi",
+                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
                         "timeout": 10
                     }
                 ]
@@ -219,7 +219,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "if [ -f '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -r '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ] && [ -x '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '/Users/kazuki.tamahori/.orca/agent-hooks/claude-hook.sh'; else cat >/dev/null 2>&1 || :; fi",
+                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
                         "timeout": 10
                     }
                 ]
@@ -241,7 +241,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "/Users/kazuki.tamahori/.jbcontext/bin/jbcontext_binary index --silent",
+                        "command": "\"$HOME/.jbcontext/bin/jbcontext_binary\" index --silent",
                         "async": true
                     }
                 ]
@@ -253,7 +253,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "/Users/kazuki.tamahori/.jbcontext/bin/jbcontext_binary index --silent",
+                        "command": "\"$HOME/.jbcontext/bin/jbcontext_binary\" index --silent",
                         "async": true
                     }
                 ]
