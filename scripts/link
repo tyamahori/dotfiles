@@ -111,6 +111,7 @@ mkdir -p "$HOME/.omp/agent"
 ln -snfv "${OMP_DIR}/config.yml" "$HOME/.omp/agent/config.yml"
 ln -snfv "${OMP_DIR}/APPEND_SYSTEM.md" "$HOME/.omp/agent/APPEND_SYSTEM.md"
 ln -snfv "${OMP_DIR}/extensions" "$HOME/.omp/agent/extensions"
+ln -snfv "${OMP_DIR}/mcp.json" "$HOME/.omp/agent/mcp.json"
 
 # launchd agents: link, then (re)load so schedule edits take effect
 mkdir -p "$HOME/Library/LaunchAgents"

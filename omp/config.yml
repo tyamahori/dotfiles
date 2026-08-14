@@ -28,8 +28,38 @@ modelRoles:
   vision: openai-codex/gpt-5.6-terra
   smol: openai-codex/gpt-5.6-luna
   task: openai-codex/gpt-5.6-terra
+  # コミットメッセージ/変更履歴生成（mapReduce は 1 ファイル最大 50K トークン）を
+  # default（Fable）から外して Codex 枠へ（2026-08-15 トークン節約）
+  commit: openai-codex/gpt-5.6-luna
 prewalk: 
   enabled: false
+# Fable は 1M 窓のため既定閾値（窓-15%≈850K）では自動コンパクションが事実上
+# 無効になり、セッションが 200K 超（実測: fable リクエストの 11%、最大 280K）
+# まで肥大していた。Anthropic の長コンテキスト課金帯（>200K で単価増）を
+# 避けつつ 1 リクエストあたりの quota 消費を抑えるため固定閾値で切る。
+# strategy は既定の snapcompact（アーカイブ型・keepRecent 20K）のまま。
+compaction:
+  thresholdTokens: 160000
+# omp セッションで一度も読まれていないドメイン外スキルを除外して
+# 毎リクエストのプロンプトから落とす（Claude Code 側には影響しない）。
+# 必要になったら該当行を消すだけで戻る。
+skills:
+  ignoredSkills:
+    - agents-sdk
+    - cloudflare
+    - cloudflare-email-service
+    - cloudflare-one
+    - cloudflare-one-migrations
+    - durable-objects
+    - sandbox-sdk
+    - turnstile-spin
+    - workers-best-practices
+    - wrangler
+    - web-perf
+    - php-code-review
+    - php-project-guide
+    - upgrade-php
+    - freee-api-skill
 retry: 
   fallbackChains: 
     anthropic/*: 
