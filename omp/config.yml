@@ -68,7 +68,10 @@ retry:
   usageAwareFallback: true
   usageReservePct: 10
   usageReservePolicy: auto
-  modelFallback: false
+  # usage-aware fallback（quota 残 10% で sol へ退避）は modelFallback と
+  # usageAwareFallback の両方が true でないと動かない。false だと quota
+  # 枯渇時に停止する（2026-08-15）。fallback 先は上の chains のみ。
+  modelFallback: true
   maxRetries: 4
   maxDelayMs: 60000
 symbolPreset: unicode
