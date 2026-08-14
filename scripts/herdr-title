@@ -1,0 +1,36 @@
+#!/bin/sh
+# Report the just-submitted prompt as the herdr pane title, so the agent
+# panel shows what each pane is working on (agent_panel_sort = "priority"
+# and border labels are already on in herdr/config.toml).
+# `pane report-metadata` is display-only: herdr docs require user hooks that
+# run beside managed integrations to use it instead of report-agent, so the
+# official integration keeps lifecycle and session-restore authority.
+# Registered on UserPromptSubmit for Claude Code (claude/settings.json) and
+# Codex (codex/hooks.json); both deliver {"prompt": ...} on stdin.
+# The OMP counterpart is omp/extensions/herdr-title.ts.
+# Usage: herdr-title <agent-label>
+
+agent="${1:-}"
+[ -n "$agent" ] || exit 0
+[ "${HERDR_ENV:-}" = 1 ] || exit 0
+[ -n "${HERDR_PANE_ID:-}" ] || exit 0
+command -v jq >/dev/null 2>&1 || exit 0
+
+# Panes created by older herdr servers lack HERDR_BIN_PATH; fall back to PATH.
+herdr_bin="${HERDR_BIN_PATH:-herdr}"
+command -v "$herdr_bin" >/dev/null 2>&1 || exit 0
+
+# Whole prompt collapsed to one line, then 60 codepoints — jq slices by
+# codepoint, so Japanese text is never cut mid-character.
+title=$(jq -r '.prompt // empty | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ") | .[0:60]' 2>/dev/null)
+[ -n "$title" ] || exit 0
+case "$title" in
+  /*) exit 0 ;; # slash commands are not tasks
+esac
+
+"$herdr_bin" pane report-metadata "$HERDR_PANE_ID" \
+  --source "user:${agent}-title" \
+  --agent "$agent" \
+  --title "$title" \
+  --ttl-ms 3600000 >/dev/null 2>&1 || true
+exit 0

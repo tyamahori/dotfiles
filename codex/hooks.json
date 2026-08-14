@@ -1,5 +1,5 @@
 {
-  "description": "Notify when Codex is waiting for user approval.",
+  "description": "Notify when Codex is waiting for user approval, and title the herdr pane with the submitted prompt.",
   "hooks": {
     "PermissionRequest": [
       {
@@ -18,6 +18,17 @@
         "hooks": [
           {
             "command": "bash \"$HOME/.codex/herdr-agent-state.sh\" session",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "\"$HOME/dotfiles/scripts/herdr-title\" codex",
             "timeout": 10,
             "type": "command"
           }

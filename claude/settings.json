@@ -86,6 +86,15 @@
                 "hooks": [
                     {
                         "type": "command",
+                        "command": "\"$HOME/dotfiles/scripts/herdr-title\" claude",
+                        "timeout": 10
+                    }
+                ]
+            },
+            {
+                "hooks": [
+                    {
+                        "type": "command",
                         "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
                         "timeout": 10
                     }
