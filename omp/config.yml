@@ -39,3 +39,5 @@ retry:
 symbolPreset: unicode
 colorBlindMode: true
 setupVersion: 1
+dev: 
+  autoqaConsent: granted
