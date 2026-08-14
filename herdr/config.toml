@@ -4,6 +4,15 @@ onboarding = false
 agent_panel_sort = "priority"
 show_agent_labels_on_pane_borders = true
 
+# デフォルトレイアウト + $subagents（実行中サブエージェント数）。
+# 報告元: omp/extensions/herdr-subagents.ts と claude/hooks/herdr-subagents.sh。
+# 未報告のトークンは行から消えるだけなので、他エージェントには影響しない。
+[ui.sidebar.agents]
+rows = [
+    ["state_icon", "workspace", "tab"],
+    ["agent", "$subagents"],
+]
+
 # Claude Code (claude/hooks/herdr-notify.sh)・Codex (scripts/codex-notify)・
 # OMP (omp/extensions/notify.ts) が terminal-notifier で独自フォーマットの
 # macOS 通知を出すため、標準通知は無効。

@@ -206,6 +206,15 @@
                 "hooks": [
                     {
                         "type": "command",
+                        "command": "\"$HOME/dotfiles/claude/hooks/herdr-subagents.sh\"",
+                        "timeout": 10
+                    }
+                ]
+            },
+            {
+                "hooks": [
+                    {
+                        "type": "command",
                         "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
                         "timeout": 10
                     }
@@ -213,6 +222,15 @@
             }
         ],
         "SubagentStop": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "\"$HOME/dotfiles/claude/hooks/herdr-subagents.sh\"",
+                        "timeout": 10
+                    }
+                ]
+            },
             {
                 "hooks": [
                     {
@@ -257,6 +275,15 @@
             }
         ],
         "SessionEnd": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "\"$HOME/dotfiles/claude/hooks/herdr-subagents.sh\"",
+                        "timeout": 10
+                    }
+                ]
+            },
             {
                 "matcher": "",
                 "hooks": [
