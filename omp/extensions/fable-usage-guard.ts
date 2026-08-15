@@ -1,5 +1,6 @@
-// Fable 専用 7 日枠(anthropic:7d:fable)が閾値以上消費されていたら、
-// セッションのモデルを Fable から Codex(terra)へ自動で切り替えるガード。
+// Fable 専用7日枠(anthropic:7d:fable)または5時間枠(anthropic:5h)が
+// 閾値以上消費されていたら、セッションのモデルを Fable から Codex(terra)へ
+// 自動で切り替えるガード。
 //
 // 背景: omp 本体の usage-aware reserve フォールバックは Fable/Mythos の
 // tier 専用週次カウンターを「完全枯渇(100% / server exhausted)が確認される
@@ -13,7 +14,7 @@
 // - session_start で即チェック + 5 分毎の定期チェック(ctx.setInterval)。
 // - 現在モデルが Anthropic の fable 系のときだけ切り替える(手動で他モデルに
 //   している場合は何もしない)。
-// - 一度切り替えたら、枠がリセットされて閾値を下回るまで再切替しない
+// - 一度切り替えたら、両方の枠が閾値を下回るまで再切替しない
 //   (ユーザーが手動で Fable に戻した選択を尊重する)。
 // - usage は `omp usage --json` サブプロセスで取得(omp 側キャッシュ約 5 分)。
 
@@ -21,12 +22,18 @@ import { execFile } from "node:child_process";
 
 const THRESHOLD = 0.9;
 const TARGET = "openai-codex/gpt-5.6-terra";
-const LIMIT_ID = "anthropic:7d:fable";
+const LIMIT_LABELS = {
+	"anthropic:7d:fable": "Fable 7日枠",
+	"anthropic:5h": "5時間枠",
+} as const;
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 type Rec = Record<string, unknown>;
 
 type Model = { provider?: string; id?: string };
+
+type LimitId = keyof typeof LIMIT_LABELS;
+type QuotaUsage = { id: LimitId; usedFraction: number };
 
 type Ctx = {
 	hasUI?: boolean;
@@ -48,37 +55,36 @@ function asRecord(value: unknown): Rec | undefined {
 	return typeof value === "object" && value !== null ? (value as Rec) : undefined;
 }
 
-/** JSON ツリーから id === LIMIT_ID のリミット行を探し usedFraction を返す。 */
-function findFableUsedFraction(node: unknown): number | undefined {
-	if (Array.isArray(node)) {
-		for (const item of node) {
-			const found = findFableUsedFraction(item);
-			if (found !== undefined) return found;
-		}
-		return undefined;
-	}
-	const rec = asRecord(node);
-	if (!rec) return undefined;
-	if (rec.id === LIMIT_ID) {
-		const amount = asRecord(rec.amount);
-		const fraction = amount?.usedFraction;
-		if (typeof fraction === "number") return fraction;
-	}
-	for (const value of Object.values(rec)) {
-		const found = findFableUsedFraction(value);
-		if (found !== undefined) return found;
-	}
-	return undefined;
+function isLimitId(value: unknown): value is LimitId {
+	return value === "anthropic:7d:fable" || value === "anthropic:5h";
 }
 
-function fetchFableUsedFraction(): Promise<number | undefined> {
-	const { promise, resolve } = Promise.withResolvers<number | undefined>();
+/** JSON ツリーから対象リミットの usedFraction をすべて集める。 */
+function collectQuotaUsages(node: unknown, usages: QuotaUsage[]): void {
+	if (Array.isArray(node)) {
+		for (const item of node) collectQuotaUsages(item, usages);
+		return;
+	}
+	const rec = asRecord(node);
+	if (!rec) return;
+	if (isLimitId(rec.id)) {
+		const amount = asRecord(rec.amount);
+		const usedFraction = amount?.usedFraction;
+		if (typeof usedFraction === "number") usages.push({ id: rec.id, usedFraction });
+	}
+	for (const value of Object.values(rec)) collectQuotaUsages(value, usages);
+}
+
+function fetchQuotaUsages(): Promise<QuotaUsage[]> {
+	const { promise, resolve } = Promise.withResolvers<QuotaUsage[]>();
 	execFile("omp", ["usage", "--json", "--provider", "anthropic"], { timeout: 20_000 }, (error, stdout) => {
-		if (error) return resolve(undefined);
+		if (error) return resolve([]);
 		try {
-			resolve(findFableUsedFraction(JSON.parse(stdout)));
+			const usages: QuotaUsage[] = [];
+			collectQuotaUsages(JSON.parse(stdout), usages);
+			resolve(usages);
 		} catch {
-			resolve(undefined);
+			resolve([]);
 		}
 	});
 	return promise;
@@ -96,16 +102,15 @@ export default function (pi: ExtensionHandlerApi): void {
 	pi.setLabel?.("Fable Usage Guard");
 
 	let inflight = false;
-	// 一度自動切替したらリセット(閾値割れ)まで再切替しない。
+	// 一度自動切替したら、両方の枠が閾値を下回るまで再切替しない。
 	let switchedThisWindow = false;
 
 	async function check(ctx: Ctx | undefined): Promise<void> {
 		if (inflight || !ctx?.models) return;
 		inflight = true;
 		try {
-			const fraction = await fetchFableUsedFraction();
-			if (fraction === undefined) return;
-			if (fraction < THRESHOLD) {
+			const exhausted = (await fetchQuotaUsages()).find((usage) => usage.usedFraction >= THRESHOLD);
+			if (!exhausted) {
 				switchedThisWindow = false;
 				return;
 			}
@@ -124,7 +129,7 @@ export default function (pi: ExtensionHandlerApi): void {
 			notify(
 				ctx,
 				ok
-					? `fable-usage-guard: Fable 7d枠 ${Math.round(fraction * 100)}% 消費 → ${TARGET} へ切替`
+					? `fable-usage-guard: ${LIMIT_LABELS[exhausted.id]} ${Math.round(exhausted.usedFraction * 100)}% 消費 → ${TARGET} へ切替`
 					: `fable-usage-guard: ${TARGET} へ切替失敗(認証情報なし)`,
 			);
 		} finally {
