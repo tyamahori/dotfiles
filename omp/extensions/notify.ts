@@ -15,6 +15,11 @@ import { execFile } from "node:child_process";
 
 const TERMINAL_NOTIFIER = "/opt/homebrew/bin/terminal-notifier";
 const GHOSTTY_BUNDLE = "com.mitchellh.ghostty";
+// terminal-notifier and lsappinfo are macOS-only. On Linux delivery goes
+// through notify-send and there is no frontmost-app signal at all (Wayland
+// gives no portable way to ask), which changes which events are worth firing —
+// see notify() below.
+const IS_DARWIN = process.platform === "darwin";
 
 // Same set herdr-omp-agent-state.ts uses: an agent_end carrying one of these
 // errors is followed by an automatic retry, not a finished turn.
@@ -52,6 +57,9 @@ function terminalBundle(): string {
 }
 
 async function terminalFrontmost(bundle: string): Promise<boolean> {
+  // No equivalent on Linux, so callers must treat "not frontmost" as unknown
+  // rather than as a confirmed background state.
+  if (!IS_DARWIN) return false;
   // lsappinfo (unlike osascript/System Events) needs no automation permission.
   const front = await run("lsappinfo", ["front"]);
   if (!front.ok) return false;
@@ -106,26 +114,44 @@ async function notify(kind: "done" | "attention", title: string, message: string
     const loc = await herdrLocation();
     if (!loc) return;
     // The user is already looking at this pane; a notification would be noise.
-    if (loc.focused && front) return;
+    // On Linux herdr's focus flag is the only signal available, so it decides
+    // alone; on macOS it is paired with the frontmost check because herdr pane
+    // focus persists while Ghostty itself is in the background.
+    if (loc.focused && (front || !IS_DARWIN)) return;
     subtitle = loc.subtitle;
     group = `omp-notify-${paneId}`;
   } else {
     // No pane-focus signal outside herdr: a completion toast on every turn
     // while the user is watching would be noise, so it fires only when the
     // terminal app is in the background. Attention events always fire.
-    if (kind === "done" && front) return;
+    // Linux has no frontmost signal either, so "done" is dropped entirely
+    // rather than fired on every turn — the same trade-off the fallback path
+    // of claude/hooks/herdr-notify.sh already makes.
+    if (kind === "done" && (front || !IS_DARWIN)) return;
     const base = process.cwd().split("/").pop() || "?";
     subtitle = base;
     group = `omp-notify-fallback-${base}`;
   }
 
-  await run(TERMINAL_NOTIFIER, [
-    "-group", group,
-    "-title", title,
-    "-subtitle", subtitle,
-    "-message", message,
-    "-activate", bundle,
-  ]);
+  if (IS_DARWIN) {
+    await run(TERMINAL_NOTIFIER, [
+      "-group", group,
+      "-title", title,
+      "-subtitle", subtitle,
+      "-message", message,
+      "-activate", bundle,
+    ]);
+  } else {
+    // notify-send has no subtitle field, so the location line joins the body.
+    // The synchronous hint is the freedesktop equivalent of -group: a newer
+    // toast from the same pane replaces the previous one instead of stacking.
+    await run("notify-send", [
+      "--app-name=omp",
+      `--hint=string:x-canonical-private-synchronous:${group}`,
+      title,
+      `${subtitle}\n${message}`,
+    ]);
+  }
 }
 
 function assistantMessages(event: unknown): Rec[] {
