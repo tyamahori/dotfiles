@@ -31,6 +31,10 @@ modelRoles:
   # コミットメッセージ/変更履歴生成（mapReduce は 1 ファイル最大 50K トークン）を
   # default（Fable）から外して Codex 枠へ（2026-08-15 トークン節約）
   commit: openai-codex/gpt-5.6-luna
+  # plan/slow は未設定だと default（Fable）にフォールバックするため
+  # 明示的に Codex へ（2026-08-15 トークン節約）
+  plan: openai-codex/gpt-5.6-terra
+  slow: openai-codex/gpt-5.6-sol
 prewalk: 
   enabled: false
 # Fable は 1M 窓のため既定閾値（窓-15%≈850K）では自動コンパクションが事実上
@@ -39,7 +43,7 @@ prewalk:
 # 避けつつ 1 リクエストあたりの quota 消費を抑えるため固定閾値で切る。
 # strategy は既定の snapcompact（アーカイブ型・keepRecent 20K）のまま。
 compaction:
-  thresholdTokens: 160000
+  thresholdTokens: 120000  # 160K から追加圧縮（2026-08-15、Fable 週次枠 82% 消費時点）
 # omp セッションで一度も読まれていないドメイン外スキルを除外して
 # 毎リクエストのプロンプトから落とす（Claude Code 側には影響しない）。
 # 必要になったら該当行を消すだけで戻る。
