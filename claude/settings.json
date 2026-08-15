@@ -61,7 +61,7 @@
             "Bash(~/dotfiles/scripts/herdr-spawn-pane *)",
             "Read(~/.config/**)",
             "Read(~/.agents/skills/**)",
-            "Read(~/projects/dotfiles/**)",
+            "Read(~/dotfiles/**)",
             "WebSearch",
             "WebFetch(domain:github.com)",
             "WebFetch(domain:claude.ai)",

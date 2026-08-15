@@ -1,6 +1,6 @@
 [user]
 	name = tyamahori
-	email = tymahori@gmail.com
+	email = tyamahori@gmail.com
 [filter "lfs"]
 	clean = git-lfs clean -- %f
 	smudge = git-lfs smudge -- %f
