@@ -2,7 +2,8 @@
 #
 # This file is managed in the dotfiles repo and linked by scripts/link to:
 #
-#   ~/Library/Application Support/com.mitchellh.ghostty/config
+#   macOS: ~/Library/Application Support/com.mitchellh.ghostty/config
+#   Linux: ~/.config/ghostty/config
 #
 # The template does not set any default options, since Ghostty ships
 # with sensible defaults for all options. Users should only need to set

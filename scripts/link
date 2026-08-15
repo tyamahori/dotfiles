@@ -107,6 +107,37 @@ fi
 mkdir -p "$GHOSTTY_CONFIG_DIR"
 ln -snfv "${REPO_ROOT}/ghostty/config" "$GHOSTTY_CONFIG_DIR/config"
 
+# ghostty desktop entry (Linux). On macOS the .app carries its own launcher,
+# but on Linux ghostty comes from devbox, whose profile is not in the session's
+# XDG_DATA_DIRS — so GNOME never sees the shipped .desktop or icons. Copy the
+# entry into the user's own applications dir with Exec pointed at the devbox
+# profile symlink: GUI launchers do not source .zprofile, so a bare `ghostty`
+# would not resolve, while the profile path (unlike a /nix/store path) survives
+# upgrades. D-Bus activation is turned off for the same search-path reason.
+if [ "$(uname)" != Darwin ]; then
+	DEVBOX_PROFILE="$HOME/.local/share/devbox/global/default/.devbox/nix/profile/default"
+	GHOSTTY_DESKTOP="${DEVBOX_PROFILE}/share/applications/com.mitchellh.ghostty.desktop"
+	if [ -r "$GHOSTTY_DESKTOP" ]; then
+		mkdir -p "$HOME/.local/share/applications"
+		sed -e "s|^TryExec=ghostty|TryExec=${DEVBOX_PROFILE}/bin/ghostty|" \
+			-e "s|^Exec=ghostty|Exec=${DEVBOX_PROFILE}/bin/ghostty|" \
+			-e "s|^DBusActivatable=true|DBusActivatable=false|" \
+			"$GHOSTTY_DESKTOP" \
+			>"$HOME/.local/share/applications/com.mitchellh.ghostty.desktop"
+		echo "Installed $HOME/.local/share/applications/com.mitchellh.ghostty.desktop" >&2
+
+		find -L "${DEVBOX_PROFILE}/share/icons/hicolor" -name 'com.mitchellh.ghostty.png' |
+			while read -r icon; do
+				rel="${icon#"${DEVBOX_PROFILE}"/share/icons/hicolor/}"
+				mkdir -p "$HOME/.local/share/icons/hicolor/$(dirname "$rel")"
+				ln -snf "$icon" "$HOME/.local/share/icons/hicolor/$rel"
+			done
+
+		update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
+		gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
+	fi
+fi
+
 # herdr config (session state and logs stay unmanaged in ~/.config/herdr)
 mkdir -p "$HOME/.config/herdr"
 ln -snfv "${REPO_ROOT}/herdr/config.toml" "$HOME/.config/herdr/config.toml"

@@ -1,14 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
-# Two packages are OS-specific: `mas` is the Mac App Store CLI with no Linux
-# build (requesting it would fail the whole batch), and zsh — the login shell
-# .zshrc/.zprofile assume — ships with macOS but not with Ubuntu.
+# macOS gets these from Homebrew instead (see .Brewfile): mas is the Mac App
+# Store CLI with no Linux build at all — requesting it would fail the whole
+# batch — while zsh, herdr and ghostty are the brew/cask entries that have no
+# Linux counterpart there. zsh in particular ships with macOS but not Ubuntu,
+# and .zshrc/.zprofile assume it as the login shell.
 packages=(php go direnv bun git git-lfs nodejs httpie cmake curl go-task uv)
 if [ "$(uname)" = Darwin ]; then
 	packages+=(mas)
 else
-	packages+=(zsh)
+	packages+=(zsh herdr ghostty)
 fi
 
 devbox global add "${packages[@]}"
