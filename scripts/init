@@ -1,24 +1,35 @@
 #!/bin/bash
 set -euo pipefail
 
-if [ "$(uname)" != "Darwin" ]; then
-	echo "Must be Mac OS. Unknown OS is detected"
+OS="$(uname)"
+case "$OS" in
+Darwin | Linux) ;;
+*)
+	echo "Unsupported OS: $OS (macOS and Linux only)" >&2
 	exit 1
+	;;
+esac
+
+if [ "$OS" = Darwin ]; then
+	# Disable spotlight
+	sudo mdutil -a -i off
+	sudo chmod 0 /System/Library/CoreServices/Search.bundle/Contents/MacOS/Search
+
+	# Homebrew
+	if ! command -v brew >/dev/null 2>&1; then
+		/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+	fi
+	eval "$(/opt/homebrew/bin/brew shellenv)"
 fi
 
-# Disable spotlight
-sudo mdutil -a -i off
-sudo chmod 0 /System/Library/CoreServices/Search.bundle/Contents/MacOS/Search
-
-# Homebrew
-if ! command -v brew >/dev/null 2>&1; then
-	/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-fi
-eval "$(/opt/homebrew/bin/brew shellenv)"
-
-# Nix (Determinate Systems installer)
+# Nix (Determinate Systems installer). The Linux installer needs the planner
+# named explicitly and never prompts, so it can run unattended like the macOS one.
 if ! command -v nix >/dev/null 2>&1; then
-	curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+	if [ "$OS" = Darwin ]; then
+		curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+	else
+		curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install linux --no-confirm
+	fi
 fi
 
 # Devbox

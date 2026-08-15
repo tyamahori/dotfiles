@@ -1,6 +1,12 @@
 #!/bin/bash
 
-brew update && brew upgrade && brew upgrade --cask --greedy && brew cleanup
+# Homebrew is macOS-only here; on Linux the herdr skill refresh below is still
+# worth running, so skip just the brew half.
+if [ "$(uname)" = Darwin ]; then
+	brew update && brew upgrade && brew upgrade --cask --greedy && brew cleanup
+else
+	echo "brewUpdate: skipping brew (macOS only)" >&2
+fi
 
 # herdr upgrades ship a new bundled agent skill; keep the local copy in sync
 if command -v herdr >/dev/null 2>&1 && herdr --skill >/dev/null 2>&1; then

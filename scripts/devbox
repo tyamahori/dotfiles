@@ -1,3 +1,14 @@
 #!/bin/bash
+set -euo pipefail
 
-devbox global add php go direnv bun git git-lfs nodejs mas httpie cmake curl go-task uv
+# Two packages are OS-specific: `mas` is the Mac App Store CLI with no Linux
+# build (requesting it would fail the whole batch), and zsh — the login shell
+# .zshrc/.zprofile assume — ships with macOS but not with Ubuntu.
+packages=(php go direnv bun git git-lfs nodejs httpie cmake curl go-task uv)
+if [ "$(uname)" = Darwin ]; then
+	packages+=(mas)
+else
+	packages+=(zsh)
+fi
+
+devbox global add "${packages[@]}"

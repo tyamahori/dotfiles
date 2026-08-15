@@ -97,9 +97,15 @@ ln -snfv "${REPO_ROOT}/scripts/codex-notify" "$HOME/.local/bin/codex-notify"
 mkdir -p "$HOME/.codex"
 ln -snfv "${REPO_ROOT}/codex/hooks.json" "$HOME/.codex/hooks.json"
 
-# ghostty config (macOS reads the Application Support path; XDG is not needed)
-mkdir -p "$HOME/Library/Application Support/com.mitchellh.ghostty"
-ln -snfv "${REPO_ROOT}/ghostty/config" "$HOME/Library/Application Support/com.mitchellh.ghostty/config"
+# ghostty config. macOS reads the Application Support path; on Linux ghostty
+# is XDG-only, so the same file is linked to ~/.config/ghostty/config.
+if [ "$(uname)" = Darwin ]; then
+	GHOSTTY_CONFIG_DIR="$HOME/Library/Application Support/com.mitchellh.ghostty"
+else
+	GHOSTTY_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty"
+fi
+mkdir -p "$GHOSTTY_CONFIG_DIR"
+ln -snfv "${REPO_ROOT}/ghostty/config" "$GHOSTTY_CONFIG_DIR/config"
 
 # herdr config (session state and logs stay unmanaged in ~/.config/herdr)
 mkdir -p "$HOME/.config/herdr"
@@ -114,11 +120,17 @@ ln -snfv "${OMP_DIR}/APPEND_SYSTEM.md" "$HOME/.omp/agent/APPEND_SYSTEM.md"
 ln -snfv "${OMP_DIR}/extensions" "$HOME/.omp/agent/extensions"
 ln -snfv "${OMP_DIR}/mcp.json" "$HOME/.omp/agent/mcp.json"
 
-# launchd agents: link, then (re)load so schedule edits take effect
-mkdir -p "$HOME/Library/LaunchAgents"
-for plist in "${REPO_ROOT}/launchd"/*.plist; do
-	target="$HOME/Library/LaunchAgents/$(basename "$plist")"
-	ln -snfv "$plist" "$target"
-	launchctl bootout "gui/$(id -u)" "$target" 2>/dev/null || true
-	launchctl bootstrap "gui/$(id -u)" "$target"
-done
+# launchd agents: link, then (re)load so schedule edits take effect.
+# macOS-only — there is no launchd on Linux and the scheduled job
+# (python-skill-review) has no systemd equivalent in this repo yet.
+if [ "$(uname)" = Darwin ]; then
+	mkdir -p "$HOME/Library/LaunchAgents"
+	for plist in "${REPO_ROOT}/launchd"/*.plist; do
+		target="$HOME/Library/LaunchAgents/$(basename "$plist")"
+		ln -snfv "$plist" "$target"
+		launchctl bootout "gui/$(id -u)" "$target" 2>/dev/null || true
+		launchctl bootstrap "gui/$(id -u)" "$target"
+	done
+else
+	echo "link: skipping launchd agents (macOS only)" >&2
+fi

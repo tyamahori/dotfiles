@@ -1,10 +1,10 @@
 #!/bin/bash
 
-#!/bin/bash
-
-if [ "$(uname)" != "Darwin" ] ; then
-	echo "Not macOS!"
-	exit 1
+# Homebrew bundle. macOS-only: the Brewfile is casks and mas apps, none of
+# which exist on Linux. Skipped (not an error) so scripts/setup runs through.
+if [ "$(uname)" != "Darwin" ]; then
+	echo "apps: skipping brew bundle (macOS only)"
+	exit 0
 fi
 
 brew bundle --global

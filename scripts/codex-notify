@@ -104,8 +104,24 @@ case "$notification_type" in
 		;;
 esac
 
-/opt/homebrew/bin/terminal-notifier \
-	-title "$title" \
-	-subtitle "$location" \
-	-message "$message" \
-	-group "codex-${notification_id:-default}"
+# Delivery differs per OS. terminal-notifier is macOS-only and its absolute
+# Homebrew path made this script exit 127 on Linux, which Codex surfaces as a
+# failing hook on every turn — so each backend is probed and a machine with
+# neither stays silent instead of erroring.
+if [ -x /opt/homebrew/bin/terminal-notifier ]; then
+	/opt/homebrew/bin/terminal-notifier \
+		-title "$title" \
+		-subtitle "$location" \
+		-message "$message" \
+		-group "codex-${notification_id:-default}"
+elif command -v notify-send >/dev/null 2>&1; then
+	# notify-send has no subtitle field; the location line is folded into the body.
+	notify-send \
+		--app-name=Codex \
+		--hint="string:x-canonical-private-synchronous:codex-${notification_id:-default}" \
+		"$title" \
+		"$location
+$message"
+fi
+
+exit 0

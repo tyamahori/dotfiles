@@ -1,3 +1,12 @@
 #!/bin/bash
 
-sudo du --si -xct 1000000000 /System/Volumes/Data | tee >(grep -ve $'*	' > ~/Desktop/DiskSpace.txt) | sort -nr > ~/Desktop/SortedDiskSpace.txt
+# Disk usage report on the Desktop. The scanned root differs per OS: macOS
+# hides the real data volume behind /System/Volumes/Data, Linux just uses /
+# (-x keeps it on one filesystem either way).
+if [ "$(uname)" = Darwin ]; then
+	root=/System/Volumes/Data
+else
+	root=/
+fi
+
+sudo du --si -xct 1000000000 "$root" | tee >(grep -ve $'*\t' > ~/Desktop/DiskSpace.txt) | sort -nr > ~/Desktop/SortedDiskSpace.txt
