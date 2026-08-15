@@ -53,8 +53,22 @@ fi
 
 export HOMEBREW_NO_ASK=1
 alias brewup='sudo -v && brew update && brew upgrade --greedy && brew cleanup --prune=all'
-# omp: ~ で起動しても temp ディレクトリへ自動退避せずカレントで開く
-alias omp='omp --allow-home'
+# omp: ~ で起動しても temp ディレクトリへ自動退避せずカレントで開く。
+# さらに Fable 専用 7 日枠(anthropic:7d:fable)の消費が閾値以上なら
+# default を Codex に振り替えて起動する。omp 本体の reserve フォールバックは
+# Fable 枠を 100% 到達まで判定に使わない仕様(v17.3.4)のため、その手前を
+# ここで塞ぐ。判定はキャッシュ済み usage(約0.7秒)を読むだけ。
+omp() {
+  local threshold=0.90 target='openai-codex/gpt-5.6-terra' fable
+  fable=$(command omp usage --json --provider anthropic 2>/dev/null |
+    jq -r 'first(.. | objects | select(.id? == "anthropic:7d:fable") | .amount.usedFraction // empty)')
+  if [[ -n "$fable" ]] && (( fable >= threshold )); then
+    print -u2 "omp: Fable 7d枠 ${fable} 消費済み(閾値 ${threshold}) → ${target} で起動"
+    command omp --allow-home --model "$target" "$@"
+  else
+    command omp --allow-home "$@"
+  fi
+}
 alias ll='ls -la'
 alias reload='source ~/.zshrc'
 
