@@ -35,6 +35,18 @@ modelRoles:
   # 明示的に Codex へ（2026-08-15 トークン節約）
   plan: openai-codex/gpt-5.6-terra
   slow: openai-codex/gpt-5.6-sol
+# サブエージェントを Fable に落とさないための明示ルーティング（2026-08-15）。
+# 経緯: modelRoles 未整備時代に scout が親モデル継承で Fable 実行（68 req / $26）。
+# bundled scout/librarian は frontmatter が @smol を解決するが、role 構成の
+# ドリフトで再発しないよう明示。reviewer 系は frontmatter 無し=親モデル継承
+# のため Codex へ。precedence: agentModelOverrides > frontmatter > 親モデル。
+# 注意: 稼働中セッションには効かない（設定は起動時スナップショット）。
+task:
+  agentModelOverrides:
+    scout: "@smol"              # → gpt-5.6-luna（read-only 偵察は smol 階で十分）
+    reviewer: "@task"           # → gpt-5.6-terra
+    security-reviewer: "@task"
+    librarian: "@smol"
 prewalk: 
   enabled: false
 # Fable は 1M 窓のため既定閾値（窓-15%≈850K）では自動コンパクションが事実上
