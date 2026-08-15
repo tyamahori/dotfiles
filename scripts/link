@@ -24,6 +24,10 @@ ln -snfv "${GIT_DIR}/ignore" "$HOME/.config/git/ignore"
 mkdir -p "$HOME/.claude"
 ln -snfv "${CLAUDE_DIR}/settings.json" "$HOME/.claude/settings.json"
 
+# Oh My Pi agent configuration
+mkdir -p "$HOME/.omp/agent"
+ln -snfv "${OMP_DIR}/agent/config.yml" "$HOME/.omp/agent/config.yml"
+
 # personal skills, shared across LLM CLIs
 for skill in "${AGENTS_DIR}/skills"/*/; do
 	skill="${skill%/}"
