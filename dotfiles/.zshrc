@@ -78,6 +78,12 @@ omp() {
     command omp --allow-home "$@"
   fi
 }
+# omp: マシンローカルのモデル設定オーバーレイ。ローカル LLM(ollama 等)を
+# 入れたマシンだけ ~/.omp/agent/config.local.yml を置くと、共有 config.yml に
+# deep-merge される(modelRoles の部分上書きが可能)。ファイルが無いのに
+# PI_CONFIG_FILES を設定すると omp が起動エラーになるため、存在ガード必須。
+# このファイルは dotfiles 管理外(マシン固有なので symlink しない)。
+[[ -f "$HOME/.omp/agent/config.local.yml" ]] && export PI_CONFIG_FILES="$HOME/.omp/agent/config.local.yml"
 alias ll='ls -la'
 alias reload='source ~/.zshrc'
 
