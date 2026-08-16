@@ -23,7 +23,9 @@
 		<key>OLLAMA_KV_CACHE_TYPE</key>
 		<string>q8_0</string>
 		<key>OLLAMA_CONTEXT_LENGTH</key>
-		<string>32768</string>
+		<!-- 65536: omp の commit role(mapReduce 1ファイル最大50Kトークン)が
+		     32768 だと黙って切り捨てられるため。KV は q8_0 で数GB増に収まる。 -->
+		<string>65536</string>
 		<key>OLLAMA_KEEP_ALIVE</key>
 		<string>30m</string>
 	</dict>
