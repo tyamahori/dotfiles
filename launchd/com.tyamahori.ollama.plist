@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.tyamahori.ollama</string>
+	<!--
+	Replaces `brew services start ollama`: Homebrew regenerates its plist
+	on every restart, which drops the EnvironmentVariables below. Do not
+	re-enable the brew service — two servers would race on port 11434.
+	Restart after `brew upgrade ollama`:
+	  launchctl kickstart -k gui/$(id -u)/com.tyamahori.ollama
+	-->
+	<key>ProgramArguments</key>
+	<array>
+		<string>/opt/homebrew/opt/ollama/bin/ollama</string>
+		<string>serve</string>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>OLLAMA_FLASH_ATTENTION</key>
+		<string>1</string>
+		<key>OLLAMA_KV_CACHE_TYPE</key>
+		<string>q8_0</string>
+		<key>OLLAMA_CONTEXT_LENGTH</key>
+		<string>32768</string>
+		<key>OLLAMA_KEEP_ALIVE</key>
+		<string>30m</string>
+	</dict>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/Users/tyamahori/Library/Logs/ollama.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/tyamahori/Library/Logs/ollama.log</string>
+</dict>
+</plist>
