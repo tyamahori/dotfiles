@@ -24,7 +24,7 @@ providers:
     - mojeek
     - public
 modelRoles: 
-  default: anthropic/claude-fable-5
+  default: anthropic/claude-fable-5:high
   vision: openai-codex/gpt-5.6-terra
   smol: openai-codex/gpt-5.6-luna
   task: openai-codex/gpt-5.6-terra
@@ -82,9 +82,10 @@ retry:
       - openai-codex/gpt-5.6-sol
       - openai-codex/gpt-5.4
   usageAwareFallback: true
-  usageReservePct: 10
+  usageReservePct: 20
   usageReservePolicy: auto
-  # usage-aware fallback（quota 残 10% で sol へ退避）は modelFallback と
+  # usage-aware fallback（quota 残 20% で sol へ退避。10→20 は 2026-08-16、
+  # Anthropic 枠 87% を1セッションで消費した日の対策）は modelFallback と
   # usageAwareFallback の両方が true でないと動かない。false だと quota
   # 枯渇時に停止する（2026-08-15）。fallback 先は上の chains のみ。
   modelFallback: true
