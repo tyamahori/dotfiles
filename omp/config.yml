@@ -35,6 +35,8 @@ modelRoles:
   # 明示的に Codex へ（2026-08-15 トークン節約）
   plan: openai-codex/gpt-5.6-terra
   slow: openai-codex/gpt-5.6-sol
+  # advisor/watchdog系もCodex枠へ（2026-08-14トークン節約）
+  advisor: openai-codex/gpt-5.6-terra
 # サブエージェントを Fable に落とさないための明示ルーティング（2026-08-15）。
 # 経緯: modelRoles 未整備時代に scout が親モデル継承で Fable 実行（68 req / $26）。
 # bundled scout/librarian は frontmatter が @smol を解決するが、role 構成の
