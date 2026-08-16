@@ -1,332 +1,357 @@
 {
-    "cleanupPeriodDays": 365,
-    "permissions": {
-        "allow": [
-            "Bash(herdr *)",
-            "Bash(awk *)",
-            "Bash(cat *)",
-            "Bash(cd *)",
-            "Bash(chmod +x *)",
-            "Bash(command -v *)",
-            "Bash(diff *)",
-            "Bash(dscacheutil -q host -a name *)",
-            "Bash(echo *)",
-            "Bash(env)",
-            "Bash(jq *)",
-            "Bash(shellcheck *)",
-            "Bash(uv run *)",
-            "Bash(git add *)",
-            "Bash(git branch *)",
-            "Bash(git check-ignore *)",
-            "Bash(git checkout *)",
-            "Bash(git commit *)",
-            "Bash(git diff *)",
-            "Bash(git fetch *)",
-            "Bash(git log *)",
-            "Bash(git ls-remote *)",
-            "Bash(git ls-tree *)",
-            "Bash(git merge --ff-only *)",
-            "Bash(git merge-base *)",
-            "Bash(git pull *)",
-            "Bash(git push origin *)",
-            "Bash(git remote *)",
-            "Bash(git rev-list *)",
-            "Bash(git rev-parse *)",
-            "Bash(git show *)",
-            "Bash(git stash *)",
-            "Bash(git status *)",
-            "Bash(git switch *)",
-            "Bash(git worktree list)",
-            "Bash(git worktree add *)",
-            "Bash(git worktree remove *)",
-            "Bash(git -C /private/tmp/*)",
-            "Bash(GIT_EDITOR=true git rebase --continue)",
-            "Bash(gh api *)",
-            "Bash(gh issue *)",
-            "Bash(gh label *)",
-            "Bash(gh pr *)",
-            "Bash(gh repo *)",
-            "Bash(gh run *)",
-            "Bash(claude mcp *)",
-            "Bash(codex exec *)",
-            "Bash(docker compose *)",
-            "Bash(docker context *)",
-            "Bash(docker exec *)",
-            "Bash(docker info *)",
-            "Bash(docker restart *)",
-            "Bash(docker volume *)",
-            "Bash(bash ~/.agents/skills/agmsg/scripts/*)",
-            "Bash(~/.agents/skills/agmsg/scripts/*)",
-            "Bash(~/dotfiles/scripts/agmsg-pair)",
-            "Bash(~/dotfiles/scripts/herdr-spawn-pane *)",
-            "Read(~/.config/**)",
-            "Read(~/.agents/skills/**)",
-            "Read(~/dotfiles/**)",
-            "WebSearch",
-            "WebFetch(domain:github.com)",
-            "WebFetch(domain:claude.ai)",
-            "WebFetch(domain:pnpm.io)",
-            "WebFetch(domain:qiita.com)",
-            "WebFetch(domain:devblogs.microsoft.com)",
-            "Skill(artifact-design)",
-            "Skill(update-config)",
-            "mcp__claude-in-chrome__tabs_context_mcp"
-        ],
-        "defaultMode": "auto"
-    },
-    "model": "claude-fable-5",
-    "skillOverrides": {
-        "freee-api-skill": "off",
-        "japanese-tech-writing": "off",
-        "orbstack-dev": "off"
-    },
-    "hooks": {
-        "UserPromptSubmit": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "\"$HOME/dotfiles/scripts/herdr-title\" claude",
-                        "timeout": 10
-                    }
-                ]
-            },
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
-                        "timeout": 10
-                    }
-                ]
-            }
-        ],
-        "Stop": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "\"$HOME/dotfiles/claude/hooks/herdr-notify.sh\"",
-                        "timeout": 10
-                    }
-                ]
-            },
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
-                        "timeout": 10
-                    }
-                ]
-            }
-        ],
-        "StopFailure": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
-                        "timeout": 10
-                    }
-                ]
-            }
-        ],
-        "PreToolUse": [
-            {
-                "matcher": "Bash",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "\"$HOME/dotfiles/claude/hooks/deny-bare-python.sh\"",
-                        "timeout": 10
-                    }
-                ]
-            },
-            {
-                "matcher": "*",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
-                        "timeout": 10
-                    }
-                ]
-            }
-        ],
-        "PostToolUse": [
-            {
-                "matcher": "*",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
-                        "timeout": 10
-                    }
-                ]
-            }
-        ],
-        "PostToolUseFailure": [
-            {
-                "matcher": "*",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
-                        "timeout": 10
-                    }
-                ]
-            }
-        ],
-        "PermissionRequest": [
-            {
-                "matcher": "*",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
-                        "timeout": 10
-                    }
-                ]
-            }
-        ],
-        "Notification": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "\"$HOME/dotfiles/claude/hooks/herdr-notify.sh\"",
-                        "timeout": 10
-                    }
-                ]
-            }
-        ],
-        "SubagentStart": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "\"$HOME/dotfiles/claude/hooks/herdr-subagents.sh\"",
-                        "timeout": 10
-                    }
-                ]
-            },
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
-                        "timeout": 10
-                    }
-                ]
-            }
-        ],
-        "SubagentStop": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "\"$HOME/dotfiles/claude/hooks/herdr-subagents.sh\"",
-                        "timeout": 10
-                    }
-                ]
-            },
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
-                        "timeout": 10
-                    }
-                ]
-            }
-        ],
-        "TeammateIdle": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
-                        "timeout": 10
-                    }
-                ]
-            }
-        ],
-        "SessionStart": [
-            {
-                "matcher": "*",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "bash \"$HOME/.claude/hooks/herdr-agent-state.sh\" session",
-                        "timeout": 10
-                    }
-                ]
-            },
-            {
-                "matcher": "",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "\"$HOME/.jbcontext/bin/jbcontext_binary\" index --silent",
-                        "async": true
-                    }
-                ]
-            }
-        ],
-        "SessionEnd": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "\"$HOME/dotfiles/claude/hooks/herdr-subagents.sh\"",
-                        "timeout": 10
-                    }
-                ]
-            },
-            {
-                "matcher": "",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "\"$HOME/.jbcontext/bin/jbcontext_binary\" index --silent",
-                        "async": true
-                    }
-                ]
-            }
+  "cleanupPeriodDays": 365,
+  "permissions": {
+    "allow": [
+      "Bash(herdr *)",
+      "Bash(awk *)",
+      "Bash(cat *)",
+      "Bash(cd *)",
+      "Bash(command -v *)",
+      "Bash(diff *)",
+      "Bash(dscacheutil -q host -a name *)",
+      "Bash(echo *)",
+      "Bash(jq *)",
+      "Bash(shellcheck *)",
+      "Bash(uv run *)",
+      "Bash(git add *)",
+      "Bash(git branch *)",
+      "Bash(git check-ignore *)",
+      "Bash(git checkout *)",
+      "Bash(git commit *)",
+      "Bash(git diff *)",
+      "Bash(git fetch *)",
+      "Bash(git log *)",
+      "Bash(git ls-remote *)",
+      "Bash(git ls-tree *)",
+      "Bash(git merge --ff-only *)",
+      "Bash(git merge-base *)",
+      "Bash(git pull *)",
+      "Bash(git push origin *)",
+      "Bash(git remote *)",
+      "Bash(git rev-list *)",
+      "Bash(git rev-parse *)",
+      "Bash(git show *)",
+      "Bash(git stash *)",
+      "Bash(git status *)",
+      "Bash(git switch *)",
+      "Bash(git worktree list)",
+      "Bash(git worktree add *)",
+      "Bash(git worktree remove *)",
+      "Bash(git -C /private/tmp/*)",
+      "Bash(GIT_EDITOR=true git rebase --continue)",
+      "Bash(gh api *)",
+      "Bash(gh issue *)",
+      "Bash(gh label *)",
+      "Bash(gh pr *)",
+      "Bash(gh repo *)",
+      "Bash(gh run *)",
+      "Bash(claude mcp *)",
+      "Bash(codex exec *)",
+      "Bash(docker compose *)",
+      "Bash(docker context *)",
+      "Bash(docker exec *)",
+      "Bash(docker info *)",
+      "Bash(docker restart *)",
+      "Bash(docker volume *)",
+      "Bash(bash ~/.agents/skills/agmsg/scripts/*)",
+      "Bash(~/.agents/skills/agmsg/scripts/*)",
+      "Bash(~/dotfiles/scripts/agmsg-pair)",
+      "Bash(~/dotfiles/scripts/herdr-spawn-pane *)",
+      "Read(~/.config/**)",
+      "Read(~/.agents/skills/**)",
+      "Read(~/dotfiles/**)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:claude.ai)",
+      "WebFetch(domain:pnpm.io)",
+      "WebFetch(domain:qiita.com)",
+      "WebFetch(domain:devblogs.microsoft.com)",
+      "Skill(artifact-design)",
+      "Skill(update-config)",
+      "mcp__claude-in-chrome__tabs_context_mcp"
+    ],
+    "defaultMode": "auto"
+  },
+  "model": "claude-fable-5",
+  "skillOverrides": {
+    "freee-api-skill": "off",
+    "japanese-tech-writing": "off",
+    "orbstack-dev": "off"
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/scripts/herdr-title\" claude",
+            "timeout": 10
+          }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/claude/hooks/herdr-notify.sh\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/claude/hooks/deny-bare-python.sh\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/claude/hooks/herdr-notify.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/claude/hooks/herdr-subagents.sh\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/claude/hooks/herdr-subagents.sh\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "TeammateIdle": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$HOME/.claude/hooks/herdr-agent-state.sh\" session",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.jbcontext/bin/jbcontext_binary\" index --silent",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/claude/hooks/herdr-subagents.sh\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.jbcontext/bin/jbcontext_binary\" index --silent",
+            "async": true
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "npx -y ccusage statusline",
+    "padding": 0
+  },
+  "enabledPlugins": {
+    "phpstorm-plugin@phpstorm-marketplace": true,
+    "warp@claude-code-warp": true,
+    "claude-md-management@claude-plugins-official": true,
+    "reviewable-html-workbench@reviewable-html-workbench-local": true
+  },
+  "extraKnownMarketplaces": {
+    "phpstorm-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "jetbrains/phpstorm-claude-marketplace"
+      }
     },
-    "statusLine": {
-        "type": "command",
-        "command": "npx -y ccusage statusline",
-        "padding": 0
+    "claude-code-warp": {
+      "source": {
+        "source": "github",
+        "repo": "warpdotdev/claude-code-warp"
+      }
     },
-    "enabledPlugins": {
-        "phpstorm-plugin@phpstorm-marketplace": true,
-        "warp@claude-code-warp": true,
-        "claude-md-management@claude-plugins-official": true,
-        "reviewable-html-workbench@reviewable-html-workbench-local": true
-    },
-    "extraKnownMarketplaces": {
-        "phpstorm-marketplace": {
-            "source": {
-                "source": "github",
-                "repo": "jetbrains/phpstorm-claude-marketplace"
-            }
-        },
-        "claude-code-warp": {
-            "source": {
-                "source": "github",
-                "repo": "warpdotdev/claude-code-warp"
-            }
-        },
-        "reviewable-html-workbench-local": {
-            "source": {
-                "source": "github",
-                "repo": "u-ichi/reviewable-html-workbench"
-            }
-        }
-    },
-    "switchModelsOnFlag": false,
-    "skipAutoPermissionPrompt": true
+    "reviewable-html-workbench-local": {
+      "source": {
+        "source": "github",
+        "repo": "u-ichi/reviewable-html-workbench"
+      }
+    }
+  },
+  "switchModelsOnFlag": false,
+  "skipAutoPermissionPrompt": true,
+  "autoMode": {
+    "environment": [
+      "### Org-wide",
+      "**Organization**: None configured",
+      "**Cloud provider(s)**: None configured",
+      "**Repository visibility**: assume private unless the remote host and repo name indicate otherwise, or a visibility check in the transcript shows public — could not be queried via gh for this repo (no remotes configured)",
+      "**Internal sharing / snippet hosting**: None configured — treat public paste/gist services as outside the trust boundary",
+      "**Secrets management**: None configured",
+      "**Default / protected branches**: unknown — no remotes configured, default branch unset, and gh visibility check not queryable",
+      "**CI/CD deploy targets**: None configured",
+      "**Network posture**: None configured",
+      "**Source control**: The trusted repo and its remote(s) only (no additional orgs configured) — this repo currently has no git remotes configured",
+      "**Trusted internal domains**: None configured",
+      "**Trusted cloud buckets**: None configured",
+      "**Key internal services**: None configured",
+      "**Internal package registry**: None configured",
+      "**Sensitive data locations & audiences**: any file or store holding personal data, confidential business data, credentials, regulated data, or similarly sensitive material; preserve exact handles when known and share only with audiences cleared at the [named+specifics] bar",
+      "**Data retention / declassification**: None configured",
+      "**Sensitive remote targets**: any namespace, host, or container whose name carries `prod` or `production` as a whole word or name segment (hyphen/underscore/dot-delimited — e.g. matches `prod-db`, not `producer`)",
+      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic",
+      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries `prod` or `production` as a whole word or name segment",
+      "### User-specific",
+      "**Primary use of Claude Code**: software development",
+      "**Trusted repo**: The git repository the agent started in (`/Users/kazuki.tamahori`), its working directory — it has no tracked files and no configured remotes, so there is no remote to scope trust to",
+      "**Org-specific CLIs**: None configured — `herdr`, `ax`, `jbcontext`, `codex`, `devbox`, `bee`, `omp` appear frequently in shell/transcript history but no org affiliation was found for them"
+    ]
+  }
 }
