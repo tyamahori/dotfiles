@@ -128,7 +128,10 @@ quota, half of it compaction churn. Three rules, for every agent CLI:
 
 - **Don't resume sessions across days.** A resumed long session re-reads
   its full context every turn. Close the day with a handoff note in the
-  project's docs; start the next day fresh from that note.
+  project's docs; start the next day fresh from that note. On omp,
+  `/handoff [focus]` generates the note and switches to a fresh session in
+  one step — prefer it over leaving the session open; use `/context` to
+  watch the autocompact buffer and time the switch.
 - **Repeated auto-compaction means stop now.** Once a session compacts
   more than a couple of times, every turn rewrites the entire context as
   cache writes. Hand off to a new session instead of pushing through.
