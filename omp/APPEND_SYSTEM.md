@@ -19,6 +19,3 @@ session; Codex CLI/Desktop shares the OpenAI pool.
   subagents — their configured models bill the OpenAI pool or run locally.
 - Cross-review of claude-authored work goes to a Codex-family reviewer,
   never Claude Code: same pool twice, and same-family self-review.
-- Prefer a fresh session with a handoff file over resuming a long-lived
-  session across days. A resumed mega-session pays full-context cache
-  reads and re-writes on every turn; hand off, then start clean.
