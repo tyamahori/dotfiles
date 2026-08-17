@@ -120,6 +120,22 @@ Validate at system boundaries — user input, external APIs — and trust
 internal code and framework guarantees in between. Prefer changing the
 code over adding a feature flag or a compatibility shim.
 
+## Session hygiene under subscription limits
+
+Subscription quota is spent on context re-reads, not output. Measured
+2026-08-16: one resumed session consumed 64% of a week's Anthropic
+quota, half of it compaction churn. Three rules, for every agent CLI:
+
+- **Don't resume sessions across days.** A resumed long session re-reads
+  its full context every turn. Close the day with a handoff note in the
+  project's docs; start the next day fresh from that note.
+- **Repeated auto-compaction means stop now.** Once a session compacts
+  more than a couple of times, every turn rewrites the entire context as
+  cache writes. Hand off to a new session instead of pushing through.
+- **Pass bulky material by file path, not inline.** Source texts, scraped
+  pages, and long drafts round-tripped in conversation are re-read on
+  every subsequent turn; write them to a file and reference the path.
+
 ## Japanese writing
 
 Japanese prose the user reads as a document — docs, reports, minutes,
