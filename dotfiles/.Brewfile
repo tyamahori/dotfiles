@@ -4,6 +4,10 @@ brew "terminal-notifier"
 brew "herdr"
 brew "sleepwatcher"
 brew "yusukebe/tap/ax"
+brew "can1357/tap/omp"
+brew "ollama"
+brew "shellcheck"
+brew "shfmt"
 cask "azookey"
 cask "1password"
 cask "1password-cli"
@@ -60,11 +64,13 @@ cask "microsoft-edge"
 cask "microsoft-excel"
 cask "microsoft-powerpoint"
 cask "microsoft-word"
+cask "grok-build"
 mas "AudioSwitcher", id: 561712678
 mas "GarageBand", id: 682658836
 mas "iMovie", id: 408981434
 mas "Keynote", id: 409183694
 mas "LINE", id: 539883307
+mas "MARKETSPEED", id: 946680495
 mas "Numbers", id: 409203825
 mas "Pages", id: 409201541
 mas "Xcode", id: 497799835
