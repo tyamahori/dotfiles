@@ -58,6 +58,11 @@ prewalk:
 # strategy は既定の snapcompact（アーカイブ型・keepRecent 20K）のまま。
 compaction:
   thresholdTokens: 120000  # 160K から追加圧縮（2026-08-15、Fable 週次枠 82% 消費時点）
+# セッションを跨ぐ記憶(recall/retain)。pi-session-recall 相当の標準機能だが
+# 既定 off のため呼び出し実績 0 回で眠っていた(2026-08-18 実測)。継続案件
+# (funabashidev、日記)で「先週決めたこと」を引けるよう local で試行開始。
+memory:
+  backend: local
 # omp セッションで一度も読まれていないドメイン外スキルを除外して
 # 毎リクエストのプロンプトから落とす（Claude Code 側には影響しない）。
 # 必要になったら該当行を消すだけで戻る。
