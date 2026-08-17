@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.tyamahori.agent-usage-weekly</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/tyamahori/dotfiles/scripts/agent-usage-weekly</string>
+	</array>
+	<!-- weekly: Monday 09:30; launchd runs a missed interval once on wake,
+	     so a sleeping Mac only delays it -->
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Weekday</key><integer>1</integer>
+		<key>Hour</key><integer>9</integer>
+		<key>Minute</key><integer>30</integer>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>/Users/tyamahori/.local/state/agent-usage/launchd.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/tyamahori/.local/state/agent-usage/launchd.log</string>
+</dict>
+</plist>

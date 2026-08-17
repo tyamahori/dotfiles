@@ -9,12 +9,14 @@ usage: agent-usage [--days N] [--project PATH | --all] [--by-session]
 
 既定はカレントディレクトリのプロジェクト。--all で全プロジェクト横断。
 omp 側はコンパクション回数と、コンパクション起因の再キャッシュ費用
-(cacheWrite>50k の応答の合計コスト)を出し、費用の50%を超えたら
-セッション交代を推奨する警告を出す。
+(cacheWrite>50k の応答の合計コスト)を出し、費用の25%を超えたら
+セッション交代を推奨する警告を出す。--notify は集計結果を macOS 通知にも
+出す(launchd/com.tyamahori.agent-usage-weekly.plist が週次で使う)。
 """
 
 import argparse
 import json
+import subprocess
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -22,6 +24,7 @@ from pathlib import Path
 CLAUDE_ROOT = Path.home() / ".claude/projects"
 OMP_ROOT = Path.home() / ".omp/agent/sessions"
 ACTIVE_WINDOW = timedelta(minutes=15)
+CHURN_WARN = 0.25  # 8/16のchurn 50%事件後、14%まで改善した実測に合わせ早期警戒線へ
 
 
 def claude_dirs(project: Path | None) -> list[Path]:
@@ -196,6 +199,7 @@ def main() -> None:
     parser.add_argument("--all", action="store_true", help="全プロジェクトを横断集計する")
     parser.add_argument("--by-session", action="store_true", help="Claude Code のセッション別内訳も出す")
     parser.add_argument("--top", type=int, default=5, help="内訳の表示件数")
+    parser.add_argument("--notify", action="store_true", help="集計結果を macOS 通知に出す(launchd 用)")
     args = parser.parse_args()
 
     project = None if args.all else args.project.resolve()
@@ -222,10 +226,27 @@ def main() -> None:
                 f"{model}\t{row['calls']}\t{row['cacheRead']}\t{row['cacheWrite']}"
                 f"\t{row['output']}\t{row['cost']:.2f}"
             )
-        if total_cost > 0 and omp["churn_cost"] / total_cost > 0.5:
+        if total_cost > 0 and omp["churn_cost"] / total_cost > CHURN_WARN:
             print(
                 f"警告: コンパクション起因の再キャッシュが ${omp['churn_cost']:.2f}"
                 f" ({omp['churn_cost'] / total_cost:.0%}) — セッション交代を推奨"
+            )
+        if args.notify:
+            churn = omp["churn_cost"] / total_cost if total_cost else 0.0
+            body = (
+                f"omp 過去{args.days}日: ${total_cost:.2f} / "
+                f"compaction {omp['compactions']}回 / churn {churn:.0%}"
+            )
+            if churn > CHURN_WARN:
+                body = "警告: セッション交代を推奨 — " + body
+            subprocess.run(
+                [
+                    "osascript",
+                    "-e",
+                    f"display notification {json.dumps(body, ensure_ascii=False)}"
+                    f" with title {json.dumps('agent-usage 週次', ensure_ascii=False)}",
+                ],
+                check=False,
             )
         if args.all and len(omp["per_project"]) > 1:
             print("\nproject\tcost($)")
