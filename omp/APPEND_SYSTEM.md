@@ -19,3 +19,12 @@ session; Codex CLI/Desktop shares the OpenAI pool.
   subagents — their configured models bill the OpenAI pool or run locally.
 - Cross-review of claude-authored work goes to a Codex-family reviewer,
   never Claude Code: same pool twice, and same-family self-review.
+
+# Data work goes to the eval kernel
+
+Multi-step data processing — JSON reshaping, ad-hoc aggregation, anything
+beyond one binary or a short pipeline — runs in the `eval` tool's persistent
+Python kernel (`$` prefix in the prompt), not chained bash calls. Kernel
+state survives across cells, so a failed step is fixed and re-run alone
+instead of re-piping from scratch. (Measured 2026-08-18: 789 bash calls vs
+36 eval, with a 6% bash error rate.)
