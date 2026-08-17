@@ -7,6 +7,9 @@ set -euo pipefail
 # and npm-generated, so it is not symlinked like omp/config.yml; this script
 # reproduces it instead. Idempotent; safe to re-run.
 #
+# After installing, applies omp/patches/<package>.patch to each package for
+# local fixes that upstream/omp haven't shipped yet (see patch headers).
+#
 # Selection is voidwarriorchan's pi extension list (2026-08), filtered
 # against omp built-ins. Deliberately NOT installed because omp already
 # bundles the feature:
@@ -47,6 +50,28 @@ for plugin in "${plugins[@]}"; do
 		echo "omp-plugins: $plugin already installed" >&2
 	else
 		omp plugin install "$plugin"
+	fi
+done
+
+# Apply local compatibility patches (omp/patches/<package>.patch) on top of the
+# installed packages. Idempotent: skips when already applied; warns when the
+# installed version has drifted from the one the patch was generated against.
+patch_dir="$(cd "$(dirname "$0")/.." && pwd)/omp/patches"
+for patch_file in "$patch_dir"/*.patch; do
+	[ -e "$patch_file" ] || continue
+	package="$(basename "$patch_file" .patch)"
+	package_dir="$HOME/.omp/plugins/node_modules/$package"
+	if [ ! -d "$package_dir" ]; then
+		echo "omp-plugins: $package not installed; skipping $patch_file" >&2
+		continue
+	fi
+	if patch -R -p1 -s -f --dry-run -d "$package_dir" <"$patch_file" >/dev/null 2>&1; then
+		echo "omp-plugins: $package patch already applied" >&2
+	elif patch -p1 -s -f --dry-run -d "$package_dir" <"$patch_file" >/dev/null 2>&1; then
+		patch -p1 -s -d "$package_dir" <"$patch_file"
+		echo "omp-plugins: patched $package" >&2
+	else
+		echo "omp-plugins: WARNING: $patch_file does not apply to installed $package (version drift?); regenerate it" >&2
 	fi
 done
 

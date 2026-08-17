@@ -1,0 +1,120 @@
+pi-context-view 0.4.2 — omp compatibility patch
+
+omp (Oh My Pi) does not implement two pi extension APIs this plugin relies on:
+  - ctx.getSystemPromptOptions() is absent (before_agent_start passes undefined)
+  - ctx.ui.setWorkingVisible() is absent
+Without this patch every turn logs an extension error and /context crashes.
+Guard both; measurement degrades gracefully (context files/skills fold into
+Base Prompt, silent probe falls back after timeout). Applied idempotently by
+scripts/omp-plugins. Regenerate against the pristine npm tarball when the
+plugin version changes; drop it once omp implements the APIs upstream.
+
+--- a/src/capture.ts
++++ b/src/capture.ts
+@@ -46,7 +46,7 @@
+ /** Inputs for an on-demand pi-native prompt/tool snapshot. */
+ export interface NativeSnapshotInput {
+ 	systemPrompt: string;
+-	options: BuildSystemPromptOptions;
++	options: BuildSystemPromptOptions | undefined;
+ 	allTools: readonly ToolInfo[];
+ 	activeToolNames: readonly string[];
+ 	capturedAt?: Date;
+@@ -99,12 +99,16 @@
+ 		return this.initialSnapshot;
+ 	}
+ 
+-	/** Own the structured prompt inputs from `before_agent_start`; no-op once frozen. */
+-	public prepare(options: BuildSystemPromptOptions): void {
++	/**
++	 * Own the structured prompt inputs from `before_agent_start`; no-op once frozen.
++	 * omp (Oh My Pi) builds its system prompt outside pi's buildSystemPrompt and
++	 * passes `undefined` here — tolerate it (local patch, not upstream).
++	 */
++	public prepare(options: BuildSystemPromptOptions | undefined): void {
+ 		if (this.initialSnapshot !== undefined) return;
+ 		this.pendingPreparation = {
+ 			promptOptions: copyPromptOptions(options),
+-			toolSnippets: options.toolSnippets === undefined ? undefined : { ...options.toolSnippets },
++			toolSnippets: options?.toolSnippets === undefined ? undefined : { ...options.toolSnippets },
+ 		};
+ 	}
+ 
+@@ -318,7 +322,7 @@
+ /** Build a view-local pi-native snapshot without freezing the main capture state. */
+ export function buildNativeSnapshot(input: NativeSnapshotInput): InitialSnapshot {
+ 	const options = copyPromptOptions(input.options);
+-	const tools = captureActiveTools(input.allTools, input.activeToolNames, input.options);
++	const tools = captureActiveTools(input.allTools, input.activeToolNames, input.options ?? {});
+ 	const items = analyzeSystemPrompt(input.systemPrompt, options, tools);
+ 	return buildSnapshot(items, "synthetic-probe", input.capturedAt ?? new Date());
+ }
+@@ -339,8 +343,15 @@
+ 	return buildSnapshot(items, snapshot.origin, snapshot.capturedAt);
+ }
+ 
+-/** Copy the prompt-options slice used by measurement, without shared nested references. */
+-export function copyPromptOptions(options: BuildSystemPromptOptions): PromptOptionsSlice {
++/**
++ * Copy the prompt-options slice used by measurement, without shared nested references.
++ * `undefined` (omp's getSystemPromptOptions) degrades to a minimal slice: context
++ * files and skills are then measured as part of the base prompt.
++ */
++export function copyPromptOptions(options: BuildSystemPromptOptions | undefined): PromptOptionsSlice {
++	if (options === undefined) {
++		return { cwd: process.cwd(), homeDir: process.env.HOME };
++	}
+ 	return {
+ 		cwd: options.cwd,
+ 		homeDir: process.env.HOME,
+--- a/src/command.ts
++++ b/src/command.ts
+@@ -76,7 +76,8 @@
+ 
+ 	const attempt = probe.start();
+ 	if (attempt.started) {
+-		context.ui.setWorkingVisible(false);
++		// omp's TUI context lacks setWorkingVisible; optional-call keeps the probe usable.
++		context.ui.setWorkingVisible?.(false);
+ 		try {
+ 			pi.sendUserMessage("");
+ 		} catch (error) {
+@@ -92,7 +93,7 @@
+ 		const reason = outcome.status === "failed" ? outcome.reason : "Silent probe did not capture Initial.";
+ 		return createFallback(pi, context, reason);
+ 	} finally {
+-		if (attempt.started) context.ui.setWorkingVisible(true);
++		if (attempt.started) context.ui.setWorkingVisible?.(true);
+ 	}
+ }
+ 
+@@ -131,7 +132,8 @@
+ 	return {
+ 		snapshot: buildNativeSnapshot({
+ 			systemPrompt: context.getSystemPrompt(),
+-			options: context.getSystemPromptOptions(),
++			// omp's command context has no getSystemPromptOptions; degrade to undefined.
++			options: context.getSystemPromptOptions?.(),
+ 			allTools: pi.getAllTools(),
+ 			activeToolNames: pi.getActiveTools(),
+ 		}),
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -109,7 +109,7 @@
+ 		// Auto-compaction failures have no session_compact event.
+ 		compaction.finish();
+ 		if (!probe.isCurrentRun) return;
+-		if (ctx.mode === "tui") ctx.ui.setWorkingVisible(true);
++		if (ctx.mode === "tui") ctx.ui.setWorkingVisible?.(true);
+ 		probe.settle(capture.snapshot !== undefined);
+ 		persistProbeIdentities();
+ 	});
+@@ -146,7 +146,7 @@
+ 			}
+ 			const current = buildNativeSnapshot({
+ 				systemPrompt: ctx.getSystemPrompt(),
+-				options: ctx.getSystemPromptOptions(),
++				options: ctx.getSystemPromptOptions?.(),
+ 				allTools: pi.getAllTools(),
+ 				activeToolNames: pi.getActiveTools(),
+ 			});
