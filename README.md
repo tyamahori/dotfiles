@@ -17,6 +17,7 @@ cd ~/project/dotfiles
 3. `scripts/apps` — `brew bundle --global` from `~/.Brewfile`
 4. `scripts/devbox` — install global devbox packages (php, go, direnv, bun, git, nodejs, mas, httpie, cmake, curl, task, uv)
 5. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`
+6. `scripts/omp-plugins` — install the declared omp (Oh My Pi) plugin set (`omp plugin install`); the list and the skipped-as-built-in rationale live in the script
 
 ## Agent instructions
 

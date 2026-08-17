@@ -1,0 +1,57 @@
+#!/bin/bash
+set -euo pipefail
+
+# omp (Oh My Pi) plugins — declarative install of pi extensions.
+#
+# Plugin state (~/.omp/plugins: package.json + node_modules) is machine-local
+# and npm-generated, so it is not symlinked like omp/config.yml; this script
+# reproduces it instead. Idempotent; safe to re-run.
+#
+# Selection is voidwarriorchan's pi extension list (2026-08), filtered
+# against omp built-ins. Deliberately NOT installed because omp already
+# bundles the feature:
+#   pi-web-access        -> read(URL) / web_search / GitHub integration
+#   pi-session-recall    -> memory + recall tools
+#   pi-lens              -> lsp tool
+#   pi-vcc               -> snapcompact compaction (tuned in omp/config.yml)
+#   pi-undo              -> rewind / checkpoint tools
+#   pi-btw               -> /btw
+#   pi-transcribe        -> built-in STT (hold Space)
+#   pi-codex-image-gen   -> generate_image tool
+#   rpiv-ask-user-question -> ask tool
+#   pi-review            -> reviewer agent; cross-review goes to Codex anyway
+
+plugins=(
+	pi-context-view           # /context — context usage breakdown incl. hidden parts
+	pi-add-dir                # /add-dir /dirs — pull external dirs' AGENTS.md/skills in
+	@plannotator/pi-extension # /plannotator-* — annotate plans, messages, code reviews
+)
+
+# Broken on omp — uninstall if a machine still carries it.
+#   @ff-labs/pi-fff: its dynamic import("@ff-labs/fff-bun") fails inside the
+#   Bun-compiled omp binary ("FFF init failed"), leaving the extension dead
+#   weight. omp's own fuzzy completion + native grep/glob cover the feature.
+retired=(
+	@ff-labs/pi-fff
+)
+
+if ! command -v omp >/dev/null 2>&1; then
+	echo "omp-plugins: omp not found; run scripts/apps first (brew: can1357/tap/omp)" >&2
+	exit 1
+fi
+
+installed="$(omp plugin list --json | jq -r '.npm[].name')"
+
+for plugin in "${plugins[@]}"; do
+	if grep -qxF "$plugin" <<<"$installed"; then
+		echo "omp-plugins: $plugin already installed" >&2
+	else
+		omp plugin install "$plugin"
+	fi
+done
+
+for plugin in "${retired[@]}"; do
+	if grep -qxF "$plugin" <<<"$installed"; then
+		omp plugin uninstall "$plugin"
+	fi
+done
