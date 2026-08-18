@@ -58,6 +58,10 @@ alias brewup='sudo -v && brew update && brew upgrade --greedy && brew cleanup --
 omp() {
   command omp --allow-home "$@"
 }
+# omp-build: 非trivial実装を計画後にtask roleへ切り替えて実行する。
+omp-build() {
+  command omp --allow-home --prewalk --prewalk-into @task "$@"
+}
 # omp: マシンローカルのモデル設定オーバーレイ。ローカル LLM(ollama 等)を
 # 入れたマシンだけ ~/.omp/agent/config.local.yml を置くと、共有 config.yml に
 # deep-merge される(modelRoles の部分上書きが可能)。ファイルが無いのに

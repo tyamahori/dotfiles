@@ -1,4 +1,9 @@
 providers: 
+  # 小さな定型判断はローカル軽量モデルへ逃がし、リモート枠を温存する。
+  tinyModel: lfm2-350m
+  # 通常思考の自動振り分けもローカルで完結させる。
+  autoThinkingModel: lfm2-1.2b
+  autoThinkingMaxEffort: xhigh
   webSearchOrder: 
     - google
     - perplexity
@@ -44,6 +49,12 @@ modelRoles:
 # のため Codex へ。precedence: agentModelOverrides > frontmatter > 親モデル。
 # 注意: 稼働中セッションには効かない（設定は起動時スナップショット）。
 task:
+  # 委譲先モデルを可視化し、意図しない高コスト経路をすぐ検知する。
+  showResolvedModelBadge: true
+  # サブエージェントの再帰委譲を一段までに留める。
+  maxRecursionDepth: 1
+  # ツール利用の暴走前に早めの予算シグナルを出す。
+  softRequestBudget: 60
   agentModelOverrides:
     scout: "@smol"              # → gpt-5.6-luna（read-only 偵察は smol 階で十分）
     reviewer: "@task"           # → gpt-5.6-terra
@@ -56,6 +67,10 @@ task:
 # strategy は既定の snapcompact（アーカイブ型・keepRecent 20K）のまま。
 compaction:
   thresholdTokens: 120000  # 160K から追加圧縮（2026-08-15、Fable 週次枠 82% 消費時点）
+display:
+  # 利用量とキャッシュミスを常時表示し、プロンプトコストを追跡する。
+  showTokenUsage: true
+  cacheMissMarker: true
 # セッションを跨ぐ記憶。local backend は MEMORY.md / learned.md の起動時注入と
 # learn ツールのみで、recall/retain/reflect は使えない(それらは Hindsight/
 # Mnemopi backend 限定。omp://memory.md 2026-08-18 確認)。継続案件
@@ -98,6 +113,8 @@ retry:
   maxRetries: 4
   maxDelayMs: 60000
 symbolPreset: unicode
+# 思考の強度はモデル側に自動選択させ、固定指定による過剰推論を避ける。
+defaultThinkingLevel: auto
 # .ultrathink 等の magic keyword は未使用なのに毎ターン hidden notice が
 # 注入されるため無効化(2026-08-18、ベースライン 44K 削減策の一つ)
 magicKeywords:
