@@ -101,12 +101,16 @@ Prefer changing the code over adding a feature flag or compatibility shim.
 
 Subscription quota is spent on context re-reads, not output (measured
 2026-08-16: one resumed session consumed 64% of a week's Anthropic quota,
-half of it compaction churn). Four rules, for every agent CLI:
+half of it compaction churn). Five rules, for every agent CLI:
 
 - **Don't resume sessions across days.** Close the day with a handoff note
   in the project's docs; start the next day fresh from that note. On omp,
   `/handoff [focus]` generates the note and switches sessions in one step;
   use `/context` to watch the autocompact buffer and time the switch.
+- **Don't resume a large context after a long idle.** If a session is over
+  200k context and has been idle for more than an hour, write a handoff and
+  start fresh. (Measured 2026-08-19: a 2h17m same-day resume rewrote 239k
+  cache tokens, then reprocessed 3.07M context tokens over 10 turns.)
 - **Repeated auto-compaction means stop now.** More than a couple of
   compactions and every turn rewrites the entire context as cache writes —
   hand off to a new session instead of pushing through.
