@@ -1,6 +1,6 @@
 ---
 name: agent-collab
-description: Claude Code / Codex / Copilot CLI 間の協働手順。ヘッドレスワンショットの実コマンド、agmsg ペアセッションの全手順、メッセージテンプレ、役割別プレイブック、協働の不変条件（信頼境界・レビュアー分離・spawn/wake・go/no-go・指摘トリアージ）の正本を持つ。クロスレビューや第二意見を求められたとき、タスクをピアに渡すとき、[REVIEW-REQ] 等のタグ付きメッセージを受信したとき、herdr ペインからピアを起こすときに使用する。
+description: Claude Code / Codex / Copilot CLI 間の協働手順（ヘッドレスワンショット・agmsg ペアセッション）と不変条件（信頼境界・レビュアー分離・spawn/wake・go/no-go・指摘トリアージ）の正本。クロスレビューや第二意見を求められたとき、タスクをピアに渡すとき、[REVIEW-REQ] 等のタグ付きメッセージを受信したとき、herdr ペインからピアを起こすときに使用する。
 ---
 
 # agent-collab

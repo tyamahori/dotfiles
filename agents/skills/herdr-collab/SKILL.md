@@ -1,6 +1,6 @@
 ---
 name: herdr-collab
-description: agmsg を使わないエージェント協働の口。同一マシンの herdr ペインにいる Claude Code / Codex / omp / Copilot 間で、メッセージ = リポ内ファイル、配送 = herdr の wait→prompt で往復する herdr-only プロトコルの正本。ピア起動 (spawn)・送信 (send)・一覧 (inbox)・片付け (despawn) のスクリプトを持つ。agmsg の identity 衝突（同一プロジェクトで同型セッションが並走する場合）を避けたいとき、omp をコーディネータに Claude と Codex を協働させるとき、herdr-only でのクロスレビューやタスク受け渡しを行うときに使う。agmsg を使う協働の正本は agent-collab。
+description: 同一マシンの herdr ペインにいる Claude Code / Codex / omp / Copilot 間で agmsg を使わず協働する herdr-only プロトコルの正本（spawn・send・inbox・despawn スクリプト付き）。agmsg の identity 衝突（同型セッションの並走）を避けたいとき、omp をコーディネータに Claude と Codex を協働させるとき、herdr-only のクロスレビューやタスク受け渡しに使う。agmsg を使う協働の正本は agent-collab。
 ---
 
 # herdr-collab

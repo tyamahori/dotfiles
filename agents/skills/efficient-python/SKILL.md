@@ -1,6 +1,6 @@
 ---
 name: efficient-python
-description: Token-efficient Python usage for coding agents on this machine — uv invocation forms (uv run / --with / uvx / PEP 723 scripts), when to prefer jq/shell/ax over Python and vice versa, one-shot style rules, and default libraries for throwaway scripts. Load BEFORE writing or running any Python: one-off analysis, inline heredocs, helper scripts, or scripts committed to repos and skills.
+description: Token-efficient Python usage on this machine — uv invocation forms (uv run / --with / uvx / PEP 723 scripts) and when to prefer jq/shell/ax over Python. Load BEFORE writing or running any Python — one-off analysis, inline heredocs, helper scripts, or scripts committed to repos and skills.
 ---
 
 # efficient-python
