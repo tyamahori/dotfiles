@@ -82,6 +82,23 @@ skills:
     - php-project-guide
     - upgrade-php
     - freee-api-skill
+    # 以下16件は直近14日の omp セッションで skill:// 参照ゼロ(2026-08-18 実測)
+    - adversarial-verification
+    - agmsg
+    - ax
+    - block-kit
+    - claude-md-improver
+    - cognitive-rhythm-writing
+    - copilot-preflight
+    - create-slack-app
+    - find-skills
+    - herdr-collab
+    - plan-preview
+    - pr-respond
+    - slack-cli
+    - slack-docs
+    - slack-search
+    - visual-html-renderer
 retry: 
   fallbackChains: 
     anthropic/*: 
