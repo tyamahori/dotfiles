@@ -40,11 +40,14 @@ echo "## 赤旗: Claude セッション"
 echo "# 基準: 日跨ぎ(days>1) / cache 書き込み>1M (context churn) / 20k 字超の user メッセージ (インライン貼り付け)"
 echo
 find "$HOME/.claude/projects" -name '*.jsonl' -newermt "$CUTOFF" 2>/dev/null | while IFS= read -r f; do
-	jq -rs --arg f "$(basename "$f" .jsonl)" '
+	jq -rs --arg f "$(basename "$f" .jsonl)" --arg cutoff "$CUTOFF" '
 		[.[] | select(.type=="assistant" and .message.usage)] as $a
-		| ([.[] | .timestamp // empty] | map(.[0:10]) | unique | length) as $days
+		| ([.[] | .timestamp // empty] | map(.[0:10])) as $ts
+		# mtime は resume や索引更新でずれるので、期間内のイベントがあるセッションだけ診る
+		| select(($ts | max // "") >= $cutoff)
+		| ($ts | unique | length) as $days
 		| ([$a[].message.usage.cache_creation_input_tokens // 0] | add // 0) as $cw
-		| ([.[] | select(.type=="user")
+		| ([.[] | select(.type=="user" and (.isMeta != true))
 			| .message.content
 			| if type=="string" then length
 			  elif type=="array" then ([.[]? | .text? // "" | length] | add // 0)
