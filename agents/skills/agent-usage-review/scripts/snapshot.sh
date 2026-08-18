@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# agent-usage-review の計測スナップショット。合計は ccusage、赤旗診断は raw JSONL。
+# agent-usage-review の計測スナップショット。合計は ccusage、警告フラグ診断は raw JSONL。
 # 出力は markdown 一枚。使い方: snapshot.sh [--days N]  (default 7)
 set -u
 
@@ -36,7 +36,7 @@ $CCUSAGE session --since "$SINCE" --json 2>/dev/null | jq -r '
 	| "\(.agent)\t\(.period)\tcacheR=\(.cacheReadTokens)\tcacheW=\(.cacheCreationTokens)\tout=\(.outputTokens)\t$\(.totalCost * 100 | round / 100)"'
 
 echo
-echo "## 赤旗: Claude セッション"
+echo "## 警告フラグ: Claude セッション"
 echo "# 基準: 日跨ぎ(days>1) / cache 書き込み>1M (context churn) / 20k 字超の user メッセージ (インライン貼り付け)"
 echo
 find "$HOME/.claude/projects" -name '*.jsonl' -newermt "$CUTOFF" 2>/dev/null | while IFS= read -r f; do
@@ -59,7 +59,7 @@ find "$HOME/.claude/projects" -name '*.jsonl' -newermt "$CUTOFF" 2>/dev/null | w
 done
 
 echo
-echo "## 赤旗: Codex セッション"
+echo "## 警告フラグ: Codex セッション"
 echo "# 基準: cache hit < 70% (input>100k) / 最終コンテキスト > 200k"
 echo
 find "$HOME/.codex/sessions" -name '*.jsonl' -newermt "$CUTOFF" 2>/dev/null | while IFS= read -r f; do
@@ -77,4 +77,4 @@ find "$HOME/.codex/sessions" -name '*.jsonl' -newermt "$CUTOFF" 2>/dev/null | wh
 done
 
 echo
-echo "(赤旗ゼロの節は空 = 問題なし)"
+echo "(警告フラグゼロの節は空 = 問題なし)"
