@@ -162,6 +162,15 @@ fi
 mkdir -p "$HOME/.config/herdr"
 ln -snfv "${REPO_ROOT}/herdr/config.toml" "$HOME/.config/herdr/config.toml"
 
+# herdr worktree-track plugin: follow same-named remote branches in new
+# worktrees. `plugin link` is idempotent; it needs a reachable herdr server,
+# so tolerate failure on machines where herdr isn't running yet.
+if command -v herdr >/dev/null 2>&1; then
+	herdr plugin link "${REPO_ROOT}/herdr/plugins/worktree-track" >/dev/null 2>&1 &&
+		echo "Linked herdr plugin worktree-track" >&2 ||
+		echo "herdr plugin link skipped (server not running?)" >&2
+fi
+
 # OMP (Oh My Pi) agent config. Only user-authored files are managed; state
 # (agent.db with credentials, sessions, history, logs) stays unmanaged in
 # ~/.omp. Legacy ~/.pi is not linked: OMP does not read ~/.pi/agent/extensions.
