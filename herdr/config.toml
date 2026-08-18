@@ -1,5 +1,11 @@
 onboarding = false
 
+# 新しい space（tab/pane も同様）を $HOME 起点で開く。
+# 既定の "follow" だと作成元 pane のディレクトリを引き継ぐため、
+# プロジェクト space から新 space を開くとそのプロジェクト直下になるのを避ける。
+[terminal]
+new_cwd = "home"
+
 [ui]
 agent_panel_sort = "priority"
 show_agent_labels_on_pane_borders = true
