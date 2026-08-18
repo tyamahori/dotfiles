@@ -1,8 +1,6 @@
 providers: 
   # 小さな定型判断はローカル軽量モデルへ逃がし、リモート枠を温存する。
   tinyModel: lfm2-350m
-  # 通常思考の自動振り分けもローカルで完結させる。
-  autoThinkingModel: lfm2-1.2b
   autoThinkingMaxEffort: xhigh
   webSearchOrder: 
     - google
