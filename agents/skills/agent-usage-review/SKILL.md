@@ -1,0 +1,90 @@
+---
+name: agent-usage-review
+description: Claude Code / Codex のセッション・トークン利用量を計測し、非効率パターン（context churn、日跨ぎ resume、低 cache hit、インライン長文貼り付け）を診断して、CLAUDE.md・config・hooks への修正を提案→承認→適用し、journal.md に記録する定期レビューサイクルの正本。「トークン利用量をチェックして」「usage review」「トークン消費を改善して」「利用量レビュー」と言われたときに使う。
+---
+
+# agent-usage-review
+
+Claude Code / Codex のトークン利用を「計測 → 診断 → 提案 → 承認 → 適用 → 記録」の
+1 サイクルで改善する。修正の着地先はこのマシンの規範ファイル
+（`~/dotfiles` の CLAUDE.md・config・hooks）なので、適用には必ずユーザー承認を挟む。
+
+このサイクルは skill 化以前に手動で 2 周回っている（journal.md 参照）。
+過去サイクルの計測値と適用済み修正が journal.md にあるので、**最初に読む**。
+同じ指摘を繰り返さないこと、前回修正の効果を今回の計測で検証することが目的。
+
+## 1. 計測
+
+```bash
+bash scripts/snapshot.sh --days 7
+```
+
+出力は markdown 一枚: 日次合計（モデル別）、コスト上位セッション、赤旗一覧。
+合計は [ccusage](https://github.com/ryoppippi/ccusage)（Claude/Codex/Grok/Qwen 対応）、
+赤旗は raw JSONL の集計。データソース:
+
+- Claude: `~/.claude/projects/**/*.jsonl` — assistant メッセージの `.message.usage`
+  （`cache_creation_input_tokens` = コンテキスト書き直し量、churn の代理指標）
+- Codex: `~/.codex/sessions/YYYY/MM/DD/*.jsonl` — `token_count` イベントの
+  `last_token_usage` を合計する。**`total_token_usage` はセッション内累積値なので
+  合計すると過大計上になる**。
+
+## 2. 診断
+
+赤旗と典型原因・修正の対応:
+
+| 赤旗 | 意味 | 典型修正 |
+|---|---|---|
+| `days>1` | 日跨ぎ resume。毎ターン全コンテキストを cache write し直す | セッション衛生ルールの徹底・handoff 手順の改善 |
+| `cacheW>1M` | context churn。compaction・長大セッション・巨大ファイルの再読込 | 早期 handoff、bulk はファイルパス渡し、read の offset/limit |
+| `big_user_msgs` | 20k 字超の user メッセージ = インライン貼り付け | `local://` / ファイルパス渡しの規範化 |
+| `hit<70%` | Codex の cache 効率低下。並列セッションやコンテキスト作り直し | セッション構成の見直し |
+| `final_ctx>200k` | コンテキスト肥大のまま完走 | 早期分割・サブエージェント委譲 |
+
+赤旗が出たセッションは JSONL を直接見て原因を特定する（どのプロジェクトか、
+何を貼り付けたか、churn がどのターンで起きたか）。数字だけで提案しない。
+
+コスト上位セッションも見る: 赤旗ゼロでも「同じ調査を複数セッションで重複」
+「ルーティング違反（機械的作業を高コストモデルで実行）」はここに出る。
+
+## 3. 提案
+
+修正案ごとに 3 点を明示し、影響度順に並べる:
+
+1. **影響度**: 推定削減量（トークン/週 または $/週）。計測値から見積もる。
+2. **根拠**: セッション ID と計測値。
+3. **着地先**: 下のマップから選ぶ。
+
+着地先マップ:
+
+| 修正の種類 | 着地先 |
+|---|---|
+| エージェントの行動規範 | `dotfiles/claude/CLAUDE.md`（全 CLI 共通に symlink 済み） |
+| 機械的な強制（deny 等） | `dotfiles/claude/hooks/`・settings.json の PreToolUse |
+| モデルルーティング・omp 挙動 | `dotfiles/omp/config.yml`・`APPEND_SYSTEM.md`・extensions |
+| 手順の正本化 | 既存 skill の更新、または新 skill |
+
+## 4. 承認
+
+提案を影響度順に提示し、**項目ごとに承認を取ってから**適用する。
+規範ファイルを無承認で書き換えない。却下された案も journal に一行残す
+（次サイクルで再提案しないため）。
+
+## 5. 適用
+
+CLAUDE.md への規範追加は既存スタイルに合わせ、計測値と日付を添える:
+`(measured YYYY-MM-DD: <数値と事実>)`。数値の裏付けがない規範は書かない。
+
+## 6. 記録
+
+journal.md の先頭にエントリを追記:
+
+```markdown
+## YYYY-MM-DD
+- 計測: <期間、合計、赤旗の要約>
+- 前回比: <前回適用した修正の効果。改善/悪化/判定不能>
+- 適用: <修正と着地先>
+- 却下: <案と理由>
+```
+
+前回比が「判定不能」の連続はサイクル間隔が短すぎるサイン。週 1 が目安。
