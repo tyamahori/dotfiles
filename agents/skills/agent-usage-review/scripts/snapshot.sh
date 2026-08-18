@@ -37,24 +37,38 @@ $CCUSAGE session --since "$SINCE" --json 2>/dev/null | jq -r '
 
 echo
 echo "## 警告フラグ: Claude セッション"
-echo "# 基準: 日跨ぎ(days>1) / cache 書き込み>1M (context churn) / 20k 字超の user メッセージ (インライン貼り付け)"
+echo "# 基準: 人間の入力が日跨ぎ(days>1) / cache 書き込み>1M / 20k 字超の人間入力 / 最終context>200k / 1時間超のidle後に200k超contextを再開"
 echo
 find "$HOME/.claude/projects" -name '*.jsonl' -newermt "$CUTOFF" 2>/dev/null | while IFS= read -r f; do
 	jq -rs --arg f "$(basename "$f" .jsonl)" --arg cutoff "$CUTOFF" '
-		[.[] | select(.type=="assistant" and .message.usage)] as $a
-		| ([.[] | .timestamp // empty] | map(.[0:10])) as $ts
-		# mtime は resume や索引更新でずれるので、期間内のイベントがあるセッションだけ診る
-		| select(($ts | max // "") >= $cutoff)
-		| ($ts | unique | length) as $days
+		def epoch: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+		def ctx: .message.usage
+			| ((.input_tokens // 0) + (.cache_read_input_tokens // 0) + (.cache_creation_input_tokens // 0));
+		. as $records
+		| [$records[] | select(.type=="assistant" and .message.usage
+			and ((.timestamp // "")[0:10] >= $cutoff))]
+			| unique_by(.message.id) | sort_by(.timestamp) as $a
+		| [$records[] | select(.type=="user"
+			and (.origin.kind=="human" or .promptSource=="typed")
+			and ((.timestamp // "")[0:10] >= $cutoff))] as $human
+		| select(($a | length) > 0)
+		| ([$human[].timestamp[0:10]] | unique | length) as $days
 		| ([$a[].message.usage.cache_creation_input_tokens // 0] | add // 0) as $cw
-		| ([.[] | select(.type=="user" and (.isMeta != true))
+		| ([$human[]
 			| .message.content
 			| if type=="string" then length
 			  elif type=="array" then ([.[]? | .text? // "" | length] | add // 0)
 			  else 0 end
 			| select(. > 20000)] | length) as $big
-		| select($days > 1 or $cw > 1000000 or $big > 0)
-		| "\($f)\tdays=\($days)\tcacheW=\($cw)\tbig_user_msgs=\($big)\tturns=\($a | length)"
+		| ($a[-1] | ctx) as $final
+		| ([range(1; ($a | length)) as $i
+			| select(
+				(($a[$i].timestamp | epoch) - ($a[$i - 1].timestamp | epoch)) > 3600
+				and ($a[$i] | ctx) > 200000
+				and ($a[$i].message.usage.cache_creation_input_tokens // 0) > 100000
+			)] | length) as $idle
+		| select($days > 1 or $cw > 1000000 or $big > 0 or $final > 200000 or $idle > 0)
+		| "\($f)\tdays=\($days)\tcacheW=\($cw)\tbig_user_msgs=\($big)\tturns=\($a | length)\tfinal_ctx=\($final)\tidle_resumes=\($idle)"
 	' "$f" 2>/dev/null
 done
 
@@ -63,8 +77,9 @@ echo "## 警告フラグ: Codex セッション"
 echo "# 基準: cache hit < 70% (input>100k) / 最終コンテキスト > 200k"
 echo
 find "$HOME/.codex/sessions" -name '*.jsonl' -newermt "$CUTOFF" 2>/dev/null | while IFS= read -r f; do
-	jq -rs --arg f "$(basename "$f" .jsonl)" '
-		[.[] | select(.type=="event_msg" and .payload.type=="token_count")
+	jq -rs --arg f "$(basename "$f" .jsonl)" --arg cutoff "$CUTOFF" '
+		[.[] | select(.type=="event_msg" and .payload.type=="token_count"
+			and ((.timestamp // "")[0:10] >= $cutoff))
 		 | .payload.info.last_token_usage | select(. != null)] as $t
 		| select(($t | length) > 0)
 		| ([$t[].input_tokens] | add) as $in

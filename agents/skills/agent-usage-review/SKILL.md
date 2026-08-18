@@ -38,14 +38,19 @@ bash scripts/snapshot.sh --days 7
 
 | 警告フラグ | 意味 | 典型修正 |
 |---|---|---|
-| `days>1` | 日跨ぎ resume。毎ターン全コンテキストを cache write し直す | セッション衛生ルールの徹底・handoff 手順の改善 |
+| `days>1` | 人間の typed prompt が日跨ぎ。毎ターン全コンテキストを cache write し直す | セッション衛生ルールの徹底・handoff 手順の改善 |
 | `cacheW>1M` | context churn。compaction・長大セッション・巨大ファイルの再読込 | 早期 handoff、bulk はファイルパス渡し、read の offset/limit |
-| `big_user_msgs` | 20k 字超の user メッセージ = インライン貼り付け | `local://` / ファイルパス渡しの規範化 |
+| `big_user_msgs` | 20k 字超の人間入力 = インライン貼り付け | `local://` / ファイルパス渡しの規範化 |
 | `hit<70%` | Codex の cache 効率低下。並列セッションやコンテキスト作り直し | セッション構成の見直し |
 | `final_ctx>200k` | コンテキスト肥大のまま完走 | 早期分割・サブエージェント委譲 |
+| `idle_resumes>0` | 1時間超の中断後、200k超のcontextを再開して100k超をcache write | handoffを残して新セッションで再開 |
 
 警告フラグが出たセッションは JSONL を直接見て原因を特定する（どのプロジェクトか、
 何を貼り付けたか、churn がどのターンで起きたか）。数字だけで提案しない。
+
+Claude の assistant レコードは1つの API message が content block ごとに複数行へ
+分割されるため、usage は `.message.id` で重複排除してから集計する。期間判定も
+ファイルの mtime や task notification ではなく、期間内の実イベントに限定する。
 
 コスト上位セッションも見る: 警告フラグゼロでも「同じ調査を複数セッションで重複」
 「ルーティング違反（機械的作業を高コストモデルで実行）」はここに出る。
