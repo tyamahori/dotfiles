@@ -6,7 +6,7 @@
 	<string>com.tyamahori.python-skill-review</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/Users/tyamahori/dotfiles/scripts/python-skill-review</string>
+		<string>@REPO_ROOT@/scripts/python-skill-review</string>
 	</array>
 	<!-- quarterly: Jan/Apr/Jul/Oct 15th 09:47; launchd runs a missed
 	     interval once on wake, so a sleeping Mac only delays it -->
@@ -38,8 +38,8 @@
 		</dict>
 	</array>
 	<key>StandardOutPath</key>
-	<string>/Users/tyamahori/.local/state/python-usage-audit/launchd.log</string>
+	<string>@HOME@/.local/state/python-usage-audit/launchd.log</string>
 	<key>StandardErrorPath</key>
-	<string>/Users/tyamahori/.local/state/python-usage-audit/launchd.log</string>
+	<string>@HOME@/.local/state/python-usage-audit/launchd.log</string>
 </dict>
 </plist>

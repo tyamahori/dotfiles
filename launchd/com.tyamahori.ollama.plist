@@ -34,8 +34,8 @@
 	<key>KeepAlive</key>
 	<true/>
 	<key>StandardOutPath</key>
-	<string>/Users/tyamahori/Library/Logs/ollama.log</string>
+	<string>@HOME@/Library/Logs/ollama.log</string>
 	<key>StandardErrorPath</key>
-	<string>/Users/tyamahori/Library/Logs/ollama.log</string>
+	<string>@HOME@/Library/Logs/ollama.log</string>
 </dict>
 </plist>

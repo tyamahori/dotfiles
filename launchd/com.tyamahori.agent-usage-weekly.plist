@@ -6,7 +6,7 @@
 	<string>com.tyamahori.agent-usage-weekly</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/Users/tyamahori/dotfiles/scripts/agent-usage-weekly</string>
+		<string>@REPO_ROOT@/scripts/agent-usage-weekly</string>
 	</array>
 	<!-- weekly: Monday 09:30; launchd runs a missed interval once on wake,
 	     so a sleeping Mac only delays it -->
@@ -17,8 +17,8 @@
 		<key>Minute</key><integer>30</integer>
 	</dict>
 	<key>StandardOutPath</key>
-	<string>/Users/tyamahori/.local/state/agent-usage/launchd.log</string>
+	<string>@HOME@/.local/state/agent-usage/launchd.log</string>
 	<key>StandardErrorPath</key>
-	<string>/Users/tyamahori/.local/state/agent-usage/launchd.log</string>
+	<string>@HOME@/.local/state/agent-usage/launchd.log</string>
 </dict>
 </plist>

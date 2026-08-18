@@ -171,14 +171,17 @@ ln -snfv "${OMP_DIR}/APPEND_SYSTEM.md" "$HOME/.omp/agent/APPEND_SYSTEM.md"
 ln -snfv "${OMP_DIR}/extensions" "$HOME/.omp/agent/extensions"
 ln -snfv "${OMP_DIR}/mcp.json" "$HOME/.omp/agent/mcp.json"
 
-# launchd agents: link, then (re)load so schedule edits take effect.
-# macOS-only — there is no launchd on Linux and the scheduled job
-# (python-skill-review) has no systemd equivalent in this repo yet.
+# launchd agents: render (plists can't expand env vars, so @HOME@/@REPO_ROOT@
+# placeholders are substituted per machine), then (re)load so edits take
+# effect. macOS-only — there is no launchd on Linux and the scheduled jobs
+# have no systemd equivalent in this repo yet.
 if [ "$(uname)" = Darwin ]; then
 	mkdir -p "$HOME/Library/LaunchAgents"
 	for plist in "${REPO_ROOT}/launchd"/*.plist; do
 		target="$HOME/Library/LaunchAgents/$(basename "$plist")"
-		ln -snfv "$plist" "$target"
+		rm -f "$target" # may be a symlink from an older link run
+		sed -e "s|@HOME@|$HOME|g" -e "s|@REPO_ROOT@|$REPO_ROOT|g" "$plist" >"$target"
+		echo "rendered $target from $plist"
 		launchctl bootout "gui/$(id -u)" "$target" 2>/dev/null || true
 		launchctl bootstrap "gui/$(id -u)" "$target"
 	done
