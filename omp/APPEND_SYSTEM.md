@@ -19,6 +19,10 @@ session; Codex CLI/Desktop shares the OpenAI pool.
   subagents — their configured models bill the OpenAI pool or run locally.
 - Cross-review of claude-authored work goes to a Codex-family reviewer,
   never Claude Code: same pool twice, and same-family self-review.
+- The global `anthropic-usage-guard` checks active Anthropic seven-day
+  limits, including model-specific limits, at session start and every five
+  minutes. At 80% usage it switches to `openai-codex/gpt-5.6-sol`, then
+  `gpt-5.4` if unavailable; a manual `/model` choice remains authoritative.
 
 # Data work goes to the eval kernel
 

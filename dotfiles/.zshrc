@@ -54,29 +54,9 @@ fi
 export HOMEBREW_NO_ASK=1
 alias brewup='sudo -v && brew update && brew upgrade --greedy && brew cleanup --prune=all'
 # omp: ~ で起動しても temp ディレクトリへ自動退避せずカレントで開く。
-# Fable 専用7日枠(anthropic:7d:fable)または5時間枠(anthropic:5h)の消費が
-# 90%に達したら、default を Codex に振り替えて起動する。omp 本体の
-# reserve fallback は Fable 枠を100%到達まで判定に使わないため、その手前を
-# ここで塞ぐ。判定はキャッシュ済み usage(約0.7秒)を読むだけ。
+# quota退避はglobal extensionのanthropic-usage-guardが全起動経路で処理する。
 omp() {
-  local threshold=0.90 target='openai-codex/gpt-5.6-terra' quota quota_id quota_used quota_label
-  quota=$(command omp usage --json --provider anthropic 2>/dev/null |
-    jq -r --argjson threshold "$threshold" '
-      [.. | objects
-       | select(.id? == "anthropic:7d:fable" or .id? == "anthropic:5h")
-       | {id, usedFraction: .amount.usedFraction}]
-      | map(select(.usedFraction >= $threshold))
-      | max_by(.usedFraction)
-      | if . == null then empty else "\(.id)\t\(.usedFraction)" end')
-  if [[ -n "$quota" ]]; then
-    quota_id=${quota%%$'\t'*}
-    quota_used=${quota#*$'\t'}
-    [[ "$quota_id" == "anthropic:5h" ]] && quota_label='5時間枠' || quota_label='Fable 7日枠'
-    print -u2 "omp: ${quota_label} ${quota_used} 消費済み(閾値 ${threshold}) → ${target} で起動"
-    command omp --allow-home --model "$target" "$@"
-  else
-    command omp --allow-home "$@"
-  fi
+  command omp --allow-home "$@"
 }
 # omp: マシンローカルのモデル設定オーバーレイ。ローカル LLM(ollama 等)を
 # 入れたマシンだけ ~/.omp/agent/config.local.yml を置くと、共有 config.yml に

@@ -90,10 +90,10 @@ retry:
   usageAwareFallback: true
   usageReservePct: 20
   usageReservePolicy: auto
-  # usage-aware fallback（quota 残 20% で sol へ退避。10→20 は 2026-08-16、
-  # Anthropic 枠 87% を1セッションで消費した日の対策）は modelFallback と
-  # usageAwareFallback の両方が true でないと動かない。false だと quota
-  # 枯渇時に停止する（2026-08-15）。fallback 先は上の chains のみ。
+  # 組み込みのusage-aware fallbackはprovider全体枠を残20%でsolへ退避する。
+  # モデル別7日枠はextensions/anthropic-usage-guard.tsが同じ閾値・切替先で補完。
+  # modelFallbackとusageAwareFallbackの両方がtrueでないと組み込み側は動かない。
+  # falseだとquota枯渇時に停止する（2026-08-15）。
   modelFallback: true
   maxRetries: 4
   maxDelayMs: 60000
