@@ -149,6 +149,11 @@ the user dictated.
 The SSH agent on this machine is **1Password**. SSH signing and pushes
 require GUI approval in the 1Password app.
 
+- **`~/dotfiles` is public** (github.com/tyamahori/dotfiles). Never commit
+  machine-specific measurements, session IDs, costs, or project names there;
+  machine-local files get a `.gitignore` entry (measured 2026-08-18: a usage
+  journal with session IDs landed in public history before being untracked).
+
 - While 1Password is locked, `git push` fails with
   `communication with agent failed`. This is **not** a network or auth
   configuration problem — do not start rewriting remotes or SSH config. Ask
