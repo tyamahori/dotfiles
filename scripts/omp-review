@@ -1,0 +1,50 @@
+#!/bin/bash
+# Start a fresh interactive OMP session for the weekly improvement review.
+set -euo pipefail
+
+usage() {
+	cat <<'EOF'
+Usage: omp-review [--days N]
+
+Start a new interactive OMP review session using the global agent-usage-review
+skill. N is a positive whole number of days; the default is 7.
+EOF
+}
+
+days=7
+case $# in
+	0)
+		;;
+	1)
+		if [[ $1 == --help ]]; then
+			usage
+			exit 0
+		fi
+		echo "omp-review: expected --days N or --help" >&2
+		usage >&2
+		exit 2
+		;;
+	2)
+		if [[ $1 != --days ]]; then
+			echo "omp-review: expected --days N" >&2
+			usage >&2
+			exit 2
+		fi
+		days=$2
+		;;
+	*)
+		echo "omp-review: too many arguments" >&2
+		usage >&2
+		exit 2
+		;;
+esac
+
+if ! [[ $days =~ ^[1-9][0-9]*$ ]]; then
+	echo "omp-review: days must be a positive whole number (got: $days)" >&2
+	exit 2
+fi
+
+prompt="/skill:agent-usage-review 過去${days}日のOMP改善レビューを開始してください。計測、前回比較、根拠付き提案、項目別のユーザー承認、承認済み変更の適用、実動確認、journal記録まで、スキルの手順に従って進めてください。提案はユーザーの項目別承認前に適用しないでください。"
+
+# No --print/--continue/--resume flags: retain the caller's cwd in a fresh TUI.
+exec omp --allow-home "$prompt"

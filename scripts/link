@@ -91,9 +91,10 @@ for agent_target in \
 	ln -snfv "${AGENTS_DIR}/global-instructions.md" "$agent_target"
 done
 
-# Codex approval-request and turn-completion notifications
+# local command-line entry points
 mkdir -p "$HOME/.local/bin"
 ln -snfv "${REPO_ROOT}/scripts/codex-notify" "$HOME/.local/bin/codex-notify"
+ln -snfv "${REPO_ROOT}/scripts/omp-review" "$HOME/.local/bin/omp-review"
 mkdir -p "$HOME/.codex"
 ln -snfv "${REPO_ROOT}/codex/hooks.json" "$HOME/.codex/hooks.json"
 
