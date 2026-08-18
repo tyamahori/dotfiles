@@ -101,7 +101,7 @@ Prefer changing the code over adding a feature flag or compatibility shim.
 
 Subscription quota is spent on context re-reads, not output (measured
 2026-08-16: one resumed session consumed 64% of a week's Anthropic quota,
-half of it compaction churn). Three rules, for every agent CLI:
+half of it compaction churn). Four rules, for every agent CLI:
 
 - **Don't resume sessions across days.** Close the day with a handoff note
   in the project's docs; start the next day fresh from that note. On omp,
@@ -112,6 +112,10 @@ half of it compaction churn). Three rules, for every agent CLI:
   hand off to a new session instead of pushing through.
 - **Pass bulky material by file path, not inline.** Inline source texts,
   scraped pages, and long drafts are re-read on every subsequent turn.
+- **Edit `settings.json` directly; don't invoke Claude Code's built-in
+  `update-config` skill.** Its expansion injects the full settings JSON
+  schema — ~50k tokens re-read on every later turn (measured 2026-08-18:
+  three sessions in one week each absorbed a 177k–240k-char injection).
 
 ## Japanese writing
 
