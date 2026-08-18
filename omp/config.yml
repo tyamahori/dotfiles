@@ -49,8 +49,6 @@ task:
     reviewer: "@task"           # → gpt-5.6-terra
     security-reviewer: "@task"
     librarian: "@smol"
-prewalk: 
-  enabled: false
 # Fable は 1M 窓のため既定閾値（窓-15%≈850K）では自動コンパクションが事実上
 # 無効になり、セッションが 200K 超（実測: fable リクエストの 11%、最大 280K）
 # まで肥大していた。Anthropic の長コンテキスト課金帯（>200K で単価増）を
@@ -58,9 +56,10 @@ prewalk:
 # strategy は既定の snapcompact（アーカイブ型・keepRecent 20K）のまま。
 compaction:
   thresholdTokens: 120000  # 160K から追加圧縮（2026-08-15、Fable 週次枠 82% 消費時点）
-# セッションを跨ぐ記憶(recall/retain)。pi-session-recall 相当の標準機能だが
-# 既定 off のため呼び出し実績 0 回で眠っていた(2026-08-18 実測)。継続案件
-# (funabashidev、日記)で「先週決めたこと」を引けるよう local で試行開始。
+# セッションを跨ぐ記憶。local backend は MEMORY.md / learned.md の起動時注入と
+# learn ツールのみで、recall/retain/reflect は使えない(それらは Hindsight/
+# Mnemopi backend 限定。omp://memory.md 2026-08-18 確認)。継続案件
+# (funabashidev、日記)向けに learned.md 注入で足りるか local で試行中。
 memory:
   backend: local
 # omp セッションで一度も読まれていないドメイン外スキルを除外して
@@ -99,6 +98,10 @@ retry:
   maxRetries: 4
   maxDelayMs: 60000
 symbolPreset: unicode
+# .ultrathink 等の magic keyword は未使用なのに毎ターン hidden notice が
+# 注入されるため無効化(2026-08-18、ベースライン 44K 削減策の一つ)
+magicKeywords:
+  enabled: false
 colorBlindMode: true
 setupVersion: 1
 dev: 
