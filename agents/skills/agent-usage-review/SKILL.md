@@ -72,6 +72,11 @@ bash scripts/snapshot.sh --days 7
 | 機械的な強制（deny 等） | `dotfiles/claude/hooks/`・settings.json の PreToolUse |
 | モデルルーティング・omp 挙動 | `dotfiles/omp/config.yml`・`APPEND_SYSTEM.md`・extensions |
 | 手順の正本化 | 既存 skill の更新、または新 skill |
+| プロジェクト固有の原因への修正 | 当該リポジトリ側 — AGENTS.md / CLAUDE.md（規範）、`.claude/skills/`（手順・スクリプト）、`.claude/settings.json` の hooks（強制） |
+
+原因がプロジェクト固有なら修正もそのリポジトリに落とし、一般化できた
+エッセンスだけをこの skill の診断節や dotfiles の規範へ昇格する。
+グローバル側に個別プロジェクトの事情を書かない。
 
 ## 4. 承認
 
