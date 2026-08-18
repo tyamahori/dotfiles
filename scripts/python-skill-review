@@ -3,10 +3,11 @@
 # (launchd/com.tyamahori.python-skill-review.plist). Report-only: proposals
 # land in a dated markdown file, a human applies them to the skill.
 set -euo pipefail
-export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+export PATH="$HOME/.local/bin:$HOME/.nix-profile/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 # launchd env has no devbox profile, and uv lives there — without this the
-# audit script's uv shebang fails inside the headless session
-eval "$(/usr/local/bin/devbox global shellenv)"
+# audit script's uv shebang fails inside the headless session; devbox itself
+# is /usr/local/bin on one machine, ~/.nix-profile/bin on the other
+eval "$(devbox global shellenv)"
 
 STATE_DIR="$HOME/.local/state/python-usage-audit"
 mkdir -p "$STATE_DIR"
