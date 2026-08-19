@@ -1,5 +1,4 @@
 providers: 
-  # 小さな定型判断はローカル軽量モデルへ逃がし、リモート枠を温存する。
   tinyModel: lfm2-350m
   autoThinkingMaxEffort: xhigh
   webSearchOrder: 
@@ -27,59 +26,32 @@ providers:
     - mojeek
     - public
 modelRoles: 
-  default: anthropic/claude-fable-5:high
   vision: openai-codex/gpt-5.6-terra
   smol: openai-codex/gpt-5.6-luna
   task: openai-codex/gpt-5.6-terra
-  # コミットメッセージ/変更履歴生成（mapReduce は 1 ファイル最大 50K トークン）を
-  # default（Fable）から外して Codex 枠へ（2026-08-15 トークン節約）
   commit: openai-codex/gpt-5.6-luna
-  # plan/slow は未設定だと default（Fable）にフォールバックするため
-  # 明示的に Codex へ（2026-08-15 トークン節約）
   plan: openai-codex/gpt-5.6-terra
   slow: openai-codex/gpt-5.6-sol
-  # advisor/watchdog系もCodex枠へ（2026-08-14トークン節約）
   advisor: openai-codex/gpt-5.6-terra
-# サブエージェントを Fable に落とさないための明示ルーティング（2026-08-15）。
-# 経緯: modelRoles 未整備時代に scout が親モデル継承で Fable 実行（68 req / $26）。
-# bundled scout/librarian は frontmatter が @smol を解決するが、role 構成の
-# ドリフトで再発しないよう明示。reviewer 系は frontmatter 無し=親モデル継承
-# のため Codex へ。precedence: agentModelOverrides > frontmatter > 親モデル。
-# 注意: 稼働中セッションには効かない（設定は起動時スナップショット）。
-task:
-  # 委譲先モデルを可視化し、意図しない高コスト経路をすぐ検知する。
+  default: anthropic/claude-opus-5:high
+task: 
   showResolvedModelBadge: true
-  # サブエージェントの再帰委譲を一段までに留める。
   maxRecursionDepth: 1
-  # ツール利用の暴走前に早めの予算シグナルを出す。
   softRequestBudget: 60
-  agentModelOverrides:
-    scout: "@smol"              # → gpt-5.6-luna（read-only 偵察は smol 階で十分）
-    reviewer: "@task"           # → gpt-5.6-terra
+  agentModelOverrides: 
+    scout: "@smol"
+    reviewer: "@task"
     security-reviewer: "@task"
     librarian: "@smol"
-# Fable は 1M 窓のため既定閾値（窓-15%≈850K）では自動コンパクションが事実上
-# 無効になり、セッションが 200K 超（実測: fable リクエストの 11%、最大 280K）
-# まで肥大していた。Anthropic の長コンテキスト課金帯（>200K で単価増）を
-# 避けつつ 1 リクエストあたりの quota 消費を抑えるため固定閾値で切る。
-# strategy は既定の snapcompact（アーカイブ型・keepRecent 20K）のまま。
-compaction:
-  thresholdTokens: 120000  # 160K から追加圧縮（2026-08-15、Fable 週次枠 82% 消費時点）
-display:
-  # 利用量とキャッシュミスを常時表示し、プロンプトコストを追跡する。
+compaction: 
+  thresholdTokens: 120000
+display: 
   showTokenUsage: true
   cacheMissMarker: true
-# セッションを跨ぐ記憶。local backend は MEMORY.md / learned.md の起動時注入と
-# learn ツールのみで、recall/retain/reflect は使えない(それらは Hindsight/
-# Mnemopi backend 限定。omp://memory.md 2026-08-18 確認)。継続案件
-# (funabashidev、日記)向けに learned.md 注入で足りるか local で試行中。
-memory:
+memory: 
   backend: local
-# omp セッションで一度も読まれていないドメイン外スキルを除外して
-# 毎リクエストのプロンプトから落とす（Claude Code 側には影響しない）。
-# 必要になったら該当行を消すだけで戻る。
-skills:
-  ignoredSkills:
+skills: 
+  ignoredSkills: 
     - agents-sdk
     - cloudflare
     - cloudflare-email-service
@@ -103,19 +75,12 @@ retry:
   usageAwareFallback: true
   usageReservePct: 20
   usageReservePolicy: auto
-  # 組み込みのusage-aware fallbackはprovider全体枠を残20%でsolへ退避する。
-  # モデル別7日枠はextensions/anthropic-usage-guard.tsが同じ閾値・切替先で補完。
-  # modelFallbackとusageAwareFallbackの両方がtrueでないと組み込み側は動かない。
-  # falseだとquota枯渇時に停止する（2026-08-15）。
   modelFallback: true
   maxRetries: 4
   maxDelayMs: 60000
 symbolPreset: unicode
-# 思考の強度はモデル側に自動選択させ、固定指定による過剰推論を避ける。
 defaultThinkingLevel: auto
-# .ultrathink 等の magic keyword は未使用なのに毎ターン hidden notice が
-# 注入されるため無効化(2026-08-18、ベースライン 44K 削減策の一つ)
-magicKeywords:
+magicKeywords: 
   enabled: false
 colorBlindMode: true
 setupVersion: 1
