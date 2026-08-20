@@ -39,7 +39,7 @@ CONTEXT_JUMP_TOKENS=50000
 CONTEXT_PEAK_TOKENS=200000
 
 
-CCUSAGE="npx -y ccusage@latest"
+CCUSAGE="ccusage"
 
 echo "# usage snapshot ${SINCE}..$(date +%Y%m%d)"
 echo
