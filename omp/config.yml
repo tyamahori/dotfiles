@@ -50,6 +50,10 @@ display:
   cacheMissMarker: true
 memory: 
   backend: local
+autolearn:
+  enabled: true
+  autoContinue: false
+  minToolCalls: 5
 skills: 
   ignoredSkills: 
     - agents-sdk
