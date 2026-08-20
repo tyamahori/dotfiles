@@ -50,7 +50,7 @@ display:
   cacheMissMarker: true
 memory: 
   backend: local
-autolearn:
+autolearn: 
   enabled: true
   autoContinue: false
   minToolCalls: 5
@@ -87,6 +87,8 @@ defaultThinkingLevel: auto
 magicKeywords: 
   enabled: false
 colorBlindMode: true
-setupVersion: 1
+setupVersion: 2
 dev: 
   autoqaConsent: granted
+composer: 
+  shape: pi
