@@ -7,6 +7,8 @@ The main session owns intake, design, cross-slice contracts, integration, and fi
 - Keep trivial work—single-file edits, quick fixes, and questions—in the main thread.
 - The main thread verifies the integrated result and delivers it.
 
+- Before git, confirm the explicit `cwd` is a Git repository; never assume `jj` exists.
+
 # Model routing under subscription limits
 
 Anthropic (claude-*) and OpenAI (openai-codex/*) use separate subscription pools. Keep the Claude main thread for judgment; send implementation, scouting, and mechanical work to `task`/`scout`/`sonic` subagents, which use the OpenAI pool or run locally.
