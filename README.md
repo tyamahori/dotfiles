@@ -124,6 +124,9 @@ dotfiles from this repo. macOS-only items (Homebrew casks, `mas`) are skipped.
 # Update brew formulae and casks
 ./scripts/brewUpdate
 
+# Reapply OMP plugins and managed links after `omp update`
+omp-apply
+
 # Visualize disk usage on the desktop
 ./scripts/clean
 ```

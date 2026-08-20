@@ -300,12 +300,25 @@ omp config get autolearn.enabled --json
 omp config get retry.usageReservePct --json
 ```
 
+## OMP 本体を更新する
+
+`omp update` で本体を更新した後は、プラグインと dotfiles のリンクを再適用します。
+
+```bash
+omp-apply
+```
+
+`omp-apply` は `scripts/omp-plugins`、`scripts/link` の順に実行します。
+リポジトリへ移動する必要はありません。
+
 ## plugin の管理
 
 本体にない plugin は `scripts/omp-plugins` で宣言しています。
-現在は `/context`、外部 directory の追加、Plannotator を導入しています。
+現在導入しているのは Plannotator です。
+`/context` や外部 directory の追加など、本体に同等機能があるものは重複して導入しません。
 
-初回セットアップ後、OMP 更新後、または plugin が見つからない場合は次を実行します。
+OMP 更新後の通常運用では、前節の `omp-apply` を使います。
+plugin だけを再適用する場合は次を実行します。
 
 ```bash
 cd ~/dotfiles

@@ -44,6 +44,12 @@ where it belongs and don't duplicate it:
 - **Code comments carry the Why-not** — only what code cannot express:
   rejected alternatives, non-obvious constraints, "this looks wrong but
   isn't because…". Never narrate what the next line does.
+- **Docs carry discovery and operation** — adding, renaming, or removing a
+  user-facing command, config key, setup/update step, integration, or
+  operational behavior requires updating the existing canonical docs in the
+  same change. Before committing, explicitly check documentation impact; if
+  docs stay unchanged, state the concrete reason. Never create a second source
+  of truth for implementation details.
 
 Corollary — **do not maintain detailed design docs as a source to
 (re)generate code from**; keeping documents consistent with each other and
