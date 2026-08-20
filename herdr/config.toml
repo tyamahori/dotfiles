@@ -1,10 +1,9 @@
 onboarding = false
 
-# 新しい space（tab/pane も同様）を $HOME 起点で開く。
-# 既定の "follow" だと作成元 pane のディレクトリを引き継ぐため、
-# プロジェクト space から新 space を開くとそのプロジェクト直下になるのを避ける。
+# 新しい tab/pane を作成元 pane と同じディレクトリで開く。
+# new_cwd は workspace を含む共通ポリシーのため、新しい workspace も同様に引き継ぐ。
 [terminal]
-new_cwd = "home"
+new_cwd = "follow"
 
 [ui]
 agent_panel_sort = "priority"
