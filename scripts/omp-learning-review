@@ -1,0 +1,36 @@
+#!/bin/bash
+# Start a fresh interactive OMP session for reviewing learned lessons and skills.
+set -euo pipefail
+
+usage() {
+	cat <<'EOF'
+Usage: omp-learning-review
+
+Run this shell command from the project to review. It starts a fresh interactive
+OMP session for that project's local memory, generated skills, and managed skills.
+EOF
+}
+
+case $# in
+	0)
+		;;
+	1)
+		if [[ $1 == --help ]]; then
+			usage
+			exit 0
+		fi
+		echo "omp-learning-review: expected --help or no arguments" >&2
+		usage >&2
+		exit 2
+		;;
+	*)
+		echo "omp-learning-review: too many arguments" >&2
+		usage >&2
+		exit 2
+		;;
+esac
+
+prompt="/skill:omp-learning-loop このプロジェクトのOMP学習レビューを開始してください。local memory、learned.md、生成Skills、managed skillsを現在のリポジトリと実動結果で裏取りし、候補の仕分けと根拠付き提案を提示してください。項目別のユーザー承認前に、昇格、既存ファイルの変更、managed skillの削除を行わないでください。"
+
+# No --print/--continue/--resume flags: retain the caller's cwd in a fresh TUI.
+exec omp --allow-home "$prompt"

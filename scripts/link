@@ -95,6 +95,7 @@ done
 mkdir -p "$HOME/.local/bin"
 ln -snfv "${REPO_ROOT}/scripts/codex-notify" "$HOME/.local/bin/codex-notify"
 ln -snfv "${REPO_ROOT}/scripts/omp-review" "$HOME/.local/bin/omp-review"
+ln -snfv "${REPO_ROOT}/scripts/omp-learning-review" "$HOME/.local/bin/omp-learning-review"
 mkdir -p "$HOME/.codex"
 ln -snfv "${REPO_ROOT}/codex/hooks.json" "$HOME/.codex/hooks.json"
 
