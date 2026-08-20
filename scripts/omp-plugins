@@ -13,30 +13,33 @@ set -euo pipefail
 # Selection is voidwarriorchan's pi extension list (2026-08), filtered
 # against omp built-ins. Deliberately NOT installed because omp already
 # bundles the feature:
-#   pi-web-access        -> read(URL) / web_search / GitHub integration
-#   pi-session-recall    -> memory + recall tools
-#   pi-lens              -> lsp tool
-#   pi-vcc               -> snapcompact compaction (tuned in omp/config.yml)
-#   pi-undo              -> rewind / checkpoint tools
-#   pi-btw               -> /btw
-#   pi-transcribe        -> built-in STT (hold Space)
-#   pi-codex-image-gen   -> generate_image tool
+#   pi-context-view        -> built-in /context command
+#   pi-add-dir             -> built-in /add-dir, /dirs, and /remove-dir commands
+#   pi-web-access          -> read(URL) / web_search / GitHub integration
+#   pi-session-recall      -> memory + recall tools
+#   pi-lens               -> lsp tool
+#   pi-vcc                -> snapcompact compaction (tuned in omp/config.yml)
+#   pi-undo               -> rewind / checkpoint tools
+#   pi-btw                -> /btw
+#   pi-transcribe         -> built-in STT (hold Space)
+#   pi-codex-image-gen    -> generate_image tool
 #   rpiv-ask-user-question -> ask tool
-#   pi-review            -> reviewer agent; cross-review goes to Codex anyway
+#   pi-review             -> reviewer agent; cross-review goes to Codex anyway
 
 plugins=(
-	"pi-context-view 0.4.2"           # /context — context usage breakdown incl. hidden parts
-	"pi-add-dir 1.3.1"                # /add-dir /dirs — pull external dirs' AGENTS.md/skills in
 	"@plannotator/pi-extension 0.27.4" # /plannotator-* — annotate plans, messages, code reviews
 )
 
-# Broken on omp — uninstall if a machine still carries it.
+# Retired plugins — uninstall if a machine still carries them.
 #   @ff-labs/pi-fff: its dynamic import("@ff-labs/fff-bun") fails inside the
 #   Bun-compiled omp binary ("FFF init failed"), leaving the extension dead
 #   weight. omp's own fuzzy completion + native grep/glob cover the feature.
 retired=(
+	pi-context-view
+	pi-add-dir
 	@ff-labs/pi-fff
 )
+
 
 if ! command -v omp >/dev/null 2>&1; then
 	echo "omp-plugins: omp not found; run scripts/apps first (brew: can1357/tap/omp)" >&2
