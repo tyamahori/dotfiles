@@ -58,6 +58,28 @@ alias brewup='sudo -v && brew update && brew upgrade --greedy && brew cleanup --
 omp() {
   command omp --allow-home "$@"
 }
+# omp-repo: 指定した repository root から起動し、local memory を repository 単位に分離する。
+omp-repo() {
+  if (( $# == 0 )); then
+    print -u2 'usage: omp-repo <repository-path> [omp-args...]'
+    return 2
+  fi
+  local target="$1"
+  shift
+  if [[ ! -d "$target" ]]; then
+    print -u2 "omp-repo: directory not found: $target"
+    return 2
+  fi
+  local repo_root
+  repo_root="$(command git -C "$target" rev-parse --show-toplevel 2>/dev/null)" || {
+    print -u2 "omp-repo: not a git repository: $target"
+    return 2
+  }
+  (
+    builtin cd "$repo_root" || return 1
+    command omp "$@"
+  )
+}
 # omp-build: 非trivial実装を計画後にtask roleへ切り替えて実行する。
 omp-build() {
   command omp --allow-home --prewalk --prewalk-into @task "$@"
