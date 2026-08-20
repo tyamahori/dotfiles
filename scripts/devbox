@@ -6,7 +6,7 @@ set -euo pipefail
 # batch — while zsh, herdr and ghostty are the brew/cask entries that have no
 # Linux counterpart there. zsh in particular ships with macOS but not Ubuntu,
 # and .zshrc/.zprofile assume it as the login shell.
-packages=(php go direnv bun git git-lfs nodejs httpie cmake curl go-task uv)
+packages=(php go direnv bun ccusage git git-lfs jujutsu jq nodejs httpie cmake curl go-task sqlite uv)
 if [ "$(uname)" = Darwin ]; then
 	packages+=(mas)
 else
