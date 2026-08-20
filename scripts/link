@@ -94,6 +94,7 @@ done
 # local command-line entry points
 mkdir -p "$HOME/.local/bin"
 ln -snfv "${REPO_ROOT}/scripts/codex-notify" "$HOME/.local/bin/codex-notify"
+ln -snfv "${REPO_ROOT}/scripts/omp-apply" "$HOME/.local/bin/omp-apply"
 ln -snfv "${REPO_ROOT}/scripts/omp-review" "$HOME/.local/bin/omp-review"
 ln -snfv "${REPO_ROOT}/scripts/omp-learning-review" "$HOME/.local/bin/omp-learning-review"
 mkdir -p "$HOME/.codex"
