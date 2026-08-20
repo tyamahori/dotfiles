@@ -117,7 +117,7 @@ OMP の `Context growth` と `Large tool results` は、中間生成物のサイ
 |---|---|---|
 | `max_context_jump>=50k` | 1 回の応答間で context が急増 | 同時刻の tool result、画像、文書、巨大 read を確認し、範囲指定またはファイル参照へ変える |
 | `peak_context>=200k` | 長い履歴を後続ターンで繰り返し処理 | タスク境界、handoff、subagent 隔離を確認 |
-| `result_size>=50k` | 大きな tool result が context へ入った候補 | 必要な部分だけ返す accessor、limit / fields / date range、subagent の短い finding を使う |
+| `result_chars>=50k` | 大きな tool result が context へ入った候補 | 必要な部分だけ返す accessor、limit / fields / date range、subagent の短い finding を使う |
 
 大きな result が 1 回出ただけでは問題と判定しない。
 後続ターンの context に残り続けたか、同じファイルや結果を再取得したかを該当 session で確認する。
@@ -138,7 +138,7 @@ OMP の現行機能と実際の経路の差分を確認する。
 | model routing | 各工程のモデル、effort、成功、再試行、差し戻し | 同種タスクの品質基準を保ったまま 1 成功タスク当たりコストを下げられる。単価だけでは変更しない |
 | subagent | 委譲数、担当の独立性、重複調査、親へ返した結果のサイズ | 依存する作業を無駄に並列化する、独立作業を逐次化する、または巨大結果を親 context に戻す |
 | compaction と handoff | compaction の発生時点、引き継ぎ、再開後の context と cache | compaction 後に同じ情報を再読込する、毎ターン履歴を書き換える、または日跨ぎ・長時間中断を resume する |
-| tool result | `result_size`、context 増分、後続ターンでの残存 | 50k 以上の結果を狭められる、または独立調査を subagent に隔離できる |
+| tool result | `result_chars`、context 増分、後続ターンでの残存 | 50k 以上の結果を狭められる、または独立調査を subagent に隔離できる |
 | tool error | 失敗した tool、引数、復旧経路、同じ失敗の反復 | tool の制約を確認せず再試行する、または設定で防げる失敗が繰り返される |
 | prewalk | 計画後の最初の edit/write で低コスト実装モデルへ切り替わったか | 切替が起きない、または切替後の実装が失敗して再作業を生む |
 | tiny model | title や auto-thinking classifier などのローカル補助用途での選択と結果 | 補助用途に対して不適切なモデルを選び、分類や題名の品質またはコストを悪化させる |

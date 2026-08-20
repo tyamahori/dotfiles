@@ -170,6 +170,36 @@ OMP_CONFIG="$HOME/.omp/agent/config.yml"
 CANONICAL_CONFIG="$REPO_ROOT/omp/config.yml"
 
 
+omp_latest_event_epoch() {
+	find "$OMP_SESSIONS" -name '*.jsonl' -newermt "$CUTOFF" -print0 2>/dev/null |
+		while IFS= read -r -d '' file; do
+			jq -r --argjson cutoff_epoch "$CUTOFF_EPOCH" '
+				def epoch: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+				select((try (.timestamp | epoch) catch 0) >= $cutoff_epoch)
+				| select(.type == "message" and (.message.role == "assistant" or .message.role == "toolResult"))
+				| try (.timestamp | epoch) catch empty
+			' "$file" 2>/dev/null
+		done | sort -nr | sed -n '1p'
+}
+
+omp_result_entry_ids() {
+	local pattern="$1"
+	find "$OMP_SESSIONS" -name '*.jsonl' -newermt "$CUTOFF" -print0 2>/dev/null |
+		while IFS= read -r -d '' file; do
+			jq -r --argjson cutoff_epoch "$CUTOFF_EPOCH" --arg pattern "$pattern" '
+				def epoch: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+				select((try (.timestamp | epoch) catch 0) >= $cutoff_epoch)
+				| select(.type == "message" and .message.role == "toolResult")
+				| select((.message.content // [] | map(.text? // "") | join(" ")) | test($pattern; "i"))
+				| .id // empty
+			' "$file" 2>/dev/null
+		done | sort -u
+}
+
+echo
+
+
+
 
 omp_event_ids() {
 	local kind="$1"
@@ -187,9 +217,47 @@ omp_event_ids() {
 			' "$file" 2>/dev/null
 		done | sort -u
 }
-
+OMP_STATS_USABLE=1
 if [ ! -f "$OMP_STATS" ] || ! command -v sqlite3 >/dev/null 2>&1; then
-	echo '- **利用・長大セッション・cache churn・tool error:** 取得不能（必要な `~/.omp/stats.db` または `sqlite3` がない）。'
+	OMP_STATS_USABLE=0
+elif ! command -v omp >/dev/null 2>&1; then
+	OMP_STATS_USABLE=0
+	echo "- stats index sync: **失敗**（omp command がないため、stats.db は照会しない）。"
+elif ! OMP_STATS_SYNC_OUTPUT="$(omp stats --summary 2>&1)"; then
+	OMP_STATS_USABLE=0
+	echo "- stats index sync: **失敗**（`omp stats --summary` が失敗したため、stats.db は照会しない）。"
+	printf '%s\n' "$OMP_STATS_SYNC_OUTPUT" | sed 's/^/> /'
+else
+	echo '- stats index sync: 完了（`omp stats --summary`）。'
+	OMP_LATEST_EVENT="$(omp_latest_event_epoch)"
+	OMP_LATEST_DB="$(
+		sqlite3 -noheader "$OMP_STATS" "
+			SELECT COALESCE(MAX(timestamp), 0)
+			FROM (
+				SELECT timestamp FROM messages
+				UNION ALL
+				SELECT timestamp FROM tool_calls
+			)
+			WHERE timestamp >= $CUTOFF_MS;
+		" 2>/dev/null
+	)"
+	if [ -n "$OMP_LATEST_EVENT" ] && [ -n "$OMP_LATEST_DB" ] &&
+		[ "$OMP_LATEST_EVENT" -gt $((OMP_LATEST_DB / 1000 + 3600)) ]; then
+		OMP_STATS_USABLE=0
+		echo "- stats freshness: **失敗**（当期間のJSONLイベントがDBより1時間以上新しいため、stats.db は照会しない）。"
+	elif [ -z "$OMP_LATEST_EVENT" ]; then
+		echo "- stats freshness: 当期間のmodel/tool JSONLイベントなし（休止期間のため判定対象外）。"
+	else
+		echo "- stats freshness: 確認済み（当期間のmodel/tool JSONLイベントとDBの遅延は1時間未満）。"
+	fi
+fi
+
+if [ "$OMP_STATS_USABLE" -eq 0 ]; then
+	echo "- **OMP stats:** 取得不能（sync/freshness guard failed）。"
+fi
+
+if [ "$OMP_STATS_USABLE" -eq 0 ] || [ ! -f "$OMP_STATS" ] || ! command -v sqlite3 >/dev/null 2>&1; then
+	echo '- **利用・長大セッション・cache churn・tool error:** 取得不能（stats.db がない、または sync/freshness guard failed）。'
 else
 	echo "### モデル × agent type"
 	echo
@@ -325,46 +393,60 @@ else
 		echo "- cache churn: 取得不能（stats.db の照会に失敗）。"
 	fi
 	echo
-	echo 'tool	agent_type	errors	calls'
-	OMP_TOOL_ERRORS="$(
-		sqlite3 -noheader -separator $'\t' "$OMP_STATS" "
-			SELECT tool_name, agent_type, SUM(CASE WHEN is_error THEN 1 ELSE 0 END), COUNT(*)
-			FROM tool_calls
-			WHERE timestamp >= $CUTOFF_MS
-			GROUP BY tool_name, agent_type
-			HAVING SUM(CASE WHEN is_error THEN 1 ELSE 0 END) > 0
-			ORDER BY SUM(CASE WHEN is_error THEN 1 ELSE 0 END) DESC
-			LIMIT 8;
-		" 2>/dev/null
-	)"
-	if [ -n "$OMP_TOOL_ERRORS" ]; then
-		printf '%s\n' "$OMP_TOOL_ERRORS"
-	else
-		echo "(tool error 記録なし)"
-	fi
+echo 'tool	agent_type	raw_error_flags	calls'
+OMP_TOOL_ERRORS="$(
+	sqlite3 -noheader -separator $'\t' "$OMP_STATS" "
+		SELECT tool_name, agent_type, SUM(CASE WHEN is_error THEN 1 ELSE 0 END), COUNT(*)
+		FROM tool_calls
+		WHERE timestamp >= $CUTOFF_MS
+		GROUP BY tool_name, agent_type
+		HAVING SUM(CASE WHEN is_error THEN 1 ELSE 0 END) > 0
+		ORDER BY SUM(CASE WHEN is_error THEN 1 ELSE 0 END) DESC
+		LIMIT 8;
+	" 2>/dev/null
+)"
+if [ -n "$OMP_TOOL_ERRORS" ]; then
+	printf '%s\n' "$OMP_TOOL_ERRORS"
+else
+	echo "(raw tool error flag 記録なし)"
+fi
+OMP_SCHEDULER_CANCELLED="$(omp_result_entry_ids 'Skipped due to pending parent steering message|Skipped due to queued user message')"
+if [ -n "$OMP_SCHEDULER_CANCELLED" ]; then
+	echo "- scheduler-cancelled tool results (confirmed JSONL result-entry IDs): $(printf '%s\n' "$OMP_SCHEDULER_CANCELLED" | wc -l | tr -d ' ')"
+else
+	echo "- scheduler-cancelled tool results (confirmed JSONL result-entry IDs): 0"
+fi
+OMP_PROBE_CANDIDATES="$(omp_result_entry_ids '(^|[^[:alnum:]])(PASS|ALL PASS|LOCK_BUSY|NOT_OWNER|cache miss|not running)([^[:alnum:]]|$)')"
+if [ -n "$OMP_PROBE_CANDIDATES" ]; then
+	echo "- probe/control-flow candidates (manual review; heuristic, not confirmed non-errors; unique JSONL result-entry IDs): $(printf '%s\n' "$OMP_PROBE_CANDIDATES" | wc -l | tr -d ' ')"
+else
+	echo "- probe/control-flow candidates (manual review; heuristic, not confirmed non-errors; unique JSONL result-entry IDs): 0"
+fi
+echo "- raw_error_flags includes both scheduler-cancelled results and probe/control-flow candidates; neither subset is subtracted from raw flags."
 
-	echo
-	echo "### Large tool results"
-	echo
-	echo "> 閾値: stats.db の result_size >= ${LARGE_TOOL_RESULT_SIZE}。大きい結果が後続contextへ残ったかは該当 session のターン推移で確認する。"
-	echo
-	echo 'tool	agent_type	large_results	total_result_size	max_result_size'
-	OMP_LARGE_RESULTS="$(
-		sqlite3 -noheader -separator $'\t' "$OMP_STATS" "
-			SELECT tool_name, agent_type, COUNT(*), SUM(result_size), MAX(result_size)
-			FROM tool_calls
-			WHERE timestamp >= $CUTOFF_MS
-			  AND result_size >= $LARGE_TOOL_RESULT_SIZE
-			GROUP BY tool_name, agent_type
-			ORDER BY SUM(result_size) DESC
-			LIMIT 8;
-		" 2>/dev/null
-	)"
-	if [ -n "$OMP_LARGE_RESULTS" ]; then
-		printf '%s\n' "$OMP_LARGE_RESULTS"
-	else
-		echo "(該当なし)"
-	fi
+echo
+echo "### Large tool results"
+echo
+echo "> 閾値: stats.db の result_chars >= ${LARGE_TOOL_RESULT_SIZE}。大きい結果が後続contextへ残ったかは該当 session のターン推移で確認する。"
+echo
+echo 'tool	agent_type	large_results	total_result_chars	max_result_chars'
+OMP_LARGE_RESULTS="$(
+	sqlite3 -noheader -separator $'\t' "$OMP_STATS" "
+		SELECT tool_name, agent_type, COUNT(*), SUM(result_chars), MAX(result_chars)
+		FROM tool_calls
+		WHERE timestamp >= $CUTOFF_MS
+		  AND result_chars >= $LARGE_TOOL_RESULT_SIZE
+		GROUP BY tool_name, agent_type
+		ORDER BY SUM(result_chars) DESC
+		LIMIT 8;
+	" 2>/dev/null
+)"
+if [ -n "$OMP_LARGE_RESULTS" ]; then
+	printf '%s\n' "$OMP_LARGE_RESULTS"
+else
+	echo "(該当なし)"
+fi
+
 
 	echo
 	echo "### prewalk とローカル tiny model"
