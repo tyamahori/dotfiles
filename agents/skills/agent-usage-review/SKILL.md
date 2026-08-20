@@ -41,9 +41,9 @@ snapshot に会話本文や認証情報を混ぜない。
 ローカル診断では session ID、費用、ローカルパスを扱い、必要なら journal に記録する。
 これらの固有値は public なコミット、共有物、会話への貼り付けから除く。
 
-出力は日次合計（モデル別）、コスト上位セッション、警告フラグ一覧を含む。
+出力は日次合計（モデル別）、コスト上位セッション、警告フラグ、cache 構成、ターン別 context 増分、大きな tool result、常駐指示のサイズを含む。
 
-合計は [ccusage](https://github.com/ryoppippi/ccusage)（Claude、Codex、Grok、Qwen 対応）、警告フラグは raw JSONL の集計で得る。
+合計は [ccusage](https://github.com/ryoppippi/ccusage)（Claude、Codex、Grok、Qwen 対応）、警告フラグは raw JSONL、OMP 固有指標は `~/.omp/stats.db` と session event の集計で得る。
 
 データソース:
 
@@ -51,7 +51,8 @@ snapshot に会話本文や認証情報を混ぜない。
   `cache_creation_input_tokens` はコンテキスト書き直し量であり、churn の代理指標となる。
 - Codex: `~/.codex/sessions/YYYY/MM/DD/*.jsonl` の `token_count` イベントにある `last_token_usage`。
   `total_token_usage` はセッション内累積値なので、合計すると過大計上になる。
-- OMP: OMP が起動・委譲・実行した経路と、設定、plugin、patch、モデル選択、tool error の記録。
+- OMP: `~/.omp/stats.db` の正規化済み message / tool call と、session event、設定、plugin、patch。
+  fresh input、cache read/write、価格表換算、ターン別 context、tool result size を分けて扱う。
   OMP 固有の数値がない項目は、実動経路と設定の照合で評価する。
 
 Claude の assistant レコードは 1 つの API message が content block ごとに複数行へ分割されるため、usage は `.message.id` で重複排除してから集計する。
@@ -68,6 +69,20 @@ Claude の assistant レコードは 1 つの API message が content block ご�
 
 OMP の提案では、該当 session、実際に読まれた設定、起動から tool 実行までの経路も確認する。
 
+### コストと品質
+
+raw token は負荷の内訳であり、単独では最適化指標にしない。
+
+fresh input、cache read、cache write、output、価格表換算コスト、subscription quota は別の値として扱う。
+価格表換算から subscription quota の消費を推定しない。
+
+最適化の主指標は、品質基準を満たした 1 タスク当たりのコストとターン数である。
+コスト上位セッションでは、可能な範囲で作業単位、完了結果、失敗、再試行、別モデルへの差し戻しを特定する。
+完了判定をログから確定できない場合は「取得不能」とし、セッション数を成功タスク数の代用にしない。
+
+モデルまたは effort を下げる提案は、同種タスクの品質基準、成功率、再作業込みのコストを比較できる場合だけ出す。
+安価なモデルがターン増加や差し戻しを生むなら削減とは扱わない。
+
 ### Claude Code と Codex
 
 | 警告フラグ | 意味 | 典型修正 |
@@ -75,7 +90,8 @@ OMP の提案では、該当 session、実際に読まれた設定、起動か�
 | `days>1` | 人間の typed prompt が日跨ぎ。毎ターン全コンテキストを cache write し直す | セッション衛生ルールの徹底、handoff 手順の改善 |
 | `cacheW>1M` | context churn。compaction、長大セッション、巨大ファイルの再読込 | 早期 handoff、bulk はファイルパス渡し、read の offset/limit |
 | `big_user_msgs` | 20k 字超の人間入力。インライン貼り付け | `local://` またはファイルパス渡しの規範化 |
-| `hit<70%` | Codex の cache 効率低下。並列セッションやコンテキスト作り直し | セッション構成の見直し |
+| `hit<70%` | 100k tokens 超を処理した Claude / Codex セッションの cache read 率低下 | fresh/cache の内訳、prefix の変化、並列セッション、compaction、model 切替を確認 |
+| `models>1` | 同一の長大 Claude context で model string が変化。cache reset の候補 | 品質上必要な切替か、別セッションへ分離できるかを確認 |
 | `final_ctx>200k` | コンテキスト肥大のまま完走 | 早期分割、サブエージェント委譲 |
 | `idle_resumes>0` | 1 時間超の中断後、200k 超の context を再開して 100k 超を cache write | handoff を残して新セッションで再開 |
 
@@ -91,6 +107,22 @@ OMP の提案では、該当 session、実際に読まれた設定、起動か�
 
 ジョブ内容が会話履歴に依存しないなら、ジョブ終端でセッションをリセットする。
 
+### Context payload
+
+OMP の `Context growth` と `Large tool results` は、中間生成物のサイズと寿命を調べる入口である。
+
+| 警告候補 | 意味 | 確認と典型修正 |
+|---|---|---|
+| `max_context_jump>=50k` | 1 回の応答間で context が急増 | 同時刻の tool result、画像、文書、巨大 read を確認し、範囲指定またはファイル参照へ変える |
+| `peak_context>=200k` | 長い履歴を後続ターンで繰り返し処理 | タスク境界、handoff、subagent 隔離を確認 |
+| `result_size>=50k` | 大きな tool result が context へ入った候補 | 必要な部分だけ返す accessor、limit / fields / date range、subagent の短い finding を使う |
+
+大きな result が 1 回出ただけでは問題と判定しない。
+後続ターンの context に残り続けたか、同じファイルや結果を再取得したかを該当 session で確認する。
+
+prune や compaction は毎ターン行わない。
+履歴の書き換えは cache prefix を無効化するため、不要になったタスク境界でまとめて削り、その直後の cache write と以後の cache read を比較する。
+
 ### OMP
 
 OMP の現行機能と実際の経路の差分を確認する。
@@ -101,9 +133,10 @@ OMP の現行機能と実際の経路の差分を確認する。
 |---|---|---|
 | config | 実際に読み込まれた config と意図した設定 | 設定が未読、競合、または期待と異なる挙動を生んだ |
 | plugin と patch | 有効な固定版、適用中の patch、更新後に新 session が使う内容 | plugin 更新と固定版または patch の整合が崩れる |
-| model routing | 各工程で選ばれたモデルと作業の性質 | title や auto-thinking classifier などの補助用途に不適切なモデルを使う、または機械的作業に高コストモデルを使う |
-| subagent | 委譲数、担当の独立性、重複調査、統合方法 | 依存する作業を無駄に並列化する、または独立作業を逐次化する |
-| compaction と handoff | compaction の発生時点、引き継ぎ、再開後の context | compaction 後に同じ情報を再読込する、または日跨ぎ・長時間中断を resume する |
+| model routing | 各工程のモデル、effort、成功、再試行、差し戻し | 同種タスクの品質基準を保ったまま 1 成功タスク当たりコストを下げられる。単価だけでは変更しない |
+| subagent | 委譲数、担当の独立性、重複調査、親へ返した結果のサイズ | 依存する作業を無駄に並列化する、独立作業を逐次化する、または巨大結果を親 context に戻す |
+| compaction と handoff | compaction の発生時点、引き継ぎ、再開後の context と cache | compaction 後に同じ情報を再読込する、毎ターン履歴を書き換える、または日跨ぎ・長時間中断を resume する |
+| tool result | `result_size`、context 増分、後続ターンでの残存 | 50k 以上の結果を狭められる、または独立調査を subagent に隔離できる |
 | tool error | 失敗した tool、引数、復旧経路、同じ失敗の反復 | tool の制約を確認せず再試行する、または設定で防げる失敗が繰り返される |
 | prewalk | 計画後の最初の edit/write で低コスト実装モデルへ切り替わったか | 切替が起きない、または切替後の実装が失敗して再作業を生む |
 | tiny model | title や auto-thinking classifier などのローカル補助用途での選択と結果 | 補助用途に対して不適切なモデルを選び、分類や題名の品質またはコストを悪化させる |
@@ -114,24 +147,50 @@ OMP の現行機能と実際の経路の差分を確認する。
 
 稼働期間や条件が足りない場合は「判定不能」とし、効果を推測しない。
 
+### 外部記憶
+
+外部記憶は、常時ロードする小さな working set と、必要時だけ取得する知識へ分ける。
+知識量を増やすこと自体を目的にしない。
+
+| 層 | 入れる内容 |
+|---|---|
+| `agents/global-instructions.md` | 高頻度、複数 repository 共通、毎回の行動を変える短い規範 |
+| 既存 skill | trigger が明確な手順、例外、診断表、詳細な判断基準 |
+| project instructions / project skill | 特定 repository でだけ再利用する規範と手順 |
+| local journal | session ID、生の計測、単発事例、未検証の仮説、証拠 |
+| archive | 現行判断に影響しない古い記録 |
+
+`Always-loaded instruction footprint` は前回値と比較する。
+増加だけで削減せず、常時必要な頻度、cache write、既存 skill へ移せるかを確認する。
+
+次も手動診断する。
+
+- **memory miss**: 過去に記録済みの調査や失敗を別 session で再計算した。
+- **retrieval miss**: skill や project memory に該当知識があったが、trigger または検索経路が弱く再利用されなかった。
+- **stale memory**: 記録された規範が現在の実装、API、設定と食い違った。
+
+本文の類似度だけでこれらを自動判定しない。
+該当 session、既存記録、実際の再調査経路を突き合わせる。
+
 ## 3. 提案
 
-修正案ごとに次の 4 点を明示し、影響度順に並べる。
+修正案ごとに次の 5 点を明示し、影響度順に並べる。
 
-1. **影響度**: 推定削減量（トークン/週または $/週）または失敗・再作業を減らす具体的な効果。
-2. **根拠**: journal、計測値、該当 session、設定、実動経路。
-3. **着地先**: 下のマップから選ぶ。
-4. **確認方法**: 適用後に実行する最小の実動確認。
+1. **影響度**: 品質基準を満たした 1 タスク当たりの推定削減額、または失敗・再作業を減らす具体的な効果。raw token 減少だけを効果にしない。
+2. **品質ガード**: 成功の判定条件、比較する同種タスク、許容できる失敗率。取得不能なら明記する。
+3. **根拠**: journal、計測値、該当 session、設定、実動経路。
+4. **着地先**: 下のマップから選ぶ。
+5. **確認方法**: 適用後に実行する最小の実動確認。
 
 着地先マップ:
 
 | 修正の種類 | 着地先 |
 |---|---|
-| エージェントの行動規範 | `agents/global-instructions.md` |
+| 高頻度・全 repository 共通の短い行動規範 | `agents/global-instructions.md` |
+| trigger が明確な手順、例外、詳細な判断基準 | 既存 skill |
 | 機械的な強制（deny 等） | `claude/hooks/`、settings.json の PreToolUse |
 | モデルルーティング、OMP 挙動 | `omp/config.yml`、`omp/APPEND_SYSTEM.md`、extensions |
 | plugin の版、patch、導入経路 | `./scripts/omp-plugins` と `omp/patches/` |
-| 手順の正本化 | 既存 skill |
 | プロジェクト固有の原因 | 当該リポジトリの AGENTS.md、CLAUDE.md、`.claude/skills/`、`.claude/settings.json` |
 
 plugin を更新する提案は、固定版と対応 patch の整合を確認し、両方を満たせる場合だけ出す。
@@ -140,7 +199,8 @@ plugin を更新する提案は、固定版と対応 patch の整合を確認し
 
 原因がプロジェクト固有なら、修正もそのリポジトリに落とす。
 
-一般化できたエッセンスだけをこの skill の診断節や dotfiles の規範へ昇格し、グローバル側へ個別プロジェクトの事情を書かない。
+一般化できたエッセンスだけを昇格する。
+詳細な手順は既存 skill、プロジェクト固有の事情は project instructions、毎回必要な短い規範だけを global instructions に置く。
 
 ## 4. 承認
 
@@ -184,20 +244,25 @@ journal.md の先頭にエントリを追記する。
 
 ```markdown
 ## YYYY-MM-DD
-- 計測: <期間、合計、警告フラグの要約>
+- 計測: <期間、合計、cache 構成、警告フラグの要約>
+- 品質・単価: <成功タスクの判定、$/成功タスク、turns/成功タスク、再試行。取得不能なら理由>
 - 前回比: <前回適用した修正の効果。改善、悪化、判定不能>
-- 提案: <根拠と項目別の承認結果>
+- 提案: <根拠、品質ガード、項目別の承認結果>
 - 適用: <修正、着地先、実動確認>
 - 却下・保留: <案と理由>
 ```
 
 journal は一次記録で、リポジトリは public である。
 
-知見は次の二層で住み分ける。
+知見は常時ロードする規範、オンデマンドで読む skill / project instructions、ローカル journal / archive に住み分ける。
 
-- **journal（ローカル）**: セッション ID、費用、プロジェクト名、個別の実行経路などの生の固有値。
-- **公開層（コミットする）**: 固有値を落として一般化できた知見。
-  新しい警告フラグパターンと典型修正は「2. 診断」の表へ、検出ロジックの改善は snapshot へ、行動規範は着地先マップの規範ファイルへ昇格する。
+- **journal（ローカル）**: セッション ID、費用、プロジェクト名、個別の実行経路、単発事例、未検証の仮説。
+- **skill / project instructions**: trigger または適用範囲が明確で、再利用が確認された手順と判断基準。
+- **global instructions**: 高頻度かつ複数 repository 共通で、毎回の行動を変える短い規範だけ。
+- **archive**: 現行判断に影響しない古い記録。
+
+昇格する知見は、複数の独立した事例で再現し、次回の行動を具体的に変え、既存ルールと重複せず、根拠と最終確認日を持つ必要がある。
+新しい警告フラグパターンと典型修正は「2. 診断」の表へ、検出ロジックの改善は snapshot へ昇格する。
 
 サイクルを閉じる前に、今回の発見のうち一般化できるものを確認し、昇格分を論理的なコミットで残す。
 
