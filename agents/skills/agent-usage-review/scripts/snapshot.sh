@@ -39,7 +39,13 @@ CONTEXT_JUMP_TOKENS=50000
 CONTEXT_PEAK_TOKENS=200000
 
 
-CCUSAGE="ccusage"
+# Devbox globalのccusageを直接実行。PATHから消えた場合はbunx経由へfallbackし、
+# 日次合計・コスト上位の節が無音で空になる事故を防ぐ。
+if command -v ccusage >/dev/null 2>&1; then
+	CCUSAGE="ccusage"
+else
+	CCUSAGE="bunx ccusage"
+fi
 
 echo "# usage snapshot ${SINCE}..$(date +%Y%m%d)"
 echo
