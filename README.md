@@ -19,6 +19,12 @@ cd ~/project/dotfiles
 5. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`
 6. `scripts/omp-plugins` — install the declared omp (Oh My Pi) plugin set (`omp plugin install`); the list and the skipped-as-built-in rationale live in the script
 
+## OMP (Oh My Pi)
+
+日常の起動方法、セッション操作、モデル運用、local memory、自動学習、定期レビュー、設定変更、トラブル対応は [`docs/omp.md`](docs/omp.md) にまとめています。
+
+最短では、対象リポジトリで `omp`、場所を間違えたくない場合は `omp-repo <repository-path>`、非 trivial な実装は `omp-build` を使います。
+
 ## Agent instructions
 
 `agents/global-instructions.md` is a single set of guidance for the LLM coding
