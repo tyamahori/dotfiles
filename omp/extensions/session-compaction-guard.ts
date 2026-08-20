@@ -1,6 +1,6 @@
 // 有人TUIセッションでの自動コンパクション反復を抑えるガード。
-// 2回目の auto_compaction_end の後だけ、現在の依頼を終えてから /handoff
-// するよう follow-up を注入する。手動 compaction は別イベントなので数えない。
+// 2回目の auto_compaction_end 後、現在の依頼を終えてから /handoff
+// するよう follow-up を注入し、未実行のまま次の入力が来たら再通知する。
 
 type Ctx = {
   hasUI?: boolean;
@@ -40,7 +40,7 @@ export default function (pi: ExtensionHandlerApi): void {
     handoffNudged = true;
     try {
       ctx.ui?.notify?.(
-        "session-compaction-guard: 自動コンパクションが2回完了した。現在の依頼の後に /handoff で新セッションへ移ることを提案する",
+        "session-compaction-guard: 自動コンパクションが2回完了した。現在の依頼を完了したら、次の入力を送る前に /handoff を実行してください",
         "warning",
       );
     } catch {
@@ -49,12 +49,28 @@ export default function (pi: ExtensionHandlerApi): void {
     try {
       pi.sendUserMessage?.(
         "[session-compaction-guard] この有人TUIセッションでは自動コンパクションが2回完了した。" +
-          "現在の依頼を中断せず完了してから、/handoff を実行して新しいセッションへ移ること。" +
-          "次の依頼は新セッションで続ける。",
+          "現在の依頼を中断せず完了すること。完了報告の末尾で、ユーザーへ「次の依頼を送る前に /handoff を実行してください」と明示すること。" +
+          "/handoff を自分が実行したように書かず、次の依頼は新しいセッションで受けること。",
         { deliverAs: "followUp" },
       );
     } catch {
       // 通知済みなので、注入に失敗しても現在の依頼は続行する。
+    }
+  });
+
+  pi.on("input", (event, ctx) => {
+    if (!ctx?.hasUI || !handoffNudged) return;
+
+    const input = event as { source?: string; text?: string };
+    if (input.source !== "interactive" || input.text?.trimStart().startsWith("/handoff")) return;
+
+    try {
+      ctx.ui?.notify?.(
+        "session-compaction-guard: /handoff が未実行です。この入力の処理後、次の依頼を送る前に /handoff を実行してください",
+        "warning",
+      );
+    } catch {
+      // 再通知の失敗は入力処理を妨げない。
     }
   });
 }
