@@ -416,6 +416,114 @@ instruction_footprint "global instructions" "$REPO_ROOT/agents/global-instructio
 instruction_footprint "OMP appended system" "$REPO_ROOT/omp/APPEND_SYSTEM.md"
 
 echo
+echo "### Persistent memory footprint"
+echo
+echo '> point-in-time の file/byte 数。前回 snapshot / journal と比較し、増加だけで削減せず、memory miss・retrieval miss・stale memory の実例と照合する。内容は出力しない。'
+echo
+
+memory_tree_stats() {
+	local root="$1"
+	local mode="${2:-all}"
+	local files=0
+	local bytes=0
+	local file
+	local size
+	if [ ! -d "$root" ]; then
+		printf '0\t0'
+		return
+	fi
+	while IFS= read -r -d '' file; do
+		size="$(wc -c <"$file" | tr -d ' ')"
+		files="$((files + 1))"
+		bytes="$((bytes + size))"
+	done < <(
+		if [ "$mode" = "claude-memory" ]; then
+			find "$root" -type f -path '*/memory/*' -print0 2>/dev/null
+		else
+			find "$root" -type f -print0 2>/dev/null
+		fi
+	)
+	printf '%s\t%s' "$files" "$bytes"
+}
+
+count_named_dirs() {
+	local root="$1"
+	local name="$2"
+	local count=0
+	local dir
+	if [ -d "$root" ]; then
+		while IFS= read -r -d '' dir; do
+			: "$dir"
+			count="$((count + 1))"
+		done < <(find "$root" -type d -name "$name" -print0 2>/dev/null)
+	fi
+	printf '%s' "$count"
+}
+
+OMP_MEMORY_ROOT="$HOME/.omp/agent/memories"
+CLAUDE_PROJECTS="$HOME/.claude/projects"
+CODEX_MEMORY_ROOT="$HOME/.codex/memories"
+CODEX_MEMORY_DB="$HOME/.codex/memories_1.sqlite"
+
+IFS=$'\t' read -r OMP_MEMORY_FILES OMP_MEMORY_BYTES <<<"$(memory_tree_stats "$OMP_MEMORY_ROOT")"
+IFS=$'\t' read -r CLAUDE_MEMORY_FILES CLAUDE_MEMORY_BYTES <<<"$(memory_tree_stats "$CLAUDE_PROJECTS" claude-memory)"
+CLAUDE_MEMORY_SCOPES="$(count_named_dirs "$CLAUDE_PROJECTS" memory)"
+IFS=$'\t' read -r CODEX_MEMORY_FILES CODEX_MEMORY_BYTES <<<"$(memory_tree_stats "$CODEX_MEMORY_ROOT")"
+
+OMP_MEMORY_SCOPES=0
+OMP_MEMORY_ROLLOUTS=0
+OMP_MEMORY_SKILLS=0
+if [ -d "$OMP_MEMORY_ROOT" ]; then
+	while IFS= read -r -d '' scope; do
+		OMP_MEMORY_SCOPES="$((OMP_MEMORY_SCOPES + 1))"
+	done < <(find "$OMP_MEMORY_ROOT" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
+	OMP_MEMORY_ROLLOUTS="$(find "$OMP_MEMORY_ROOT" -type f -path '*/rollout_summaries/*' 2>/dev/null | wc -l | tr -d ' ')"
+	OMP_MEMORY_SKILLS="$(find "$OMP_MEMORY_ROOT" -type f -path '*/skills/*' 2>/dev/null | wc -l | tr -d ' ')"
+fi
+
+echo 'store	scopes	files	bytes	records'
+echo "OMP	$OMP_MEMORY_SCOPES	$OMP_MEMORY_FILES	$OMP_MEMORY_BYTES	rollouts=$OMP_MEMORY_ROLLOUTS skills=$OMP_MEMORY_SKILLS"
+echo "Claude Code	$CLAUDE_MEMORY_SCOPES	$CLAUDE_MEMORY_FILES	$CLAUDE_MEMORY_BYTES	project memory files"
+echo "Codex files	$([ -d "$CODEX_MEMORY_ROOT" ] && echo 1 || echo 0)	$CODEX_MEMORY_FILES	$CODEX_MEMORY_BYTES	memory files"
+
+if [ -f "$CODEX_MEMORY_DB" ] && command -v sqlite3 >/dev/null 2>&1; then
+	CODEX_MEMORY_DB_BYTES="$(wc -c <"$CODEX_MEMORY_DB" | tr -d ' ')"
+	CODEX_MEMORY_TABLES="$(sqlite3 "$CODEX_MEMORY_DB" "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('jobs','stage1_outputs');" 2>/dev/null)"
+	CODEX_MEMORY_JOBS="-"
+	CODEX_MEMORY_STAGE1="-"
+	if printf '%s\n' "$CODEX_MEMORY_TABLES" | grep -qx jobs; then
+		CODEX_MEMORY_JOBS="$(sqlite3 "$CODEX_MEMORY_DB" 'SELECT COUNT(*) FROM jobs;' 2>/dev/null || echo '?')"
+	fi
+	if printf '%s\n' "$CODEX_MEMORY_TABLES" | grep -qx stage1_outputs; then
+		CODEX_MEMORY_STAGE1="$(sqlite3 "$CODEX_MEMORY_DB" 'SELECT COUNT(*) FROM stage1_outputs;' 2>/dev/null || echo '?')"
+	fi
+	echo "Codex DB	1	1	$CODEX_MEMORY_DB_BYTES	jobs=$CODEX_MEMORY_JOBS stage1_outputs=$CODEX_MEMORY_STAGE1"
+else
+	echo "Codex DB	0	0	0	取得不能"
+fi
+
+if [ -d "$OMP_MEMORY_ROOT" ] && [ "$OMP_MEMORY_SCOPES" -gt 0 ]; then
+	echo
+	echo 'omp_scope	summary_bytes	index_bytes	raw_bytes	rollouts	skills'
+	OMP_MEMORY_SHOWN=0
+	while IFS= read -r -d '' scope; do
+		if [ "$OMP_MEMORY_SHOWN" -lt 20 ]; then
+			scope_name="$(basename "$scope")"
+			summary_bytes="$([ -f "$scope/memory_summary.md" ] && wc -c <"$scope/memory_summary.md" | tr -d ' ' || echo 0)"
+			index_bytes="$([ -f "$scope/MEMORY.md" ] && wc -c <"$scope/MEMORY.md" | tr -d ' ' || echo 0)"
+			raw_bytes="$([ -f "$scope/raw_memories.md" ] && wc -c <"$scope/raw_memories.md" | tr -d ' ' || echo 0)"
+			rollouts="$(find "$scope/rollout_summaries" -type f 2>/dev/null | wc -l | tr -d ' ')"
+			skills="$(find "$scope/skills" -type f 2>/dev/null | wc -l | tr -d ' ')"
+			echo "$scope_name	$summary_bytes	$index_bytes	$raw_bytes	$rollouts	$skills"
+			OMP_MEMORY_SHOWN="$((OMP_MEMORY_SHOWN + 1))"
+		fi
+	done < <(find "$OMP_MEMORY_ROOT" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
+	if [ "$OMP_MEMORY_SCOPES" -gt "$OMP_MEMORY_SHOWN" ]; then
+		echo "($((OMP_MEMORY_SCOPES - OMP_MEMORY_SHOWN)) scopes hidden; aggregate above includes all)"
+	fi
+fi
+
+echo
 echo "### Plugin / config drift"
 echo
 if [ -f "$OMP_CONFIG" ] && [ -f "$CANONICAL_CONFIG" ]; then
@@ -456,4 +564,5 @@ echo
 echo '- `stats.db` は完了した model 呼出と tool 実行の索引であり、未完了・判定専用の local tiny 呼出は記録されないことがある。'
 echo "- compaction / handoff / prewalk は JSONL の明示イベントのみを数える。イベントを出さない経路は取得不能で、0 と区別できない。"
 echo "- instruction footprint は canonical file の byte/line 数であり、実リクエストの token count ではない。増加だけで削減を提案せず、cache write と再利用頻度を照合する。"
+echo "- persistent memory footprint は snapshot 時点の容量であり、期間内の増分や参照回数ではない。参照履歴がない store は利用 0 と判定しない。"
 echo "- この snapshot は計測と drift 検出だけを行い、設定・plugin・セッションを変更しない。"
