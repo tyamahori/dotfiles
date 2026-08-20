@@ -44,7 +44,7 @@ task:
     security-reviewer: "@task"
     librarian: "@smol"
 compaction: 
-  thresholdTokens: 120000
+  thresholdTokens: 160000
 display: 
   showTokenUsage: true
   cacheMissMarker: true
