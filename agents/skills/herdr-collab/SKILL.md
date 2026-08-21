@@ -1,6 +1,6 @@
 ---
 name: herdr-collab
-description: 同一マシンの herdr ペインにいる Claude Code / Codex / omp / Copilot 間で agmsg を使わず協働する herdr-only プロトコルの正本（spawn・send・inbox・despawn スクリプト付き）。agmsg の identity 衝突（同型セッションの並走）を避けたいとき、omp をコーディネータに Claude と Codex を協働させるとき、herdr-only のクロスレビューやタスク受け渡しに使う。agmsg を使う協働の正本は agent-collab。
+description: Herdr 内で Claude Code / Codex / omp / Copilot を協働させる標準transport。spawn・send・inbox・despawn スクリプトで agmsg を使わず、単発レビュー、相互レビュー、タスク受け渡し、調査共有を行う。HERDR_ENV=1 で相手を同一マシンの Herdr agent として利用できるときに使用する。
 ---
 
 # herdr-collab
@@ -18,15 +18,17 @@ agent-collab §2 を流用する。
 
 ## 前提と使い分け
 
-- `test "${HERDR_ENV:-}" = 1` が通ること。両ピアが同一マシンの herdr ペインに
-  いること。herdr の外・別マシン・herdr を使えない相手には agmsg
-  （agent-collab）を使う。
-- agmsg とどちらでもよい状況なら: 同一プロジェクトに同型セッションが並走して
-  いる（する予定がある）なら herdr-collab、それ以外は好みでよい。agmsg は
-  配送検証と history を持ち、herdr-collab は identity 衝突が無く承認摩擦が
-  小さい（スクリプト 1 本 = 承認 1 回）。
+- `test "${HERDR_ENV:-}" = 1` が通り、相手を同一マシンの Herdr agent として
+  起動または特定できるフローでは、単発か往復かを問わずこのプロトコルを使う。
+  agmsg の team join・send・spawn は併用しない。
+- 現在のセッションが Herdr 外、相手が別マシン、または相手を Herdr agent として
+  利用できない場合は `agent-collab` に戻り、ヘッドレスワンショットか agmsg を
+  選ぶ。Herdr 外から Herdr セッションを操作しない。
+- Herdr のペイン名は一意なので、同一プロジェクトで同型セッションが並走しても
+  agmsg の identity 衝突を起こさない。配送履歴は `.agent-msgs/` に残し、
+  `send.sh` が配送と着火を検証する。
 - omp から使う場合も同じスクリプトでよい。omp は agmsg の型検出で
-  `claude-code` と誤検出されるため agmsg の team には入れないこと。
+  `claude-code` と誤検出されるため、agmsg の team には入れない。
 
 ## スクリプト
 

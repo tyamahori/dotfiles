@@ -56,7 +56,6 @@
       "Bash(bash ~/.agents/skills/agmsg/scripts/*)",
       "Bash(~/.agents/skills/agmsg/scripts/*)",
       "Bash(~/dotfiles/scripts/agmsg-pair)",
-      "Bash(~/dotfiles/scripts/herdr-spawn-pane *)",
       "Read(~/.config/**)",
       "Read(~/.agents/skills/**)",
       "Read(~/dotfiles/**)",

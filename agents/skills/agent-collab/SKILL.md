@@ -1,14 +1,14 @@
 ---
 name: agent-collab
-description: Claude Code / Codex / Copilot CLI 間の協働手順（ヘッドレスワンショット・agmsg ペアセッション）と不変条件（信頼境界・レビュアー分離・spawn/wake・go/no-go・指摘トリアージ）の正本。クロスレビューや第二意見を求められたとき、タスクをピアに渡すとき、[REVIEW-REQ] 等のタグ付きメッセージを受信したとき、herdr ペインからピアを起こすときに使用する。
+description: Claude Code / Codex / Copilot CLI 間の協働transportを環境で選ぶ正本。Herdr内は herdr-collab、Herdr外はヘッドレスワンショットまたはagmsgを使い、信頼境界・レビュアー分離・spawn/wake・go/no-go・指摘トリアージを全経路に適用する。クロスレビューや第二意見、タスクの受け渡し、タグ付きメッセージへの対応時に使用する。
 ---
 
 # agent-collab
 
 エージェント協働の運用手順。いつ使うか（発動条件）は global-instructions の
 「Agent collaboration」節にあり、ここには複製しない。このスキルが持つのは
-**協働の不変条件（正本・下記）と、具体コマンド・手順・テンプレ・役割別
-プレイブック** — ヘッドレスワンショットの実コマンドと、agmsg ペアセッションの全手順。
+**協働の不変条件、transport の選択規則、Herdr 外で使うヘッドレスワンショット
+と agmsg ペアセッションの手順**。Herdr 内の手順は `herdr-collab` が正本。
 
 ## 不変条件（正本）
 
@@ -28,23 +28,21 @@ description: Claude Code / Codex / Copilot CLI 間の協働手順（ヘッドレ
 - **指摘はトリアージする — 盲目的に適用しない。** 正しいものは直し、誤検知は
   理由を添えて棄却し、両方をユーザーへ報告する。最終判断は呼び出し側が持つ。
 
-以下の「ヘッドレスワンショット」節は agmsg を使わない単発用。
-番号付きの §0〜§4 は agmsg ペアセッションの手順。agmsg を使わない
-herdr-only の往復（herdr + メッセージファイル）は独立スキル
-`herdr-collab` が正本（同一プロジェクトで同型セッションが並走し
-agmsg の identity が衝突する場合の第一回避策。fujibee/agmsg#300 参照）。
+## transport を選ぶ
 
-## どちらを使うか
+transport は好みで選ばず、フローを実行する環境で決める。
 
-往復が要らないならヘッドレスワンショット、ピアがラウンドをまたいで
-文脈を保つ必要があるなら agmsg ペアセッション。
+| 実行環境 | やりたいこと | 使うもの |
+|---|---|---|
+| Herdr 内 | 単発レビュー、レビュー往復、タスク受け渡し、調査共有 | `herdr-collab` |
+| Herdr 外 | 単発の第二意見・レビュー | ヘッドレスワンショット |
+| Herdr 外 | レビュー往復、タスク受け渡し、調査共有 | agmsg ペアセッション |
 
-| やりたいこと | 使うもの |
-|---|---|
-| 単発の第二意見・レビュー | ヘッドレスワンショット |
-| レビューの往復（指摘 ↔ 修正） | agmsg ペアセッション |
-| タスクの受け渡し（ブリーフ → 実行） | agmsg `[HANDOFF]` + ブリーフィングのファイルパス |
-| 調査結果・文脈の共有 | agmsg `[FYI]` + ファイルパス |
+Herdr 内とは、`test "${HERDR_ENV:-}" = 1` が通り、相手を同一マシンの Herdr
+agent として起動または特定できる状態を指す。この条件を満たしたら
+`herdr-collab` を追加で読み、agmsg の team join・send・spawn は使わない。
+相手が Herdr agent として利用できない場合や、現在のセッションが Herdr 外なら
+本スキルの Herdr 外経路を使う。Herdr 外から Herdr セッションを操作しない。
 
 agmsg 自体の呼び出しは Claude Code から `/agmsg`、Codex / Copilot CLI
 から `$agmsg`（実体は `~/.agents/skills/agmsg/`）。
@@ -159,138 +157,42 @@ briefing: <ファイルの絶対パス>
 返信不要
 ```
 
-## 3. 相手を起こす
+## 3. Herdr 外で相手を起こす
 
-送信しただけでは届かない（turn 配送は相手のターンが回ったときだけ）。
-送信後、必ず本節のいずれかを行う。「送信しました」だけで完了報告に
-しない。
+本節は agmsg ペアセッション専用で、`HERDR_ENV=1` のフローでは実行しない。
+Herdr 内では `herdr-collab` の spawn / send / wait 手順を使う。
 
-経路は自分のセッションの居場所で決まる:
-`test "${HERDR_ENV:-}" = 1` が通れば herdr 経路（第一選択）、
-通らなければ従来経路。herdr の外から herdr セッションを操作しない。
-herdr CLI 一般（コマンド体系・`idle`/`blocked` 等の状態の意味）の
-正本はバイナリ同梱の `herdr` スキル（`herdr --skill` の出力を
-scripts/link と brewUpdate が `~/.agents/skills/herdr/` に生成する。
-常に稼働バージョンと一致）。本節が持つのは協働プロトコル固有の
-手順と実測済みの罠だけ。
+agmsg は送信しただけでは届かない（turn 配送は相手のターンが回ったときだけ）。
+送信後、必ず相手を起こす。「送信しました」だけで完了報告にしない。
 
 **spawn は起動手段であって wake 手段ではない。** 1 フローにつき
-同一ピアの spawn は最大 1 回。既に spawn した(または生きているはず
-の)相手に返信がなくても再 spawn しない — 非 tmux の macOS では
-spawn 1 回ごとに Terminal ウィンドウが 1 枚開き、同じ identity の
-CLI が複数プロセス立って配送先が不定になる(1 タスクで 4 回 spawn →
-ウィンドウ 3 枚超の事故歴)。反応がないときは、まずウィンドウが開いて
-CLI が起動しているかをユーザーに確認する。claude-code spawn の
-`status=timeout` も同じ — 起動が遅いだけのことが多く、再 spawn では
-なくユーザー確認。
+同一ピアの spawn は最大 1 回。既に spawn した（または生きているはずの）
+相手に返信がなくても再 spawn しない。再 spawn はウィンドウと同じ identity の
+CLI プロセスを重複させ、配送先を不定にする。反応がないときは、相手の
+ウィンドウで CLI が起動しているかをユーザーに確認する。
 
-spawn する 1 回には、経路によらず 2 つを守る:
+spawn する 1 回には、次の 2 つを守る:
 
-- **必ず `--boot-prompt` で「inbox を確認して対応せよ」まで指示する**
-  — codex は Monitor がなく boot 後アイドルに戻り、claude-code も
-  起動後の watcher は起動前に送られたメッセージを配送しないため、
-  どちらもこれがないと送信済みメッセージに気づけない。
-- **`--project` には git toplevel を渡す**
-  (`git rev-parse --show-toplevel`)。サブディレクトリの `$(pwd)` を
-  渡してもチームと inbox は同じに解決されるが、パスごとの
-  registration が積み上がり、登録状態の見え方がぶれる。
-
-### herdr 経路（HERDR_ENV=1）
-
-**稼働中のピアを起こす** — 相手セッションが既に herdr ペインにいる
-場合はこちら。codex の 2 巡目以降（従来はユーザーが手で起こして
-いた）もこれで済む。
-
-1. `herdr agent list` で相手を特定する（`agent` / `name` /
-   `agent_status` を見る）。spawn したら
-   `herdr agent rename <pane_id> <名前>` で名前を付けておくと、以後の
-   コマンドはすべて名前で指せて pane ID に依存しない（名前は herdr
-   0.7.5 以降で一意制約あり・占有者の終了で自動クリア。例:
-   `scrape-codex` のようにプロジェクト接頭辞を付ける）。
-2. `agent_status` が `idle` / `done` なら次へ。`working` なら
-   `herdr agent wait <target> --until idle --until done --timeout 300000`
-   で完了を待つ（0.7.5 で旧 `herdr wait agent-status` は
-   `agent wait` に置き換え）。working 中に nudge を注入しない —
-   相手のターンに割り込む。
-3. inbox チェックを発火する — `herdr agent prompt` を使う
-   （アトミック送信。bracketed paste を尊重し、送信後 5 秒状態が
-   変わらないと `agent_prompt_stalled` を返すので「送れたつもりで
-   届いていない」を検出できる。旧 `pane run` より堅い）:
-   - claude-code ピア: `herdr agent prompt <target> '/agmsg'`
-   - codex ピア: `herdr agent prompt <target> '$agmsg'`（シェル展開
-     させないよう必ずシングルクォート）
-   - **送信後は着火を確認する**: 数秒待って
-     `herdr agent get <target>` の `agent_status` が `working` に
-     変わらなければ、テキストが入力欄に残ったまま Enter だけ落ちて
-     いる — `herdr agent send-keys <target> enter` で発火させる。
-     根本原因（テキスト送信直後に Enter が落ちる）は 0.8.0 で
-     修正済み（herdr#1878）なので、この確認は保険。0.7.x では
-     codex ピアで頻発し、stalled エラーが返らないこともあった。
-     prompt の出力を `>/dev/null` で捨てない —
-     `agent_prompt_stalled` を見逃す。
-4. 返答を待つなら
-   `herdr agent wait <target> --until idle --until blocked --until done`
-   （`blocked` = 承認・入力待ちで止まっている状態。放置せず内容を
-   確認する）。agmsg の配送 Monitor と併用してよい。
-
-**新規 spawn を herdr ペインに開く** — agmsg 1.1.11 で spawn.sh が herdr を
-**ネイティブサポートした**（fujibee/agmsg#495）。`--terminal` テンプレートも
-自作ヘルパーも要らない。素の spawn コマンドでよい:
-
-```
-~/.agents/skills/agmsg/scripts/spawn.sh codex codex \
-  --project "$(git rev-parse --show-toplevel)" \
-  --boot-prompt "inbox を確認して対応して"
-```
-
-- spawn.sh は `HERDR_ENV=1` かつ `HERDR_PANE_ID` があり `herdr` が PATH に
-  いるとき、自動で herdr 経路を選ぶ。通常は
-  `herdr pane split --direction right --no-focus`（`--split v` で down）、
-  `--window` を付けると `herdr tab create`（`$HERDR_WORKSPACE_ID` 必須・
-  未設定なら split へフォールバック）。
-- **ペイン名は spawn.sh が `herdr pane rename <pane_id> <name>` で自動で
-  付ける**（agmsg の agent 名と同じ）。手動 rename は不要。以後のコマンドは
-  この名前で指せる。
-- **片付けはピアの型で分かれる。** spawn.sh は placement を
-  `herdr:<pane_id>` 形式で記録し、despawn.sh はそれを見て
-  `herdr pane close` まで実行できる。ただしそこへ到達する経路が型で違う:
-  - **claude-code ピア** → `despawn <name>`（graceful）でよい。watcher が
-    ctrl:despawn を受けて自分の role を落とし、自分のペインを閉じる。
-  - **codex ピア** → **最初から `despawn <name> --force` を使う。**
-    codex には watcher がなく actas lock を持たないため、graceful は
-    lock state が `free` と判定され、**placement 記録を削除したうえで
-    `status=ok note=no-live-lock` を返して終わる — ペインは開いたまま**。
-    この時点で記録が消えているので、あとから `--force` を打っても
-    `no placement record` で失敗し、`herdr pane close <pane_id>` を
-    手で叩くしかなくなる（実測 2026-07-28）。**順序を間違えると復旧不能**。
-  - 迷ったら型を確認してから。agmsg 自身の SKILL.md にも
-    「A codex member has no watcher to respond, so use `--force` for it」
-    と書かれている。
-- `$TMUX` が立っていると tmux 経路が優先される（herdr 内で tmux を
-  入れ子にしている場合はそのまま tmux 経路）。
-
-**この経路は agmsg の team join を伴う**（起動段で team に登録が残る）ので、
-agmsg でメッセージを流す通常フロー専用。**agmsg を一切使わない herdr-only
-フロー（`herdr-collab` スキル）では、この spawn.sh を使わず herdr-collab の
-spawn.sh で直接起動する。**ネイティブサポートが入って spawn.sh が herdr で
-「そのまま動いてしまう」ようになったぶん、誤って使う事故は起きやすくなっている。
-
-### 従来経路（herdr 外）
+- **必ず `--boot-prompt` で「inbox を確認して対応せよ」まで指示する。**
+  codex は Monitor がなく boot 後 idle に戻り、claude-code も起動前の
+  メッセージを watcher が拾わないため、これがないと送信済みメッセージに
+  気づけない。
+- **`--project` には git toplevel を渡す。**
+  サブディレクトリを渡すとパスごとの registration が積み上がり、
+  登録状態の見え方がぶれる。
 
 相手が生きているかで分岐する:
 
 - **まだ起動していない相手** → spawn（claude-code / codex のみ）:
   `/agmsg spawn codex codex`（Claude から）/
   `$agmsg spawn claude-code claude`（Codex から）。join・actas 済みで
-  起動する。tmux 内ならペイン、外ならターミナルの新規ウィンドウが
-  開く。
+  起動する。tmux 内ならペイン、外ならターミナルの新規ウィンドウが開く。
 - **既に生きている相手**（このフローで spawn 済み、または既存
   セッションがいる）→ **手動 wake のみ**: ユーザーに
   「<プロジェクト> の <相手> のウィンドウで一言入力してください」と
-  具体的に依頼する。claude-code ピアは watcher が生きていれば配送
-  されるので wake 不要のことが多い。codex は turn 配送のみなので
-  必ずこの依頼をする。迷ったら（相手の生死が分からないときも）
-  再 spawn ではなくこちら。
+  具体的に依頼する。claude-code は watcher が生きていれば wake 不要の
+  ことが多い。codex は turn 配送のみなので必ず依頼する。相手の生死が
+  分からない場合も再 spawn しない。
 
 ### 送信が弾かれたとき
 
@@ -353,25 +255,24 @@ agmsg 1.1.11 から **send.sh は from / to が team に登録済みかを検証
 2. `[HANDOFF]` でパスを送り、相手を起こす（§3）。
 3. 受け手: briefing を読み、task intake の必須4項目（課題・ゴール・
    Why・成果物）が欠けていれば着手前に質問を返信する。
-4. 受け手: 質問の有無にかかわらず、**着手可否を必ず agmsg で返信する**
-   （§2）。人間の承認を待つ場合も「承認待ちで待機する」と返してから
-   待つ — 返信せず idle に戻ると送り手からは停止と区別がつかない。
+4. 受け手: 質問の有無にかかわらず、**選択した transport で着手可否を必ず
+   返信する**（§2）。人間の承認を待つ場合も「承認待ちで待機する」と返してから
+   待つ。返信せず idle に戻ると送り手からは停止と区別がつかない。
 
 ### 調査共有
 
 `[FYI]` テンプレで送る。要点は本文3行以内、詳細はファイル参照。
 受け手は次のターンで読めばよく、即応不要。
 
-## §5 herdr-only プロトコル（agmsg を使わないペアフロー）
+## §5 Herdr 内の協働プロトコル
 
-正本は `herdr-collab` スキルへ移動した（spawn / send / inbox / despawn の
-スクリプト付き）。使いどころ: `HERDR_ENV=1` で、ピアが同一マシンの herdr
-ペインにいるフロー。とくに同一プロジェクトで同型（claude-code 同士等）の
-セッションが並走すると agmsg は identity を区別できない
-（fujibee/agmsg#300。identity は (project, type) で解決されるため）ので、
-その第一回避策。別マシン・herdr 外は従来どおり agmsg を使う。
-タグ 5 種・本文テンプレ（§2）と冒頭の不変条件は herdr-collab でも
-そのまま拘束される。
+`HERDR_ENV=1` で相手を同一マシンの Herdr agent として利用できるフローは、
+単発か往復かを問わず `herdr-collab` を使う。spawn / send / inbox / despawn の
+スクリプトと、配送時の状態遷移・承認待ち・再送の扱いは同スキルが正本。
+Herdr 内では agmsg を併用しないため、同一プロジェクトで同型セッションが
+並走しても identity の衝突を起こさない。Herdr 外ではヘッドレスワンショット
+または agmsg を使う。タグ 5 種・本文テンプレ（§2）と冒頭の不変条件は
+`herdr-collab` にもそのまま適用する。
 
 ## やらないこと
 

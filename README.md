@@ -67,35 +67,35 @@ the ecosystem move, a self-checking loop keeps it honest:
   gui/$(id -u)/com.tyamahori.python-skill-review`) to trigger a review
   off-schedule.
 
-### Agent collaboration (agmsg pairing)
+### Agent collaboration (Herdr first, agmsg outside Herdr)
 
-Added 2026-07: the agents collaborate over
-[agmsg](https://github.com/fujibee/agmsg) (a shared local SQLite inbox)
-instead of you copy-pasting between sessions. Human cheat-sheet — what to
-run and say; the agents handle the rest:
+Claude Code, Codex, omp, and Copilot collaborate without manual
+copy-pasting. The transport follows the execution environment:
 
-- **Once per project**: run `~/dotfiles/scripts/agmsg-pair`
-  (`--with-copilot` to include Copilot CLI). It joins a team named after
-  the repo with type-based identities (`claude` / `codex` / `copilot`)
-  and sets delivery modes (claude-code `both`, others `turn`).
-  Idempotent; safe to re-run.
-- **Then just ask an agent in plain words**:
-  - 「Codex にレビューさせて」 — one-shot goes headless (`codex exec`),
-    multi-turn goes `[REVIEW-REQ]` → `[FINDINGS]` → `[APPLIED]` over agmsg.
-  - 「Codex が実装、Claude がレビューで」 — roles are assigned per task,
-    either direction works.
-  - 「この調査結果を Codex に共有して」 — `[FYI]` with a file reference.
-  - 「このタスクを Codex に渡して」 — `[HANDOFF]` with a briefing file.
-- **Idle peers are woken automatically**: the sending agent spawns the
-  peer via `agmsg spawn` (a new terminal window, or tmux pane inside
-  tmux). Close the spawned window once the round-trip is done.
-- **Inspect a conversation**: `/agmsg history` (Claude Code) or
-  `$agmsg history` (Codex) inside the project.
+- **Inside Herdr**: agents use `herdr-collab` for one-shot reviews,
+  multi-turn review, handoffs, and research sharing. It addresses peers by
+  unique Herdr pane names and stores each flow under `.agent-msgs/`; it does
+  not join or send through agmsg.
+- **Outside Herdr**: one-shot reviews use a headless peer CLI. Multi-turn
+  flows use [agmsg](https://github.com/fujibee/agmsg), a shared local SQLite
+  inbox. Run `~/dotfiles/scripts/agmsg-pair` once per project
+  (`--with-copilot` to include Copilot CLI); it is idempotent.
+- **Then ask in plain words**:
+  - 「Codex にレビューさせて」
+  - 「Codex が実装、Claude がレビューで」
+  - 「この調査結果を Codex に共有して」
+  - 「このタスクを Codex に渡して」
+  The active agent selects Herdr or agmsg; no transport name is needed in
+  the request.
+- **Inspect a conversation**: inside Herdr, use
+  `~/.agents/skills/herdr-collab/scripts/inbox.sh --flow <flow>`;
+  outside Herdr, use `/agmsg history` (Claude Code) or `$agmsg history`
+  (Codex) inside the project.
 
-Sources of truth (this section is only the human entry points): routing
-rules and invariants live in `agents/global-instructions.md` ("Agent
-collaboration"); procedures and message templates in
-`agents/skills/agent-collab/`.
+Sources of truth (this section is only the human entry point): routing rules
+and invariants live in `agents/global-instructions.md` and
+`agents/skills/agent-collab/`; the Herdr transport lives in
+`agents/skills/herdr-collab/`.
 
 ## OrbStack VM (Ubuntu 24.04)
 
