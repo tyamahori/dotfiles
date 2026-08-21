@@ -5,6 +5,16 @@ onboarding = false
 [terminal]
 new_cwd = "follow"
 
+# 標準アクションは terminal.new_cwd の follow を使うため、HOME 専用コマンドへ置き換える。
+[keys]
+new_workspace = ""
+
+[[keys.command]]
+key = "prefix+shift+n"
+type = "shell"
+command = '"${HERDR_BIN_PATH}" workspace create --cwd "$HOME" --focus'
+description = "新しい HOME workspace を開く"
+
 [ui]
 agent_panel_sort = "priority"
 show_agent_labels_on_pane_borders = true
