@@ -1,6 +1,6 @@
 // 有人TUIセッションでの自動コンパクション反復を抑えるガード。
-// 2回目の auto_compaction_end 後、現在の依頼を終えてから /handoff
-// するよう follow-up を注入し、未実行のまま次の入力が来たら再通知する。
+// 2回目の auto_compaction_end 後、現在の依頼を終えて引き継ぎメモを保存し、
+// /quit または /new で新しいセッションへ移るよう促す。
 
 type Ctx = {
   hasUI?: boolean;
@@ -20,11 +20,11 @@ type ExtensionHandlerApi = {
 
 export default function (pi: ExtensionHandlerApi): void {
   let autoCompactionEnds = 0;
-  let handoffNudged = false;
+  let sessionSwitchNudged = false;
 
   const reset = () => {
     autoCompactionEnds = 0;
-    handoffNudged = false;
+    sessionSwitchNudged = false;
   };
 
   // A runner can remain loaded while the TUI switches sessions.
@@ -32,15 +32,15 @@ export default function (pi: ExtensionHandlerApi): void {
   pi.on("session_switch", reset);
 
   pi.on("auto_compaction_end", (_event, ctx) => {
-    if (!ctx?.hasUI || handoffNudged) return;
+    if (!ctx?.hasUI || sessionSwitchNudged) return;
 
     autoCompactionEnds += 1;
     if (autoCompactionEnds !== 2) return;
 
-    handoffNudged = true;
+    sessionSwitchNudged = true;
     try {
       ctx.ui?.notify?.(
-        "session-compaction-guard: 自動コンパクションが2回完了した。現在の依頼を完了したら、次の入力を送る前に /handoff を実行してください",
+        "session-compaction-guard: 自動コンパクションが2回完了した。現在の依頼を完了し、引き継ぎメモを保存してから /quit または /new で新しいセッションへ移ってください",
         "warning",
       );
     } catch {
@@ -49,8 +49,8 @@ export default function (pi: ExtensionHandlerApi): void {
     try {
       pi.sendUserMessage?.(
         "[session-compaction-guard] この有人TUIセッションでは自動コンパクションが2回完了した。" +
-          "現在の依頼を中断せず完了すること。完了報告の末尾で、ユーザーへ「次の依頼を送る前に /handoff を実行してください」と明示すること。" +
-          "/handoff を自分が実行したように書かず、次の依頼は新しいセッションで受けること。",
+          "現在の依頼を中断せず完了し、完了報告の前に、次のセッションへ必要な未完タスク・決定事項・変更済みファイル・未実行確認をリポジトリの慣行に合う引き継ぎメモへ保存すること。" +
+          "完了報告の末尾で、ユーザーへ /quit または /new で新しいセッションへ移るよう案内すること。/handoff は同じセッション内の圧縮であり、セッション切り替えとして案内しないこと。",
         { deliverAs: "followUp" },
       );
     } catch {
@@ -59,14 +59,15 @@ export default function (pi: ExtensionHandlerApi): void {
   });
 
   pi.on("input", (event, ctx) => {
-    if (!ctx?.hasUI || !handoffNudged) return;
+    if (!ctx?.hasUI || !sessionSwitchNudged) return;
 
     const input = event as { source?: string; text?: string };
-    if (input.source !== "interactive" || input.text?.trimStart().startsWith("/handoff")) return;
+    const text = input.text?.trimStart() ?? "";
+    if (input.source !== "interactive" || /^\/(?:new|quit|q|exit|resume|drop)(?:\s|$)/.test(text)) return;
 
     try {
       ctx.ui?.notify?.(
-        "session-compaction-guard: /handoff が未実行です。この入力の処理後、次の依頼を送る前に /handoff を実行してください",
+        "session-compaction-guard: 新しいセッションへの移行が未完了です。この入力の処理後、引き継ぎメモを保存して /quit または /new を実行してください",
         "warning",
       );
     } catch {

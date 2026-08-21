@@ -109,17 +109,20 @@ Subscription quota is spent on context re-reads, not output (measured
 2026-08-16: one resumed session consumed 64% of a week's Anthropic quota,
 half of it compaction churn). Five rules, for every agent CLI:
 
-- **Don't resume sessions across days.** Close the day with a handoff note
-  in the project's docs; start the next day fresh from that note. On omp,
-  `/handoff [focus]` generates the note and switches sessions in one step;
-  use `/context` to watch the autocompact buffer and time the switch.
+- **Don't resume sessions across days.** Ask the agent to write a durable
+  handoff note in the project's established docs location, then `/quit`.
+  Start plain `omp` from the project the next day and give it that note; do
+  not use `--continue`. In OMP 17.4.2, `/handoff [focus]` only summarizes and
+  compacts the current session in place: it neither writes the durable note
+  nor switches sessions.
 - **Don't resume a large context after a long idle.** If a session is over
-  200k context and has been idle for more than an hour, write a handoff and
-  start fresh. (Measured 2026-08-19: a 2h17m same-day resume rewrote 239k
-  cache tokens, then reprocessed 3.07M context tokens over 10 turns.)
+  200k context and has been idle for more than an hour, write the handoff
+  note and start fresh. (Measured 2026-08-19: a 2h17m same-day resume rewrote
+  239k cache tokens, then reprocessed 3.07M context tokens over 10 turns.)
 - **Repeated auto-compaction means stop now.** More than a couple of
-  compactions and every turn rewrites the entire context as cache writes —
-  hand off to a new session instead of pushing through.
+  compactions and every turn rewrites the entire context as cache writes.
+  Write the handoff note, then leave via `/quit` or move via `/new`; do not
+  rely on `/handoff` to switch sessions.
 - **Pass bulky material by file path, not inline.** Inline source texts,
   scraped pages, and long drafts are re-read on every subsequent turn.
 - **Edit `settings.json` directly; don't invoke Claude Code's built-in
