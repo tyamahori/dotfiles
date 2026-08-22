@@ -155,7 +155,7 @@ def panel_request(
     *,
     implementer_model: str = "codex",
     reviewer_a_model: str = "claude",
-    reviewer_b_model: str = "claude",
+    reviewer_b_model: str = "codex",
     reviewer_a_context: str = "fresh",
     reviewer_b_context: str = "fresh",
     reviewer_a_lens: str = "correctness-contract",
@@ -862,12 +862,33 @@ class ReviewFlowTest(unittest.TestCase):
             )
             self.assertEqual(self.invoke("require-closed", "--dir", str(directory)).returncode, 0)
 
-    def test_panel_requires_opposite_models_fresh_contexts_and_fixed_lenses(self) -> None:
+    def test_panel_accepts_one_opposite_and_one_same_family_reviewer(self) -> None:
+        valid_requests = [
+            {
+                "implementer_model": "codex",
+                "reviewer_a_model": "claude",
+                "reviewer_b_model": "codex",
+            },
+            {
+                "implementer_model": "claude",
+                "reviewer_a_model": "codex",
+                "reviewer_b_model": "claude",
+            },
+        ]
+        for overrides in valid_requests:
+            with self.subTest(overrides=overrides), tempfile.TemporaryDirectory() as temporary:
+                candidate = panel_request(Path(temporary), **overrides)
+                result = self.invoke("validate-message", str(candidate))
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_panel_requires_mixed_models_fresh_contexts_and_fixed_lenses(self) -> None:
         invalid_requests = [
             ({"reviewer_a_model": "codex"}, "opposite model family"),
-            ({"reviewer_b_model": "gemini"}, "opposite model family"),
+            ({"reviewer_b_model": "claude"}, "same model family"),
+            ({"reviewer_b_model": "gemini"}, "same model family"),
             ({"implementer_model": "codex claude"}, "unambiguously identify"),
             ({"reviewer_a_model": "claude codex"}, "unambiguously use"),
+            ({"reviewer_b_model": "claude codex"}, "unambiguously use"),
             ({"reviewer_b_context": "resumed"}, "reviewer-b-context"),
             ({"reviewer_a_lens": "security"}, "reviewer-a-lens"),
             ({"reviewer_b_lens": "correctness-contract"}, "reviewer-b-lens"),

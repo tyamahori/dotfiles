@@ -475,11 +475,16 @@ def validate_panel_review_request(message: Message) -> None:
     for reviewer in ("reviewer-a", "reviewer-b"):
         if message.value(f"{reviewer}-context") != "fresh":
             fail(f"{message.path.name}: {reviewer}-context must be fresh")
-        if unambiguous_model_family(message.value(f"{reviewer}-model")) != opposite_family:
-            fail(
-                f"{message.path.name}: {reviewer}-model must unambiguously use "
-                f"the opposite model family ({opposite_family}) from the implementer"
-            )
+    if unambiguous_model_family(message.value("reviewer-a-model")) != opposite_family:
+        fail(
+            f"{message.path.name}: reviewer-a-model must unambiguously use "
+            f"the opposite model family ({opposite_family}) from the implementer"
+        )
+    if unambiguous_model_family(message.value("reviewer-b-model")) != implementer_family:
+        fail(
+            f"{message.path.name}: reviewer-b-model must unambiguously use "
+            f"the same model family ({implementer_family}) as the implementer"
+        )
     if message.value("reviewer-a-lens") != "correctness-contract":
         fail(f"{message.path.name}: reviewer-a-lens must be correctness-contract")
     if message.value("reviewer-b-lens") not in PANEL_REVIEWER_B_LENSES:
