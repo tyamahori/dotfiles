@@ -24,11 +24,13 @@ REVIEW_TAGS = {
     "applied": "APPLIED",
     "verified": "VERIFIED",
     "decision": "DECISION",
+    "fyi": "FYI",
 }
+FLOW_REVIEW_TAGS = REVIEW_TAGS.keys() - {"fyi"}
 TAG_TO_FILE = {value: key for key, value in REVIEW_TAGS.items()}
 FILE_NAME_RE = re.compile(r"^(?P<number>[0-9]+)-(?P<tag>[a-z-]+)\.md$")
 TITLE_RE = re.compile(
-    r"^\[(?P<tag>REVIEW-REQ|FINDINGS|CROSS-CHECK|CONSOLIDATED|APPLIED|VERIFIED|DECISION)\]\s+\S.*$"
+    r"^\[(?P<tag>REVIEW-REQ|FINDINGS|CROSS-CHECK|CONSOLIDATED|APPLIED|VERIFIED|DECISION|FYI)\]\s+\S.*$"
 )
 KEY_VALUE_RE = re.compile(r"^(?P<key>[a-z][a-z0-9-]*):\s*(?P<value>\S(?:.*\S)?)$")
 REVISION_RE = re.compile(r"^(?:commit:[0-9A-Fa-f]{7,64}|snapshot:sha256:[0-9A-Fa-f]{64})$")
@@ -716,6 +718,27 @@ def validate_panel_decision(message: Message, expected_ids: set[str]) -> str:
     return message.value("decision")
 
 
+def validate_panel_relay(
+    message: Message,
+    revision: str,
+    implementer: str,
+    reviewers: set[str],
+    expected_paths: dict[str, Path],
+) -> None:
+    fixed = {"reviewed-revision", "reviewer-a-findings", "reviewer-b-findings"}
+    require_fields(message, fixed, fixed)
+    require_group_route(message, implementer, reviewers, "FYI")
+    if require_revision(message, "reviewed-revision") != revision:
+        fail(f"{message.path.name}: reviewed-revision must equal REVIEW-REQ revision")
+    for key, expected_path in expected_paths.items():
+        require_nonempty(message, key)
+        actual_path = Path(message.value(key))
+        if not actual_path.is_absolute():
+            fail(f"{message.path.name}: {key} must be an absolute path")
+        if actual_path.resolve() != expected_path.resolve():
+            fail(f"{message.path.name}: {key} must identify the corresponding FINDINGS file")
+
+
 def review_messages(directory: Path) -> list[Message]:
     if not directory.is_dir():
         fail(f"{directory}: not a directory")
@@ -725,7 +748,24 @@ def review_messages(directory: Path) -> list[Message]:
         if not path.is_file():
             continue
         match = FILE_NAME_RE.fullmatch(path.name)
-        if not match or match.group("tag") not in REVIEW_TAGS:
+        if not match or match.group("tag") not in FLOW_REVIEW_TAGS:
+            continue
+        message = parse_message(path)
+        if message.number in used_numbers:
+            fail(f"{directory}: duplicate message number {message.number}")
+        used_numbers.add(message.number)
+        messages.append(message)
+
+    messages.sort(key=lambda message: message.number)
+    if not messages or messages[0].tag != "review-req" or messages[0].values.get("review-mode") != "panel":
+        return messages
+
+    request_number = messages[0].number
+    for path in directory.iterdir():
+        if not path.is_file():
+            continue
+        match = FILE_NAME_RE.fullmatch(path.name)
+        if not match or match.group("tag") != "fyi" or int(match.group("number"), 10) <= request_number:
             continue
         message = parse_message(path)
         if message.number in used_numbers:
@@ -749,6 +789,7 @@ def validate_panel_flow(directory: Path, messages: list[Message], request: Messa
 
     index = 1
     findings_by_reviewer: dict[str, dict[str, tuple[str, str]]] = {}
+    findings_paths_by_reviewer: dict[str, Path] = {}
     while index < len(messages) and messages[index].tag == "findings":
         findings_message = messages[index]
         reviewer = findings_message.value("reviewer")
@@ -763,11 +804,29 @@ def validate_panel_flow(directory: Path, messages: list[Message], request: Messa
         if findings_message.value("scope") != request.value("scope"):
             fail(f"{findings_message.path.name}: scope must equal REVIEW-REQ scope")
         findings_by_reviewer[reviewer] = findings
+        findings_paths_by_reviewer[reviewer] = findings_message.path
         index += 1
     if len(findings_by_reviewer) != 2:
         if index == len(messages):
             return "panel-open-findings", revision
-        fail(f"{directory}: panel REVIEW-REQ requires independent FINDINGS from both reviewers before CROSS-CHECK")
+        fail(f"{directory}: panel REVIEW-REQ requires independent FINDINGS from both reviewers before FYI")
+
+    if index == len(messages):
+        return "panel-open-relay", revision
+    relay = messages[index]
+    if relay.tag != "fyi":
+        fail(f"{directory}: both panel FINDINGS must be followed by the coordinator FYI")
+    validate_panel_relay(
+        relay,
+        revision,
+        implementer,
+        reviewer_names,
+        {
+            "reviewer-a-findings": findings_paths_by_reviewer[request.value("reviewer-a")],
+            "reviewer-b-findings": findings_paths_by_reviewer[request.value("reviewer-b")],
+        },
+    )
+    index += 1
 
     all_findings = {
         source_id: finding
@@ -955,6 +1014,16 @@ def validate_flow(directory: Path) -> tuple[str, str]:
 
 def command_validate_message(path_value: str) -> int:
     path = Path(path_value)
+    match = FILE_NAME_RE.fullmatch(path.name)
+    if match and match.group("tag") == "fyi":
+        messages = review_messages(path.parent)
+        if (
+            not messages
+            or messages[0].tag != "review-req"
+            or messages[0].values.get("review-mode") != "panel"
+            or int(match.group("number"), 10) <= messages[0].number
+        ):
+            return 0
     message = parse_message(path)
     validate_flow(message.path.parent)
     return 0

@@ -144,7 +144,7 @@ case "$TAG" in
 esac
 
 case "$TAG" in
-  review-req|findings|cross-check|consolidated|applied|verified|decision) REVIEW_TAG=1 ;;
+  review-req|findings|cross-check|consolidated|applied|verified|decision|fyi) REVIEW_TAG=1 ;;
   *) REVIEW_TAG=0 ;;
 esac
 if [ "$REVIEW_TAG" = 1 ]; then

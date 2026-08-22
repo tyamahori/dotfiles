@@ -215,6 +215,22 @@ def panel_findings(
     return write_message(directory, number, "findings", reviewer, "implementer", "[FINDINGS] panel lifecycle", fields)
 
 
+def panel_relay(directory: Path, number: int = 4) -> Path:
+    return write_message(
+        directory,
+        number,
+        "fyi",
+        "implementer",
+        "reviewer-a,reviewer-b",
+        "[FYI] panel findings relay",
+        [
+            ("reviewed-revision", BASE_REVISION),
+            ("reviewer-a-findings", str((directory / "02-findings.md").resolve())),
+            ("reviewer-b-findings", str((directory / "03-findings.md").resolve())),
+        ],
+    )
+
+
 def panel_cross_check(
     directory: Path,
     number: int,
@@ -622,10 +638,11 @@ class ReviewFlowTest(unittest.TestCase):
         panel_request(directory)
         panel_findings(directory, 2, "reviewer-a", reviewer_a_entries)
         panel_findings(directory, 3, "reviewer-b", reviewer_b_entries)
-        panel_cross_check(directory, 4, "reviewer-b", "reviewer-a", reviewer_a_entries)
-        panel_cross_check(directory, 5, "reviewer-a", "reviewer-b", reviewer_b_entries)
+        panel_relay(directory)
+        panel_cross_check(directory, 5, "reviewer-b", "reviewer-a", reviewer_a_entries)
+        panel_cross_check(directory, 6, "reviewer-a", "reviewer-b", reviewer_b_entries)
         source_findings = panel_source_findings(reviewer_a_entries, reviewer_b_entries)
-        panel_consolidated(directory, 6, source_findings)
+        panel_consolidated(directory, 7, source_findings)
         return source_findings
 
     def test_panel_pass_closes_after_both_reviewers_verify_namespaced_findings(self) -> None:
@@ -634,9 +651,9 @@ class ReviewFlowTest(unittest.TestCase):
             reviewer_a_entries = [("mid", "scripts/review-flow.py:100", "Missing panel guard", "The guard is absent")]
             reviewer_b_entries = [("low", "scripts/send.sh:90", "Unclear output", "The output is ambiguous")]
             self.build_panel_to_consolidated(directory, reviewer_a_entries, reviewer_b_entries)
-            panel_applied(directory, 7, "a-1, b-1", "none")
-            panel_verified(directory, 8, "reviewer-b", "b-1", "b-1", "none", "none", "pass")
-            final = panel_verified(directory, 9, "reviewer-a", "a-1", "a-1", "none", "none", "pass")
+            panel_applied(directory, 8, "a-1, b-1", "none")
+            panel_verified(directory, 9, "reviewer-b", "b-1", "b-1", "none", "none", "pass")
+            final = panel_verified(directory, 10, "reviewer-a", "a-1", "a-1", "none", "none", "pass")
 
             self.assertEqual(self.invoke("validate-message", str(final)).returncode, 0)
             status = self.invoke("status", "--dir", str(directory))
@@ -649,11 +666,12 @@ class ReviewFlowTest(unittest.TestCase):
             panel_request(directory)
             panel_findings(directory, 2, "reviewer-a", [])
             panel_findings(directory, 3, "reviewer-b", [])
-            panel_cross_check(directory, 4, "reviewer-a", "reviewer-b", [])
-            panel_cross_check(directory, 5, "reviewer-b", "reviewer-a", [])
-            panel_consolidated(directory, 6, {})
-            panel_verified(directory, 7, "reviewer-a", "none", "none", "none", "none", "pass", BASE_REVISION)
-            final = panel_verified(directory, 8, "reviewer-b", "none", "none", "none", "none", "pass", BASE_REVISION)
+            panel_relay(directory)
+            panel_cross_check(directory, 5, "reviewer-a", "reviewer-b", [])
+            panel_cross_check(directory, 6, "reviewer-b", "reviewer-a", [])
+            panel_consolidated(directory, 7, {})
+            panel_verified(directory, 8, "reviewer-a", "none", "none", "none", "none", "pass", BASE_REVISION)
+            final = panel_verified(directory, 9, "reviewer-b", "none", "none", "none", "none", "pass", BASE_REVISION)
 
             self.assertEqual(self.invoke("validate-message", str(final)).returncode, 0)
             self.assertEqual(
@@ -666,9 +684,9 @@ class ReviewFlowTest(unittest.TestCase):
             directory = Path(temporary)
             reviewer_a_entries = [("low", "scripts/review-flow.py:101", "Wording is unclear", "The report lacks context")]
             self.build_panel_to_consolidated(directory, reviewer_a_entries, [])
-            panel_applied(directory, 7, "none", "a-1")
-            panel_verified(directory, 8, "reviewer-a", "a-1", "none", "none", "a-1", "unresolved")
-            panel_verified(directory, 9, "reviewer-b", "none", "none", "none", "none", "pass")
+            panel_applied(directory, 8, "none", "a-1")
+            panel_verified(directory, 9, "reviewer-a", "a-1", "none", "none", "a-1", "unresolved")
+            panel_verified(directory, 10, "reviewer-b", "none", "none", "none", "none", "pass")
 
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
@@ -680,14 +698,14 @@ class ReviewFlowTest(unittest.TestCase):
             directory = Path(temporary)
             reviewer_a_entries = [("high", "scripts/review-flow.py:102", "Unsafe panel path", "The path omits validation")]
             self.build_panel_to_consolidated(directory, reviewer_a_entries, [])
-            panel_applied(directory, 7, "none", "a-1")
-            panel_verified(directory, 8, "reviewer-a", "a-1", "none", "a-1", "none", "unresolved")
-            panel_verified(directory, 9, "reviewer-b", "none", "none", "none", "none", "pass")
+            panel_applied(directory, 8, "none", "a-1")
+            panel_verified(directory, 9, "reviewer-a", "a-1", "none", "a-1", "none", "unresolved")
+            panel_verified(directory, 10, "reviewer-b", "none", "none", "none", "none", "pass")
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
                 f"state=awaiting-decision revision={RESULT_REVISION}\n",
             )
-            panel_decision(directory, 10, "a-1", "rework")
+            panel_decision(directory, 11, "a-1", "rework")
 
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
@@ -700,10 +718,10 @@ class ReviewFlowTest(unittest.TestCase):
             directory = Path(temporary)
             reviewer_b_entries = [("mid", "scripts/send.sh:101", "Unsafe route", "The route omits validation")]
             self.build_panel_to_consolidated(directory, [], reviewer_b_entries)
-            panel_applied(directory, 7, "none", "b-1")
-            panel_verified(directory, 8, "reviewer-a", "none", "none", "none", "none", "pass")
-            panel_verified(directory, 9, "reviewer-b", "b-1", "none", "b-1", "none", "unresolved")
-            panel_decision(directory, 10, "b-1", "accept-risk")
+            panel_applied(directory, 8, "none", "b-1")
+            panel_verified(directory, 9, "reviewer-a", "none", "none", "none", "none", "pass")
+            panel_verified(directory, 10, "reviewer-b", "b-1", "none", "b-1", "none", "unresolved")
+            panel_decision(directory, 11, "b-1", "accept-risk")
 
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
@@ -745,7 +763,7 @@ class ReviewFlowTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("independent FINDINGS", result.stderr)
 
-    def test_panel_reports_open_cross_check_before_both_checks_arrive(self) -> None:
+    def test_panel_requires_group_relay_before_cross_check(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
             reviewer_a_entries = [
@@ -757,9 +775,21 @@ class ReviewFlowTest(unittest.TestCase):
 
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
+                f"state=panel-open-relay revision={BASE_REVISION}\n",
+            )
+            premature = panel_cross_check(directory, 4, "reviewer-b", "reviewer-a", reviewer_a_entries)
+            result = self.invoke("validate-message", str(premature))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("coordinator FYI", result.stderr)
+            premature.unlink()
+
+            relay = panel_relay(directory)
+            self.assertEqual(self.invoke("validate-message", str(relay)).returncode, 0)
+            self.assertEqual(
+                self.invoke("status", "--dir", str(directory)).stdout,
                 f"state=panel-open-cross-check revision={BASE_REVISION}\n",
             )
-            panel_cross_check(directory, 4, "reviewer-b", "reviewer-a", reviewer_a_entries)
+            panel_cross_check(directory, 5, "reviewer-b", "reviewer-a", reviewer_a_entries)
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
                 f"state=panel-open-cross-check revision={BASE_REVISION}\n",
@@ -775,15 +805,32 @@ class ReviewFlowTest(unittest.TestCase):
             panel_request(directory)
             panel_findings(directory, 2, "reviewer-a", reviewer_a_entries)
             panel_findings(directory, 3, "reviewer-b", [])
-            write_message(
-                directory,
-                4,
-                "fyi",
-                "implementer",
-                "reviewer-a,reviewer-b",
-                "[FYI] peer findings paths",
-                [("details", "/ledger/02-findings.md,/ledger/03-findings.md")],
+            relay = panel_relay(directory)
+            relay.write_text(
+                relay.read_text(encoding="utf-8").replace(
+                    "to: reviewer-a,reviewer-b", "to: reviewer-a"
+                ),
+                encoding="utf-8",
             )
+            result = self.invoke("validate-message", str(relay))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("FYI must route", result.stderr)
+            relay.unlink()
+
+            relay = panel_relay(directory)
+            relay.write_text(
+                relay.read_text(encoding="utf-8").replace(
+                    str((directory / "03-findings.md").resolve()), "/wrong/03-findings.md"
+                ),
+                encoding="utf-8",
+            )
+            result = self.invoke("validate-message", str(relay))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("corresponding FINDINGS", result.stderr)
+            relay.unlink()
+
+            final_relay = panel_relay(directory)
+            self.assertEqual(self.invoke("validate-message", str(final_relay)).returncode, 0)
             panel_cross_check(directory, 5, "reviewer-b", "reviewer-a", reviewer_a_entries)
             panel_cross_check(directory, 6, "reviewer-a", "reviewer-b", [])
             source_findings = panel_source_findings(reviewer_a_entries, [])
@@ -796,6 +843,17 @@ class ReviewFlowTest(unittest.TestCase):
                 f"state=panel-open-applied revision={BASE_REVISION}\n",
             )
 
+    def test_panel_rejects_relay_before_both_findings(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            panel_request(directory)
+            panel_findings(directory, 2, "reviewer-a", [])
+            candidate = panel_relay(directory, 3)
+
+            result = self.invoke("validate-message", str(candidate))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("independent FINDINGS", result.stderr)
+
     def test_panel_cross_check_rejects_own_reviewer_and_wrong_peer_ids(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
@@ -803,7 +861,8 @@ class ReviewFlowTest(unittest.TestCase):
             panel_request(directory)
             panel_findings(directory, 2, "reviewer-a", reviewer_a_entries)
             panel_findings(directory, 3, "reviewer-b", [])
-            candidate = panel_cross_check(directory, 4, "reviewer-a", "reviewer-a", reviewer_a_entries)
+            panel_relay(directory)
+            candidate = panel_cross_check(directory, 5, "reviewer-a", "reviewer-a", reviewer_a_entries)
             result = self.invoke("validate-message", str(candidate))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("other reviewer", result.stderr)
@@ -829,10 +888,11 @@ class ReviewFlowTest(unittest.TestCase):
             panel_request(directory)
             panel_findings(directory, 2, "reviewer-a", reviewer_a_entries)
             panel_findings(directory, 3, "reviewer-b", reviewer_b_entries)
-            panel_cross_check(directory, 4, "reviewer-b", "reviewer-a", reviewer_a_entries)
-            panel_cross_check(directory, 5, "reviewer-a", "reviewer-b", reviewer_b_entries)
+            panel_relay(directory)
+            panel_cross_check(directory, 5, "reviewer-b", "reviewer-a", reviewer_a_entries)
+            panel_cross_check(directory, 6, "reviewer-a", "reviewer-b", reviewer_b_entries)
             source_findings = panel_source_findings(reviewer_a_entries, reviewer_b_entries)
-            candidate = panel_consolidated(directory, 6, source_findings, canonical_ids=["a-1"])
+            candidate = panel_consolidated(directory, 7, source_findings, canonical_ids=["a-1"])
 
             result = self.invoke("validate-message", str(candidate))
             self.assertNotEqual(result.returncode, 0)
@@ -858,12 +918,13 @@ class ReviewFlowTest(unittest.TestCase):
             panel_request(directory)
             panel_findings(directory, 2, "reviewer-a", reviewer_a_entries)
             panel_findings(directory, 3, "reviewer-b", reviewer_b_entries)
-            panel_cross_check(directory, 4, "reviewer-b", "reviewer-a", reviewer_a_entries)
-            panel_cross_check(directory, 5, "reviewer-a", "reviewer-b", reviewer_b_entries)
+            panel_relay(directory)
+            panel_cross_check(directory, 5, "reviewer-b", "reviewer-a", reviewer_a_entries)
+            panel_cross_check(directory, 6, "reviewer-a", "reviewer-b", reviewer_b_entries)
             source_findings = panel_source_findings(reviewer_a_entries, reviewer_b_entries)
             candidate = panel_consolidated(
                 directory,
-                6,
+                7,
                 source_findings,
                 canonical_ids=["a-1"],
                 duplicate_map="b-1=a-1",
@@ -878,13 +939,13 @@ class ReviewFlowTest(unittest.TestCase):
             directory = Path(temporary)
             reviewer_a_entries = [("mid", "scripts/review-flow.py:106", "Missing branch", "The branch is absent")]
             self.build_panel_to_consolidated(directory, reviewer_a_entries, [])
-            panel_applied(directory, 7, "a-1", "none")
-            panel_verified(directory, 8, "reviewer-a", "a-1", "a-1", "none", "none", "pass")
+            panel_applied(directory, 8, "a-1", "none")
+            panel_verified(directory, 9, "reviewer-a", "a-1", "a-1", "none", "none", "pass")
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
                 f"state=panel-open-verified revision={RESULT_REVISION}\n",
             )
-            candidate = panel_decision(directory, 9, "a-1", "accept-risk")
+            candidate = panel_decision(directory, 10, "a-1", "accept-risk")
 
             result = self.invoke("validate-message", str(candidate))
             self.assertNotEqual(result.returncode, 0)
@@ -897,7 +958,8 @@ class ReviewFlowTest(unittest.TestCase):
             panel_request(directory)
             panel_findings(directory, 2, "reviewer-a", reviewer_a_entries)
             panel_findings(directory, 3, "reviewer-b", [])
-            candidate = panel_cross_check(directory, 4, "reviewer-b", "reviewer-a", reviewer_a_entries)
+            panel_relay(directory)
+            candidate = panel_cross_check(directory, 5, "reviewer-b", "reviewer-a", reviewer_a_entries)
             candidate.write_text(
                 candidate.read_text(encoding="utf-8").replace(BASE_REVISION, STALE_REVISION, 1),
                 encoding="utf-8",
@@ -913,7 +975,7 @@ class ReviewFlowTest(unittest.TestCase):
                 [("low", "scripts/review-flow.py:108", "Wording is unclear", "The report lacks context")],
                 [],
             )
-            candidate = directory / "06-consolidated.md"
+            candidate = directory / "07-consolidated.md"
             candidate.write_text(
                 candidate.read_text(encoding="utf-8").replace("to: reviewer-a,reviewer-b", "to: reviewer-a"),
                 encoding="utf-8",
@@ -976,6 +1038,65 @@ class ReviewFlowTest(unittest.TestCase):
             prompts = (root / "herdr.log").read_text(encoding="utf-8")
             self.assertIn("agent prompt reviewer-a", prompts)
             self.assertIn("agent prompt reviewer-b", prompts)
+
+    def test_send_validates_panel_relay_fyi_but_preserves_generic_fyi(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            flow_directory = root / ".agent-msgs" / "panel-relay"
+            flow_directory.mkdir(parents=True)
+            panel_request(flow_directory)
+            panel_findings(flow_directory, 2, "reviewer-a", [])
+            panel_findings(flow_directory, 3, "reviewer-b", [])
+            body = root / "body.md"
+            body.write_text("[FYI] panel findings relay\nreviewed-revision: invalid\n", encoding="utf-8")
+            environment = self.fake_herdr_environment(root)
+
+            invalid = self.invoke_send(
+                "--root",
+                str(root),
+                "--flow",
+                "panel-relay",
+                "--to",
+                "reviewer-a,reviewer-b",
+                "--from",
+                "implementer",
+                "--tag",
+                "fyi",
+                "--body",
+                str(body),
+                env=environment,
+            )
+
+            self.assertEqual(invalid.returncode, 2)
+            self.assertIn("review flow validation failed", invalid.stderr)
+            self.assertFalse((flow_directory / "04-fyi.md").exists())
+            self.assertFalse((root / "herdr.log").exists())
+
+            body.write_text(
+                "[FYI] panel findings relay\n"
+                f"reviewed-revision: {BASE_REVISION}\n"
+                f"reviewer-a-findings: {(flow_directory / '02-findings.md').resolve()}\n"
+                f"reviewer-b-findings: {(flow_directory / '03-findings.md').resolve()}\n",
+                encoding="utf-8",
+            )
+            valid = self.invoke_send(
+                "--root",
+                str(root),
+                "--flow",
+                "panel-relay",
+                "--to",
+                "reviewer-a,reviewer-b",
+                "--from",
+                "implementer",
+                "--tag",
+                "fyi",
+                "--body",
+                str(body),
+                env=environment,
+            )
+
+            self.assertEqual(valid.returncode, 0, valid.stderr)
+            self.assertTrue((flow_directory / "04-fyi.md").exists())
 
     def test_send_fanout_reports_failure_when_any_reviewer_cannot_settle(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
