@@ -72,14 +72,25 @@ the ecosystem move, a self-checking loop keeps it honest:
 Claude Code, Codex, omp, and Copilot collaborate without manual
 copy-pasting. The transport follows the execution environment:
 
-- **Inside Herdr**: agents use `herdr-collab` for one-shot reviews,
-  multi-turn review, handoffs, and research sharing. It addresses peers by
-  unique Herdr pane names and stores each flow under `.agent-msgs/`; it does
-  not join or send through agmsg.
-- **Outside Herdr**: one-shot reviews use a headless peer CLI. Multi-turn
-  flows use [agmsg](https://github.com/fujibee/agmsg), a shared local SQLite
-  inbox. Run `~/dotfiles/scripts/agmsg-pair` once per project
-  (`--with-copilot` to include Copilot CLI); it is idempotent.
+- **Inside Herdr**: agents use `herdr-collab` for revision-pinned reviews,
+  handoffs, and research sharing. It addresses peers by unique Herdr pane
+  names and stores each flow under `.agent-msgs/`; it does not join or send
+  through agmsg.
+- **Outside Herdr**: one-shot second opinions use a headless peer CLI.
+  Revision-pinned reviews, which need the full closure lifecycle, use
+  [agmsg](https://github.com/fujibee/agmsg), a shared local SQLite inbox. Run
+  `~/dotfiles/scripts/agmsg-pair` once per project (`--with-copilot` to
+  include Copilot CLI); it is idempotent.
+
+The shared review contract lives only in `herdr-collab`: a fresh,
+different-model-family reviewer examines an immutable commit or snapshot;
+`REVIEW-REQ → FINDINGS → APPLIED` (when needed) `→ VERIFIED → DECISION`
+(for unresolved high/mid) then closes. `require-closed` accepts only
+`closed-pass`, `closed-low`, or `closed-risk`; low-only unresolved findings
+are reported, while unresolved high/mid need a user DECISION. Direct message
+transport is not itself mutual review. `adversarial-verification` remains the
+higher-cost two-pass mode for high-risk work.
+
 - **Then ask in plain words**:
   - 「Codex にレビューさせて」
   - 「Codex が実装、Claude がレビューで」
@@ -90,7 +101,9 @@ copy-pasting. The transport follows the execution environment:
 - **Inspect a conversation**: inside Herdr, use
   `~/.agents/skills/herdr-collab/scripts/inbox.sh --flow <flow>`;
   outside Herdr, use `/agmsg history` (Claude Code) or `$agmsg history`
-  (Codex) inside the project.
+  (Codex) inside the project. Revision-pinned reviews on either transport use
+  `.agent-msgs/<flow>` as the ledger and must pass
+  `review-flow.py require-closed --dir .agent-msgs/<flow>`.
 
 The split is enforced mechanically, not just by documentation. Inside a
 Herdr pane (`HERDR_ENV=1`) a shell-level guard
@@ -102,10 +115,11 @@ commands and loading the `agent-collab`/`agmsg` skills. In the other
 direction the herdr-collab scripts exit unless `HERDR_ENV=1`. Deliberate
 agmsg maintenance from a Herdr pane needs `HERDR_AGMSG_ALLOW=1`.
 
-Sources of truth (this section is only the human entry point): routing lives
-in `agents/global-instructions.md`; invariants, tags/templates, and the Herdr
-transport live in `agents/skills/herdr-collab/`; the outside-Herdr fallback
-(headless one-shot, agmsg) lives in `agents/skills/agent-collab/`.
+Sources of truth (this section is only the human entry point): the shared
+review contract, tags/templates, lifecycle, validator, and Herdr transport
+live in `agents/skills/herdr-collab/`; routing lives in
+`agents/global-instructions.md`; the outside-Herdr fallback transport lives
+in `agents/skills/agent-collab/`.
 
 ## OrbStack VM (Ubuntu 24.04)
 

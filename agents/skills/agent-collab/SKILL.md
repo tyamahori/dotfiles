@@ -1,6 +1,6 @@
 ---
 name: agent-collab
-description: Herdr 外専用のフォールバックtransport。ヘッドレスワンショットまたはagmsgペアセッションで第二意見・クロスレビュー・タスクの受け渡しを行う。Herdr内（HERDR_ENV=1で相手をHerdr agentとして利用できるフロー）では使わず、herdr-collabのみを使う。協働の不変条件・役割決め・タグとテンプレの正本はherdr-collabにあり、本スキル使用時も併せて読む。
+description: Herdr 外専用のフォールバック transport。ヘッドレスワンショットまたは agmsg ペアセッションで第二意見・revision 固定レビュー・タスク受け渡しを行う。レビュー契約・状態遷移・タグとテンプレの唯一の正本は herdr-collab にあり、本スキルの全経路も従う。
 ---
 
 # agent-collab
@@ -11,16 +11,17 @@ description: Herdr 外専用のフォールバックtransport。ヘッドレス�
 global-instructions の「Agent collaboration」節にあり、ここには複製しない。
 
 このスキルが持つのは **Herdr 外で使うヘッドレスワンショットと agmsg ペア
-セッションの手順のみ**。協働の不変条件・役割決め・メッセージのタグと
-テンプレの正本は `herdr-collab` にあり、本スキルの全経路でもそのまま
-拘束される — フロー開始時に `herdr-collab` の正本節を併せて読む。
+セッションの手順のみ**。revision 固定レビューの契約・状態遷移・タグと
+テンプレの唯一の正本は `herdr-collab` にあり、本スキルの全経路でもそのまま
+拘束される — フロー開始時に同スキルの「役割と独立性」「revision と
+ライフサイクル」「タグとテンプレ」を併せて読む。
 
 ## transport を選ぶ（Herdr 外）
 
 | やりたいこと | 使うもの |
 |---|---|
-| 単発の第二意見・レビュー | ヘッドレスワンショット |
-| レビュー往復、タスク受け渡し、調査共有 | agmsg ペアセッション |
+| 単発の第二意見・相談 | ヘッドレスワンショット |
+| revision 固定レビュー、タスク受け渡し、調査共有 | agmsg ペアセッション |
 
 Herdr 内かどうかの判定は `herdr-collab` の「前提と使い分け」が正本。
 Herdr 外から Herdr セッションを操作せず、agmsg の team join・send・spawn を
@@ -33,21 +34,18 @@ agmsg 自体の呼び出しは Claude Code から `/agmsg`、Codex / Copilot CLI
 
 ## ヘッドレスワンショット（agmsg を使わない単発）
 
-ステートレスな単発の第二意見・レビューはこちら。往復が不要ならペア
-セッションより速い。呼ぶ前に相手 CLI の存在を確認する
-（`command -v codex` / `command -v claude`）。無ければスキップして
-通常の自己レビューに戻す。
+ステートレスな第二意見・相談はこちら。往復が不要ならペアセッションより速い。
+**これは revision 固定レビューのフローではない**。REVIEW-REQ などの review tag を
+出さず、`require-closed` による closure を主張しない。正式なレビューは immutable
+commit/snapshot を固定して agmsg ペアセッションで行う。呼ぶ前に相手 CLI の存在を
+確認する（`command -v codex` / `command -v claude`）。無ければスキップして通常の
+自己レビューに戻す。
 
-- **Claude Code から（レビュアー = Codex）**:
-  - diff レビュー: 作業ツリーは `codex exec review --uncommitted`。
-    コミット済みは `codex exec review --base origin/main`（先に
-    fetch。ローカル base が古いと diff がずれる）または
-    `codex exec review --commit <sha>`。
-  - 設計・調査への意見: `codex exec "<単体で答えられる問い + 文脈>"`。
-- **Codex / Copilot CLI から（レビュアー = Claude Code）**:
-  - `claude -p "Review the uncommitted changes in this repo for bugs
-    and design issues. Respond in Japanese."` — base ブランチや対象
-    コミットなど、レビュー対象の diff に合わせてプロンプトを調整する。
+- **Claude Code から（相談相手 = Codex）**:
+  - 変更・設計の意見: `codex exec "<単体で答えられる問い + 文脈>"`。
+    dirty tree を含めるなら、それは相談対象であり pinned review ではない。
+- **Codex / Copilot CLI から（相談相手 = Claude Code）**:
+  - `claude -p "<単体で答えられる質問。日本語で回答して。>"`。
 
 ## 0. 前提: ペアリング確認
 
@@ -73,21 +71,35 @@ turn を維持する。理由は 2 つ:
 `agmsg-pair` は codex=`turn` を明示設定するので、これを使う限り実挙動は
 turn のまま。#300 が閉じたら monitor 移行を再検討する（移行時の前提変化は §3 末尾）。
 
-## 1. 役割と規約は herdr-collab の正本に従う
+## 1. 役割とレビュー契約は herdr-collab の正本に従う
 
-impl / reviewer の役割決め（レビュアーは実装側とモデル系統を変える等）と、
-タグ5種・本文テンプレは `herdr-collab` の正本節を使う。identity
-（agmsg 上の名前）は型に固定し、役割はフロー開始時に決める。
+impl / reviewer の役割決め、fresh context・異なるモデル系統という独立性要件、
+7タグと本文テンプレ、immutable revision、状態遷移と closure は
+`herdr-collab` の正本節を使う。identity（agmsg 上の名前）は型に固定し、
+役割はフロー開始時に決める。同系統または非 fresh のレビューは、
+`independence-exception: user-approved: <reason>` を含む REVIEW-REQ なしには始めない。
+
+agmsg は transport であり、履歴があるだけではレビューの closure を意味しない。
+各 review message は、agmsg へ送る前に同じ作業ツリーの
+`.agent-msgs/<flow>/NN-<tag>.md` へ `from` / `to` / `date` header と正本の本文を
+保存し、`review-flow.py validate-message FILE` を通す。agmsg 本文には tag と
+検証済みファイルの絶対パスを送り、その ledger をレビューの正本にする。
+`review-flow.py` 自体には Herdr env guard がないため、この検証は Herdr 外でも使える。
+完了報告の直前に `review-flow.py require-closed --dir .agent-msgs/<flow>` を必ず実行する。
+agmsg history と口頭の VERIFIED/DECISION だけで closure を主張しない。
+
+`adversarial-verification` は公開前・高リスク時の fresh context による高コストな
+二巡モードであり、この通常の closure を置き換えない。
 
 ## 2. メッセージ規約（agmsg 固有分）
 
-- 受け手を待たせない: 受信したら必ず `agmsg send` で返信する。役割外の
-  依頼はその旨を返信で伝える（黙殺しない）。`[HANDOFF]` / `[REVIEW-REQ]`
-  への返信には**着手可否を必ず含める** — 「着手する」「着手しない（理由）」
-  「待機する（何を待つか・何があれば動けるか。例: 自セッションでの
-  ユーザー承認待ち）」のいずれかを明示する。自分のペイン出力に判断を
-  書くだけでは相手には届かず黙殺と同じ（送信側からは idle にしか見えず
-  フローが沈黙停止した事故歴あり）。
+- 受け手を待たせない: 受信したら必ず `agmsg send` で返信する。役割外の依頼は
+  その旨を返信で伝える（黙殺しない）。`[HANDOFF]` への返信には**着手可否を必ず
+  含める** — 「着手する」「着手しない（理由）」「待機する（何を待つか・何が
+  あれば動けるか）」のいずれかを明示する。`[REVIEW-REQ]` の着手可否も、review
+  lifecycle の外側の `[FYI]` で返す。着手後は FINDINGS から固定 lifecycle に従い、
+  余分な review message を挟まない。自分のペイン出力に判断を書くだけでは相手には
+  届かず黙殺と同じ（送信側からは idle にしか見えずフローが沈黙停止した事故歴あり）。
 
 ## 3. Herdr 外で相手を起こす
 
@@ -163,21 +175,30 @@ agmsg 1.1.11 から **send.sh は from / to が team に登録済みかを検証
 
 ### レビュー往復 — 実装者側
 
-1. レビュー対象を参照可能にする（コミットするか、作業ツリーの
-   パスを列挙できる状態にする）。
-2. `[REVIEW-REQ]` を送信し、相手を起こす（§3）。
-3. `[FINDINGS]` を受けたら triage する（正しい指摘だけ直す。
-   却下は理由を付ける — herdr-collab の不変条件）。
-4. `[APPLIED]` で対応・見送りを番号ごとに返信する。
-5. ユーザーへの報告には、指摘件数・対応・見送り（理由付き）を含める。
+1. 対象を commit または完全 snapshot にし、immutable revision・scope・役割・
+   model family・`reviewer-context: fresh` を含む `[REVIEW-REQ]` を送って相手を起こす。
+   独立性の例外はユーザー承認済みとして同メッセージに明記する。
+2. `[FINDINGS]` を受けたら triage する。正しい指摘だけ直し、却下には理由を付ける。
+3. 指摘があれば、すべての finding ID を `resolved` / `dismissed` に一度ずつ
+   分け、base/result revision と verification を含む `[APPLIED]` を送る。
+4. レビュアーの再読後の `[VERIFIED]` を待つ。unresolved high/mid は、同じ
+   result revision と ID を含む、ユーザーが `decided-by: user` とした `[DECISION]`
+   が必要である。`rework` は非 closed の終端で、旧 flow を context に結んだ
+   新規 REVIEW-REQ からやり直す。
+5. VERIFIED の `closed-pass` / `closed-low`、または必要な DECISION 後の
+   `closed-risk` だけを完了として報告する。low-only は未解決 ID と理由も報告する。
 
 ### レビュー往復 — レビュアー側
 
-1. `[REVIEW-REQ]` を受けたら、参照されたコミット/パスを自分で読む。
-2. レビューのみ行う。**作業ツリーは編集しない**（実装者のもの）。
-3. `[FINDINGS]` テンプレで返信する。指摘は path:line + 重要度 +
-   一文。長い説明が要るならファイルに書いてパスを添える。
-4. `[APPLIED]` を受けたら、見送り理由に異議があるときだけ再返信する。
+1. `[REVIEW-REQ]` の固定 revision と scope を fresh context で自分で読む。
+   reviewer model family が実装者と異なること、または user-approved exception を確認する。
+2. レビューのみ行う。**実装者のワーキングツリーは編集しない。** `[FINDINGS]` には
+   count、scope、verification と、各 finding の high/mid/low・path:line・
+   evidence・confidence を記録する。指摘なしも `count: 0` で送る。
+3. `[APPLIED]` を受けたら result revision を独立に再読し、全 ID を `resolved`、
+   `unresolved-high-mid`、`unresolved-low` に partition した `[VERIFIED]` を送る。
+4. unresolved high/mid は人間の `[DECISION]` を待つ。rework を選んだ flow は
+   閉じず、修正後の対象を新しい linked flow としてレビューする。
 
 ### タスク受け渡し
 
