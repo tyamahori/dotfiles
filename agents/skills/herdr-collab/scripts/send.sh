@@ -2,7 +2,7 @@
 # herdr-collab: メッセージファイルを書き、宛先の settle を待って herdr prompt で配送する。
 #
 # usage:
-#   send.sh --to <target> --tag <handoff|review-req|findings|applied|fyi> \
+#   send.sh --to <target> --tag <handoff|review-req|findings|applied|verified|decision|fyi> \
 #           [--flow <name>] [--from <name>] [--body <file>|-] \
 #           [--file <既存ファイル>] [--wait-timeout <ms>] [--root <dir>]
 #
@@ -15,7 +15,7 @@ set -euo pipefail
 
 die() { echo "send.sh: $*" >&2; exit 2; }
 
-TO="" TAG="" FLOW="collab" FROM="" BODY="" FILE="" WAIT_TIMEOUT=300000 ROOT=""
+TO="" TAG="" FLOW="collab" FROM="" BODY="" FILE="" WAIT_TIMEOUT=300000 ROOT="" CREATED=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --to) TO="$2"; shift 2 ;;
@@ -44,8 +44,8 @@ if [ -n "$FILE" ]; then
   TAG="$(basename "$FILE" .md)"; TAG="${TAG#*-}"
 else
   case "$TAG" in
-    handoff|review-req|findings|applied|fyi) ;;
-    *) die "--tag must be one of handoff|review-req|findings|applied|fyi" ;;
+    handoff|review-req|findings|applied|verified|decision|fyi) ;;
+    *) die "--tag must be one of handoff|review-req|findings|applied|verified|decision|fyi" ;;
   esac
   [ -n "$BODY" ] || [ ! -t 0 ] || die "本文がない: --body FILE / --body - / stdin のいずれかで渡す"
 
@@ -63,6 +63,26 @@ else
     printf 'from: %s\nto: %s\ndate: %s\n\n' "$FROM" "$TO" "$(date '+%Y-%m-%d %H:%M:%S')"
     if [ -n "$BODY" ] && [ "$BODY" != - ]; then cat "$BODY"; else cat; fi
   } >"$FILE"
+  CREATED=1
+fi
+
+case "$TAG" in
+  handoff|review-req|findings|applied|verified|decision|fyi) ;;
+  *) die "--tag must be one of handoff|review-req|findings|applied|verified|decision|fyi" ;;
+esac
+
+case "$TAG" in
+  review-req|findings|applied|verified|decision) REVIEW_TAG=1 ;;
+  *) REVIEW_TAG=0 ;;
+esac
+if [ "$REVIEW_TAG" = 1 ]; then
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if ! validation_out="$("$SCRIPT_DIR/review-flow.py" validate-message "$FILE" 2>&1)"; then
+    [ "$CREATED" = 1 ] && rm -f "$FILE"
+    echo "send.sh: review flow validation failed." >&2
+    printf '%s\n' "$validation_out" >&2
+    exit 2
+  fi
 fi
 
 ABS="$(cd "$(dirname "$FILE")" && pwd)/$(basename "$FILE")"
