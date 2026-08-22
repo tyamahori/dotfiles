@@ -92,10 +92,10 @@ copy-pasting. The transport follows the execution environment:
   outside Herdr, use `/agmsg history` (Claude Code) or `$agmsg history`
   (Codex) inside the project.
 
-Sources of truth (this section is only the human entry point): routing rules
-and invariants live in `agents/global-instructions.md` and
-`agents/skills/agent-collab/`; the Herdr transport lives in
-`agents/skills/herdr-collab/`.
+Sources of truth (this section is only the human entry point): routing lives
+in `agents/global-instructions.md`; invariants, tags/templates, and the Herdr
+transport live in `agents/skills/herdr-collab/`; the outside-Herdr fallback
+(headless one-shot, agmsg) lives in `agents/skills/agent-collab/`.
 
 ## OrbStack VM (Ubuntu 24.04)
 

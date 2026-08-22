@@ -181,13 +181,14 @@ failure, or when a `*.local` dev domain stops resolving.
 
 ## Agent collaboration (Claude Code / Codex / Copilot CLI)
 
-Cross-agent work always loads the `agent-collab` skill first; its
+Cross-agent work always loads the `herdr-collab` skill first; it owns the
 collaboration invariants (reviewer/tree separation, spawn-vs-wake, go/no-go
-replies, finding triage) bind for the whole flow. Transport is determined by
-where the flow runs: inside Herdr (`HERDR_ENV=1` and the peer is available as
-a Herdr agent), also load `herdr-collab` and use its herdr-only protocol;
-outside Herdr, use the headless or agmsg path in `agent-collab`. Never use
-agmsg inside a Herdr collaboration flow or operate Herdr from outside it.
+replies, finding triage), role assignment, and message tags/templates, which
+bind for the whole flow. Inside Herdr (`HERDR_ENV=1` and the peer is
+available as a Herdr agent) it is also the transport — do not load
+`agent-collab` there. Only outside Herdr, additionally load `agent-collab`
+for the fallback transport (headless one-shot or agmsg). Never use agmsg
+inside a Herdr collaboration flow or operate Herdr from outside it.
 Start a flow when the user asks (「クロスレビュー」, "second opinion",
 「Codexにレビューさせて」); offer one before a PR on large or risky changes,
 but not unprompted on every task. One invariant stays resident here because
