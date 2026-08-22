@@ -1,6 +1,6 @@
 ---
 name: agent-collab
-description: Herdr 外専用のフォールバック transport。ヘッドレスワンショットまたは agmsg ペアセッションで第二意見・revision 固定レビュー・タスク受け渡しを行う。レビュー契約・状態遷移・タグとテンプレの唯一の正本は herdr-collab にあり、本スキルの全経路も従う。
+description: Herdr 外専用のフォールバック transport。ヘッドレスワンショットまたは agmsg ペアセッションで第二意見・single revision 固定レビュー・タスク受け渡しを行う。panel review は扱わず、レビュー契約・状態遷移・タグとテンプレの唯一の正本は herdr-collab にある。
 ---
 
 # agent-collab
@@ -12,9 +12,12 @@ global-instructions の「Agent collaboration」節にあり、ここには複�
 
 このスキルが持つのは **Herdr 外で使うヘッドレスワンショットと agmsg ペア
 セッションの手順のみ**。revision 固定レビューの契約・状態遷移・タグと
-テンプレの唯一の正本は `herdr-collab` にあり、本スキルの全経路でもそのまま
-拘束される — フロー開始時に同スキルの「役割と独立性」「revision と
-ライフサイクル」「タグとテンプレ」を併せて読む。
+テンプレの唯一の正本は `herdr-collab` にあり、本スキルは `review-mode` を
+省略した single だけを扱う。明示された `review-mode: panel`、CROSS-CHECK、
+CONSOLIDATED、二 reviewer fanout は Herdr 専用である。Herdr が使えない、または
+reviewer 条件を満たせなくても panel を single へ暗黙に縮退しない。single flow
+を始める前に同スキルの「役割と独立性」「revision とライフサイクル」
+「タグとテンプレ」を併せて読む。
 
 ## transport を選ぶ（Herdr 外）
 
@@ -22,6 +25,7 @@ global-instructions の「Agent collaboration」節にあり、ここには複�
 |---|---|
 | 単発の第二意見・相談 | ヘッドレスワンショット |
 | revision 固定レビュー、タスク受け渡し、調査共有 | agmsg ペアセッション |
+| 明示 panel review | 非対応。Herdr の `herdr-collab` を使う |
 
 Herdr 内かどうかの判定は `herdr-collab` の「前提と使い分け」が正本。
 Herdr 外から Herdr セッションを操作せず、agmsg の team join・send・spawn を
@@ -74,7 +78,7 @@ turn のまま。#300 が閉じたら monitor 移行を再検討する（移行�
 ## 1. 役割とレビュー契約は herdr-collab の正本に従う
 
 impl / reviewer の役割決め、fresh context・異なるモデル系統という独立性要件、
-7タグと本文テンプレ、immutable revision、状態遷移と closure は
+single の7タグと本文テンプレ、immutable revision、状態遷移と closure は
 `herdr-collab` の正本節を使う。identity（agmsg 上の名前）は型に固定し、
 役割はフロー開始時に決める。同系統または非 fresh のレビューは、
 `independence-exception: user-approved: <reason>` を含む REVIEW-REQ なしには始めない。
@@ -219,6 +223,8 @@ agmsg 1.1.11 から **send.sh は from / to が team に登録済みかを検証
 
 ## やらないこと
 
+- panel を headless / agmsg で模倣すること、任意人数へ拡張すること、または
+  reviewer の辞退・timeout を理由に single へ暗黙に縮退すること。
 - wake 目的の再 spawn（同一フローで同一ピアに 2 回目の spawn）。
   ウィンドウと重複プロセスが増殖した事故歴あり（§3）。
 - herdr-only フロー（`herdr-collab` スキル）で agmsg の spawn.sh を使うこと。

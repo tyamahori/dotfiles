@@ -184,18 +184,21 @@ failure, or when a `*.local` dev domain stops resolving.
 Cross-agent work always loads the `herdr-collab` skill first. It is the
 single source of truth for the revision-pinned review contract: roles and
 independence, immutable commit/snapshot revisions, tags/templates, lifecycle,
-validator, and closure. A reviewer MUST use a fresh context and a different
-model family from the implementer, unless REVIEW-REQ records the explicit
-`independence-exception: user-approved: <reason>`. A review flow is
-`REVIEW-REQ → FINDINGS → APPLIED` (when findings exist) `→ VERIFIED → DECISION`
-(when unresolved high/mid exists); only `closed-pass`, `closed-low`, and
-`closed-risk` pass `require-closed`. Transport alone is not mutual review.
-Inside Herdr (`HERDR_ENV=1` and the peer is available as a Herdr agent) it is
-also the transport — do not load `agent-collab` there. Only outside Herdr,
-additionally load `agent-collab` for the fallback transport (headless one-shot
-or agmsg). Never use agmsg inside a Herdr collaboration flow or operate Herdr
-from outside it. `adversarial-verification` remains the higher-cost two-pass
-mode for high-risk work, not the ordinary review closure mechanism.
+validator, and closure. `review-mode` absent means the existing **single**
+review: one fresh, different-model-family reviewer. Explicit `review-mode:
+panel` is Herdr-only and requires exactly two fresh, distinct reviewers from
+the model family opposite the implementer; it is never an arbitrary-N or
+automatic-risk mode. Panel adds the FINDINGS independence barrier,
+CROSS-CHECK, lossless CONSOLIDATED provenance, group fanout, and two VERIFIED
+messages before shared closure. Do not silently downgrade a panel when a
+reviewer declines or times out. Inside Herdr (`HERDR_ENV=1` and the peer is
+available as a Herdr agent), `herdr-collab` is also the transport — do not
+load `agent-collab` there. Only outside Herdr, additionally load
+`agent-collab` for single-only fallback transport (headless one-shot or
+agmsg); it never supports panel. Never use agmsg inside a Herdr collaboration
+flow or operate Herdr from outside it. `adversarial-verification` remains the
+higher-cost, broader two-pass mode for high-risk work, not ordinary
+single/panel closure.
 Start a flow when the user asks (「クロスレビュー」, "second opinion",
 「Codexにレビューさせて」); offer one before a PR on large or risky changes,
 but not unprompted on every task. One invariant stays resident here because

@@ -1,18 +1,19 @@
 ---
 name: herdr-collab
-description: Claude Code / Codex / omp / Copilot 協働の主スキル。revision を固定した独立レビューの契約・状態遷移・タグとテンプレの唯一の正本を持ち、Herdr 内では spawn・send・inbox・despawn で agmsg を使わずに直接往復、タスク受け渡し、調査共有を行う。クロスレビューや第二意見、タスクの受け渡しではまずこのスキルを読む。
+description: Claude Code / Codex / omp / Copilot 協働の主スキル。revision を固定した single review と Herdr 専用の二人 panel review の契約・状態遷移・タグとテンプレの唯一の正本を持ち、Herdr 内では spawn・send・inbox・despawn で agmsg を使わずに直接往復、タスク受け渡し、調査共有を行う。クロスレビューや第二意見、タスクの受け渡しではまずこのスキルを読む。
 ---
 
 # herdr-collab
 
 エージェント協働の主スキル。revision を固定した独立レビューの契約、状態遷移、
-タグとテンプレの**唯一の正本**はここにあり、transport を問わず拘束される。
+タグとテンプレの**唯一の正本**はここにある。`review-mode` がない既存 flow は
+single、`review-mode: panel` は Herdr 専用の二人 panel である。
 Herdr 内の transport は agmsg を一切使わず herdr だけで往復するプロトコル —
 宛先は herdr のペイン名（一意制約付き）なので、agmsg の identity 衝突
 （fujibee/agmsg#300: identity が (project, type) で解決されるため同型
 セッションの並走で衝突する）が構造的に消える。Herdr 外のフォールバック
-transport（ヘッドレスワンショット・agmsg）だけが `agent-collab` にあり、
-そちらもこの契約に従う。transport の往復自体を相互レビューとは呼ばない。
+transport（ヘッドレスワンショット・agmsg）は `agent-collab` にあり、single
+だけを扱う。transport の往復自体を相互レビューとは呼ばない。
 
 ## 不変条件（正本）
 
@@ -47,6 +48,24 @@ impl / reviewer の役割はフロー開始時に決める。どちらのエー�
 - `[REVIEW-REQ]` の送信者＝そのフローの実装者。役割はフロー単位で、逆向きの
   フローが並行してもよい。
 
+### panel の役割
+
+panel はユーザーが `review-mode: panel` を明示したときだけ起動する。自動的な
+リスク判定や任意人数への拡張はしない。
+
+- reviewer は正確に二人。実装者を含む三 identity と Herdr pane 名はすべて異なる。
+- 両 reviewer は fresh context で、model family はどちらも実装者と異なる。
+  panel に `independence-exception` はない。
+- reviewer-a の lens は `correctness-contract`。reviewer-b は対象の failure mode
+  から `security`、`data-integrity`、`concurrency-state`、
+  `usability-compatibility`、`operations`、`evidence-assumptions`、
+  `maintainability-failure-modes` の一つを選び、理由を記録する。モデル名で
+  lens を固定しない。
+- 二人とも lens に加えて common baseline（固定 revision と scope、既存契約、
+  境界、エラー処理、回帰、根拠、confidence）を確認する。
+- 一人が辞退または timeout した flow は non-go のままにする。single へ暗黙に
+  縮退しない。single でやり直すならユーザー判断で別 flow を開始する。
+
 ## revision とライフサイクル（正本）
 
 - `[REVIEW-REQ]` は不変の `revision` を
@@ -72,10 +91,34 @@ impl / reviewer の役割はフロー開始時に決める。どちらのエー�
 `adversarial-verification` は、公開前や高リスク変更で使う、fresh context の
 懐疑役による高コストな二巡モードであり、通常の closure 機構ではない。
 
+### panel のライフサイクル
+
+panel は一つの ledger で次の順序を強制する。対になった同種メッセージ内の順序は
+任意である。
+
+```
+REVIEW-REQ
+→ FINDINGS from reviewer-a and reviewer-b
+→ CROSS-CHECK from reviewer-a and reviewer-b
+→ CONSOLIDATED
+→ APPLIED（canonical finding がある場合）
+→ VERIFIED from reviewer-a and reviewer-b
+→ DECISION（aggregate unresolved high/mid がある場合）
+```
+
+二つの initial FINDINGS が揃うまで、coordinator は一方の FINDINGS を他方へ
+公開しない。各 CROSS-CHECK は peer の high/mid source ID だけを対象にし、該当が
+なくても `finding-ids: none` を送る。CONSOLIDATED は全 source ID を canonical
+または duplicate として保持し、棄却された指摘も落とさない。各 reviewer は自分の
+prefix を持つ canonical ID を VERIFIED で一度だけ partition する。所有 ID が
+なくても zero-ID VERIFIED が必要である。二人分を集約した unresolved high/mid
+だけがユーザーの DECISION を要求する。閉鎖状態と `require-closed` の意味は
+single と共通である。
+
 ## タグとテンプレ（正本）
 
-- タグは7種: `[REVIEW-REQ]` `[FINDINGS]` `[APPLIED]` `[VERIFIED]` `[DECISION]`
-  `[HANDOFF]` `[FYI]`。本文の先頭に置く。
+- タグは9種: `[REVIEW-REQ]` `[FINDINGS]` `[CROSS-CHECK]` `[CONSOLIDATED]`
+  `[APPLIED]` `[VERIFIED]` `[DECISION]` `[HANDOFF]` `[FYI]`。本文の先頭に置く。
 - `revision`、`reviewed-revision`、`base-revision`、`result-revision` は上記の
   immutable revision 表記を使う。本文は短文 + 参照にし、diff や長文は貼らない。
 - `[HANDOFF]` / `[REVIEW-REQ]` への返信には**着手可否を必ず含める**
@@ -147,6 +190,70 @@ decided-by: user
 reason: <受容または再作業を選ぶ理由>
 decision: <accept-risk|rework>
 ```
+
+panel の REVIEW-REQ と追加メッセージは次の schema を使う。source ID は
+reviewer-a が `a-N`、reviewer-b が `b-N` である。
+
+```
+[REVIEW-REQ] <対象>
+review-mode: panel
+revision: <commit:... | snapshot:sha256:...>
+scope: <対象範囲>
+focus: <重点>
+context: <課題・ゴールまたは参照>
+implementer: <identity>
+implementer-model: <model family>
+reviewer-a: <identity>
+reviewer-a-model: <opposite model family>
+reviewer-a-context: fresh
+reviewer-a-lens: correctness-contract
+reviewer-b: <identity>
+reviewer-b-model: <opposite model family>
+reviewer-b-context: fresh
+reviewer-b-lens: <catalog value>
+reviewer-b-lens-reason: <対象 failure mode から選んだ理由>
+
+[FINDINGS] <対象>
+reviewed-revision: <REVIEW-REQ revision>
+scope: <確認範囲>
+verification: <確認内容>
+count: <N>
+reviewer: <担当 identity>
+lens: <assigned lens>
+finding-a-1: <high|mid|low> <path>:<line> <要約>
+evidence-a-1: <根拠>
+confidence-a-1: <high|mid|low>
+
+[CROSS-CHECK] <peer findings>
+reviewed-revision: <REVIEW-REQ revision>
+source-reviewer: <peer identity>
+checker: <self identity>
+finding-ids: <peer high/mid source IDs、なければ none>
+confirmed: <subset、なければ none>
+rejected: <残り、なければ none>
+verification: <確認内容>
+evidence-a-1: <根拠>
+confidence-a-1: <high|mid|low>
+
+[CONSOLIDATED] <panel findings>
+reviewed-revision: <REVIEW-REQ revision>
+source-ids: <全 source IDs、なければ none>
+canonical-ids: <canonical source IDs、なければ none>
+duplicate-map: <duplicate=canonical、なければ none>
+verification: <統合根拠>
+finding-a-1: <canonical source finding の原文>
+sources-a-1: <対応する source IDs>
+cross-check-a-1: <not-required|confirmed|rejected|mixed>
+```
+
+`confirmed` と `rejected` は CROSS-CHECK の `finding-ids` を完全 partition する。
+CONSOLIDATED の各 source ID は canonical または duplicate に一度だけ現れ、
+duplicate 群の canonical finding は群内の最高 severity を保持する。panel APPLIED
+は canonical ID を `resolved` / `dismissed` に、panel VERIFIED は
+各 reviewer 所有の canonical ID を `resolved` / `unresolved-high-mid` /
+`unresolved-low` に完全 partition する。panel VERIFIED には `reviewer` と
+`finding-ids` を追加する。panel DECISION は aggregate unresolved high/mid
+canonical ID を対象にする。
 
 ```
 [HANDOFF] <タスク名>
@@ -234,14 +341,27 @@ working 遷移（着火）を最大 10 秒確認してから返るので、成�
 settle 状態は `idle` / `done` / `blocked` のいずれか。exit 3 は
 「ファイルは書けたが未配送」— 宛先が `blocked`（承認・入力待ち）なら
 `herdr agent read <target>` で内容を確認してユーザーへ報告し、解消後に
-`--file <パス>` で再配送する。timeout ならペインの生死をユーザーに確認する。
-再送を繰り返さない。
+`--file <パス>` で再配送する。`--file` の `--to` / `--from` は ledger header と
+一致しなければならず、再配送で宛先や送信元を変えられない。group 配送の一部だけ
+失敗した場合は、header 全体を `--to` に保ったまま
+`--retry-target <失敗した一宛先>` を付け、成功済みの相手へ再送しない。timeout
+ならペインの生死をユーザーに確認する。再送を繰り返さない。
+
+panel の REVIEW-REQ、CONSOLIDATED、APPLIED、DECISION は
+`send.sh --to reviewer-a,reviewer-b` で同じ ledger file を二人へ fanout する。
+target は空白なし・重複なしの正確に二つで、header の `to:` に comma-separated
+audience として残る。各 target の settle・配送・着火観測を個別に行い、いずれかの
+配送が失敗すれば exit 3 になる。working 遷移を観測できない場合の警告付き成功は
+既存 single と同じである。片方への配送失敗時も flow は未完了で、上記の
+`--retry-target` で復旧し、single にしない。
 
 ## 検証とメッセージ規約
 
 - 置き場所: `<git toplevel>/.agent-msgs/<フロー名>/NN-<tag>.md`（NN は連番。
   send.sh が採番する）。`.agent-msgs/` は dotfiles の global gitignore で
   ignore 済み。リポ外で使う場合は `--root` で起点を明示する。
+  新規送信は採番・書込・flow 検証を ledger lock 内で行うため、二人の FINDINGS が
+  同時に到着しても同じ番号を上書きしない。
 - ファイル先頭に `from:` / `to:`（ペイン名）/ `date:` を置く（send.sh が書く）。
   本文は「タグとテンプレ（正本）」準拠。review tag は送信前に
   `review-flow.py validate-message FILE` が内容と状態遷移を検証し、不正なら
@@ -252,8 +372,9 @@ settle 状態は `idle` / `done` / `blocked` のいずれか。exit 3 は
   （次番号ファイル + send.sh、不可ならファイルを書いて idle）を必ず書く。
   `[REVIEW-REQ]` は「タグとテンプレ（正本）」の field だけを使う。生成 header が
   送信者・宛先を、flow directory が返信先を示す。
-- レビューを受ける前の go/no-go は `[FYI]` で返す。着手したら、その後の review
-  message は固定 lifecycle に従い、余分な field やタグを挟まない。
+- レビューを受ける前の go/no-go は `[FYI]` で返す。着手後の review message は
+  固定 lifecycle に従い、panel の independence barrier 後に両 FINDINGS path を
+  渡す coordinator `[FYI]` 以外の余分な field やタグを挟まない。
 - ディレクトリ名を汎用名（`.agents/` 等）に変えない — リポが同名ディレクトリを
   正規に管理している場合、global ignore が正規の新規ファイルまで silent に
   無視してしまう。ignore 対象はこのプロトコル専用の `.agent-msgs/` に限定する。
@@ -284,6 +405,21 @@ settle 状態は `idle` / `done` / `blocked` のいずれか。exit 3 は
 4. unresolved high/mid の結論は出さない。ユーザーの `[DECISION]` が
    `accept-risk` または `rework` を選ぶまで待つ。
 
+### panel の coordinator と reviewer
+
+1. coordinator は一意な pane 名で、実装者と反対 model family の fresh reviewer
+   を二人 spawn する。lens と理由を決め、group REVIEW-REQ を fanout する。
+2. 各 reviewer は peer の結果を見ずに担当 lens と common baseline の FINDINGS を
+   返す。coordinator は両方が揃うまで相互配送しない。
+3. 両 FINDINGS 後、coordinator は二つの FINDINGS 絶対 path を一つの group
+   `[FYI]` で二人へ送り、各 reviewer は peer path の high/mid だけを
+   CROSS-CHECK する。FINDINGS file 自体の `to:` を書き換えたり再配送したりしない。
+   coordinator は全 source を CONSOLIDATED に保持し、重複 mapping と対立を残す。
+4. coordinator は canonical ID を一つの APPLIED で triage する。各 reviewer は
+   自分の prefix を持つ canonical ID を result revision 上で VERIFIED する。
+5. aggregate unresolved high/mid はユーザーの DECISION を待つ。二人の VERIFIED と
+   必要な DECISION が揃い、`require-closed` が通るまで完了と報告しない。
+
 ## トポロジー
 
 - **1:1直接往復**: 双方が send.sh で直接メッセージを届ける transport 形態であり、
@@ -306,6 +442,9 @@ settle 状態は `idle` / `done` / `blocked` のいずれか。exit 3 は
     「期待する送信元」を安定させる。
   - 実測（2026-08、omp ハブ + claude/codex の討論フロー全 5 配送）: ピアに
     herdr コマンドを要求しないため codex の承認ブロックは 0 回だった。
+  panel はこの topology を必須とし、coordinator が FINDINGS independence barrier、
+  両 FINDINGS path の group FYI、CROSS-CHECK、CONSOLIDATED、二つの VERIFIED を
+  順序どおり中継する。source FINDINGS file 自体は peer へ再配送しない。
 
 ## trust boundary（herdr-only 固有・ここが正本）
 
