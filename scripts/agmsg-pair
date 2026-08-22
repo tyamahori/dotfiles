@@ -1,6 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
+# Herdr flows never touch agmsg (herdr-collab is the transport there); a
+# pairing run from inside a Herdr pane once left a stray team registration.
+# The env guard (agents/skills/herdr-collab/scripts/env-guard.sh) blocks the
+# shell paths; this in-script check also covers direct execution.
+if [ "${HERDR_ENV:-}" = 1 ] && [ "${HERDR_AGMSG_ALLOW:-}" != 1 ]; then
+	echo "agmsg-pair: refusing to run inside a Herdr pane (HERDR_ENV=1)." >&2
+	echo "Herdr flows use herdr-collab, never agmsg. To pair a project for" >&2
+	echo "outside-Herdr use, run from a non-Herdr shell or set HERDR_AGMSG_ALLOW=1." >&2
+	exit 2
+fi
+
 # Register this machine's paired agent identities for a project with agmsg and
 # set each type's delivery mode, in one shot. Idempotent: re-running never
 # duplicates a registration or errors. agmsg lives at ~/.agents/skills/agmsg;

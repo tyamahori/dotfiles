@@ -92,6 +92,16 @@ copy-pasting. The transport follows the execution environment:
   outside Herdr, use `/agmsg history` (Claude Code) or `$agmsg history`
   (Codex) inside the project.
 
+The split is enforced mechanically, not just by documentation. Inside a
+Herdr pane (`HERDR_ENV=1`) a shell-level guard
+(`agents/skills/herdr-collab/scripts/env-guard.sh`, wired through
+`~/.zshenv`, `~/.bash_profile`, and `BASH_ENV` so it covers omp, Claude
+Code, and Codex alike) blocks agmsg execution, `scripts/agmsg-pair` refuses
+to run, and a Claude Code PreToolUse hook additionally denies agmsg
+commands and loading the `agent-collab`/`agmsg` skills. In the other
+direction the herdr-collab scripts exit unless `HERDR_ENV=1`. Deliberate
+agmsg maintenance from a Herdr pane needs `HERDR_AGMSG_ALLOW=1`.
+
 Sources of truth (this section is only the human entry point): routing lives
 in `agents/global-instructions.md`; invariants, tags/templates, and the Herdr
 transport live in `agents/skills/herdr-collab/`; the outside-Herdr fallback

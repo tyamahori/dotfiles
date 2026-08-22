@@ -141,6 +141,16 @@
         ]
       },
       {
+        "matcher": "Bash|Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/claude/hooks/deny-agmsg-in-herdr.sh\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "*",
         "hooks": [
           {

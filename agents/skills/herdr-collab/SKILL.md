@@ -107,6 +107,15 @@ briefing: <ファイルの絶対パス>
   `send.sh` が配送と着火を検証する。
 - omp から使う場合も同じスクリプトでよい。omp は agmsg の型検出で
   `claude-code` と誤検出されるため、agmsg の team には入れない。
+- **この使い分けは文書だけでなく機構でも担保されている**: Herdr 内では
+  シェルレベルの env guard（`scripts/env-guard.sh`。`~/.zshenv` /
+  `~/.bash_profile` / `BASH_ENV` 経由で omp / claude / codex すべての
+  コマンド実行に効く）が agmsg スクリプトと agmsg-pair の実行をブロックし、
+  Claude Code では PreToolUse フックが agmsg 実行と agent-collab / agmsg
+  スキルの読込を deny する。逆方向は本スキルの spawn / send / despawn が
+  `HERDR_ENV=1` でなければ exit する。ブロックに遭ったら回避せず従う —
+  意図的な agmsg メンテナンスだけが `HERDR_AGMSG_ALLOW=1` で通れる
+  （ユーザーの指示があるときのみ）。
 
 ## スクリプト
 

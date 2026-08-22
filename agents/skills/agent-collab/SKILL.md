@@ -24,7 +24,9 @@ global-instructions の「Agent collaboration」節にあり、ここには複�
 
 Herdr 内かどうかの判定は `herdr-collab` の「前提と使い分け」が正本。
 Herdr 外から Herdr セッションを操作せず、agmsg の team join・send・spawn を
-Herdr 内フローで使わない。
+Herdr 内フローで使わない。この分離は機構でも担保されている — Herdr 内では
+env guard と agmsg-pair 自身のガードが agmsg 実行を拒否する
+（herdr-collab の「前提と使い分け」参照）。
 
 agmsg 自体の呼び出しは Claude Code から `/agmsg`、Codex / Copilot CLI
 から `$agmsg`（実体は `~/.agents/skills/agmsg/`）。
