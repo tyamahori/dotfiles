@@ -412,13 +412,19 @@ class ReviewFlowTest(unittest.TestCase):
             env=env,
         )
 
-    def invoke_send(self, *args: str, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    def invoke_send(
+        self,
+        *args: str,
+        env: dict[str, str],
+        input_text: str | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [str(SEND), *args],
             check=False,
             text=True,
             capture_output=True,
             env=env,
+            input=input_text,
         )
 
     def invoke_despawn(self, target: str, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
@@ -665,6 +671,60 @@ class ReviewFlowTest(unittest.TestCase):
             self.assertEqual(existing_message.returncode, 2)
             self.assertTrue(existing.exists())
 
+
+    def test_send_rejects_empty_or_whitespace_stdin_before_ledger_or_delivery(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            environment = self.fake_herdr_environment(root)
+
+            for flow_name, input_text in (("empty-body", ""), ("whitespace-body", "\n \t\n")):
+                with self.subTest(input_text=repr(input_text)):
+                    new_message = self.invoke_send(
+                        "--root",
+                        str(root),
+                        "--flow",
+                        flow_name,
+                        "--to",
+                        "reviewer",
+                        "--from",
+                        "implementer",
+                        "--tag",
+                        "handoff",
+                        "--body",
+                        "-",
+                        env=environment,
+                        input_text=input_text,
+                    )
+
+                    self.assertEqual(new_message.returncode, 2)
+                    self.assertIn("message body is empty or whitespace-only", new_message.stderr)
+                    flow = root / ".agent-msgs" / flow_name
+                    self.assertEqual(list(flow.glob("*.md")), [])
+                    self.assertFalse((root / "herdr.log").exists())
+
+            flow = root / ".agent-msgs" / "empty-body"
+
+            existing = flow / "01-handoff.md"
+            existing.write_text(
+                "from: implementer\nto: reviewer\ndate: 2026-08-22 12:00:00\n\n",
+                encoding="utf-8",
+            )
+            existing_message = self.invoke_send(
+                "--root",
+                str(root),
+                "--to",
+                "reviewer",
+                "--from",
+                "implementer",
+                "--file",
+                str(existing),
+                env=environment,
+            )
+
+            self.assertEqual(existing_message.returncode, 2)
+            self.assertIn("message body is empty or whitespace-only", existing_message.stderr)
+            self.assertTrue(existing.exists())
+            self.assertFalse((root / "herdr.log").exists())
 
     def build_panel_to_consolidated(
         self,

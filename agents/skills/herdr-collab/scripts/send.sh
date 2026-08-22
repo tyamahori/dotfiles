@@ -19,6 +19,18 @@ set -euo pipefail
 
 die() { echo "send.sh: $*" >&2; exit 2; }
 
+require_message_body() {
+  local path="$1" line line_number=0
+  while IFS= read -r line || [ -n "$line" ]; do
+    line_number=$((line_number + 1))
+    [ "$line_number" -le 4 ] && continue
+    case "$line" in
+      *[![:space:]]*) return 0 ;;
+    esac
+  done <"$path"
+  die "message body is empty or whitespace-only: $path"
+}
+
 release_ledger_lock() {
   if [ -n "$LOCK_DIR" ]; then
     rmdir "$LOCK_DIR" 2>/dev/null || true
@@ -150,6 +162,8 @@ case "$TAG" in
   handoff|review-req|findings|cross-check|consolidated|applied|verified|decision|fyi) ;;
   *) die "--tag must be one of handoff|review-req|findings|cross-check|consolidated|applied|verified|decision|fyi" ;;
 esac
+
+require_message_body "$FILE"
 
 case "$TAG" in
   review-req|findings|cross-check|consolidated|applied|verified|decision|fyi) REVIEW_TAG=1 ;;
