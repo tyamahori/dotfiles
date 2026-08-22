@@ -47,6 +47,127 @@ else
 	CCUSAGE="bunx ccusage"
 fi
 
+# 明示的な skill 起動、または SKILL.md / skill:// の読込だけを発火シグナルとして数える。
+# 会話本文、tool 引数、パス、session ID は集計キーにだけ使い、snapshot へ出力しない。
+claude_skill_activation_records() {
+	[ -d "$HOME/.claude/projects" ] || return
+	find "$HOME/.claude/projects" -name '*.jsonl' -newermt "$CUTOFF" -print0 2>/dev/null |
+		while IFS= read -r -d '' file; do
+			jq -r --arg session "$file" --argjson cutoff_epoch "$CUTOFF_EPOCH" '
+				def epoch: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+				. as $record
+				| select((try (.timestamp | epoch) catch 0) >= $cutoff_epoch)
+				| select(.type == "user"
+					and (.toolUseResult.success // false) == true
+					and ((.toolUseResult.commandName // "") | test("^[A-Za-z0-9][A-Za-z0-9._:-]*$")))
+				| [
+					"Claude Code",
+					$record.toolUseResult.commandName,
+					$session,
+					"skill_tool",
+					(.uuid // .timestamp)
+				]
+				| @tsv
+			' "$file" 2>/dev/null
+		done
+}
+
+codex_skill_activation_records() {
+	[ -d "$HOME/.codex/sessions" ] || return
+	find "$HOME/.codex/sessions" -name '*.jsonl' -newermt "$CUTOFF" -print0 2>/dev/null |
+		while IFS= read -r -d '' file; do
+			jq -r --arg session "$file" --argjson cutoff_epoch "$CUTOFF_EPOCH" '
+				def epoch: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+				. as $record
+				| select((try (.timestamp | epoch) catch 0) >= $cutoff_epoch)
+				| select(.type == "response_item"
+					and (.payload.type == "function_call" or .payload.type == "custom_tool_call"))
+				| ((.payload.input // .payload.arguments // "") | tostring) as $raw
+				| (
+					[($raw | scan("skills/[A-Za-z0-9][A-Za-z0-9._:-]*/SKILL\\.md")
+						| sub("^skills/"; "") | sub("/SKILL\\.md$"; ""))]
+					+ [($raw | scan("skill://[A-Za-z0-9][A-Za-z0-9._:-]*")
+						| sub("^skill://"; ""))]
+				)
+				| unique[]
+				| [
+					"Codex",
+					.,
+					$session,
+					"skill_file_read",
+					(($record.payload.id // $record.payload.call_id // $record.timestamp) + ":" + .)
+				]
+				| @tsv
+			' "$file" 2>/dev/null
+		done
+}
+
+omp_skill_activation_records() {
+	[ -d "$HOME/.omp/agent/sessions" ] || return
+	find "$HOME/.omp/agent/sessions" -name '*.jsonl' -newermt "$CUTOFF" -print0 2>/dev/null |
+		while IFS= read -r -d '' file; do
+			jq -r --arg session "$file" --argjson cutoff_epoch "$CUTOFF_EPOCH" '
+				def epoch: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+				. as $record
+				| select((try (.timestamp | epoch) catch 0) >= $cutoff_epoch)
+				| (
+					if .type == "custom_message"
+						and .customType == "skill-prompt"
+						and ((.content // "") | test("User invoked the \"[A-Za-z0-9][A-Za-z0-9._:-]*\" skill"))
+					then {
+						skill: ((.content | capture("User invoked the \"(?<name>[A-Za-z0-9][A-Za-z0-9._:-]*)\" skill")).name),
+						signal: "skill_prompt"
+					}
+					elif .type == "custom"
+						and .customType == "tool_execution_start"
+						and .data.toolName == "read"
+						and ((.data.args.path // "") | test("^skill://[A-Za-z0-9][A-Za-z0-9._:-]*$"))
+					then {
+						skill: ((.data.args.path // "") | sub("^skill://"; "")),
+						signal: "skill_file_read"
+					}
+					else empty
+					end
+				)
+				| [
+					"OMP",
+					.skill,
+					$session,
+					.signal,
+					(($record.id // $record.timestamp) + ":" + .skill)
+				]
+				| @tsv
+			' "$file" 2>/dev/null
+		done
+}
+
+skill_activation_summary() {
+	{
+		claude_skill_activation_records
+		codex_skill_activation_records
+		omp_skill_activation_records
+	} | awk -F '\t' '
+		NF == 5 {
+			key = $1 SUBSEP $2
+			event = key SUBSEP $5
+			session = key SUBSEP $3
+			signal = key SUBSEP $4
+			if (!seen_event[event]++) activations[key]++
+			if (!seen_session[session]++) sessions[key]++
+			if (!seen_signal[signal]++) {
+				signals[key] = signals[key] (signals[key] == "" ? "" : ",") $4
+			}
+		}
+		END {
+			for (key in activations) {
+				split(key, fields, SUBSEP)
+				printf "%s\t%s\t%d\t%d\t%s\n",
+					fields[1], fields[2], activations[key], sessions[key], signals[key]
+			}
+		}
+	' | sort -t $'\t' -k3,3nr -k1,1 -k2,2
+}
+
 echo "# usage snapshot ${SINCE}..$(date +%Y%m%d)"
 echo
 echo "## 日次合計 (agent 別)"
@@ -159,6 +280,19 @@ find "$HOME/.codex/sessions" -name '*.jsonl' -newermt "$CUTOFF" 2>/dev/null | wh
 done
 echo
 echo "(警告フラグゼロの節は空 = 問題なし)"
+
+echo
+echo "## スキル発火シグナル"
+echo
+echo '> 明示的な skill 起動、または SKILL.md / skill:// の読込を集計する。skill listing・本文中の言及・tool result は数えない。会話本文、引数、パス、session ID は出力しない。'
+echo
+echo 'agent	skill	activations	sessions	signal'
+SKILL_ACTIVATIONS="$(skill_activation_summary)"
+if [ -n "$SKILL_ACTIVATIONS" ]; then
+	printf '%s\n' "$SKILL_ACTIVATIONS"
+else
+	echo "(対象期間に発火シグナルなし)"
+fi
 
 
 echo
@@ -652,6 +786,7 @@ echo "### 制約"
 echo
 echo '- `stats.db` は完了した model 呼出と tool 実行の索引であり、未完了・判定専用の local tiny 呼出は記録されないことがある。'
 echo "- compaction / handoff / prewalk は JSONL の明示イベントのみを数える。イベントを出さない経路は取得不能で、0 と区別できない。"
+echo "- skill activation は明示的な起動または読込シグナルであり、手順の完了や成功を保証しない。skill listing と会話内の言及は数えない。"
 echo "- instruction footprint は canonical file の byte/line 数であり、実リクエストの token count ではない。増加だけで削減を提案せず、cache write と再利用頻度を照合する。"
 echo "- persistent memory footprint は snapshot 時点の容量であり、期間内の増分や参照回数ではない。参照履歴がない store は利用 0 と判定しない。"
 echo "- この snapshot は計測と drift 検出だけを行い、設定・plugin・セッションを変更しない。"

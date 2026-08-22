@@ -41,7 +41,7 @@ snapshot に会話本文や認証情報を混ぜない。
 ローカル診断では session ID、費用、ローカルパスを扱い、必要なら journal に記録する。
 これらの固有値は public なコミット、共有物、会話への貼り付けから除く。
 
-出力は日次合計（モデル別）、コスト上位セッション、警告フラグ、cache 構成、ターン別 context 増分、大きな tool result、常駐指示と外部記憶のサイズを含む。
+出力は日次合計（モデル別）、コスト上位セッション、警告フラグ、cache 構成、ターン別 context 増分、大きな tool result、スキル発火シグナル、常駐指示と外部記憶のサイズを含む。
 
 合計は [ccusage](https://github.com/ryoppippi/ccusage)（Claude、Codex、Grok、Qwen 対応）、警告フラグは raw JSONL、OMP 固有指標は `~/.omp/stats.db` と session event の集計で得る。
 
@@ -60,6 +60,11 @@ snapshot に会話本文や認証情報を混ぜない。
 Claude の assistant レコードは 1 つの API message が content block ごとに複数行へ分割されるため、usage は `.message.id` で重複排除してから集計する。
 
 期間判定もファイルの mtime や task notification ではなく、期間内の実イベントに限定する。
+
+スキル発火シグナルは、各 CLI の明示的な起動記録、または `SKILL.md` / `skill://` の読込イベントから集計する。
+skill listing、会話内の名前への言及、tool result に含まれる skill 本文は数えない。
+出力するのは agent、skill 名、発火回数、該当セッション数、シグナル種別だけとし、会話本文、tool 引数、ファイルパス、session ID は出力しない。
+Codex と OMP の `skill_file_read` は読込の証拠であり、手順を最後まで実行した証拠ではない。
 
 ## 2. 診断
 
@@ -124,6 +129,21 @@ OMP の `Context growth` と `Large tool results` は、中間生成物のサイ
 
 prune や compaction は毎ターン行わない。
 履歴の書き換えは cache prefix を無効化するため、不要になったタスク境界でまとめて削り、その直後の cache write と以後の cache read を比較する。
+
+### スキル利用
+
+`スキル発火シグナル` は、既存スキルの利用状況と retrieval miss の調査対象を絞るために使う。
+回数だけでスキルの有効性や不足を判定しない。
+
+| 観察 | 確認する事実 | 判断 |
+|---|---|---|
+| 同じ skill が複数セッションで発火 | 同種タスクで手順が再利用され、完了結果や再作業に差があるか | 採用済みの手順として維持候補。回数だけを理由に常駐指示へ移さない |
+| 同一セッションで同じ skill を反復読込 | compaction、handoff、長い中断、または同じ資料の再読込があったか | 必要な再読込か context churn かをターン推移で確認する |
+| 関連タスクがあるのに発火がない | task の内容が trigger に一致したか、別の手順で処理されたか | trigger / retrieval miss の候補。タスク本文を確認するまで不足とは断定しない |
+| `skill_file_read` だけが記録される | 読込後に手順の成果物や確認結果が残ったか | 読込回数を完了回数や成功回数へ置き換えない |
+
+未導入スキルの探索では、発火回数の多い領域より、関連タスクが繰り返されているのに既存スキルが発火していない領域を優先する。
+ただし、タスク分類は会話本文を snapshot に出さず、ローカルで該当セッションを確認して行う。
 
 ### OMP
 
