@@ -99,6 +99,7 @@ panel は一つの ledger で次の順序を強制する。対になった同種
 ```
 REVIEW-REQ
 → FINDINGS from reviewer-a and reviewer-b
+→ FYI from coordinator with both FINDINGS paths
 → CROSS-CHECK from reviewer-a and reviewer-b
 → CONSOLIDATED
 → APPLIED（canonical finding がある場合）
@@ -223,6 +224,11 @@ lens: <assigned lens>
 finding-a-1: <high|mid|low> <path>:<line> <要約>
 evidence-a-1: <根拠>
 confidence-a-1: <high|mid|low>
+
+[FYI] panel findings relay
+reviewed-revision: <REVIEW-REQ revision>
+reviewer-a-findings: <reviewer-a FINDINGS の絶対 path>
+reviewer-b-findings: <reviewer-b FINDINGS の絶対 path>
 
 [CROSS-CHECK] <peer findings>
 reviewed-revision: <REVIEW-REQ revision>

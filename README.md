@@ -81,9 +81,10 @@ reviewers from the model family opposite the implementer, using unique pane
 names. Reviewer-a has the `correctness-contract` lens; reviewer-b selects one
 documented failure-mode lens with a reason, never from model names. Both first
 perform the common baseline. The Herdr coordinator withholds each peer's
-FINDINGS until both initial FINDINGS exist, then routes the two CROSS-CHECK
-messages, a lossless CONSOLIDATED ledger, canonical APPLIED, two owner-scoped
-VERIFIED messages, and an aggregate user DECISION if high/mid remains. A
+FINDINGS until both initial FINDINGS exist, then sends one group FYI containing
+both absolute FINDINGS paths before routing the two CROSS-CHECK messages, a
+lossless CONSOLIDATED ledger, canonical APPLIED, two owner-scoped VERIFIED
+messages, and an aggregate user DECISION if high/mid remains. A
 decline or timeout is non-go: panel never silently becomes single.
 
 - **Inside Herdr**: use `herdr-collab` for single, panel, handoffs, and

@@ -188,10 +188,11 @@ validator, and closure. `review-mode` absent means the existing **single**
 review: one fresh, different-model-family reviewer. Explicit `review-mode:
 panel` is Herdr-only and requires exactly two fresh, distinct reviewers from
 the model family opposite the implementer; it is never an arbitrary-N or
-automatic-risk mode. Panel adds the FINDINGS independence barrier,
-CROSS-CHECK, lossless CONSOLIDATED provenance, group fanout, and two VERIFIED
-messages before shared closure. Do not silently downgrade a panel when a
-reviewer declines or times out. Inside Herdr (`HERDR_ENV=1` and the peer is
+automatic-risk mode. Panel adds the FINDINGS independence barrier, one group
+FYI carrying both absolute FINDINGS paths, CROSS-CHECK, lossless CONSOLIDATED
+provenance, group fanout, and two VERIFIED messages before shared closure. Do
+not silently downgrade a panel when a reviewer declines or times out.
+Inside Herdr (`HERDR_ENV=1` and the peer is
 available as a Herdr agent), `herdr-collab` is also the transport — do not
 load `agent-collab` there. Only outside Herdr, additionally load
 `agent-collab` for single-only fallback transport (headless one-shot or
