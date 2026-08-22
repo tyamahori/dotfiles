@@ -1,6 +1,6 @@
 ---
 name: herdr-collab
-description: Claude Code / Codex / omp / Copilot 協働の主スキル。revision を固定した single review と Herdr 専用の二人 panel review の契約・状態遷移・タグとテンプレの唯一の正本を持ち、Herdr 内では spawn・send・inbox・despawn で agmsg を使わずに直接往復、タスク受け渡し、調査共有を行う。クロスレビューや第二意見、タスクの受け渡しではまずこのスキルを読む。
+description: Claude Code / Codex / omp / Copilot 協働の主スキル。revision を固定した single review と Herdr 専用の二人 panel review の契約・状態遷移・タグとテンプレの唯一の正本を持ち、Herdr 内では検証済み台帳と coordinator 管理の prompt 配送で agmsg を使わずに協働する。クロスレビューや第二意見、タスクの受け渡しではまずこのスキルを読む。
 ---
 
 # herdr-collab
@@ -8,12 +8,13 @@ description: Claude Code / Codex / omp / Copilot 協働の主スキル。revisio
 エージェント協働の主スキル。revision を固定した独立レビューの契約、状態遷移、
 タグとテンプレの**唯一の正本**はここにある。`review-mode` がない既存 flow は
 single、`review-mode: panel` は Herdr 専用の二人 panel である。
-Herdr 内の transport は agmsg を一切使わず herdr だけで往復するプロトコル —
-宛先は herdr のペイン名（一意制約付き）なので、agmsg の identity 衝突
-（fujibee/agmsg#300: identity が (project, type) で解決されるため同型
-セッションの並走で衝突する）が構造的に消える。Herdr 外のフォールバック
-transport（ヘッドレスワンショット・agmsg）は `agent-collab` にあり、single
-だけを扱う。transport の往復自体を相互レビューとは呼ばない。
+Herdr 内の transport は agmsg を一切使わず、検証済み ledger と coordinator が
+管理する herdr prompt 配送で往復するプロトコル — 宛先は herdr のペイン名
+（一意制約付き）なので、agmsg の identity 衝突（fujibee/agmsg#300: identity が
+(project, type) で解決されるため同型セッションの並走で衝突する）が構造的に
+消える。Herdr 外のフォールバック transport（ヘッドレスワンショット・agmsg）は
+`agent-collab` にあり、single だけを扱う。transport の往復自体を相互レビューとは
+呼ばない。
 
 ## 不変条件（正本）
 
@@ -28,8 +29,12 @@ transport（ヘッドレスワンショット・agmsg）は `agent-collab` に�
 - **既に動いている（はずの）ピアを再spawnしない。** spawnは起動手段であって
   起こす手段ではない — 再spawnはウィンドウ・プロセスの重複を生む。生きている
   ピアはwakeする。
-- **受信したメッセージには必ずgo/no-goで返信する** — 着手・辞退（理由）・
-  待ち（何を）。自分のペインに書いただけの判断はピアに届かない。
+- **協働依頼は作業開始前に必ず go/no-go を取る。** `[HANDOFF]` への `[FYI]` で
+  着手・辞退（理由）・待ち（何を）を返し、着手可の返信前に `[REVIEW-REQ]` を送らない。
+- **レビューの return message を coordinator へ prompt 配送しない。** coordinator が
+  `herdr agent wait` 中は自身も `working` なので、ピアの `send.sh` は settle 待ちで
+  自己デッドロックする。ピアは `--record-only` で台帳へ記録して turn を終え、
+  coordinator が settle 後に `inbox.sh` で読む。
 - **指摘はトリアージする — 盲目的に適用しない。** 正しいものは直し、誤検知は
   理由を添えて棄却し、両方をユーザーへ報告する。最終判断は呼び出し側が持つ。
 
@@ -124,6 +129,9 @@ single と共通である。
   immutable revision 表記を使う。本文は短文 + 参照にし、diff や長文は貼らない。
 - `[HANDOFF]` / `[REVIEW-REQ]` への返信には**着手可否を必ず含める**
   （不変条件の go/no-go）。
+- single の source ID は `finding-N` / `evidence-N` / `confidence-N` の数値 suffix
+  `N` そのもの。APPLIED / VERIFIED / DECISION の ID リストは `1,2` と書き、
+  `finding-1,finding-2` とは書かない。panel だけが `a-N` / `b-N` を使う。
 
 ```
 [REVIEW-REQ] <一言で対象>
@@ -163,8 +171,8 @@ confidence-1: <high|mid|low>
 [APPLIED] <FINDINGS への対応>
 base-revision: <reviewed-revision>
 result-revision: <修正後 revision>
-resolved: <finding ID のカンマ区切り、なければ none>
-dismissed: <finding ID のカンマ区切り、なければ none>
+resolved: <数値 suffix のカンマ区切り（例: 1,2）、なければ none>
+dismissed: <数値 suffix のカンマ区切り、なければ none>
 change-1: <変更または参照>
 reason-2: <見送り理由>
 verification: <実施した確認>
@@ -173,9 +181,9 @@ verification: <実施した確認>
 ```
 [VERIFIED] <結果>
 result-revision: <APPLIED result-revision、指摘なしなら REVIEW-REQ revision>
-resolved: <finding ID のカンマ区切り、なければ none>
-unresolved-high-mid: <finding ID のカンマ区切り、なければ none>
-unresolved-low: <finding ID のカンマ区切り、なければ none>
+resolved: <数値 suffix のカンマ区切り、なければ none>
+unresolved-high-mid: <数値 suffix のカンマ区切り、なければ none>
+unresolved-low: <数値 suffix のカンマ区切り、なければ none>
 verification: <レビュアーが再読した対象・実行した確認>
 status: <pass|unresolved>
 ```
@@ -292,12 +300,13 @@ briefing: <ファイルの絶対パス>
 - **この使い分けは文書だけでなく機構でも担保されている**: Herdr 内では
   シェルレベルの env guard（`scripts/env-guard.sh`。`~/.zshenv` /
   `~/.bash_profile` / `BASH_ENV` 経由で omp / claude / codex すべての
-  コマンド実行に効く）が agmsg スクリプトと agmsg-pair の実行をブロックし、
-  Claude Code では PreToolUse フックが agmsg 実行と agent-collab / agmsg
-  スキルの読込を deny する。逆方向は本スキルの spawn / send / despawn が
-  `HERDR_ENV=1` でなければ exit する。ブロックに遭ったら回避せず従う —
-  意図的な agmsg メンテナンスだけが `HERDR_AGMSG_ALLOW=1` で通れる
-  （ユーザーの指示があるときのみ）。
+  コマンド実行に効く）が agmsg スクリプトと agmsg-pair の実行をブロックする。
+  自動実行される read-only の `check-inbox.sh` Stop hook だけは、agmsg 本体を
+  実行せず exit 0 にして agent の settle を妨げない。Claude Code では
+  PreToolUse フックも agmsg 実行と agent-collab / agmsg スキルの読込を deny する。
+  逆方向は本スキルの spawn / send / despawn が `HERDR_ENV=1` でなければ exit する。
+  ブロックに遭ったら回避せず従う — 意図的な agmsg メンテナンスだけが
+  `HERDR_AGMSG_ALLOW=1` で通れる（ユーザーの指示があるときのみ）。
 
 ## スクリプト
 
@@ -308,13 +317,13 @@ herdr 0.8.0 以降を前提とする（`agent start` / prompt の stalled 検出
 S=~/.agents/skills/herdr-collab/scripts
 
 # ピア起動: ペインを分割し、素の CLI を herdr agent start で起動・命名する。
-# agmsg には一切触れない。検出・入力受付可能まで待って返る。
+# agmsg には一切触れない。検出・入力受付可能まで待ち、name と pane を返す。
 $S/spawn.sh codex                 # name は <ディレクトリ名>-codex
-$S/spawn.sh claude myrepo-claude  # 明示名。[a-z][a-z0-9_-]{0,31}
+$S/spawn.sh claude myrepo-claude  # stdout: name=myrepo-claude pane=w1:p2
 # env: HC_PARENT_PANE / HC_SPLIT_DIRECTION (right|down) / HC_SPLIT_RATIO /
 #      HC_CWD / HC_START_TIMEOUT_MS
 
-# 送信: ファイル作成 + settle 待ち + prompt 配送を 1 コマンドで行う。
+# coordinator からピアへ配送: 台帳作成 + settle 待ち + prompt 配送。
 $S/send.sh --to myrepo-codex --tag review-req --flow fix-auth --body - <<'EOF'
 [REVIEW-REQ] 認証まわりの修正
 revision: commit:0123456789abcdef
@@ -328,28 +337,38 @@ reviewer-model: codex
 reviewer-context: fresh
 EOF
 
-# 受信確認: フローのメッセージ一覧（見逃しチェック用）。
+# ピアから coordinator への return message: 採番・検証だけ行い、prompt は送らない。
+# --from は必須。記録後は turn を終えて idle に戻る。
+$S/send.sh --record-only --from myrepo-codex --to myrepo-omp \
+  --tag findings --flow fix-auth --body /tmp/findings.md
+
+# 受信確認: reviewer の settle 後に coordinator が読む。
 $S/inbox.sh --flow fix-auth
 
-# 状態と閉鎖の検証。review tag の送信前検証は send.sh が呼ぶ。
+# 状態と閉鎖の検証。review tag の記録前検証は send.sh が呼ぶ。
 $S/review-flow.py validate-message .agent-msgs/fix-auth/01-review-req.md
 $S/review-flow.py status --dir .agent-msgs/fix-auth
 $S/review-flow.py require-closed --dir .agent-msgs/fix-auth
 
-# 片付け: spawn.sh で開けたペインを閉じる。自分が開けたペイン以外に使わない。
-$S/despawn.sh myrepo-claude
+# 片付け: spawn.sh が返した pane ID で閉じる。agent 終了後も使える。
+$S/despawn.sh w1:p2
 ```
 
-`send.sh` は working 中の宛先に注入しない（settle を待つ）。配送成功時は宛先の
-working 遷移（着火）を最大 10 秒確認してから返るので、成功直後にそのまま
-`herdr agent wait` してよい（着火確認前にこれをやると配送前の settle を拾う
-レースになる — 警告付き成功が出たときだけ `herdr agent read` で確認する）。
-settle 状態は `idle` / `done` / `blocked` のいずれか。exit 3 は
-「ファイルは書けたが未配送」— 宛先が `blocked`（承認・入力待ち）なら
-`herdr agent read <target>` で内容を確認してユーザーへ報告し、解消後に
-`--file <パス>` で再配送する。`--file` の `--to` / `--from` は ledger header と
-一致しなければならず、再配送で宛先や送信元を変えられない。group 配送の一部だけ
-失敗した場合は、header 全体を `--to` に保ったまま
+通常の `send.sh` は working 中の宛先に注入しない（settle を待つ）。coordinator
+からピアへの配送成功時は宛先の working 遷移（着火）を最大 10 秒確認して返るので、
+その後 `herdr agent wait <peer>` してよい。**ピアは coordinator への FINDINGS /
+CROSS-CHECK / VERIFIED を通常配送しない**。coordinator は wait 中も `working`
+だから、逆向き `send.sh` は coordinator の settle を待って止まる。ピアは
+`--record-only --from <peer> --to <coordinator>` で採番・flow 検証だけ行い、
+turn を終える。coordinator は peer の settle 後に `inbox.sh` で新規ファイルを読む。
+Codex がスクリプト実行承認で blocked になる場合だけ、coordinator が予約した番号と
+絶対パスへ header 込みで直接書き、idle に戻る。
+
+通常配送の exit 3 は「ファイルは書けたが未配送」。宛先が `blocked`
+（承認・入力待ち）なら `herdr agent read <target>` で内容を確認してユーザーへ
+報告し、解消後に `--file <パス>` で再配送する。`--file` の `--to` / `--from` は
+ledger header と一致しなければならず、再配送で宛先や送信元を変えられない。
+group 配送の一部だけ失敗した場合は、header 全体を `--to` に保ったまま
 `--retry-target <失敗した一宛先>` を付け、成功済みの相手へ再送しない。timeout
 ならペインの生死をユーザーに確認する。再送を繰り返さない。
 
@@ -374,13 +393,17 @@ audience として残る。各 target の settle・配送・着火観測を個�
   `send.sh` は配送しない。
 - 完了報告の直前に必ず `review-flow.py require-closed --dir <flow-dir>` を実行する。
   `closed-pass`、`closed-low`、`closed-risk` 以外は失敗であり、完了と報告しない。
-- 最初の `[HANDOFF]` には自分のペイン名、msgs ディレクトリの絶対パス、返信手順
-  （次番号ファイル + send.sh、不可ならファイルを書いて idle）を必ず書く。
-  `[REVIEW-REQ]` は「タグとテンプレ（正本）」の field だけを使う。生成 header が
-  送信者・宛先を、flow directory が返信先を示す。
-- レビューを受ける前の go/no-go は `[FYI]` で返す。着手後の review message は
-  固定 lifecycle に従い、panel の independence barrier 後に両 FINDINGS path を
-  渡す coordinator `[FYI]` 以外の余分な field やタグを挟まない。
+- `[REVIEW-REQ]` より先に `[HANDOFF]` を送り、自分のペイン名、msgs ディレクトリの
+  絶対パス、返信手順を必ず書く。各 peer は go/no-go の `[FYI]` を
+  `send.sh --record-only --from <peer> --to <coordinator>` で採番・検証してから
+  idle に戻る。coordinator は全 peer の着手可を読んだ後だけ `[REVIEW-REQ]` を送る。
+  この handshake の HANDOFF / FYI は REVIEW-REQ より小さい連番なので固定 review
+  lifecycle の外にある。panel で REVIEW-REQ 後に許される FYI は、independence
+  barrier 後に両 FINDINGS path を渡す coordinator relay だけである。
+- Codex がスクリプト実行承認で blocked になる構成だけは、coordinator が返信の
+  番号込み絶対パスを予約し、peer が `from:` / `to:` / `date:` header 込みで書いて
+  idle に戻る。`[REVIEW-REQ]` は「タグとテンプレ（正本）」の field だけを使う。
+  生成 header が送信者・宛先を、flow directory が返信先を示す。
 - ディレクトリ名を汎用名（`.agents/` 等）に変えない — リポが同名ディレクトリを
   正規に管理している場合、global ignore が正規の新規ファイルまで silent に
   無視してしまう。ignore 対象はこのプロトコル専用の `.agent-msgs/` に限定する。
@@ -391,64 +414,77 @@ audience として残る。各 target の settle・配送・着火観測を個�
 
 ### 実装者
 
-1. 対象を commit または完全 snapshot にして revision を固定し、独立性を記録した
-   `[REVIEW-REQ]` を送る。
-2. `[FINDINGS]` を triage する。正しい指摘だけ直し、却下には理由を付ける。
-3. 指摘があれば、全 ID を `resolved` / `dismissed` に一度ずつ振り分けた
-   `[APPLIED]` を送る。修正後 revision と verification を必ず記録する。
-4. `[VERIFIED]` を待つ。unresolved high/mid はユーザーの `[DECISION]` を待つ。
-   `rework` ならこの flow を閉じず、旧 flow を context に結んだ新規 flow を始める。
-5. `require-closed` が通ってからだけ完了を報告する。low-only は ID と理由も報告する。
+1. `[HANDOFF]` で役割・返信手順を伝え、peer の settle 後に台帳の go/no-go
+   `[FYI]` を読む。着手可の reviewer だけで次へ進む。
+2. 対象を commit または完全 snapshot にして revision を固定し、独立性を記録した
+   `[REVIEW-REQ]` を通常配送する。
+3. `herdr agent wait <reviewer>` で reviewer の turn 終了を待ち、`inbox.sh` から
+   `[FINDINGS]` を読む。return prompt の配送を待たない。
+4. `[FINDINGS]` を triage する。正しい指摘だけ直し、却下には理由を付ける。
+5. 指摘があれば、全 ID を `resolved` / `dismissed` に一度ずつ振り分けた
+   `[APPLIED]` を通常配送する。修正後 revision と verification を必ず記録する。
+6. reviewer の settle 後に台帳の `[VERIFIED]` を読む。unresolved high/mid は
+   ユーザーの `[DECISION]` を待つ。`rework` ならこの flow を閉じず、旧 flow を
+   context に結んだ新規 flow を始める。
+7. `require-closed` が通ってからだけ完了を報告する。low-only は ID と理由も報告する。
 
 ### レビュアー
 
-1. `[REVIEW-REQ]` の固定 revision と scope を fresh context で自分で読む。
-   実装者のワーキングツリーは編集しない。
-2. `[FINDINGS]` に count、verification、各 finding の severity・path:line・
-   evidence・confidence を記録する。指摘なしも `count: 0` で送る。
+1. `[HANDOFF]` を受けたら、着手・辞退・待ちを `[FYI]` として
+   `--record-only` で残し、turn を終える。
+2. `[REVIEW-REQ]` を受けたら追加の FYI を挟まず、固定 revision と scope を fresh
+   context で自分で読み、実装者のワーキングツリーは編集しない。`[FINDINGS]` に
+   count、verification、各 finding の severity・path:line・evidence・confidence を
+   記録し、`--record-only` で台帳へ残して turn を終える。指摘なしも `count: 0` で
+   残す。coordinator へ通常の `send.sh` を実行しない。
 3. `[APPLIED]` を受けたら result revision を再読して、全 ID を partition した
-   `[VERIFIED]` を送る。APPLIED を読んだだけで閉じない。
+   `[VERIFIED]` を `--record-only` で残して turn を終える。APPLIED を読んだだけで
+   閉じない。
 4. unresolved high/mid の結論は出さない。ユーザーの `[DECISION]` が
    `accept-risk` または `rework` を選ぶまで待つ。
 
 ### panel の coordinator と reviewer
 
 1. coordinator は一意な pane 名で、実装者と反対 model family の fresh reviewer
-   を二人 spawn する。lens と理由を決め、group REVIEW-REQ を fanout する。
+   を二人 spawn する。group HANDOFF を fanout し、二人の go/no-go FYI と settle を
+   確認する。両方が着手可なら lens と理由を決め、group REVIEW-REQ を fanout する。
 2. 各 reviewer は peer の結果を見ずに担当 lens と common baseline の FINDINGS を
-   返す。coordinator は両方が揃うまで相互配送しない。
+   `--record-only` で返して turn を終える。coordinator は二人の settle と台帳を
+   確認し、両方が揃うまで相互配送しない。
 3. 両 FINDINGS 後、coordinator は二つの FINDINGS 絶対 path を一つの group
    `[FYI]` で二人へ送り、各 reviewer は peer path の high/mid だけを
-   CROSS-CHECK する。FINDINGS file 自体の `to:` を書き換えたり再配送したりしない。
-   coordinator は全 source を CONSOLIDATED に保持し、重複 mapping と対立を残す。
+   CROSS-CHECK し、`--record-only` で返す。FINDINGS file 自体の `to:` を
+   書き換えたり再配送したりしない。coordinator は全 source を CONSOLIDATED に
+   保持し、重複 mapping と対立を残す。
 4. coordinator は canonical ID を一つの APPLIED で triage する。各 reviewer は
-   自分の prefix を持つ canonical ID を result revision 上で VERIFIED する。
+   自分の prefix を持つ canonical ID を result revision 上で VERIFIED し、
+   `--record-only` で返す。
 5. aggregate unresolved high/mid はユーザーの DECISION を待つ。二人の VERIFIED と
    必要な DECISION が揃い、`require-closed` が通るまで完了と報告しない。
 
 ## トポロジー
 
-- **1:1直接往復**: 双方が send.sh で直接メッセージを届ける transport 形態であり、
-  それ自体は相互レビューを意味しない。レビューは「レビューの実行」と lifecycle に
-  従う。Codex 側は herdr コマンド実行に承認が出ることがある（codex の承認は
-  approval policy 由来でパスに依存せず、リポ内ファイルの編集でも出る — 実測
-  3/3 回 blocked）。その場合は返信ファイルを書いて idle に戻るだけでよく、相手が
-  `herdr agent wait` + ファイル出現で拾う。
-- **ハブ&スポーク**（推奨・3 者以上や Codex の承認摩擦を避けたいとき）:
-  コーディネータ（omp 等）が全ピアを spawn し、配送をすべて中継する。
-  ピアは「ファイルを書いて idle に戻る」だけで、herdr の権限が一切要らない。
-  コーディネータは各ピアの settle を `herdr agent wait` で監視し、新番号
-  ファイルが現れたら宛先へ send.sh（`--file`）で届ける。
-  - ハブが出す handoff に必ず書く: ピアの役割、返信の書き先を**番号込みの
-    絶対パスで明示**（採番をピアに任せない — 並行ファンアウト時の採番衝突が
-    構造的に消える）、`from:` / `to:` / `date:` ヘッダをピア自身が書くこと、
-    send.sh / herdr を一切使わずファイルを書いたら idle に戻ること。
-  - コーディネータ自身が herdr agent 未登録だと `from:` が再起動で変わる
-    ペイン ID になる。`--from <安定名>` を明示して trust boundary の
-    「期待する送信元」を安定させる。
-  - 実測（2026-08、omp ハブ + claude/codex の討論フロー全 5 配送）: ピアに
-    herdr コマンドを要求しないため codex の承認ブロックは 0 回だった。
-  panel はこの topology を必須とし、coordinator が FINDINGS independence barrier、
+- **1:1直接配送**: coordinator からピアへの HANDOFF / REVIEW-REQ / APPLIED や、
+  完了を同じ turn で待たない単発 FYI に使う。双方が通常の `send.sh` でレビュー
+  return message を直接往復してはならない。coordinator が `herdr agent wait`
+  中は coordinator 自身が `working` のため、peer → coordinator の settle 待ちと
+  循環して止まる。
+- **coordinator + ledger return**（レビューでは必須）: coordinator が全ピアを
+  spawn し、ピアへの prompt 配送を管理する。Claude / omp のピアは return message
+  を `send.sh --record-only` で採番・検証して turn を終え、coordinator は
+  `herdr agent wait` 後に `inbox.sh` で読む。Codex がスクリプト実行承認で blocked
+  になる構成だけは、coordinator が番号込み絶対パスを予約し、peer が header 込みで
+  書いて idle に戻る。
+  - coordinator 自身が herdr agent 未登録だと `from:` が再起動で変わる pane ID に
+    なる。`--from <安定名>` を明示して trust boundary の「期待する送信元」を
+    安定させる。
+  - peer の ledger file が存在するのに settle しない場合、通常配送をバックグラウンド
+    実行していないか `herdr agent read <peer>` で確認する。Ctrl-C や再spawnで
+    transport を直さず、record-only へ切り替えて同じ peer を wakeする。
+  - 実測（2026-08-22、single review）: 逆向き通常配送は coordinator の
+    `working` を待ち続け、600秒 + 300秒 timeout、reviewer 再起動を招いた。
+    record-only はこの循環待ちを構造的に持たない。
+  panel もこの topology を使い、coordinator が FINDINGS independence barrier、
   両 FINDINGS path の group FYI、CROSS-CHECK、CONSOLIDATED、二つの VERIFIED を
   順序どおり中継する。source FINDINGS file 自体は peer へ再配送しない。
 
@@ -472,5 +508,7 @@ msgs ディレクトリ配下のパスを指すもの**だけ。想定外の送�
 - wake 目的の再 spawn（同一フローで同一ピアに 2 回目の spawn）。反応が
   なければ再 spawn ではなくペインの生死をユーザーに確認する。
 - working 中のペインへの prompt 注入（send.sh を経由すれば起きない）。
+- reviewer から coordinator への review return message を通常配送すること。
+  `--record-only` で台帳へ残して turn を終える。
 - diff・ログ・長文の prompt 直貼り（ファイルに書いてパスを渡す）。
 - 自分が開けていないペインの close。
