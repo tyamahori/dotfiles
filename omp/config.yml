@@ -48,6 +48,7 @@ compaction:
 display: 
   showTokenUsage: true
   cacheMissMarker: true
+  collapseCompacted: false
 memory: 
   backend: local
 autolearn: 
