@@ -354,6 +354,11 @@ $S/review-flow.py require-closed --dir .agent-msgs/fix-auth
 $S/despawn.sh w1:p2
 ```
 
+`send.sh` は body file・`--body -`・引数なしの stdin のいずれでも、本文が空または
+空白だけなら exit 2 にして prompt を配送しない。新規作成中の空 ledger entry は
+削除し、`--file` で指定した既存ファイルは診断用に残す。`--body -` を使うときは
+heredoc または pipe を同じコマンドで必ず接続する。
+
 通常の `send.sh` は working 中の宛先に注入しない（settle を待つ）。coordinator
 からピアへの配送成功時は宛先の working 遷移（着火）を最大 10 秒確認して返るので、
 その後 `herdr agent wait <peer>` してよい。**ピアは coordinator への FINDINGS /
