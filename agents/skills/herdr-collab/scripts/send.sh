@@ -4,14 +4,16 @@
 # usage:
 #   send.sh --to <target[,second-target]> --tag <handoff|review-req|findings|cross-check|consolidated|applied|verified|decision|fyi> \
 #           [--flow <name>] [--from <name>] [--body <file>|-] \
-#           [--file <既存ファイル>] [--retry-target <failed-target>] \
+#           [--record-only] [--file <既存ファイル>] [--retry-target <failed-target>] \
 #           [--wait-timeout <ms>] [--root <dir>]
 #
 # 本文: --body FILE / --body - (stdin) / 引数なしで stdin。
+# --record-only は新規ファイルを採番・検証して、Herdr prompt を配送せず返る。
 # --file は作成済みファイルの再配送用。group の部分失敗は header 全体を --to に保ち、
 # --retry-target で失敗した一宛先だけを再配送する。
 # 置き場所: <root>/.agent-msgs/<flow>/NN-<tag>.md (root default: git toplevel、なければ $PWD)。
-# exit: 0=配送済み (宛先の working 遷移=着火まで確認。未観測なら警告を添えて 0)
+# exit: 0=記録済み、または配送済み (配送時は宛先の working 遷移=着火まで確認。
+#       未観測なら警告を添えて 0)
 #       2=引数エラー 3=ファイルは在るが未配送 (blocked / timeout / stalled 未着火)
 set -euo pipefail
 
@@ -31,7 +33,7 @@ cleanup_locked_message() {
   fi
 }
 
-TO="" TAG="" FLOW="collab" FROM="" BODY="" FILE="" RETRY_TARGET="" WAIT_TIMEOUT=300000 ROOT="" CREATED=0 LOCK_DIR=""
+TO="" TAG="" FLOW="collab" FROM="" BODY="" FILE="" RETRY_TARGET="" WAIT_TIMEOUT=300000 ROOT="" CREATED=0 LOCK_DIR="" RECORD_ONLY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --to) TO="$2"; shift 2 ;;
@@ -39,6 +41,7 @@ while [ $# -gt 0 ]; do
     --flow) FLOW="$2"; shift 2 ;;
     --from) FROM="$2"; shift 2 ;;
     --body) BODY="$2"; shift 2 ;;
+    --record-only) RECORD_ONLY=1; shift ;;
     --file) FILE="$2"; shift 2 ;;
     --retry-target) RETRY_TARGET="$2"; shift 2 ;;
     --wait-timeout) WAIT_TIMEOUT="$2"; shift 2 ;;
@@ -49,6 +52,11 @@ done
 
 [ "${HERDR_ENV:-}" = 1 ] || die "not inside a herdr pane (HERDR_ENV != 1)"
 [ -n "$TO" ] || die "--to is required"
+if [ "$RECORD_ONLY" = 1 ]; then
+  [ -z "$FILE" ] || die "--record-only creates a new ledger file and cannot be combined with --file"
+  [ -z "$RETRY_TARGET" ] || die "--record-only cannot be combined with --retry-target"
+  [ -n "$FROM" ] || die "--record-only requires explicit --from so it never calls Herdr"
+fi
 
 case "$TO" in
   ,*|*,|*,,*) die "--to targets must be nonempty and comma-separated" ;;
@@ -162,6 +170,10 @@ trap - EXIT HUP INT TERM
 
 ABS="$(cd "$(dirname "$FILE")" && pwd)/$(basename "$FILE")"
 TAGU="$(printf '%s' "$TAG" | tr '[:lower:]' '[:upper:]')"
+if [ "$RECORD_ONLY" = 1 ]; then
+  echo "recorded=$ABS to=$TO"
+  exit 0
+fi
 
 deliver_target() {
   local target="$1" wait_out status prompt_out st ignited

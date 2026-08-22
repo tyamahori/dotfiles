@@ -160,7 +160,10 @@ def parse_id_list(message: Message, key: str) -> set[int]:
     if raw == "none":
         return set()
     if not ID_LIST_RE.fullmatch(raw):
-        fail(f"{message.path.name}: {key} must be `none` or a comma-separated list of finding IDs")
+        fail(
+            f"{message.path.name}: {key} must be `none` or numeric finding suffixes "
+            "such as `1,2` (not `finding-1,finding-2`)"
+        )
     identifiers = [int(value.strip(), 10) for value in raw.split(",")]
     if len(identifiers) != len(set(identifiers)):
         fail(f"{message.path.name}: {key} repeats a finding ID")

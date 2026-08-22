@@ -17,6 +17,8 @@ from pathlib import Path
 SKILL_DIR = Path(__file__).resolve().parents[1]
 REVIEW_FLOW = SKILL_DIR / "scripts" / "review-flow.py"
 SEND = SKILL_DIR / "scripts" / "send.sh"
+DESPAWN = SKILL_DIR / "scripts" / "despawn.sh"
+ENV_GUARD = SKILL_DIR / "scripts" / "env-guard.sh"
 BASE_REVISION = "commit:" + "a" * 40
 RESULT_REVISION = "commit:" + "b" * 40
 STALE_REVISION = "commit:" + "c" * 40
@@ -149,6 +151,7 @@ def decision(directory: Path, outcome: str) -> Path:
 
 def panel_request(
     directory: Path,
+    number: int = 1,
     *,
     implementer_model: str = "codex",
     reviewer_a_model: str = "claude",
@@ -161,7 +164,7 @@ def panel_request(
 ) -> Path:
     return write_message(
         directory,
-        1,
+        number,
         "review-req",
         "implementer",
         "reviewer-a,reviewer-b",
@@ -418,6 +421,15 @@ class ReviewFlowTest(unittest.TestCase):
             env=env,
         )
 
+    def invoke_despawn(self, target: str, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [str(DESPAWN), target],
+            check=False,
+            text=True,
+            capture_output=True,
+            env=env,
+        )
+
     def test_valid_pass_closes_at_verified_result_revision(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
@@ -585,6 +597,31 @@ class ReviewFlowTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("multiple partitions", result.stderr)
 
+    def test_single_finding_ids_are_numeric_suffixes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            review_request(directory)
+            findings(directory, [("mid", "scripts/review-flow.py:100", "Missing validation", "The field is absent")])
+            candidate = write_message(
+                directory,
+                3,
+                "applied",
+                "implementer",
+                "reviewer",
+                "[APPLIED] parser lifecycle",
+                [
+                    ("base-revision", BASE_REVISION),
+                    ("result-revision", RESULT_REVISION),
+                    ("resolved", "finding-1"),
+                    ("dismissed", "none"),
+                    ("verification", "Ran focused lifecycle checks"),
+                ],
+            )
+
+            result = self.invoke("validate-message", str(candidate))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("numeric finding suffixes such as `1,2`", result.stderr)
+
     def test_send_rejects_invalid_review_messages_before_herdr_and_only_removes_new_file(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -644,6 +681,42 @@ class ReviewFlowTest(unittest.TestCase):
         source_findings = panel_source_findings(reviewer_a_entries, reviewer_b_entries)
         panel_consolidated(directory, 7, source_findings)
         return source_findings
+
+    def test_panel_allows_handoff_and_go_no_go_before_review_request(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            write_message(
+                directory,
+                1,
+                "handoff",
+                "implementer",
+                "reviewer-a,reviewer-b",
+                "[HANDOFF] panel availability",
+                [],
+            )
+            write_message(
+                directory,
+                2,
+                "fyi",
+                "reviewer-a",
+                "implementer",
+                "[FYI] reviewer-a available",
+                [],
+            )
+            write_message(
+                directory,
+                3,
+                "fyi",
+                "reviewer-b",
+                "implementer",
+                "[FYI] reviewer-b available",
+                [],
+            )
+            request = panel_request(directory, number=4)
+
+            self.assertEqual(self.invoke("validate-message", str(request)).returncode, 0)
+            status = self.invoke("status", "--dir", str(directory))
+            self.assertEqual(status.stdout, f"state=panel-open-review revision={BASE_REVISION}\n")
 
     def test_panel_pass_closes_after_both_reviewers_verify_namespaced_findings(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -1010,6 +1083,93 @@ class ReviewFlowTest(unittest.TestCase):
             "PATH": f"{binary_directory}:{os.environ['PATH']}",
         }
 
+    def test_send_record_only_validates_return_message_without_calling_herdr(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            flow_directory = root / ".agent-msgs" / "record-only"
+            flow_directory.mkdir(parents=True)
+            review_request(flow_directory)
+            body = root / "findings.md"
+            body.write_text(
+                "[FINDINGS] parser lifecycle\n"
+                f"reviewed-revision: {BASE_REVISION}\n"
+                "scope: agents/skills/herdr-collab\n"
+                "verification: Read the pinned revision\n"
+                "count: 0\n",
+                encoding="utf-8",
+            )
+
+            result = self.invoke_send(
+                "--root",
+                str(root),
+                "--flow",
+                "record-only",
+                "--to",
+                "implementer",
+                "--from",
+                "reviewer",
+                "--tag",
+                "findings",
+                "--body",
+                str(body),
+                "--record-only",
+                env=self.fake_herdr_environment(root),
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("recorded=", result.stdout)
+            self.assertTrue((flow_directory / "02-findings.md").exists())
+            self.assertFalse((root / "herdr.log").exists())
+
+    def test_env_guard_silently_skips_automatic_check_inbox_but_denies_other_agmsg(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            script_directory = root / "agmsg" / "scripts"
+            script_directory.mkdir(parents=True)
+            marker = root / "ran"
+            environment = os.environ | {
+                "BASH_ENV": str(ENV_GUARD),
+                "HERDR_ENV": "1",
+                "MARKER": str(marker),
+            }
+
+            check_inbox = script_directory / "check-inbox.sh"
+            check_inbox.write_text("#!/bin/bash\ntouch \"$MARKER\"\n", encoding="utf-8")
+            check_inbox.chmod(0o755)
+            silent = subprocess.run(
+                ["/bin/bash", "-c", str(check_inbox)],
+                check=False,
+                text=True,
+                capture_output=True,
+                env=environment,
+            )
+            self.assertEqual(silent.returncode, 0, silent.stderr)
+            self.assertEqual(silent.stderr, "")
+            self.assertFalse(marker.exists())
+
+            agmsg_send = script_directory / "send.sh"
+            agmsg_send.write_text("#!/bin/bash\ntouch \"$MARKER\"\n", encoding="utf-8")
+            agmsg_send.chmod(0o755)
+            denied = subprocess.run(
+                ["/bin/bash", "-c", str(agmsg_send)],
+                check=False,
+                text=True,
+                capture_output=True,
+                env=environment,
+            )
+            self.assertEqual(denied.returncode, 2)
+            self.assertIn("agmsg is blocked inside Herdr", denied.stderr)
+            self.assertFalse(marker.exists())
+
+    def test_despawn_closes_spawned_pane_after_agent_exits(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            result = self.invoke_despawn("w9:p7", self.fake_herdr_environment(root))
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "closed=w9:p7\n")
+            self.assertIn("pane close w9:p7", (root / "herdr.log").read_text(encoding="utf-8"))
+
     def test_send_fans_out_one_ledger_file_to_both_reviewers(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -1183,6 +1343,7 @@ class ReviewFlowTest(unittest.TestCase):
                         "implementer",
                         "--from",
                         reviewer,
+                        "--record-only",
                         "--tag",
                         "findings",
                         "--body",
@@ -1207,6 +1368,7 @@ class ReviewFlowTest(unittest.TestCase):
                 },
                 {"from: reviewer-a", "from: reviewer-b"},
             )
+            self.assertFalse((root / "herdr.log").exists())
 
     def test_send_file_retry_cannot_change_recorded_route(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
