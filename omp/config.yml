@@ -93,3 +93,4 @@ dev:
   autoqaConsent: granted
 composer: 
   shape: pi
+hideThinkingBlock: false
