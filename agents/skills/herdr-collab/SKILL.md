@@ -59,13 +59,15 @@ panel はユーザーが `review-mode: panel` を明示したときだけ起動�
 リスク判定や任意人数への拡張はしない。
 
 - reviewer は正確に二人。実装者を含む三 identity と Herdr pane 名はすべて異なる。
-- 両 reviewer は fresh context で、model family はどちらも実装者と異なる。
-  panel に `independence-exception` はない。
-- reviewer-a の lens は `correctness-contract`。reviewer-b は対象の failure mode
-  から `security`、`data-integrity`、`concurrency-state`、
+- 両 reviewer は fresh context。reviewer-a は実装者と異なる model family、
+  reviewer-b は実装者と同じ model family とする。panel に
+  `independence-exception` はない。
+- reviewer-a は実装者からの独立性を担う `correctness-contract` lens。
+  reviewer-b は同系統の fresh な補完役として、対象の failure mode から
+  `security`、`data-integrity`、`concurrency-state`、
   `usability-compatibility`、`operations`、`evidence-assumptions`、
-  `maintainability-failure-modes` の一つを選び、理由を記録する。モデル名で
-  lens を固定しない。
+  `maintainability-failure-modes` の一つを選び、理由を記録する。この割当は
+  model 固有の得意不得意ではなく、独立性と補完性の役割を固定するためである。
 - 二人とも lens に加えて common baseline（固定 revision と scope、既存契約、
   境界、エラー処理、回帰、根拠、confidence）を確認する。
 - 一人が辞退または timeout した flow は non-go のままにする。single へ暗黙に
@@ -217,7 +219,7 @@ reviewer-a-model: <opposite model family>
 reviewer-a-context: fresh
 reviewer-a-lens: correctness-contract
 reviewer-b: <identity>
-reviewer-b-model: <opposite model family>
+reviewer-b-model: <same model family as implementer>
 reviewer-b-context: fresh
 reviewer-b-lens: <catalog value>
 reviewer-b-lens-reason: <対象 failure mode から選んだ理由>
@@ -450,9 +452,10 @@ audience として残る。各 target の settle・配送・着火観測を個�
 
 ### panel の coordinator と reviewer
 
-1. coordinator は一意な pane 名で、実装者と反対 model family の fresh reviewer
-   を二人 spawn する。group HANDOFF を fanout し、二人の go/no-go FYI と settle を
-   確認する。両方が着手可なら lens と理由を決め、group REVIEW-REQ を fanout する。
+1. coordinator は一意な pane 名で、実装者と反対 model family の fresh reviewer-a
+   と、実装者と同じ model family の fresh reviewer-b を一人ずつ spawn する。
+   group HANDOFF を fanout し、二人の go/no-go FYI と settle を確認する。両方が
+   着手可なら lens と理由を決め、group REVIEW-REQ を fanout する。
 2. 各 reviewer は peer の結果を見ずに担当 lens と common baseline の FINDINGS を
    `--record-only` で返して turn を終える。coordinator は二人の settle と台帳を
    確認し、両方が揃うまで相互配送しない。

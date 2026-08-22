@@ -186,8 +186,9 @@ single source of truth for the revision-pinned review contract: roles and
 independence, immutable commit/snapshot revisions, tags/templates, lifecycle,
 validator, and closure. `review-mode` absent means the existing **single**
 review: one fresh, different-model-family reviewer. Explicit `review-mode:
-panel` is Herdr-only and requires exactly two fresh, distinct reviewers from
-the model family opposite the implementer; it is never an arbitrary-N or
+panel` is Herdr-only and requires exactly two fresh, distinct reviewers:
+reviewer-a from the model family opposite the implementer and reviewer-b from
+the implementer's model family. It is never an arbitrary-N or
 automatic-risk mode. Panel adds the FINDINGS independence barrier, one group
 FYI carrying both absolute FINDINGS paths, CROSS-CHECK, lossless CONSOLIDATED
 provenance, group fanout, and two VERIFIED messages before shared closure. Do

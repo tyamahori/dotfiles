@@ -77,10 +77,12 @@ following `REVIEW-REQ → FINDINGS → APPLIED` (when needed)
 
 Explicit `review-mode: panel` is a manual **Herdr-only** mode, not automatic
 risk triggering or arbitrary-N review. It starts exactly two distinct fresh
-reviewers from the model family opposite the implementer, using unique pane
-names. Reviewer-a has the `correctness-contract` lens; reviewer-b selects one
-documented failure-mode lens with a reason, never from model names. Both first
-perform the common baseline. The Herdr coordinator withholds each peer's
+reviewers with unique pane names: reviewer-a from the model family opposite
+the implementer, and reviewer-b from the implementer's model family.
+Reviewer-a is the independent `correctness-contract` anchor; reviewer-b
+selects one documented failure-mode lens with a reason as a same-family
+complement. Both first perform the common baseline. The Herdr coordinator
+withholds each peer's
 FINDINGS until both initial FINDINGS exist, then sends one group FYI containing
 both absolute FINDINGS paths before routing the two CROSS-CHECK messages, a
 lossless CONSOLIDATED ledger, canonical APPLIED, two owner-scoped VERIFIED
