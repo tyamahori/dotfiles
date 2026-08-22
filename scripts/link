@@ -184,18 +184,25 @@ ln -snfv "${OMP_DIR}/extensions" "$HOME/.omp/agent/extensions"
 ln -snfv "${OMP_DIR}/mcp.json" "$HOME/.omp/agent/mcp.json"
 
 # launchd agents: render (plists can't expand env vars, so @HOME@/@REPO_ROOT@
-# placeholders are substituted per machine), then (re)load so edits take
-# effect. macOS-only — there is no launchd on Linux and the scheduled jobs
-# have no systemd equivalent in this repo yet.
+# placeholders are substituted per machine), then reload enabled jobs so edits
+# take effect. Explicit launchd disablement is preserved. macOS-only — there is
+# no launchd on Linux and the scheduled jobs have no systemd equivalent here.
 if [ "$(uname)" = Darwin ]; then
 	mkdir -p "$HOME/Library/LaunchAgents"
+	launchd_domain="gui/$(id -u)"
+	disabled_services="$(launchctl print-disabled "$launchd_domain")"
 	for plist in "${REPO_ROOT}/launchd"/*.plist; do
 		target="$HOME/Library/LaunchAgents/$(basename "$plist")"
 		rm -f "$target" # may be a symlink from an older link run
 		sed -e "s|@HOME@|$HOME|g" -e "s|@REPO_ROOT@|$REPO_ROOT|g" "$plist" >"$target"
 		echo "rendered $target from $plist"
-		launchctl bootout "gui/$(id -u)" "$target" 2>/dev/null || true
-		launchctl bootstrap "gui/$(id -u)" "$target"
+		label="$(plutil -extract Label raw -o - "$target")"
+		launchctl bootout "$launchd_domain" "$target" 2>/dev/null || true
+		if [[ $disabled_services == *"\"$label\" => disabled"* ]]; then
+			echo "skipped loading $label (disabled in launchd)"
+			continue
+		fi
+		launchctl bootstrap "$launchd_domain" "$target"
 	done
 else
 	echo "link: skipping launchd agents (macOS only)" >&2
