@@ -45,6 +45,10 @@ commit/snapshot を固定して agmsg ペアセッションで行う。呼ぶ前
 確認する（`command -v codex` / `command -v claude`）。無ければスキップして通常の
 自己レビューに戻す。
 
+ヘッドレス呼び出しは必ず `</dev/null` で stdin を閉じ、`timeout` で上限を切る。
+付けないと対話プロンプトに落ちたとき無言のまま停止する（委譲した `codex exec` が
+stdin 待ちで19分ハングした事故歴あり）。
+
 - **Claude Code から（相談相手 = Codex）**:
   - 変更・設計の意見: `codex exec "<単体で答えられる問い + 文脈>"`。
     dirty tree を含めるなら、それは相談対象であり pinned review ではない。
