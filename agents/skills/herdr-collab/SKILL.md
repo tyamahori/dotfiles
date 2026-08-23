@@ -171,6 +171,11 @@ confidence-1: <high|mid|low>
 指摘なしは `count: 0` とし、`finding-N`、`evidence-N`、`confidence-N` を
 書かない。
 
+`reviewed-revision` と `scope` は REVIEW-REQ から逐語コピーする。要約・言い換え・
+再構成は validator（review-flow.py）の完全一致検査で拒否される
+（measured 2026-08-23: 4 セッション以上で scope 不一致による記録拒否と
+edit-retry が発生）。
+
 ```
 [APPLIED] <FINDINGS への対応>
 base-revision: <reviewed-revision>
@@ -475,8 +480,10 @@ audience として残る。各 target の settle・配送・着火観測を個�
 
 ### レビュアー
 
-1. `[HANDOFF]` を受けたら、着手・辞退・待ちを `[FYI]` として、合意した return
-   mode で残して turn を終える。
+1. `[HANDOFF]` を受けたら、まず briefing ファイルが非空で本文を持つことを確認する
+   （header だけ = 途中で切れた書き込み。空なら go を返さず coordinator へ差し戻す）。
+   そのうえで着手・辞退・待ちを `[FYI]` として、合意した return mode で残して
+   turn を終える。
 2. `[REVIEW-REQ]` を受けたら追加の FYI を挟まず、固定 revision と scope を fresh
    context で自分で読み、実装者のワーキングツリーは編集しない。`[FINDINGS]` に
    count、verification、各 finding の severity・path:line・evidence・confidence を
