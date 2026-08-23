@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Insights"
+  short_description: "Codex の利用履歴から傾向と改善点を可視化します"
+  default_prompt: "Use $insights to analyze my recent Codex usage and generate a local HTML report."
