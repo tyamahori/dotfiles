@@ -1,5 +1,5 @@
 ---
-name: insights
+name: codex-insights
 description: Codex のローカルセッション履歴を分析し、利用傾向、作業領域、摩擦、改善案を HTML レポートにまとめる。Claude Code の /insights 相当の振り返り、Codex の使い方の診断、最近の利用分析を頼まれたときに使う。
 ---
 
