@@ -296,6 +296,23 @@ fi
 
 
 echo
+echo "## ツール鮮度 (brew outdated)"
+echo
+echo '> ローカルの brew metadata 基準（この snapshot は brew update を実行しない）。更新判断は人間が行い、実行は scripts/brewUpdate を使う。'
+echo
+if command -v brew >/dev/null 2>&1; then
+	BREW_OUTDATED="$(brew outdated --formula 2>/dev/null)"
+	if [ -n "$BREW_OUTDATED" ]; then
+		printf '%s\n' "$BREW_OUTDATED"
+	else
+		echo "(陳腐化した formula なし)"
+	fi
+else
+	echo "(brew なし: 取得不能)"
+fi
+
+
+echo
 echo "## OMP 改善診断"
 echo
 echo '> 集計期間は上記と同じ '"${CUTOFF}"' 以降（ローカル日付境界を含む）。利用量は `~/.omp/stats.db` の正規化済み記録を使い、raw JSONL を再集計しない。compaction / handoff / prewalk は同DBにないため、`~/.omp/agent/sessions` のイベントIDを重複排除して数える。'
