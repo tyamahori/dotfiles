@@ -15,6 +15,8 @@
 // - 両 pool が同時に閾値超えの場合は切替を見送り、メインを Anthropic に留める
 //   （subagent 用の Codex reserve を温存する）。
 // - 一度切り替え/通知した後は、その枠が閾値を下回るまで再発火しない。
+// - 両 pool が 98% 以上（実質枯渇）のときだけ、ローカル ollama を probe して
+//   応答があればメインを qwen へ退避する。ollama 不在なら何もしない。
 // - 閾値と切替先は omp/config.yml の retry 設定と揃える。
 
 import { Database } from "bun:sqlite";
@@ -29,6 +31,12 @@ const CODEX_FALLBACKS = [
 	"openai-codex/gpt-5.4",
 ];
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
+// 両pool枯渇時の最終退避先。ローカルollamaが「起動していてモデルが居る」
+// 場合だけ使う(あれば使う)。chainに入れないのは、停止中でもretry budget
+// を浪費する上、利用枠なし=常にeligible扱いでreserve帯から降格するため。
+const OLLAMA_HOST = process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434";
+const LOCAL_RESCUE_MODEL = "ollama/qwen3.6:35b-mlx";
+const DEPLETED_PCT = 98;
 
 type Model = { provider?: string; id?: string };
 
@@ -96,6 +104,7 @@ export default function (pi: ExtensionHandlerApi): void {
 	let inflight = false;
 	let switchedThisWindow = false;
 	let codexNotifiedThisWindow = false;
+	let rescuedThisWindow = false;
 
 	async function checkAnthropic(ctx: Ctx): Promise<void> {
 		const pct = latestUsedPct("anthropic", "anthropic:7d%");
@@ -142,12 +151,52 @@ export default function (pi: ExtensionHandlerApi): void {
 		);
 	}
 
+	/** 両pool枯渇時のみ、ローカルollamaが応答しモデルが存在すれば切り替える。 */
+	async function checkLocalRescue(ctx: Ctx): Promise<void> {
+		const anthropicPct = latestUsedPct("anthropic", "anthropic:7d%");
+		const codexPct = latestUsedPct("openai-codex", "openai-codex:primary");
+		if (
+			anthropicPct === null ||
+			codexPct === null ||
+			anthropicPct < DEPLETED_PCT ||
+			codexPct < DEPLETED_PCT
+		) {
+			rescuedThisWindow = false;
+			return;
+		}
+		if (rescuedThisWindow || ctx.models?.current()?.provider === "ollama")
+			return;
+
+		const wantedId = LOCAL_RESCUE_MODEL.split("/", 2)[1];
+		try {
+			const res = await fetch(`${OLLAMA_HOST}/api/tags`, {
+				signal: AbortSignal.timeout(1000),
+			});
+			if (!res.ok) return;
+			const tags = (await res.json()) as { models?: { name?: string }[] };
+			if (!tags.models?.some((m) => m.name === wantedId)) return;
+		} catch {
+			// ollama不在は正常系: 何もせず従来どおり枠リセットを待つ。
+			return;
+		}
+
+		const target = await ctx.models?.resolve(LOCAL_RESCUE_MODEL);
+		if (target && (await pi.setModel(target))) {
+			rescuedThisWindow = true;
+			notify(
+				ctx,
+				`usage-guard: 両pool枯渇（Anthropic ${anthropicPct}% / Codex ${codexPct}%）→ ローカル ${LOCAL_RESCUE_MODEL} へ退避。戻すには /model`,
+			);
+		}
+	}
+
 	async function check(ctx: Ctx | undefined): Promise<void> {
 		if (inflight || !ctx?.models) return;
 		inflight = true;
 		try {
 			await checkAnthropic(ctx);
 			checkCodex(ctx);
+			await checkLocalRescue(ctx);
 		} finally {
 			inflight = false;
 		}
