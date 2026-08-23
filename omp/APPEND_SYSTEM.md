@@ -14,7 +14,8 @@ The main session owns intake, design, cross-slice contracts, integration, and fi
 Anthropic (claude-*) and OpenAI (openai-codex/*) use separate subscription pools. Keep the Claude main thread for judgment; send implementation, scouting, and mechanical work to `task`/`scout`/`sonic` subagents, which use the OpenAI pool or run locally.
 
 - Cross-review Claude-authored work with a Codex-family reviewer, never Claude Code.
-- `anthropic-usage-guard` checks active seven-day Anthropic and model-specific limits at session start and every five minutes. At 80% usage, it switches to `openai-codex/gpt-5.6-sol`, then `gpt-5.4` if unavailable; a manual `/model` choice wins.
+- Fallback is two-way and usage-aware (`retry.fallbackChains`, 20% reserve): Anthropic drains to `openai-codex/gpt-5.6-sol` then `gpt-5.4`; Codex drains to `anthropic/claude-sonnet-5` then `claude-haiku-4-5`.
+- The `anthropic-usage-guard` extension covers the model-scoped Anthropic gap (e.g. `7d:fable`) with an automatic switch, and notifies when the Codex weekly pool passes 80% used; both check at session start and every five minutes. A manual `/model` choice wins.
 
 # Data work goes to the eval kernel
 

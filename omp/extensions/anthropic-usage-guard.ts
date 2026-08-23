@@ -1,15 +1,18 @@
-// Anthropic 7日枠（モデル別枠を含む）の残量が20%以下になったら、
-// セッションのモデルを Codex へ自動で切り替えるガード。
+// subscription pool の残量ガード。
 //
-// omp 本体の usage-aware fallback は provider 全体の枠を判定する一方、
-// anthropic:7d:fable などのモデル別枠では reserve 到達時に発火しない。
-// agent.db の最新 usage snapshot を直接読み、この穴だけを補う。
+// 1. Anthropic 7日枠（モデル別枠を含む）の残量が20%以下になったら、
+//    セッションのモデルを Codex へ自動で切り替える。
+//    omp 本体の usage-aware fallback は provider 全体の枠を判定する一方、
+//    anthropic:7d:fable などのモデル別枠では reserve 到達時に発火しない。
+//    agent.db の最新 usage snapshot を直接読み、この穴だけを補う。
+// 2. Codex 週次枠（openai-codex:primary）の残量が20%以下になったら通知する。
+//    切替はしない: provider 全体枠なので omp 本体の usage-aware fallback が
+//    retry.fallbackChains（openai-codex/* → anthropic）で退避する。
 //
 // 動作:
 // - session_start で即チェックし、5分毎に再チェックする。
-// - 現在モデルが Anthropic のときだけ切り替える。
-// - 一度切り替えた後に手動で Anthropic へ戻した場合は、その枠がリセット
-//   されるまで再切替しない。
+// - Anthropic 切替は現在モデルが Anthropic のときだけ行う。
+// - 一度切り替え/通知した後は、その枠が閾値を下回るまで再発火しない。
 // - 閾値と切替先は omp/config.yml の retry 設定と揃える。
 
 import { Database } from "bun:sqlite";
@@ -46,8 +49,8 @@ type ExtensionHandlerApi = {
 	setModel(model: Model): Promise<boolean>;
 };
 
-/** 最新の有効なAnthropic 7日枠で最大の使用率（整数%）。 */
-function anthropicWeeklyUsedPct(): number | null {
+/** 指定 provider の最新かつ有効な枠のうち、filter に合う最大使用率（整数%）。 */
+function latestUsedPct(provider: string, limitFilter: string): number | null {
 	try {
 		const db = new Database(USAGE_DB, { readonly: true });
 		try {
@@ -55,16 +58,18 @@ function anthropicWeeklyUsedPct(): number | null {
 				.query(
 					`SELECT CAST(MAX(used_fraction) * 100 + 0.5 AS INTEGER) AS pct
 					 FROM usage_history
-					 WHERE lower(provider) = 'anthropic'
-					   AND lower(limit_id) LIKE 'anthropic:7d%'
-					   AND resets_at > ?
+					 WHERE lower(provider) = ?1
+					   AND lower(limit_id) LIKE ?2
+					   AND resets_at > ?3
 					   AND recorded_at = (
 					     SELECT MAX(recorded_at)
 					     FROM usage_history
-					     WHERE lower(provider) = 'anthropic'
+					     WHERE lower(provider) = ?1
 					   )`,
 				)
-				.get(Date.now()) as { pct: number | null } | null;
+				.get(provider, limitFilter, Date.now()) as {
+				pct: number | null;
+			} | null;
 			return typeof row?.pct === "number" ? row.pct : null;
 		} finally {
 			db.close();
@@ -84,41 +89,58 @@ function notify(ctx: Ctx | undefined, message: string): void {
 }
 
 export default function (pi: ExtensionHandlerApi): void {
-	pi.setLabel?.("Anthropic Usage Guard");
+	pi.setLabel?.("Usage Guard");
 
 	let inflight = false;
 	let switchedThisWindow = false;
+	let codexNotifiedThisWindow = false;
+
+	async function checkAnthropic(ctx: Ctx): Promise<void> {
+		const pct = latestUsedPct("anthropic", "anthropic:7d%");
+		if (pct === null || pct < 100 - USAGE_RESERVE_PCT) {
+			switchedThisWindow = false;
+			return;
+		}
+		if (switchedThisWindow || ctx.models?.current()?.provider !== "anthropic")
+			return;
+
+		for (const spec of CODEX_FALLBACKS) {
+			const target = await ctx.models?.resolve(spec);
+			if (target && (await pi.setModel(target))) {
+				switchedThisWindow = true;
+				notify(
+					ctx,
+					`usage-guard: Anthropic 7日枠 ${pct}% 使用（残り${100 - pct}% ≤ ${USAGE_RESERVE_PCT}%）→ ${spec} へ切替`,
+				);
+				return;
+			}
+		}
+		notify(
+			ctx,
+			`usage-guard: Anthropic 7日枠 ${pct}% 使用だがCodex切替先を解決できません`,
+		);
+	}
+
+	function checkCodex(ctx: Ctx): void {
+		const pct = latestUsedPct("openai-codex", "openai-codex:primary");
+		if (pct === null || pct < 100 - USAGE_RESERVE_PCT) {
+			codexNotifiedThisWindow = false;
+			return;
+		}
+		if (codexNotifiedThisWindow) return;
+		codexNotifiedThisWindow = true;
+		notify(
+			ctx,
+			`usage-guard: Codex 週次枠 ${pct}% 使用（残り${100 - pct}% ≤ ${USAGE_RESERVE_PCT}%）。退避は retry.fallbackChains が処理`,
+		);
+	}
 
 	async function check(ctx: Ctx | undefined): Promise<void> {
 		if (inflight || !ctx?.models) return;
 		inflight = true;
 		try {
-			const pct = anthropicWeeklyUsedPct();
-			if (pct === null || pct < 100 - USAGE_RESERVE_PCT) {
-				switchedThisWindow = false;
-				return;
-			}
-			if (
-				switchedThisWindow ||
-				ctx.models.current()?.provider !== "anthropic"
-			)
-				return;
-
-			for (const spec of CODEX_FALLBACKS) {
-				const target = await ctx.models.resolve(spec);
-				if (target && (await pi.setModel(target))) {
-					switchedThisWindow = true;
-					notify(
-						ctx,
-						`anthropic-usage-guard: Anthropic 7日枠 ${pct}% 使用（残り${100 - pct}% ≤ ${USAGE_RESERVE_PCT}%）→ ${spec} へ切替`,
-					);
-					return;
-				}
-			}
-			notify(
-				ctx,
-				`anthropic-usage-guard: Anthropic 7日枠 ${pct}% 使用だがCodex切替先を解決できません`,
-			);
+			await checkAnthropic(ctx);
+			checkCodex(ctx);
 		} finally {
 			inflight = false;
 		}

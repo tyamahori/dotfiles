@@ -180,7 +180,9 @@ omp config get modelRoles --json
 Anthropic と OpenAI Codex は別の subscription pool として使い分けます。
 メインセッションは判断を担当し、実装、探索、機械的処理は OpenAI 側の subagent へ寄せる構成です。
 
-Anthropic の利用枠が残り 20% に達すると、`anthropic-usage-guard` が `retry.fallbackChains` に従って OpenAI Codex へ退避します。
+利用枠の退避は双方向です。
+Anthropic の残りが 20% に達すると `retry.fallbackChains` に従って OpenAI Codex へ、Codex 週次枠の残りが 20% に達すると Anthropic へ退避します。
+`anthropic-usage-guard` extension は、omp 本体が判定しないモデル別枠（`anthropic:7d:fable` など）の切替と、Codex 週次枠 80% 到達の通知を担当します。
 現在の認証状態と quota はシェルで確認できます。
 
 ```bash
