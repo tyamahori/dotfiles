@@ -12,6 +12,8 @@
 // 動作:
 // - session_start で即チェックし、5分毎に再チェックする。
 // - Anthropic 切替は現在モデルが Anthropic のときだけ行う。
+// - 両 pool が同時に閾値超えの場合は切替を見送り、メインを Anthropic に留める
+//   （subagent 用の Codex reserve を温存する）。
 // - 一度切り替え/通知した後は、その枠が閾値を下回るまで再発火しない。
 // - 閾値と切替先は omp/config.yml の retry 設定と揃える。
 
@@ -103,6 +105,11 @@ export default function (pi: ExtensionHandlerApi): void {
 		}
 		if (switchedThisWindow || ctx.models?.current()?.provider !== "anthropic")
 			return;
+
+		// 両pool枯渇時はsubagent用のCodex reserveをメインで食わないよう切替を見送る。
+		// 通知はcheckCodex側のCodex 80%通知が担う。
+		const codexPct = latestUsedPct("openai-codex", "openai-codex:primary");
+		if (codexPct !== null && codexPct >= 100 - USAGE_RESERVE_PCT) return;
 
 		for (const spec of CODEX_FALLBACKS) {
 			const target = await ctx.models?.resolve(spec);
