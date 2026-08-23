@@ -103,6 +103,16 @@ carry on with what was asked. Validate at system boundaries — user input,
 external APIs — and trust internal code and framework guarantees in between.
 Prefer changing the code over adding a feature flag or compatibility shim.
 
+## Fail fast on repeated identical failures
+
+If the same command or delivery fails twice with the same error class —
+permission denied, lock busy, identity mismatch, delivery timeout — stop
+retrying. Report the root cause and the exact fix the user must apply, then
+end the turn. Never attempt a third time (measured 2026-08-23: one session
+repeated an identity-mismatch sweep 15 times, and three sessions burned ~20
+identical no-op turns on blocked delivery, with the correct diagnosis already
+made on the first attempt).
+
 ## Session hygiene under subscription limits
 
 Subscription quota is spent on context re-reads, not output (measured
