@@ -65,6 +65,12 @@ commit — and version-control all of it together.
   schema/migration → shared pieces → feature body + tests → docs sync); each
   commit must make sense and build on its own. Follow the repo's existing
   message conventions.
+- **Branches: cut from an up-to-date base** — fetch and branch from
+  `origin/main` (or the repo's intended base), never from another unmerged
+  PR branch. Before opening a PR, run `git log --oneline <base>..HEAD` and
+  confirm only intended commits are present (measured 2026-08-24: two
+  sessions needed `rebase --onto` and a force-push after a branch cut from
+  an unmerged branch dragged in 17 unrelated commits).
 - **Pull requests: create as draft by default.** Ready-for-review only when
   explicitly asked.
 - **PR body: if the repo has a PR template** (`.github/pull_request_template.md`
@@ -102,6 +108,15 @@ request looks mistaken or a better approach exists, say so in a sentence and
 carry on with what was asked. Validate at system boundaries — user input,
 external APIs — and trust internal code and framework guarantees in between.
 Prefer changing the code over adding a feature flag or compatibility shim.
+
+## Root-cause claims need reproduction
+
+When diagnosing a failure, present conclusions as hypotheses with their
+supporting evidence until they are empirically verified — a probe, a log
+line, a test run. Never attribute a root cause to an external service,
+account plan, or credential without a direct reproduction (measured
+2026-08-24: two investigations blamed an external API's plan and an
+"invalid" API key; the user's own curl probe disproved both).
 
 ## Fail fast on repeated identical failures
 
