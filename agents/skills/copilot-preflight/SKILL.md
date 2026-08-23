@@ -15,6 +15,7 @@ Resolve `SKILL_DIR` as the directory containing this `SKILL.md` before reading b
 2. Resolve the review surface:
    - PR: read `gh pr view --json number,baseRefName,headRefName,title,body,url` and the full diff.
    - Local work: inspect `git diff`, `git diff --cached`, and committed branch changes against the intended base.
+   Read the full diff before any broader exploratory commands; scope follow-up searches to questions the diff raised.
 3. Read current repository-owned instructions and specifications. Search for `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, contribution guides, task/spec documents, and review checklists. Treat these files as the current source of repository-specific rules; do not copy their contents into this skill.
 4. If the repository has a large historical review archive, locate only sections relevant to the changed paths or symbols with `rg`.
 
@@ -65,6 +66,8 @@ Respond to rejected findings with evidence and a verification command, not only 
 ## Report results
 
 Order actionable findings by severity. For each include a tight file/line location, failing scenario, current evidence, and smallest safe correction.
+
+Record each finding in the working notes or findings file as soon as it is confirmed, severity-tagged, so an interrupted review still yields usable output; do not defer all reporting to the end.
 
 Separate:
 
