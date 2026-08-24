@@ -15,7 +15,7 @@ cd ~/project/dotfiles
 1. `scripts/init` — install Homebrew, Nix, Devbox, and `gh` extensions
 2. `scripts/link` — symlink dotfiles into `$HOME`, global gitignore into `$HOME/.config/git/ignore`, Claude Code settings (`claude/settings.json`, machine-local overrides go to the gitignored `~/.claude/settings.local.json`) into `$HOME/.claude/settings.json`, and shared agent instructions (see below) into each LLM CLI's config
 3. `scripts/apps` — `brew bundle --global` from `~/.Brewfile`
-4. `scripts/devbox` — install global devbox packages (php, go, direnv, bun, git, nodejs, mas, httpie, cmake, curl, task, uv)
+4. `scripts/devbox` — install global devbox packages (the package list and layering rationale live in the script)
 5. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`
 6. `scripts/omp-plugins` — install the declared omp (Oh My Pi) plugin set (`omp plugin install`); the list and the skipped-as-built-in rationale live in the script
 
@@ -179,17 +179,27 @@ omp-apply
 
 These are not run automatically. Copy & paste as needed.
 
-### Nix vs Devbox
+### Package layering
 
-- **`scripts/devbox`** — packages installed via `devbox global` (default for global tools).
-- **`scripts/nix-extras`** — raw `nix profile add` for things devbox can't carry well
-  (unfree packages, custom flake refs). Edit the script to add packages, then run it:
+Every global tool has exactly one owning layer; never install the same tool
+in two layers. devbox's profile precedes `/opt/homebrew/bin` in PATH, so a
+duplicate silently shadows the brew copy and forks behavior.
+
+- **System (no reinstall)** — OS-bundled network/TLS commands: `curl`, `git`.
+  Apple's curl is a SecureTransport build that reads the Keychain trust
+  store; nix/brew curls carry their own CA bundles and behave differently
+  behind corporate/MITM CAs.
+- **`scripts/devbox`** — cross-platform language toolchains and reproducible
+  CLIs via `devbox global`. Default for anything a project or CI also pins.
+- **`~/.Brewfile`** (`scripts/apps`) — macOS-integrated tools and casks:
+  anything touching Keychain, launchd, notifications, or a GUI.
+- **`scripts/nix-extras`** — raw `nix profile add`, only for what devbox
+  can't carry well (unfree packages, custom flake refs). Edit the script to
+  add packages, then run it:
 
   ```bash
   ./scripts/nix-extras
   ```
-
-  Same package should never live in both — pick one path per tool.
 
 ### gh extensions
 

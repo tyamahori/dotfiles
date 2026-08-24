@@ -1,16 +1,25 @@
 #!/bin/bash
 set -euo pipefail
 
-# macOS gets these from Homebrew instead (see .Brewfile): mas is the Mac App
-# Store CLI with no Linux build at all — requesting it would fail the whole
-# batch — while zsh, herdr and ghostty are the brew/cask entries that have no
-# Linux counterpart there. zsh in particular ships with macOS but not Ubuntu,
-# and .zshrc/.zprofile assume it as the login shell.
-packages=(php go direnv bun ccusage git git-lfs jujutsu jq nodejs httpie cmake curl go-task sqlite uv)
+# Layering policy (README "Package layering"): devbox global owns
+# cross-platform toolchains; Homebrew owns macOS-integrated tools and casks;
+# OS-bundled network/TLS commands (curl, git) are never reinstalled here.
+# Apple's curl is a SecureTransport build that reads the Keychain trust
+# store, while a nix curl carries its own CA bundle and env expectations —
+# reinstalling them forks TLS behavior between shells. devbox's profile
+# precedes /opt/homebrew/bin in PATH, so anything added here silently
+# shadows the brew copy: never carry a tool in both layers.
+#
+# Per-OS split: mas is the Mac App Store CLI with no Linux build at all —
+# requesting it in the shared list would fail the whole batch. zsh, herdr
+# and ghostty come from brew/casks on macOS but have no Linux counterpart
+# there; jq and sqlite live in .Brewfile on macOS. git/curl on Linux come
+# from apt (cloud-init/ubuntu.yaml).
+packages=(php go direnv bun ccusage git-lfs jujutsu nodejs httpie cmake go-task uv google-cloud-sdk)
 if [ "$(uname)" = Darwin ]; then
 	packages+=(mas)
 else
-	packages+=(zsh herdr ghostty)
+	packages+=(zsh herdr ghostty jq sqlite)
 fi
 
 devbox global add "${packages[@]}"
