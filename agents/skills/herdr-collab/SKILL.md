@@ -49,7 +49,10 @@ impl / reviewer の役割はフロー開始時に決める。どちらのエー�
 - 指定がなければ、レビューしてもらいたい作業を持つセッションが実装者、
   相手がレビュアー。
 - **レビュアーは fresh context かつ実装者と異なるモデル系統でなければならない。**
-  omp は main のモデル系統で数える。これを満たせない場合は、
+  omp は main のモデル系統で数える。実装を worker へ委譲した場合、実装者の
+  model family は coordinator ではなく**コードを書いた worker の系統**で数える
+  （coordinator identity で数えると、worker と同系統のレビュアーが「異系統」として
+  通ってしまう）。これを満たせない場合は、
   `independence-exception: user-approved: <reason>` を `[REVIEW-REQ]` に明記する。
   ユーザー指定でも、この例外を省略しない。
 - `[REVIEW-REQ]` の送信者＝そのフローの実装者。役割はフロー単位で、逆向きの
