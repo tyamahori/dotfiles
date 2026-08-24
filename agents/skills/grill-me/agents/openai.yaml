@@ -1,0 +1,4 @@
+interface:
+  display_name: "Grill Me"
+  short_description: "設計判断を依存順に問い、実装前に前提を固める"
+  default_prompt: "Use $grill-me to stress-test this task or plan before implementation."
