@@ -216,6 +216,20 @@ Container-work gotchas on this machine live in the `orbstack-dev` skill —
 load it when working in a Dockerized project, debugging a container-only
 failure, or when a `*.local` dev domain stops resolving.
 
+## Parallel implementation
+
+When a task has two or more genuinely independent implementation slices, the
+main session is the coordinator: it owns user interaction, decomposition,
+cross-slice contracts, integration, and final verification. The user directs
+the coordinator, not worker panes; the coordinator relays changed requirements
+to affected workers.
+
+Give each writing worker an isolated worktree and exclusive file ownership.
+Dispatch independent slices together, but never invent slices or target a fixed
+worker count. Keep trivial, same-file, and dependency-ordered work in the main
+tree. A worker returns a commit or artifact path plus concise evidence; it
+never pushes, merges, or changes a shared contract independently.
+
 ## Agent collaboration (Claude Code / Codex / Copilot CLI)
 
 Cross-agent work always loads the `herdr-collab` skill first. It is the
