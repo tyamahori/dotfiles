@@ -174,6 +174,18 @@ PreToolUse hook denies bare invocations; a denial means switch to the uv
 form, not retry. Load the `efficient-python` skill before writing or running
 any Python.
 
+## Installing CLI tools
+
+Global tools are layered; each tool has exactly one owning layer. `devbox
+global` owns cross-platform toolchains (list: `~/dotfiles/scripts/devbox`),
+Homebrew owns macOS-integrated tools and casks (`~/.Brewfile`), and
+OS-bundled commands — notably `curl` and `git` — stay the Apple versions
+(Apple's curl reads the Keychain trust store; nix/brew builds carry separate
+CA bundles and diverge behind corporate CAs). devbox precedes Homebrew in
+PATH, so a duplicate install silently shadows the brew copy. Don't
+`brew install` / `devbox global add` / `nix profile add` ad hoc — add the
+package to the owning file and run its script.
+
 ## Fetching web content
 
 [ax](https://github.com/yusukebe/ax) (`/opt/homebrew/bin/ax`) replaces
