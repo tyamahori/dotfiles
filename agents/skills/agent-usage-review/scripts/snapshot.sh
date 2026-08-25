@@ -799,6 +799,29 @@ else
 fi
 
 echo
+echo "### jbcontext 活用度（analyze、直近30日固定）"
+echo
+if command -v jbcontext >/dev/null 2>&1; then
+	JB_ANALYZE="$(jbcontext analyze --json-output 2>/dev/null)"
+	if [ -n "$JB_ANALYZE" ] && jq -e 'type == "object"' >/dev/null 2>&1 <<<"$JB_ANALYZE"; then
+		echo '```json'
+		jq '{
+			window: .window.label,
+			tasks: .tasks,
+			adoption: (.adoption | {invokedShare, sessionsInvoking, sessionsAvailable, callsPerSession, errorRate}),
+			modeledReductions: .estimatedWithEmbark.reductions
+		} | with_entries(select(.value != null))' <<<"$JB_ANALYZE"
+		echo '```'
+	else
+		# JSON が取れない場合は人間可読レポートの要約行だけを載せる
+		jbcontext analyze 2>/dev/null | grep -E 'jbcontext usage|Explore now|Modeled|Cost / tokens|Calls / turns' |
+			sed 's/^[[:space:]]*/- /' || echo "- 取得不能（\`jbcontext analyze\` が出力を返さない）"
+	fi
+else
+	echo "- 取得不能（jbcontext CLI がない）"
+fi
+
+echo
 echo "### 制約"
 echo
 echo '- `stats.db` は完了した model 呼出と tool 実行の索引であり、未完了・判定専用の local tiny 呼出は記録されないことがある。'
@@ -806,4 +829,5 @@ echo "- compaction / handoff / prewalk は JSONL の明示イベントのみを�
 echo "- skill activation は明示的な起動または読込シグナルであり、手順の完了や成功を保証しない。skill listing と会話内の言及は数えない。"
 echo "- instruction footprint は canonical file の byte/line 数であり、実リクエストの token count ではない。増加だけで削減を提案せず、cache write と再利用頻度を照合する。"
 echo "- persistent memory footprint は snapshot 時点の容量であり、期間内の増分や参照回数ではない。参照履歴がない store は利用 0 と判定しない。"
+echo "- jbcontext analyze は Claude Code / Codex / Junie のセッションだけを見る(OMP は対象外)。window は 30 日固定で --days と一致しない。usage % の増減は効果量ではない。"
 echo "- この snapshot は計測と drift 検出だけを行い、設定・plugin・セッションを変更しない。"
