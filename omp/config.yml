@@ -61,6 +61,7 @@ skills:
     - php-project-guide
     - upgrade-php
     - freee-api-skill
+    - mcp-builder
 retry: 
   fallbackChains: 
     anthropic/*: 
