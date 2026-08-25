@@ -86,7 +86,7 @@ codex_skill_activation_records() {
 				| (
 					[($raw | scan("skills/[A-Za-z0-9][A-Za-z0-9._:-]*/SKILL\\.md")
 						| sub("^skills/"; "") | sub("/SKILL\\.md$"; ""))]
-					+ [($raw | scan("skill://[A-Za-z0-9][A-Za-z0-9._:-]*")
+					+ [($raw | scan("skill://[A-Za-z0-9][A-Za-z0-9._-]*")
 						| sub("^skill://"; ""))]
 				)
 				| unique[]
@@ -121,9 +121,9 @@ omp_skill_activation_records() {
 					elif .type == "custom"
 						and .customType == "tool_execution_start"
 						and .data.toolName == "read"
-						and ((.data.args.path // "") | test("^skill://[A-Za-z0-9][A-Za-z0-9._:-]*$"))
+						and ((.data.args.path // "") | test("^skill://[A-Za-z0-9][A-Za-z0-9._-]*(:.+)?$"))
 					then {
-						skill: ((.data.args.path // "") | sub("^skill://"; "")),
+						skill: ((.data.args.path // "") | sub("^skill://"; "") | sub(":.*$"; "")),
 						signal: "skill_file_read"
 					}
 					else empty
