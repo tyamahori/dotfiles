@@ -19,6 +19,12 @@ cd ~/project/dotfiles
 5. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`
 6. `scripts/omp-plugins` — install the declared omp (Oh My Pi) plugin set (`omp plugin install`); the list and the skipped-as-built-in rationale live in the script
 
+`scripts/link` also enables this repository's pre-commit guard. It blocks staged
+UUIDs and dollar-denominated measurements. Add machine-specific project or
+customer names to the gitignored `git/sensitive-patterns.local`, one literal
+string per line. Intentional public content can bypass the guard with
+`git commit --no-verify`.
+
 ## OMP (Oh My Pi)
 
 日常の起動方法、セッション操作、モデル運用、local memory、自動学習、定期レビュー、設定変更、トラブル対応は [`docs/omp.md`](docs/omp.md) にまとめています。

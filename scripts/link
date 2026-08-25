@@ -20,6 +20,10 @@ done
 mkdir -p "$HOME/.config/git"
 ln -snfv "${GIT_DIR}/ignore" "$HOME/.config/git/ignore"
 
+# Keep this public repository's machine-specific data guard active for both
+# agent-driven and manual commits.
+git -C "$REPO_ROOT" config core.hooksPath "${REPO_ROOT}/git/hooks"
+
 # claude code global settings (machine-local overrides go to ~/.claude/settings.local.json, gitignored)
 mkdir -p "$HOME/.claude"
 ln -snfv "${CLAUDE_DIR}/settings.json" "$HOME/.claude/settings.json"
