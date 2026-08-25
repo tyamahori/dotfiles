@@ -1,12 +1,13 @@
 id = "tyamahori.worktree-track"
 name = "worktree-track"
-version = "0.1.0"
+version = "0.2.0"
 min_herdr_version = "0.8.0"
 platforms = ["macos", "linux"]
-description = "After herdr creates a worktree, track and follow the same-named remote branch when it exists."
+description = "After herdr creates a worktree, copy .worktreeinclude files and follow the same-named remote branch when it exists."
 
-# herdr worktree create branches from local HEAD and never consults the remote;
-# this hook makes a worktree for an existing remote branch actually follow it.
+# herdr worktree create checks out tracked files only and branches from local
+# HEAD. This hook supplies selected ignored files, then follows an existing
+# same-named remote branch when one is available.
 [[events]]
 on = "worktree.created"
 command = ["bash", "track.sh"]

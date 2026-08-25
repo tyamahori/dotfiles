@@ -1,16 +1,33 @@
 #!/usr/bin/env bash
-# worktree.created hook. herdr creates the worktree branch from local HEAD and
-# sets no upstream, even when a same-named branch exists on the remote. When it
-# does exist: set upstream, and — only for a branch herdr just minted (single
-# "Created from" reflog entry, clean tree) — hard-reset onto the remote tip so
-# the worktree follows the remote branch instead of forking from HEAD.
-# Every skip path exits 0: this must never make worktree creation look failed.
+# worktree.created hook. First copy the gitignored files selected by the source
+# repository's .worktreeinclude. Then, when a same-named remote branch exists,
+# set it as upstream and — only for a branch herdr just minted (single "Created
+# from" reflog entry, clean tree) — hard-reset onto the remote tip so the
+# worktree follows the remote branch instead of forking from HEAD.
+# Every failure or skip path exits 0: this hook must never make worktree
+# creation look failed.
 set -u
 
 ev="${HERDR_PLUGIN_EVENT_JSON:-}"
 [ -n "$ev" ] || exit 0
 path=$(printf '%s' "$ev" | jq -r '.data.workspace.worktree.checkout_path // .data.worktree.path // empty' 2>/dev/null)
+source_root=$(printf '%s' "$ev" | jq -r '.data.workspace.worktree.repo_root // .data.worktree.repo_root // empty' 2>/dev/null)
 [ -n "$path" ] && [ -d "$path" ] || exit 0
+if [ -z "$source_root" ]; then
+	common_dir=$(git -C "$path" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+	case "$common_dir" in
+	*/.git) source_root="${common_dir%/.git}" ;;
+	esac
+fi
+
+if [ -n "$source_root" ] && [ "$source_root" != "$path" ]; then
+	plugin_dir=$(cd "$(dirname "$0")" && pwd)
+	helper="$plugin_dir/../../../scripts/worktree-include-copy"
+	if [ -x "$helper" ]; then
+		"$helper" "$source_root" "$path" || true
+	fi
+fi
+
 cd "$path" || exit 0
 
 branch=$(git symbolic-ref --short -q HEAD) || exit 0 # detached: nothing to track

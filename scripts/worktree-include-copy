@@ -1,0 +1,44 @@
+#!/bin/bash
+set -euo pipefail
+
+if [ "$#" -ne 2 ]; then
+	printf 'usage: worktree-include-copy SOURCE_REPOSITORY DESTINATION_WORKTREE\n' >&2
+	exit 2
+fi
+
+source_root=$(git -C "$1" rev-parse --show-toplevel)
+destination_root=$(git -C "$2" rev-parse --show-toplevel)
+include_file="$source_root/.worktreeinclude"
+
+if [ ! -f "$include_file" ]; then
+	exit 0
+fi
+
+if [ "$source_root" = "$destination_root" ]; then
+	printf 'source and destination resolve to the same worktree: %s\n' "$source_root" >&2
+	exit 2
+fi
+
+copied=0
+while IFS= read -r -d '' relative_path; do
+	source_path="$source_root/$relative_path"
+	destination_path="$destination_root/$relative_path"
+
+	# Match Claude Code and Codex managed-worktree behavior: copy regular
+	# gitignored files only, skip source symlinks, and never overwrite.
+	if [ -L "$source_path" ] || [ ! -f "$source_path" ]; then
+		continue
+	fi
+	if [ -e "$destination_path" ] || [ -L "$destination_path" ]; then
+		continue
+	fi
+
+	mkdir -p "$(dirname "$destination_path")"
+	cp -p "$source_path" "$destination_path"
+	copied=$((copied + 1))
+done < <(
+	git -C "$source_root" ls-files --others --ignored --exclude-from="$include_file" -z |
+		git -C "$source_root" check-ignore --stdin -z
+)
+
+printf 'Copied %d worktree include file(s) from %s to %s\n' "$copied" "$source_root" "$destination_root" >&2

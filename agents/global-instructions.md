@@ -196,6 +196,15 @@ the user dictated.
 
 ## Git & SSH
 
+When creating a worktree with raw `git worktree add`, immediately run
+`worktree-include-copy <source-repository> <new-worktree>`. The repository-root
+`.worktreeinclude` is the single list of gitignored local files needed in
+agent worktrees; the helper applies its gitignore-style patterns, skips
+symlinks, and never overwrites destination files. Claude Code and Codex
+managed worktrees process this file themselves, and the Herdr
+`worktree.created` plugin runs the same helper. OMP task isolation clones the
+whole checkout, including ignored files, so it needs no second copy pass.
+
 The SSH agent on this machine is **1Password**. SSH signing and pushes
 require GUI approval in the 1Password app.
 

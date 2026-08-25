@@ -34,16 +34,36 @@ string per line. Intentional public content can bypass the guard with
 ## Agent instructions
 
 `agents/global-instructions.md` is a single set of guidance for the LLM coding
-CLIs on this machine (Claude Code, OpenAI Codex, GitHub Copilot CLI). `scripts/link`
-symlinks it into each tool's always-loaded global instruction file:
+CLIs on this machine (Claude Code, OpenAI Codex, GitHub Copilot CLI, and OMP).
+`scripts/link` symlinks it into the native global instruction locations:
 
 - Claude Code → `~/.claude/CLAUDE.md`
 - Codex       → `~/.codex/AGENTS.md`
 - Copilot CLI → `~/.copilot/copilot-instructions.md`
+- OMP         → discovers the Claude and Codex user-level files above
 
-Edit that one file to change the rules for all three. It currently tells the
+Edit that one file to change the rules for all four. It currently tells the
 agents to default to the uv-managed Python (`scripts/python`) rather than system,
 Homebrew, or nix interpreters.
+
+### Worktree-local files
+Repository-local `.worktreeinclude` files are the shared allowlist for
+gitignored setup files needed by agent worktrees. Claude Code and Codex managed
+worktrees process the file natively. Herdr runs the same copy behavior from its
+`worktree.created` plugin. OMP task isolation clones the full checkout, so the
+same files are already present there.
+
+When an agent creates a worktree with raw `git worktree add`, the shared
+instructions require it to run:
+
+```bash
+worktree-include-copy <source-repository> <new-worktree>
+```
+
+The helper uses gitignore-style patterns, copies only files that are also
+gitignored, skips source symlinks, and leaves existing destination files
+unchanged. `scripts/link` installs it in `~/.local/bin` and links the Herdr
+plugin that invokes it automatically.
 
 ### efficient-python skill & quarterly review
 
