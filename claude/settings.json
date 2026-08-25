@@ -53,9 +53,6 @@
       "Bash(docker info *)",
       "Bash(docker restart *)",
       "Bash(docker volume *)",
-      "Bash(bash ~/.agents/skills/agmsg/scripts/*)",
-      "Bash(~/.agents/skills/agmsg/scripts/*)",
-      "Bash(~/dotfiles/scripts/agmsg-pair)",
       "Read(~/.config/**)",
       "Read(~/.agents/skills/**)",
       "Read(~/dotfiles/**)",
@@ -146,16 +143,6 @@
           {
             "type": "command",
             "command": "\"$HOME/dotfiles/claude/hooks/deny-shell-read-search.sh\"",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Bash|Skill",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$HOME/dotfiles/claude/hooks/deny-agmsg-in-herdr.sh\"",
             "timeout": 10
           }
         ]

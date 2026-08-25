@@ -18,7 +18,6 @@ SKILL_DIR = Path(__file__).resolve().parents[1]
 REVIEW_FLOW = SKILL_DIR / "scripts" / "review-flow.py"
 SEND = SKILL_DIR / "scripts" / "send.sh"
 DESPAWN = SKILL_DIR / "scripts" / "despawn.sh"
-ENV_GUARD = SKILL_DIR / "scripts" / "env-guard.sh"
 BASE_REVISION = "commit:" + "a" * 40
 RESULT_REVISION = "commit:" + "b" * 40
 STALE_REVISION = "commit:" + "c" * 40
@@ -1201,46 +1200,6 @@ class ReviewFlowTest(unittest.TestCase):
             self.assertIn("recorded=", result.stdout)
             self.assertTrue((flow_directory / "02-findings.md").exists())
             self.assertFalse((root / "herdr.log").exists())
-
-    def test_env_guard_silently_skips_automatic_check_inbox_but_denies_other_agmsg(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            script_directory = root / "agmsg" / "scripts"
-            script_directory.mkdir(parents=True)
-            marker = root / "ran"
-            environment = os.environ | {
-                "BASH_ENV": str(ENV_GUARD),
-                "HERDR_ENV": "1",
-                "MARKER": str(marker),
-            }
-
-            check_inbox = script_directory / "check-inbox.sh"
-            check_inbox.write_text("#!/bin/bash\ntouch \"$MARKER\"\n", encoding="utf-8")
-            check_inbox.chmod(0o755)
-            silent = subprocess.run(
-                ["/bin/bash", "-c", str(check_inbox)],
-                check=False,
-                text=True,
-                capture_output=True,
-                env=environment,
-            )
-            self.assertEqual(silent.returncode, 0, silent.stderr)
-            self.assertEqual(silent.stderr, "")
-            self.assertFalse(marker.exists())
-
-            agmsg_send = script_directory / "send.sh"
-            agmsg_send.write_text("#!/bin/bash\ntouch \"$MARKER\"\n", encoding="utf-8")
-            agmsg_send.chmod(0o755)
-            denied = subprocess.run(
-                ["/bin/bash", "-c", str(agmsg_send)],
-                check=False,
-                text=True,
-                capture_output=True,
-                env=environment,
-            )
-            self.assertEqual(denied.returncode, 2)
-            self.assertIn("agmsg is blocked inside Herdr", denied.stderr)
-            self.assertFalse(marker.exists())
 
     def test_despawn_closes_spawned_pane_after_agent_exits(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
