@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.tyamahori.omp-learning-weekly</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>@REPO_ROOT@/scripts/omp-learning-weekly</string>
+	</array>
+	<!-- weekly: Monday 10:00, 30 min after agent-usage-weekly so the two
+	     notifications land in the same Monday-morning review ritual without
+	     overlapping; launchd runs a missed interval once on wake -->
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Weekday</key><integer>1</integer>
+		<key>Hour</key><integer>10</integer>
+		<key>Minute</key><integer>0</integer>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>@HOME@/.local/state/omp-learning-review/launchd.log</string>
+	<key>StandardErrorPath</key>
+	<string>@HOME@/.local/state/omp-learning-review/launchd.log</string>
+</dict>
+</plist>

@@ -30,6 +30,14 @@ case $# in
 		;;
 esac
 
+# 週次 nudge(scripts/omp-learning-weekly)がこの marker と候補ファイルの
+# mtime を比較して新候補を検出する。scope 名は OMP の
+# ~/.omp/agent/memories/ ディレクトリ名と同じ符号化("/" -> "-"、前後を
+# "-" と "--" で挟む)。レビューを開始した時点で既読扱いにする。
+STATE_DIR="$HOME/.local/state/omp-learning-review"
+mkdir -p "$STATE_DIR"
+touch "$STATE_DIR/-${PWD//\//-}--" "$STATE_DIR/managed-skills"
+
 prompt="/skill:omp-learning-loop このプロジェクトのOMP学習レビューを開始してください。local memory、learned.md、生成Skills、managed skillsを現在のリポジトリと実動結果で裏取りし、候補の仕分けと根拠付き提案を提示してください。項目別のユーザー承認前に、昇格、既存ファイルの変更、managed skillの削除を行わないでください。"
 
 # No --print/--continue/--resume flags: retain the caller's cwd in a fresh TUI.

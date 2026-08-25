@@ -268,7 +268,12 @@ omp-review --days 7
 `omp-review` は Claude Code と OMP の利用量、resume、cache hit、compaction、subagent、tool error などを計測します。
 提案は項目別に承認してから適用され、結果は review journal へ記録されます。
 
-忘れないための最低限の運用は、週に一度 `omp-review --days 7` を実行し、学習候補が溜まったプロジェクトで `omp-learning-review` を実行することです。
+月曜 10:00 に launchd(`com.tyamahori.omp-learning-weekly`)が
+`~/.omp/agent/memories/` と managed skill を走査し、前回レビュー以降の
+新しい学習候補があるプロジェクトだけを macOS 通知で知らせます。
+通知が来たら該当プロジェクトで `omp-learning-review` を実行します。
+利用効率のレポート(`agent-usage-weekly`、月曜 9:30 通知)を見て気になる週は
+`omp-review --days 7` を実行します。
 
 ## 設定を変更する
 
@@ -432,6 +437,7 @@ omp-review --help
 | plugin と version | `scripts/omp-plugins` |
 | authored skill | `agents/skills/<name>/SKILL.md` |
 | 学習レビューの起動方法 | `scripts/omp-learning-review` |
+| 学習レビューの週次通知 | `scripts/omp-learning-weekly` と `launchd/com.tyamahori.omp-learning-weekly.plist` |
 | 利用効率レビューの起動方法 | `scripts/omp-review` |
 | symlink と初期配置 | `scripts/link` |
 

@@ -1,0 +1,81 @@
+#!/bin/bash
+# Weekly OMP learning-review nudge, fired by launchd
+# (launchd/com.tyamahori.omp-learning-weekly.plist).
+# ~/.omp/agent/memories/*/ の learned.md と skills/、および
+# ~/.omp/agent/managed-skills/ を走査し、omp-learning-review が起動時に
+# touch する scope 別 marker より新しい候補があるプロジェクトだけを
+# macOS 通知で知らせる。候補ゼロなら通知せずログのみ。
+set -euo pipefail
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+
+STATE_DIR="$HOME/.local/state/omp-learning-review"
+MEMORY_ROOT="$HOME/.omp/agent/memories"
+MANAGED_SKILLS="$HOME/.omp/agent/managed-skills"
+mkdir -p "$STATE_DIR"
+
+log() {
+  printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" >>"$STATE_DIR/weekly.log"
+}
+
+# marker より新しい候補ファイル数を返す。marker が無い scope は
+# 未レビューとして全ファイルを数える(通知側に倒す)。
+count_new_files() {
+  # $1=marker $2...=paths(存在しないものは無視)
+  marker="$1"
+  shift
+  n=0
+  for p in "$@"; do
+    [ -e "$p" ] || continue
+    if [ -e "$marker" ]; then
+      c="$(find "$p" -type f -newer "$marker" | wc -l | tr -d ' ')"
+    else
+      c="$(find "$p" -type f | wc -l | tr -d ' ')"
+    fi
+    n=$((n + c))
+  done
+  echo "$n"
+}
+
+summary=""
+shown=0
+extra=0
+total=0
+me="$(id -un)"
+
+add_entry() {
+  total=$((total + $2))
+  if [ "$shown" -lt 3 ]; then
+    summary="${summary:+$summary, }$1($2)"
+    shown=$((shown + 1))
+  else
+    extra=$((extra + 1))
+  fi
+}
+
+if [ -d "$MEMORY_ROOT" ]; then
+  for scope_dir in "$MEMORY_ROOT"/*/; do
+    [ -d "$scope_dir" ] || continue
+    scope="$(basename "$scope_dir")"
+    n="$(count_new_files "$STATE_DIR/$scope" "$scope_dir/learned.md" "$scope_dir/skills")"
+    if [ "$n" -gt 0 ]; then
+      label="${scope%--}"
+      label="${label#--Users-"$me"}"
+      label="${label#-}"
+      [ -n "$label" ] || label="home"
+      add_entry "$label" "$n"
+    fi
+  done
+fi
+
+n_managed="$(count_new_files "$STATE_DIR/managed-skills" "$MANAGED_SKILLS")"
+[ "$n_managed" -gt 0 ] && add_entry "managed-skills" "$n_managed"
+
+if [ "$total" -gt 0 ]; then
+  [ "$extra" -gt 0 ] && summary="$summary, 他${extra}件"
+  message="新候補 ${total}件: ${summary} - 該当プロジェクトで omp-learning-review"
+  terminal-notifier -title "OMP 学習レビュー" -message "$message" \
+    -group omp-learning-weekly >/dev/null
+  log "notify: $message"
+else
+  log "no new candidates"
+fi
