@@ -94,8 +94,8 @@ export default function (pi: ExtensionHandlerApi): void {
       pi.sendUserMessage?.(
         `[session-day-guard] このセッションは ${start} に開始し、今日は ${today}。` +
           `有人セッションは日次で使い捨てる規範に従い、いまの依頼が一区切りしたら手仕舞いする: ` +
-          `(1) 引き継ぎ文脈(未完タスク・決定事項・宿題)をこのリポジトリの慣行の場所に日誌として書く` +
-          `(funabashidev/bot なら docs/ops/ のセッション日誌)。` +
+          `(1) 引き継ぎ文脈(未完タスク・決定事項・宿題)を日誌として書く。` +
+          `置き場はリポジトリが明示的に定義していればそこ、なければ gitignore 済みの .agent-msgs/handoff/。` +
           `(2) ユーザーに新しいセッションでの再開を案内し、このセッションを閉じてもらう。` +
           `resume で持ち越さないこと。`,
         { deliverAs: "followUp" },

@@ -425,6 +425,8 @@ audience として残る。各 target の settle・配送・着火観測を個�
 - 置き場所: `<git toplevel>/.agent-msgs/<フロー名>/NN-<tag>.md`（NN は連番。
   send.sh が採番する）。`.agent-msgs/` は dotfiles の global gitignore で
   ignore 済み。リポ外で使う場合は `--root` で起点を明示する。
+  フロー名 `handoff` は予約済み — セッション引き継ぎメモの置き場
+  `.agent-msgs/handoff/` と衝突するため使わない。
   新規送信は採番・書込・flow 検証を ledger lock 内で行うため、二人の FINDINGS が
   同時に到着しても同じ番号を上書きしない。
 - ファイル先頭に `from:` / `to:`（ペイン名）/ `date:` を置く（send.sh が書く）。

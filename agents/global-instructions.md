@@ -135,11 +135,13 @@ Subscription quota is spent on context re-reads, not output (measured
 half of it compaction churn). Five rules, for every agent CLI:
 
 - **Don't resume sessions across days.** Ask the agent to write a durable
-  handoff note in the project's established docs location, then `/quit`.
-  Start plain `omp` from the project the next day and give it that note; do
-  not use `--continue`. In OMP 17.4.2, `/handoff [focus]` only summarizes and
-  compacts the current session in place: it neither writes the durable note
-  nor switches sessions.
+  handoff note, then `/quit`. The note goes where the repository explicitly
+  defines (repo instructions or docs); a repository that defines no place
+  gets `.agent-msgs/handoff/YYYY-MM-DD-<topic>.md`, already excluded by the
+  machine-global gitignore. Start plain `omp` from the project the next day
+  and give it that note; do not use `--continue`. In OMP 17.4.2,
+  `/handoff [focus]` only summarizes and compacts the current session in
+  place: it neither writes the durable note nor switches sessions.
 - **Don't resume a large context after a long idle.** If a session is over
   200k context and has been idle for more than an hour, write the handoff
   note and start fresh. (Measured 2026-08-19: a 2h17m same-day resume rewrote
