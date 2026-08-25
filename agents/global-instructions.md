@@ -253,14 +253,13 @@ automatic-risk mode. Panel adds the FINDINGS independence barrier, one group
 FYI carrying both absolute FINDINGS paths, CROSS-CHECK, lossless CONSOLIDATED
 provenance, group fanout, and two VERIFIED messages before shared closure. Do
 not silently downgrade a panel when a reviewer declines or times out.
-Inside Herdr (`HERDR_ENV=1` and the peer is
-available as a Herdr agent), `herdr-collab` is also the transport — do not
-load `agent-collab` there. Only outside Herdr, additionally load
-`agent-collab` for single-only fallback transport (headless one-shot or
-agmsg); it never supports panel. Never use agmsg inside a Herdr collaboration
-flow or operate Herdr from outside it. `adversarial-verification` remains the
-higher-cost, broader two-pass mode for high-risk work, not ordinary
-single/panel closure.
+Collaboration runs on Herdr only: inside Herdr (`HERDR_ENV=1` and the peer
+is available as a Herdr agent), `herdr-collab` is also the transport. There
+is no skill-based transport outside Herdr — an occasional second opinion
+from a GUI Claude or Codex session is a manual paste of the template and
+artifact, carries no review tags, and never claims review closure.
+`adversarial-verification` remains the higher-cost, broader two-pass mode
+for high-risk work, not ordinary single/panel closure.
 Start a flow when the user asks (「クロスレビュー」, "second opinion",
 「Codexにレビューさせて」); offer one before a PR on large or risky changes,
 but not unprompted on every task. One invariant stays resident here because

@@ -1,5 +1,5 @@
 #!/bin/bash
-# herdr-collab: agmsg を一切使わずに herdr ペインへピア CLI を起動する。
+# herdr-collab: herdr ペインへピア CLI を起動する。
 #
 # usage: spawn.sh <kind> [name]
 #   kind: herdr の agent kind (claude|codex|omp|copilot|...)。一覧は `herdr agent`。

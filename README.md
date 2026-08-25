@@ -93,7 +93,7 @@ the ecosystem move, a self-checking loop keeps it honest:
   gui/$(id -u)/com.tyamahori.python-skill-review`) to trigger a review
   off-schedule.
 
-### Agent collaboration (Herdr first, agmsg outside Herdr)
+### Agent collaboration (Herdr only)
 
 Claude Code, Codex, omp, and Copilot collaborate without manual
 copy-pasting. `review-mode` absent is the existing **single** review:
@@ -116,17 +116,15 @@ messages, and an aggregate user DECISION if high/mid remains. A
 decline or timeout is non-go: panel never silently becomes single.
 
 - **Inside Herdr**: use `herdr-collab` for single, panel, handoffs, and
-  research sharing. It addresses unique Herdr pane names, stores one flow
-  ledger under `.agent-msgs/`, and never joins or sends through agmsg. Its
-  `send.sh --to reviewer-a,reviewer-b` fanout validates distinct recipients
-  and requires every target delivery to succeed; ignition observation keeps
-  the existing warning-on-unobserved behavior.
-- **Outside Herdr**: headless peer CLIs are one-shot second opinions only.
-  [agmsg](https://github.com/fujibee/agmsg) supports single revision-pinned
-  reviews, handoffs, and research sharing. It does **not** support panel,
-  CROSS-CHECK, CONSOLIDATED, or reviewer fanout. Run
-  `~/dotfiles/scripts/agmsg-pair` once per project (`--with-copilot` to
-  include Copilot CLI); it is idempotent.
+  research sharing. It addresses unique Herdr pane names and stores one flow
+  ledger under `.agent-msgs/`. Its `send.sh --to reviewer-a,reviewer-b`
+  fanout validates distinct recipients and requires every target delivery to
+  succeed; ignition observation keeps the existing warning-on-unobserved
+  behavior.
+- **Outside Herdr**: there is no skill-based transport. An occasional second
+  opinion from a GUI Claude or Codex session is a manual paste of the
+  template and artifact; it carries no review tags and never claims review
+  closure.
 
 The exact panel fields, reviewer-b lens catalog, common baseline, source-ID
 provenance, group routing, closure partitions, and nine review tags
@@ -143,29 +141,19 @@ higher-cost, broader two-pass mode for high-risk work.
   - 「この変更を Herdr の panel review にかけて」
   - 「この調査結果を Codex に共有して」
   - 「このタスクを Codex に渡して」
-  The active agent selects the permitted transport; panel requires Herdr.
+  All of these run inside Herdr; panel included.
 - **Inspect a conversation**: inside Herdr, use
-  `~/.agents/skills/herdr-collab/scripts/inbox.sh --flow <flow>`;
-  outside Herdr, use `/agmsg history` (Claude Code) or `$agmsg history`
-  (Codex) inside the project. Formal reviews use `.agent-msgs/<flow>` as
-  the ledger and must pass
+  `~/.agents/skills/herdr-collab/scripts/inbox.sh --flow <flow>`. Formal
+  reviews use `.agent-msgs/<flow>` as the ledger and must pass
   `review-flow.py require-closed --dir .agent-msgs/<flow>`.
 
-The split is enforced mechanically, not just by documentation. Inside a
-Herdr pane (`HERDR_ENV=1`) a shell-level guard
-(`agents/skills/herdr-collab/scripts/env-guard.sh`, wired through
-`~/.zshenv`, `~/.bash_profile`, and `BASH_ENV` so it covers omp, Claude
-Code, and Codex alike) blocks agmsg execution, `scripts/agmsg-pair` refuses
-to run, and a Claude Code PreToolUse hook additionally denies agmsg
-commands and loading the `agent-collab`/`agmsg` skills. In the other
-direction the herdr-collab scripts exit unless `HERDR_ENV=1`. Deliberate
-agmsg maintenance from a Herdr pane needs `HERDR_AGMSG_ALLOW=1`.
+The herdr-collab scripts exit unless `HERDR_ENV=1`, so Herdr sessions are
+never operated from outside.
 
 Sources of truth (this section is only the human entry point): the shared
 review contract, tags/templates, lifecycle, validator, and Herdr transport
 live in `agents/skills/herdr-collab/`; routing lives in
-`agents/global-instructions.md`; the outside-Herdr single-only fallback
-transport lives in `agents/skills/agent-collab/`.
+`agents/global-instructions.md`.
 
 ## OrbStack VM (Ubuntu 24.04)
 

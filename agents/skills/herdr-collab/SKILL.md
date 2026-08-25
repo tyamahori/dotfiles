@@ -1,6 +1,6 @@
 ---
 name: herdr-collab
-description: Claude Code / Codex / omp / Copilot 協働の主スキル。revision を固定した single review と Herdr 専用の二人 panel review の契約・状態遷移・タグとテンプレの唯一の正本を持ち、Herdr 内では検証済み台帳と coordinator 管理の prompt 配送で agmsg を使わずに協働する。クロスレビューや第二意見、タスクの受け渡しではまずこのスキルを読む。
+description: Claude Code / Codex / omp / Copilot 協働の主スキル。revision を固定した single review と Herdr 専用の二人 panel review の契約・状態遷移・タグとテンプレの唯一の正本を持ち、検証済み台帳と coordinator 管理の herdr prompt 配送で協働する。クロスレビューや第二意見、タスクの受け渡しではまずこのスキルを読む。
 ---
 
 # herdr-collab
@@ -8,13 +8,12 @@ description: Claude Code / Codex / omp / Copilot 協働の主スキル。revisio
 エージェント協働の主スキル。revision を固定した独立レビューの契約、状態遷移、
 タグとテンプレの**唯一の正本**はここにある。`review-mode` がない既存 flow は
 single、`review-mode: panel` は Herdr 専用の二人 panel である。
-Herdr 内の transport は agmsg を一切使わず、検証済み ledger と coordinator が
-管理する herdr prompt 配送で往復するプロトコル — 宛先は herdr のペイン名
-（一意制約付き）なので、agmsg の identity 衝突（fujibee/agmsg#300: identity が
-(project, type) で解決されるため同型セッションの並走で衝突する）が構造的に
-消える。Herdr 外のフォールバック transport（ヘッドレスワンショット・agmsg）は
-`agent-collab` にあり、single だけを扱う。transport の往復自体を相互レビューとは
-呼ばない。
+transport は、検証済み ledger と coordinator が管理する herdr prompt 配送で
+往復するプロトコル — 宛先は herdr のペイン名（一意制約付き）なので、
+同型セッションが並走しても宛先が衝突しない。協働はこのプロトコル専用で、
+Herdr 外に skill 化された transport はない（GUI の Claude / Codex への
+単発の相談は雛形と成果物の手動貼り付けで行い、review tag も closure も
+主張しない）。transport の往復自体を相互レビューとは呼ばない。
 
 ## 不変条件（正本）
 
@@ -333,26 +332,15 @@ $S/send.sh --record-only --from <peer> --to <coordinator> \
 
 - `test "${HERDR_ENV:-}" = 1` が通り、相手を同一マシンの Herdr agent として
   起動または特定できるフローでは、単発か往復かを問わずこのプロトコルを使う。
-  agmsg の team join・send・spawn は併用しない。
 - 現在のセッションが Herdr 外、相手が別マシン、または相手を Herdr agent として
-  利用できない場合だけ `agent-collab` を読み、ヘッドレスワンショットか agmsg を
-  選ぶ（その場合も本スキルの正本節は拘束される）。Herdr 外から Herdr
-  セッションを操作しない。
+  利用できない場合、skill 化された transport はない。単発の第二意見は GUI の
+  別モデルセッションへの手動貼り付けにとどめ、review tag と closure を
+  主張しない。Herdr 外から Herdr セッションを操作しない — 本スキルの
+  spawn / send / despawn は `HERDR_ENV=1` でなければ exit する。
 - Herdr のペイン名は一意なので、同一プロジェクトで同型セッションが並走しても
-  agmsg の identity 衝突を起こさない。配送履歴は `.agent-msgs/` に残し、
+  宛先が衝突しない。配送履歴は `.agent-msgs/` に残し、
   `send.sh` が配送と着火を検証する。
-- omp から使う場合も同じスクリプトでよい。omp は agmsg の型検出で
-  `claude-code` と誤検出されるため、agmsg の team には入れない。
-- **この使い分けは文書だけでなく機構でも担保されている**: Herdr 内では
-  シェルレベルの env guard（`scripts/env-guard.sh`。`~/.zshenv` /
-  `~/.bash_profile` / `BASH_ENV` 経由で omp / claude / codex すべての
-  コマンド実行に効く）が agmsg スクリプトと agmsg-pair の実行をブロックする。
-  自動実行される read-only の `check-inbox.sh` Stop hook だけは、agmsg 本体を
-  実行せず exit 0 にして agent の settle を妨げない。Claude Code では
-  PreToolUse フックも agmsg 実行と agent-collab / agmsg スキルの読込を deny する。
-  逆方向は本スキルの spawn / send / despawn が `HERDR_ENV=1` でなければ exit する。
-  ブロックに遭ったら回避せず従う — 意図的な agmsg メンテナンスだけが
-  `HERDR_AGMSG_ALLOW=1` で通れる（ユーザーの指示があるときのみ）。
+- omp から使う場合も同じスクリプトでよい。
 
 ## スクリプト
 
@@ -363,7 +351,7 @@ herdr 0.8.0 以降を前提とする（`agent start` / prompt の stalled 検出
 S=~/.agents/skills/herdr-collab/scripts
 
 # ピア起動: ペインを分割し、素の CLI を herdr agent start で起動・命名する。
-# agmsg には一切触れない。検出・入力受付可能まで待ち、name と pane を返す。
+# 検出・入力受付可能まで待ち、name と pane を返す。
 $S/spawn.sh codex                 # name は <ディレクトリ名>-codex
 $S/spawn.sh claude myrepo-claude  # stdout: name=myrepo-claude pane=w1:p2
 # env: HC_PARENT_PANE / HC_SPLIT_DIRECTION (right|down) / HC_SPLIT_RATIO /
@@ -459,8 +447,8 @@ audience として残る。各 target の settle・配送・着火観測を個�
 - ディレクトリ名を汎用名（`.agents/` 等）に変えない。リポが同名ディレクトリを
   正規に管理している場合、global ignore が正規の新規ファイルまで silent に
   無視してしまう。ignore 対象はこのプロトコル専用の `.agent-msgs/` に限定する。
-- msgs ディレクトリがそのままフローの作業ログになる（agmsg history 相当。
-  ただし改ざん耐性はない — 監査証跡が要る場合は永続化先へ別途保存する）。
+- msgs ディレクトリがそのままフローの作業ログになる（ただし改ざん耐性はない —
+  監査証跡が要る場合は永続化先へ別途保存する）。
 
 ## レビューの実行
 
@@ -558,10 +546,6 @@ return file は coordinator が実パスと内容を確認してから ledger �
 
 ## やらないこと
 
-- **agmsg の spawn.sh でピアを起動すること。** あれは起動段で agmsg team に
-  join し、メッセージを流さなくても team 登録が残る（実際に起きた事故:
-  意図しない team にメンバーが登録され、後から reset で削除した）。起動は
-  必ずこのスキルの spawn.sh で行う。
 - wake 目的の再 spawn（同一フローで同一ピアに 2 回目の spawn）。反応が
   なければ再 spawn ではなくペインの生死をユーザーに確認する。
 - working 中のペインへの prompt 注入（send.sh を経由すれば起きない）。
