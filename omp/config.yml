@@ -57,17 +57,6 @@ autolearn:
   minToolCalls: 5
 skills: 
   ignoredSkills: 
-    - agents-sdk
-    - cloudflare
-    - cloudflare-email-service
-    - cloudflare-one
-    - cloudflare-one-migrations
-    - durable-objects
-    - sandbox-sdk
-    - turnstile-spin
-    - workers-best-practices
-    - wrangler
-    - web-perf
     - php-code-review
     - php-project-guide
     - upgrade-php
