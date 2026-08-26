@@ -71,3 +71,10 @@ Read only the sections matching the diff. Repository instructions override these
 - Run safe command examples or validate their syntax.
 - Avoid manually maintained indexes, counts, and histories when they can be generated.
 - Prefer references to an executable source of truth over duplicating internal values, while retaining public contract values needed by readers.
+
+## Knowledge placement
+
+- Read commit messages for the Why; a body that is absent or merely restates the diff loses the change's context.
+- Flag comments that narrate what the next line does; keep comments to what code cannot express — constraints, rejected alternatives, "looks wrong but isn't".
+- Check that test names state the behavior they pin down, not the method they call.
+- Treat prose walkthroughs of the implementation as duplicated How; prefer deleting them over keeping them synchronized with code.
