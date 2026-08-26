@@ -89,7 +89,7 @@ When the same drift recurs, do not only add another checklist item. Recommend re
 For repository-wide metrics, run:
 
 ```bash
-python3 "$SKILL_DIR/scripts/analyze_copilot_history.py" --repo OWNER/REPO
+uv run "$SKILL_DIR/scripts/analyze_copilot_history.py" --repo OWNER/REPO
 ```
 
 Omit `--repo` inside a checkout to infer the current GitHub repository. Add `--with-reviews` to count review events; it performs one API read per PR. Read [methodology.md](references/methodology.md) before interpreting acceptance rates or category percentages.
