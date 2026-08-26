@@ -21,3 +21,8 @@ Anthropic (claude-*) and OpenAI (openai-codex/*) use separate subscription pools
 # Data work goes to the eval kernel
 
 Run multi-step data processing—JSON reshaping, ad-hoc aggregation, or anything beyond one binary or short pipeline—in the `eval` tool's persistent Python kernel (`$` prefix), not chained bash calls. Re-run only failed cells.
+
+# Large command outputs
+
+- When looking for known facts in potentially large CLI logs, use source-side options or a mid-pipeline filter before the output enters context; do not fetch the full log and then search its spilled artifact (measured 2026-08-27: three `gh run view --log` results totaling 152,163 characters were immediately searched in a second tool turn).
+- If filtered output lacks the evidence needed for the decision, widen deliberately to a bounded artifact range and then the full log; never infer success from missing filtered lines.
