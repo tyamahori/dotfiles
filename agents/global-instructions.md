@@ -109,6 +109,15 @@ carry on with what was asked. Validate at system boundaries — user input,
 external APIs — and trust internal code and framework guarantees in between.
 Prefer changing the code over adding a feature flag or compatibility shim.
 
+## Structural edits
+
+Use language-server rename/references for symbol-aware refactors when available.
+Repeated structural rewrites and codemods use AST-aware tooling, never regex or
+text replacement: OMP uses `ast_edit`; Claude Code and Codex load the
+`structural-edit` skill and use `ast-grep`. Preview before applying, and treat
+parse errors as failures rather than clean no-ops. Keep one-site edits in the
+native editor.
+
 ## Root-cause claims need reproduction
 
 When diagnosing a failure, present conclusions as hypotheses with their
