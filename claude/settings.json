@@ -181,12 +181,27 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$HOME/dotfiles/claude/hooks/shellcheck-on-edit.sh\"",
+            "command": "\"$HOME/dotfiles/scripts/shellcheck-on-edit\"",
             "timeout": 15
           },
           {
             "type": "command",
             "command": "\"$HOME/dotfiles/scripts/japanese-prose-hook-edit\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/scripts/worktree-copy-hook\"",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/scripts/push-agent-hint\"",
             "timeout": 10
           }
         ]
@@ -203,6 +218,16 @@
       }
     ],
     "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/scripts/push-agent-hint\"",
+            "timeout": 10
+          }
+        ]
+      },
       {
         "matcher": "*",
         "hooks": [
@@ -295,6 +320,21 @@
           {
             "type": "command",
             "command": "bash \"$HOME/.claude/hooks/herdr-agent-state.sh\" session",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/scripts/jbcontext-clobber-check\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/claude/hooks/session-hygiene.sh\"",
             "timeout": 10
           }
         ]

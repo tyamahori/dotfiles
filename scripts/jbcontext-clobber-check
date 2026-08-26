@@ -1,0 +1,32 @@
+#!/bin/bash
+# Shared SessionStart hook (Claude/Codex; OMP uses
+# omp/extensions/jbcontext-clobber-guard.ts): warn when the repo-managed agent
+# files have uncommitted changes. jbcontext setup-agent runs and its
+# AutoUpdater rewrite these files through the home-directory symlinks
+# (measured 2026-08-26: the 0.9.9->0.9.10 auto-update replaced the neutral
+# instructions block and churned claude/settings.json). Detecting the dirt at
+# session start turns a mystery diff hunted days later into an immediate,
+# attributable warning. Prints plain text; Claude injects SessionStart stdout
+# as context.
+set -euo pipefail
+
+repo="$HOME/dotfiles"
+command -v git >/dev/null 2>&1 || exit 0
+[ -e "$repo/.git" ] || exit 0
+
+dirty=$(git -C "$repo" status --porcelain -- \
+	agents/global-instructions.md claude/settings.json 2>/dev/null) || exit 0
+[ -n "$dirty" ] || exit 0
+
+cat <<EOF
+[jbcontext-clobber-check] Repo-managed agent files in ~/dotfiles have
+uncommitted changes:
+$dirty
+If these were not edited intentionally in a current session, a jbcontext
+setup-agent run or its auto-updater likely rewrote them through the symlinks.
+Diagnose by matching the file mtime against AutoUpdater lines in
+~/.jbcontext/logs/jbcontext.log. Recover with git -C ~/dotfiles diff /
+checkout, then re-check that ~/.jbcontext/config.json agentSetups still has
+instructions/hooks disabled for CLAUDE:USER and CODEX:USER.
+EOF
+exit 0

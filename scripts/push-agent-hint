@@ -1,0 +1,17 @@
+#!/bin/bash
+# Shared PostToolUse/PostToolUseFailure hook (Bash matcher): when an
+# SSH-backed git/ssh command fails with the locked-1Password signature, feed
+# the one correct fix back instead of letting the agent misdiagnose it as a
+# network or auth-config problem (global-instructions "Git & SSH"; measured
+# misdiagnoses started rewriting remotes and SSH config). Consumers: Claude
+# Code and Codex (Bash matcher), OMP (omp/extensions/ssh-agent-hint.ts).
+set -euo pipefail
+
+payload=$(cat)
+cmd=$(jq -r '.tool_input.command // empty' <<<"$payload")
+printf '%s' "$cmd" | grep -Eq '(^|[^A-Za-z0-9_])(git|ssh)([^A-Za-z0-9_]|$)' || exit 0
+
+out=$(jq -r '[.tool_response // empty, .error // empty] | tostring' <<<"$payload" 2>/dev/null) || exit 0
+printf '%s' "$out" | grep -qi 'communication with agent failed' || exit 0
+
+jq -n '{decision: "block", reason: "This failure means the 1Password SSH agent is locked - nothing more. It is NOT a network, remote, or SSH-config problem: do not rewrite remotes, SSH config, or switch protocols. Ask the user to unlock 1Password (GUI approval), then retry the same command once. If it fails again with the same error, stop and report per the fail-fast rule."}'

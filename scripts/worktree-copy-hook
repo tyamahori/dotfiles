@@ -1,0 +1,50 @@
+#!/bin/bash
+# Shared PostToolUse hook (Bash matcher): after a raw `git worktree add`, run
+# worktree-include-copy from the main checkout into every linked worktree.
+# Mechanizes the global-instructions rule that raw worktree adds must be
+# followed by the helper. The helper is idempotent (skips symlinks, never
+# overwrites), so sweeping all worktrees after each match is safe; a false
+# regex match costs one no-op sweep. Consumers: Claude Code and Codex (Bash
+# PostToolUse), OMP (omp/extensions/worktree-copy-guard.ts).
+set -euo pipefail
+
+payload=$(cat)
+cmd=$(jq -r '.tool_input.command // empty' <<<"$payload")
+cwd=$(jq -r '.cwd // "."' <<<"$payload")
+
+printf '%s' "$cmd" | grep -Eq 'git[^;&|]*[[:space:]]worktree[[:space:]]+add([[:space:]]|$)' || exit 0
+command -v git >/dev/null 2>&1 || exit 0
+
+copy="$HOME/dotfiles/scripts/worktree-include-copy"
+[ -x "$copy" ] || exit 0
+
+# `git -C <path> worktree add ...` acts on <path>, not on the hook cwd.
+base=$(printf '%s\n' "$cmd" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+"?([^" ]+)"?.*/\1/p' | head -1)
+[ -n "$base" ] || base="$cwd"
+case "$base" in
+	/*) ;;
+	*) base="$cwd/$base" ;;
+esac
+[ -d "$base" ] || exit 0
+
+common=$(git -C "$base" rev-parse --git-common-dir 2>/dev/null) || exit 0
+case "$common" in
+	/*) ;;
+	*) common="$base/$common" ;;
+esac
+main_root=$(git -C "$(dirname "$common")" rev-parse --show-toplevel 2>/dev/null) || exit 0
+[ -f "$main_root/.worktreeinclude" ] || exit 0
+
+copied=""
+while IFS= read -r wt; do
+	[ -n "$wt" ] && [ "$wt" != "$main_root" ] && [ -d "$wt" ] || continue
+	result=$("$copy" "$main_root" "$wt" 2>&1) || continue
+	case "$result" in
+	'Copied 0 '*) ;;
+	*) copied="$copied$result"$'\n' ;;
+	esac
+done < <(git -C "$main_root" worktree list --porcelain | sed -n 's/^worktree //p')
+
+[ -n "$copied" ] || exit 0
+jq -n --arg ctx "[worktree-copy-hook] Ran worktree-include-copy after git worktree add:
+$copied" '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $ctx}}'

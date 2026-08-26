@@ -66,6 +66,33 @@ This is an agent-runtime check, not a git hook. `scripts/link` enables the
 Codex hooks feature. After `codex/hooks.json` changes, open `/hooks` in Codex
 and trust the updated definition before relying on it.
 
+### Runtime guard hooks
+
+The same three runtimes share a set of guard hooks. Claude Code and Codex
+wire the shell scripts through `claude/settings.json` / `codex/hooks.json`;
+OMP mirrors each one as an extension in `omp/extensions/`:
+
+- **bare-Python deny** — `scripts/deny-bare-python-hook` forces the
+  uv invocation forms required by the shared instructions.
+- **shellcheck on edit** — `scripts/shellcheck-on-edit` lints shell scripts
+  right after an agent writes or edits them and feeds findings back for an
+  immediate fix.
+- **jbcontext clobber check** — `scripts/jbcontext-clobber-check` warns at
+  session start when `agents/global-instructions.md` or
+  `claude/settings.json` carry uncommitted changes — the signature of a
+  jbcontext setup-agent run or auto-update rewriting them through the
+  symlinks.
+- **worktree include sweep** — `scripts/worktree-copy-hook` runs
+  `worktree-include-copy` automatically after a raw `git worktree add`
+  (see "Worktree-local files" below).
+- **locked-1Password hint** — `scripts/push-agent-hint` intercepts
+  `communication with agent failed` on git/ssh commands and feeds back that
+  the only fix is unlocking 1Password, so agents stop misdiagnosing it as a
+  network or SSH-config problem.
+- **session hygiene (Claude Code only)** — `claude/hooks/session-hygiene.sh`
+  warns on day-crossing resumes, hour-idle large-transcript resumes, and
+  from the second compaction of a session onward. OMP covers the same rules
+  with its `session-day-guard` and `session-compaction-guard` extensions.
 
 ### Worktree-local files
 Repository-local `.worktreeinclude` files are the shared allowlist for
@@ -85,6 +112,9 @@ The helper uses gitignore-style patterns, copies only files that are also
 gitignored, skips source symlinks, and leaves existing destination files
 unchanged. `scripts/link` installs it in `~/.local/bin` and links the Herdr
 plugin that invokes it automatically.
+
+The `worktree-copy-hook` guard above also runs the helper automatically right
+after a raw `git worktree add` in Claude Code, Codex, and OMP sessions.
 
 ### efficient-python skill & quarterly review
 

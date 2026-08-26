@@ -1,5 +1,5 @@
 {
-  "description": "Block bare Python, notify on approval, title Herdr panes, and review edited Japanese prose.",
+  "description": "Block bare Python, notify on approval, title Herdr panes, review edited Japanese prose, shellcheck edited shell scripts, detect jbcontext clobbers, sweep worktree includes, and hint on locked-1Password SSH failures.",
   "hooks": {
     "PermissionRequest": [
       {
@@ -42,9 +42,29 @@
             "command": "\"$HOME/dotfiles/codex/hooks/japanese-prose-edit.sh\"",
             "timeout": 10,
             "type": "command"
+          },
+          {
+            "command": "\"$HOME/dotfiles/codex/hooks/shellcheck-edit.sh\"",
+            "timeout": 15,
+            "type": "command"
           }
         ],
         "matcher": "Edit|Write"
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"$HOME/dotfiles/scripts/worktree-copy-hook\"",
+            "timeout": 30,
+            "type": "command"
+          },
+          {
+            "command": "\"$HOME/dotfiles/scripts/push-agent-hint\"",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
       }
     ],
     "Stop": [
@@ -63,6 +83,11 @@
         "hooks": [
           {
             "command": "bash \"$HOME/.codex/herdr-agent-state.sh\" session",
+            "timeout": 10,
+            "type": "command"
+          },
+          {
+            "command": "\"$HOME/dotfiles/scripts/jbcontext-clobber-check\"",
             "timeout": 10,
             "type": "command"
           }

@@ -1,0 +1,31 @@
+#!/bin/bash
+# Shared PostToolUse hook: run shellcheck on shell scripts right after an
+# agent writes or edits them, feeding findings back so they are fixed before
+# commit. Reads Claude-style JSON ({tool_input:{file_path}}) on stdin and
+# emits a {decision:"block"} JSON on findings. Consumers: Claude Code
+# (settings.json, Write|Edit matcher), Codex (codex/hooks/shellcheck-edit.sh
+# adapter), OMP (omp/extensions/shellcheck-on-edit.ts). Scope is deliberately
+# narrow: .sh/.bash files or files with an sh/bash shebang; zsh is skipped
+# (shellcheck cannot parse it). Clean files and non-shell files produce no
+# output at all.
+set -euo pipefail
+
+command -v shellcheck >/dev/null || exit 0
+
+file=$(jq -r '.tool_input.file_path // empty')
+[ -n "$file" ] && [ -f "$file" ] || exit 0
+
+case "$file" in
+  *.sh|*.bash) ;;
+  *.zsh) exit 0 ;;
+  *)
+    head -1 "$file" | grep -Eq '^#!.*\b(ba)?sh\b' || exit 0
+    ;;
+esac
+
+# Never fail the hook itself; findings go back via decision:block.
+findings=$(shellcheck --format=gcc "$file" 2>&1 | head -c 4000) || true
+[ -n "$findings" ] || exit 0
+
+jq -n --arg reason "shellcheck found issues in the file you just edited — fix them now:
+$findings" '{decision: "block", reason: $reason}'
