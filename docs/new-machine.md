@@ -1,0 +1,136 @@
+# 新しいMacのセットアップ手順
+
+新しいMacにこの環境をクリーンセットアップで再現する手順。
+移行アシスタントやTime Machineからの復元は使わない前提で書いている。
+1〜6節を上から順に実行し、7節の一覧で漏れを確認して、8節の検証で仕上げる。
+日常運用（パッケージの層分け、OMPの使い方、レビュー運用）はREADMEと `docs/omp.md` にあり、この文書は移行のときにだけ読む。
+
+未検証：フレッシュなmacOSでの通し実行はまだ経ていない（現行マシンの状態調査から起こした手順）。
+次回の移行で詰まった箇所は、その場でこの文書に追記する。
+
+## 1. 旧マシンでの持ち出し確認
+
+- dotfilesを最新にしてpushする：`./scripts/sync`
+- 7節の一覧を見て、リポジトリ外の機械ローカル状態のうち引き継ぐものを確認する。
+  秘密情報は1Passwordが正本なので、ファイルとして持ち出すものは原則ない。
+- 他リポジトリの未pushコミットと未コミットの作業ツリーを掃く。
+
+## 2. 新マシンで最初にやる2つ
+
+- App Storeにサインインする。
+  `scripts/apps`（brew bundle）の `mas` 行は、サインインしていないとインストールに失敗する。
+- コマンドラインツールを入れる：`xcode-select --install`。
+  クローンに使うgitがこれで動くようになる。
+
+## 3. クローンして ./scripts/setup を実行する
+
+```bash
+git clone https://github.com/tyamahori/dotfiles.git ~/project/dotfiles
+cd ~/project/dotfiles
+./scripts/setup
+```
+
+- SSH鍵はまだ使えないのでHTTPSでクローンする（公開リポジトリなので認証も不要）。
+- 実行中にsudoパスワードを何度か求められる（Spotlight無効化、Homebrew、Nixインストーラ）。
+- 各スクリプトは冪等なので、途中で失敗しても原因を直して `./scripts/setup` を再実行すればよい。
+- 実行内容と順序はREADMEの「Setup」節のとおり（init → apps → devbox → python → link → omp-plugins）。
+
+## 4. 認証を復元する
+
+上から順に進める。後の項目が前の項目に依存する。
+
+### 1PasswordとSSH
+
+1. 1Passwordにサインインし、設定 > 開発者 で「SSHエージェントを使用」を有効にする。
+2. `~/.ssh/config` を作り、次を書く（このファイルは機械ローカルで、リポジトリ管理外）：
+
+```
+Host *
+	IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+```
+
+以後、SSHリモートへの `git push` は1PasswordのGUI承認を伴う。
+1Passwordがロック中のpushは `communication with agent failed` で失敗する。
+これはネットワークや認証設定の問題ではないので、リモートやSSH設定をいじらず1Passwordを解錠する。
+OrbStack用のInclude行は、OrbStackの初回起動時にOrbStack自身が追記する。
+
+### GitHub CLI
+
+```bash
+gh auth login
+```
+
+`.gitconfig` のcredential helperはgh経由なので、HTTPSリモートはこれで通るようになる。
+`gh-copilot` 拡張は `scripts/init` が導入済み。
+
+### エージェントCLI
+
+- Claude Code：`claude` を起動してログインする。
+- Codex：`codex` を起動してログインし、`/hooks` を開いてリンク済みフック定義をtrustする（READMEの「Japanese prose review」節）。
+- OMP：`omp` を起動して各プロバイダにログインする。資格情報は `~/.omp/agent/agent.db` に入る（機械ローカル）。
+
+### GUI常駐アプリ
+
+Karabiner-Elements、Raycast、SoundSourceなどは初回起動時にアクセシビリティや入力監視の許可を求める。
+OrbStack、Superwhisper、Slackなどは各自サインインする。
+
+## 5. jbcontextを再構築する（setupは面倒を見ない）
+
+セマンティック検索のjbcontextは自前のインストーラで `~/.jbcontext/` に入り、dotfilesの自動化の外にある。
+順序が重要で、特に3と4を飛ばすとリポジトリ管理ファイルが書き換えられたままになる。
+
+1. [JetBrains/context](https://github.com/JetBrains/context) の手順でインストールする。
+   JetBrains AIのトークン（`~/.jbcontext/grazie-token-prod.json`）を使うため、初回にアカウント認証がある想定（未検証）。
+2. `jbcontext setup-agent --auto` を実行する（Claude CodeとCodexの両方が対象になる）。
+3. 直後に `git -C ~/dotfiles status` を確認する。
+   setup-agentは共有指示ファイル（`agents/global-instructions.md`）を単一エージェント流儀に書き換えるので、差分が出ていたらエージェント中立版（コミット `e674eb5` の形）に再マージする。
+   `claude/settings.json` に差分が出た場合もrevertする。jbcontextのClaudeフックの置き場は `~/.claude/settings.local.json` であり、リポジトリ管理の `settings.json` には入れない。
+4. 自動更新による再書き換えを防ぐため、`~/.jbcontext/config.json` の `agentSetups` でCLAUDE:USERの `hooks` と `instructions`、CODEX:USERの `instructions` を無効にする。
+
+手動で `setup-agent` を再実行するとこのフラグが戻ることがある。
+実行したら毎回3と4を確認し直す。
+
+## 6. launchdジョブの有効と無効を選ぶ
+
+`scripts/link` はlaunchdジョブを描画してロードするが、明示的なdisable状態は尊重する。
+現行マシンでは `com.tyamahori.ollama` を無効にしている（ollamaは必要なときに `ollama serve` で起動する運用）。
+同じ状態にするには次の2つを実行する。
+
+```bash
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.tyamahori.ollama.plist
+launchctl disable gui/$(id -u)/com.tyamahori.ollama
+```
+
+## 7. リポジトリが持たない機械ローカル状態
+
+移行のたびにここを見て、引き継ぐものと作り直すものを判断する。
+
+| パス | 中身 | 新マシンでの復元 |
+|---|---|---|
+| `~/.ssh/config` | 1Password IdentityAgentとOrbStackのInclude | 4節で手書き |
+| `~/.claude/settings.local.json` | jbcontextのClaudeフック | 5節のsetup-agentが生成 |
+| `~/.jbcontext/` | 本体、config.json、JetBrains AIトークン | 5節 |
+| `~/.omp/agent/agent.db` ほか | OMPの資格情報とセッション履歴 | 再ログイン（履歴は持ち越さない） |
+| `~/.codex/auth.json` など各CLIの資格情報 | エージェントCLIのログイン状態 | 再ログイン |
+| `git/sensitive-patterns.local` | pre-commitガードの追加パターン | 必要になったら再作成 |
+| `~/.wakeup` | 別プロジェクトのsleepwatcherフック | そのプロジェクト側の手順で再リンク |
+| launchdのdisable状態 | ジョブごとの有効と無効の選択 | 6節 |
+
+sleepwatcher本体はBrewfileで入るが、サービスの起動は手動：`brew services start sleepwatcher`。
+`~/.wakeup` を使うプロジェクトを再構築するときだけでよい。
+
+## 8. 検証
+
+| 確認 | コマンド | 期待する結果 |
+|---|---|---|
+| python | `zsh -lc 'which python'` | `~/.local/bin/python` |
+| devbox層 | `zsh -lc 'which go bun uv'` | devboxプロファイル配下のパス |
+| brew bundle | `brew bundle check --file dotfiles/.Brewfile` | 依存が満たされている |
+| リンク | `ls -l ~/dotfiles ~/.claude/CLAUDE.md` | 本リポジトリを指すsymlink |
+| SSH | `ssh -T git@github.com` | 1Password承認の後に認証成功 |
+| skills | `ls ~/.claude/skills` | authored skillsのsymlinkが並ぶ |
+| OMP | `omp plugin list` | `@plannotator/pi-extension` が入っている |
+| jbcontext | リポジトリ内で `jbcontext search "..."` | 検索結果が返る |
+| launchd | `launchctl list \| grep tyamahori` | 6節で選んだジョブだけが載る |
+
+最終更新：2026-08-26（クリーンセットアップでの通し実行は未経験）。

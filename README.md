@@ -22,6 +22,10 @@ cd ~/project/dotfiles
 The repository can be cloned anywhere. `scripts/link` maintains
 `~/dotfiles` as the stable path used by hooks and shared skills.
 
+For a full new-machine migration — including the manual steps `scripts/setup`
+does not cover (sign-ins, 1Password SSH agent, jbcontext, launchd choices,
+machine-local state) — follow [`docs/new-machine.md`](docs/new-machine.md).
+
 `scripts/link` also enables this repository's pre-commit guard. It blocks staged
 UUIDs and dollar-denominated measurements. Add machine-specific project or
 customer names to the gitignored `git/sensitive-patterns.local`, one literal
