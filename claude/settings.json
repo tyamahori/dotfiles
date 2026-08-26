@@ -70,7 +70,8 @@
   },
   "model": "claude-fable-5",
   "skillOverrides": {
-    "freee-api-skill": "off"
+    "freee-api-skill": "off",
+    "update-config": "user-invocable-only"
   },
   "hooks": {
     "UserPromptSubmit": [
