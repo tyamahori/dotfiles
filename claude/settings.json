@@ -109,7 +109,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$HOME/dotfiles/claude/hooks/japanese-prose-stop.sh\"",
+            "command": "\"$HOME/dotfiles/scripts/japanese-prose-hook-stop\"",
             "timeout": 120
           }
         ]
@@ -161,7 +161,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$HOME/dotfiles/claude/hooks/japanese-prose-edit.sh\"",
+            "command": "\"$HOME/dotfiles/scripts/japanese-prose-hook-edit\"",
             "timeout": 120
           }
         ]
@@ -188,7 +188,7 @@
           },
           {
             "type": "command",
-            "command": "\"$HOME/dotfiles/claude/hooks/japanese-prose-edit.sh\"",
+            "command": "\"$HOME/dotfiles/scripts/japanese-prose-hook-edit\"",
             "timeout": 10
           }
         ]

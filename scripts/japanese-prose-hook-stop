@@ -1,16 +1,20 @@
 #!/bin/bash
-# Stop hook: compare edited Japanese prose with its pre-edit lint baseline.
-# A new finding set is returned once. An unchanged second Stop is allowed so
-# contextually justified wording cannot create an infinite rewrite loop.
+# Shared stop hook: compare edited Japanese prose with its pre-edit lint
+# baseline. A new finding set is returned once. An unchanged second stop is
+# allowed so contextually justified wording cannot create a rewrite loop.
 set -euo pipefail
 
 payload=$(cat)
 session_id=$(jq -r '.session_id // empty' <<<"$payload")
 [ -n "$session_id" ] || exit 0
+runtime=${JAPANESE_PROSE_RUNTIME:-claude}
+case "$runtime" in
+  ""|*[!A-Za-z0-9._-]*) exit 0 ;;
+esac
 
 cache_base=${XDG_CACHE_HOME:-$HOME/.cache}
 session_key=$(printf '%s' "$session_id" | shasum -a 256 | cut -d ' ' -f 1)
-cache_dir="$cache_base/claude/japanese-prose/$session_key"
+cache_dir="$cache_base/agent-japanese-prose/$runtime/$session_key"
 baseline_dir="$cache_dir/baselines"
 files_dir="$cache_dir/files"
 reported_digest="$cache_dir/reported-digest"

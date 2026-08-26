@@ -13,7 +13,7 @@ cd ~/project/dotfiles
 `scripts/setup` runs the following in order:
 
 1. `scripts/init` — install Homebrew, Nix, Devbox, and `gh` extensions
-2. `scripts/link` — symlink dotfiles into `$HOME`, global gitignore into `$HOME/.config/git/ignore`, Claude Code settings (`claude/settings.json`, machine-local overrides go to the gitignored `~/.claude/settings.local.json`) into `$HOME/.claude/settings.json`, and shared agent instructions (see below) into each LLM CLI's config
+2. `scripts/link` — symlink dotfiles, shared agent instructions, Claude Code and Codex hooks, and OMP extensions into each runtime's config
 3. `scripts/apps` — `brew bundle --global` from `~/.Brewfile`
 4. `scripts/devbox` — install global devbox packages and lockfile-pinned dependencies for local hooks (the package list and layering rationale live in the script)
 5. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`
@@ -45,6 +45,20 @@ CLIs on this machine (Claude Code, OpenAI Codex, GitHub Copilot CLI, and OMP).
 Edit that one file to change the rules for all four. It currently tells the
 agents to default to the uv-managed Python (`scripts/python`) rather than system,
 Homebrew, or nix interpreters.
+
+### Japanese prose review
+
+Claude Code, Codex, and OMP run the same Japanese prose review around file
+edits. The runtime-specific adapters capture the file's pre-edit findings and
+call `scripts/japanese-prose-lint` when the agent tries to finish. Only findings
+introduced by that agent are reported. The first report asks the agent to
+review the wording; an unchanged second result passes so a contextual judgment
+cannot create an infinite rewrite loop.
+
+This is an agent-runtime check, not a git hook. After `codex/hooks.json`
+changes, open `/hooks` in Codex and trust the updated definition before relying
+on it.
+
 
 ### Worktree-local files
 Repository-local `.worktreeinclude` files are the shared allowlist for

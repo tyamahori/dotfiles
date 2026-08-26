@@ -1,5 +1,5 @@
 {
-  "description": "Notify when Codex is waiting for user approval, and title the herdr pane with the submitted prompt.",
+  "description": "Notify on approval, title Herdr panes, and review edited Japanese prose.",
   "hooks": {
     "PermissionRequest": [
       {
@@ -11,6 +11,41 @@
           }
         ],
         "matcher": "*"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "\"$HOME/dotfiles/codex/hooks/japanese-prose-edit.sh\"",
+            "timeout": 120,
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|Write"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "\"$HOME/dotfiles/codex/hooks/japanese-prose-edit.sh\"",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|Write"
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "JAPANESE_PROSE_RUNTIME=codex \"$HOME/dotfiles/scripts/japanese-prose-hook-stop\"",
+            "timeout": 120,
+            "type": "command"
+          }
+        ]
       }
     ],
     "SessionStart": [
