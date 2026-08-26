@@ -1,12 +1,22 @@
 #!/bin/bash
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd -P "$(dirname "$0")/.." && pwd)"
 DOTFILES_DIR="${REPO_ROOT}/dotfiles"
 GIT_DIR="${REPO_ROOT}/git"
 AGENTS_DIR="${REPO_ROOT}/agents"
 CLAUDE_DIR="${REPO_ROOT}/claude"
 OMP_DIR="${REPO_ROOT}/omp"
+
+# Repository-owned hooks and skills use ~/dotfiles as their stable path.
+# Keep that alias valid regardless of the clone location documented by setup.
+if [[ $REPO_ROOT != "$HOME/dotfiles" ]]; then
+	if [[ -e $HOME/dotfiles && ! -L $HOME/dotfiles ]]; then
+		echo "link: $HOME/dotfiles exists and is not a symlink; move it or run this repository from that path" >&2
+		exit 1
+	fi
+	ln -snfv "$REPO_ROOT" "$HOME/dotfiles"
+fi
 
 # dotfiles
 for dotfile in "${DOTFILES_DIR}"/.??*; do
@@ -28,13 +38,25 @@ git -C "$REPO_ROOT" config core.hooksPath "${REPO_ROOT}/git/hooks"
 mkdir -p "$HOME/.claude"
 ln -snfv "${CLAUDE_DIR}/settings.json" "$HOME/.claude/settings.json"
 
-
 # personal skills, shared across LLM CLIs
 for skill in "${AGENTS_DIR}/skills"/*/; do
 	skill="${skill%/}"
 	for skills_dir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills" "$HOME/.agents/skills"; do
 		mkdir -p "$skills_dir"
 		ln -snfv "$skill" "$skills_dir/$(basename "$skill")"
+	done
+done
+
+# Clean links left by renamed or removed repository-authored skills. Restrict
+# deletion to broken symlinks whose recorded target is inside this repository.
+for skills_dir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills" "$HOME/.agents/skills"; do
+	for skill_link in "$skills_dir"/*; do
+		[[ -L $skill_link ]] || continue
+		link_target="$(readlink "$skill_link")"
+		if [[ $link_target == "$AGENTS_DIR/skills/"* && ! -e $skill_link ]]; then
+			rm "$skill_link"
+			echo "Retired removed authored skill: $skill_link" >&2
+		fi
 	done
 done
 
@@ -54,15 +76,14 @@ if command -v herdr >/dev/null 2>&1 && herdr --skill >/dev/null 2>&1; then
 fi
 
 # OpenSkills-installed vendor skills (Cloudflare et al.) are deliberately NOT
-# linked globally: their descriptions sit in every session's context whether or
-# not the work touches that vendor. Install them per project instead —
-# `ln -s ~/.agents/skills/<name> <repo>/.claude/skills/<name>`.
+# installed globally: Codex and OMP discover ~/.agents/skills directly, so
+# keeping vendor sources there exposes their descriptions in every session.
+# Install them from the target project without `--global`, for example:
+# `npx skills add cloudflare/skills`.
 #
-# Machines linked before that decision still carry the old symlinks, and this
-# script's whole point is that running it reproduces the intended state — so
-# retire them here rather than by hand. Only links INTO the OpenSkills
-# directory are removed: the personal-skill loop above runs first, so a
-# same-named skill in this repo must survive.
+# Machines linked before that decision may still carry links into the global
+# OpenSkills directory. Retire those links here. The personal-skill loop above
+# runs first, so a same-named skill authored in this repository survives.
 retired_global_skills=(
 	agents-sdk
 	cloudflare
@@ -84,9 +105,14 @@ for skill_name in "${retired_global_skills[@]}"; do
 			echo "Retired global vendor skill: $target" >&2
 		fi
 	done
+	global_target="$HOME/.agents/skills/$skill_name"
+	authored_target="$AGENTS_DIR/skills/$skill_name"
+	if [[ (-e $global_target || -L $global_target) && "$(readlink "$global_target" 2>/dev/null || true)" != "$authored_target" ]]; then
+		echo "link: global vendor skill remains visible: $global_target; remove it before reinstalling in project scope" >&2
+	fi
 done
 
-# global agent instructions, shared across LLM CLIs (Claude Code, Codex, Copilot)
+# global agent instructions, shared across Claude Code, Codex, Copilot, and OMP
 for agent_target in \
 	"$HOME/.claude/CLAUDE.md" \
 	"$HOME/.codex/AGENTS.md" \
@@ -104,6 +130,11 @@ ln -snfv "${REPO_ROOT}/scripts/omp-learning-review" "$HOME/.local/bin/omp-learni
 ln -snfv "${REPO_ROOT}/scripts/worktree-include-copy" "$HOME/.local/bin/worktree-include-copy"
 mkdir -p "$HOME/.codex"
 ln -snfv "${REPO_ROOT}/codex/hooks.json" "$HOME/.codex/hooks.json"
+if command -v codex >/dev/null 2>&1; then
+	codex features enable hooks >/dev/null
+else
+	echo "link: codex not found; hooks were linked but the hooks feature was not enabled" >&2
+fi
 
 # ghostty config. macOS reads the Application Support path; on Linux ghostty
 # is XDG-only, so the same file is linked to ~/.config/ghostty/config.

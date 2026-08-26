@@ -63,7 +63,6 @@ write_files:
       su - "$USER_NAME" -c '
         mkdir -p ~/project
         [ -d ~/project/dotfiles ] || git clone https://github.com/tyamahori/dotfiles.git ~/project/dotfiles
-        ~/project/dotfiles/scripts/link
       '
       su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:/nix/var/nix/profiles/default/bin:$PATH ~/project/dotfiles/scripts/devbox'
       su - "$USER_NAME" -c 'gh extension install github/gh-copilot || true'
@@ -77,10 +76,13 @@ write_files:
         npm install -g @anthropic-ai/claude-code @openai/codex @github/copilot
       '
 
-      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:/nix/var/nix/profiles/default/bin:$PATH refresh-global'
+      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH refresh-global'
 
       # Global Python via uv: latest CPython, registered as python/python3 in ~/.local/bin.
-      su - "$USER_NAME" -c 'uv python install --default --preview-features python-install-default'
+      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH uv python install --default --preview-features python-install-default'
+
+      # Link only after the agent CLIs exist so runtime feature gates can be enabled.
+      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH ~/project/dotfiles/scripts/link'
 
       touch "$DONE"
 

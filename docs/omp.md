@@ -294,9 +294,9 @@ omp-review --days 7
 | `agents/skills/` | 各 CLI の Skill directory | Claude、Codex、Copilot、OMP で共有する authored skill |
 
 authored skill 以外のサードパーティ skill（例: `cloudflare/skills` 群）は dotfiles 管理外です。
-`npx skills add <owner/repo>` で `~/.agents/skills/` に導入し、`~/.agents/.skill-lock.json` が出所を記録します。
-未使用のものは directory ごと削除して構いません（2026-08-25 に Cloudflare 系 11 件を削除）。
-再導入は `npx skills add cloudflare/skills` を実行し、必要な skill だけ選びます。
+Codex と OMP は `~/.agents/skills` をグローバルに discovery するため、サードパーティ skill を
+そこへ `--global` で導入しません。対象プロジェクトのルートで
+`npx skills add <owner/repo>` を実行し、project scope に必要な skill だけ導入します。
 
 永続的な共通設定は、このリポジトリの正本を編集します。
 `~/.omp/agent/` は配置先です。

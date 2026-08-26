@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Homebrew bundle. macOS-only: the Brewfile is casks and mas apps, none of
 # which exist on Linux. Skipped (not an error) so scripts/setup runs through.
@@ -7,4 +8,5 @@ if [ "$(uname)" != "Darwin" ]; then
 	exit 0
 fi
 
-brew bundle --global
+SCRIPT_DIR="$(cd -P "$(dirname "$0")" && pwd)"
+brew bundle --file "${SCRIPT_DIR}/../dotfiles/.Brewfile"

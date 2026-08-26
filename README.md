@@ -13,11 +13,14 @@ cd ~/project/dotfiles
 `scripts/setup` runs the following in order:
 
 1. `scripts/init` — install Homebrew, Nix, Devbox, and `gh` extensions
-2. `scripts/link` — symlink dotfiles, shared agent instructions, Claude Code and Codex hooks, and OMP extensions into each runtime's config
-3. `scripts/apps` — `brew bundle --global` from `~/.Brewfile`
-4. `scripts/devbox` — install global devbox packages and lockfile-pinned dependencies for local hooks (the package list and layering rationale live in the script)
-5. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`
-6. `scripts/omp-plugins` — install the declared omp (Oh My Pi) plugin set (`omp plugin install`); the list and the skipped-as-built-in rationale live in the script
+2. `scripts/apps` — install the repository Brewfile on macOS
+3. `scripts/devbox` — install global devbox packages and lockfile-pinned dependencies for local hooks
+4. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`
+5. `scripts/link` — create the stable `~/dotfiles` alias, symlink shared instructions and runtime adapters, enable Codex hooks, and link OMP configuration
+6. `scripts/omp-plugins` — install the declared OMP plugin set (`omp plugin install`)
+
+The repository can be cloned anywhere. `scripts/link` maintains
+`~/dotfiles` as the stable path used by hooks and shared skills.
 
 `scripts/link` also enables this repository's pre-commit guard. It blocks staged
 UUIDs and dollar-denominated measurements. Add machine-specific project or
@@ -55,9 +58,9 @@ introduced by that agent are reported. The first report asks the agent to
 review the wording; an unchanged second result passes so a contextual judgment
 cannot create an infinite rewrite loop.
 
-This is an agent-runtime check, not a git hook. After `codex/hooks.json`
-changes, open `/hooks` in Codex and trust the updated definition before relying
-on it.
+This is an agent-runtime check, not a git hook. `scripts/link` enables the
+Codex hooks feature. After `codex/hooks.json` changes, open `/hooks` in Codex
+and trust the updated definition before relying on it.
 
 
 ### Worktree-local files
