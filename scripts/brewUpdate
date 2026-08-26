@@ -1,9 +1,58 @@
 #!/bin/bash
 
+# Homebrew upgrades replace omp's Cellar path while existing sessions keep
+# spawning through the old absolute path (measured 2026-08-27: two hub starts
+# failed after 18.0.3 was removed). Keep automatic cleanup disabled during the
+# upgrade, then clean only when no process still uses an old omp keg.
+stale_omp_executable() {
+	local current_omp=$1
+	local command executable processes
+
+	if ! processes=$(ps -Ao command=); then
+		return 2
+	fi
+	while IFS= read -r command; do
+		command=${command#"${command%%[![:space:]]*}"}
+		executable=${command%%[[:space:]]*}
+		case "$executable" in
+		*/Cellar/omp/*/bin/omp)
+			if [ "$executable" != "$current_omp" ]; then
+				printf '%s\n' "$executable"
+				return 0
+			fi
+			;;
+		esac
+	done <<<"$processes"
+	return 1
+}
+
 # Homebrew is macOS-only here; on Linux the herdr skill refresh below is still
 # worth running, so skip just the brew half.
 if [ "$(uname)" = Darwin ]; then
-	brew update && brew upgrade && brew upgrade --cask --greedy && brew cleanup
+	if HOMEBREW_NO_INSTALL_CLEANUP=1 brew update &&
+		HOMEBREW_NO_INSTALL_CLEANUP=1 brew upgrade &&
+		HOMEBREW_NO_INSTALL_CLEANUP=1 brew upgrade --cask --greedy; then
+		current_omp=
+		if command -v omp >/dev/null 2>&1; then
+			current_omp=$(realpath "$(command -v omp)")
+		fi
+
+		stale_omp=
+		stale_status=0
+		stale_omp=$(stale_omp_executable "$current_omp") || stale_status=$?
+		case "$stale_status" in
+		0)
+			echo "brewUpdate: skipping brew cleanup; a running OMP session still uses $stale_omp" >&2
+			echo "brewUpdate: close old OMP sessions, then run scripts/brewUpdate again" >&2
+			;;
+		2)
+			echo "brewUpdate: skipping brew cleanup; running OMP processes could not be inspected" >&2
+			;;
+		*)
+			brew cleanup
+			;;
+		esac
+	fi
 else
 	echo "brewUpdate: skipping brew (macOS only)" >&2
 fi

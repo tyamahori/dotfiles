@@ -260,6 +260,10 @@ omp-apply
 ./scripts/clean
 ```
 
+`brewUpdate` defers `brew cleanup` when a running OMP session still uses an old
+Cellar executable. Close those OMP sessions and rerun the script to finish
+cleanup.
+
 ## Optional / Manual steps
 
 These are not run automatically. Copy & paste as needed.
