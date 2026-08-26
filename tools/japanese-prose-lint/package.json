@@ -1,0 +1,11 @@
+{
+  "name": "dotfiles-japanese-prose-lint",
+  "private": true,
+  "scripts": {
+    "lint": "textlint --config .textlintrc.json"
+  },
+  "devDependencies": {
+    "@textlint-ja/textlint-rule-preset-ai-writing": "1.7.0",
+    "textlint": "15.8.0"
+  }
+}

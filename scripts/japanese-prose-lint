@@ -1,0 +1,125 @@
+#!/bin/bash
+# Run the calibrated Japanese prose lint and a narrow textlint rule set.
+# Findings are data for hook-driven review, not an automatic rewrite request.
+set -euo pipefail
+
+if [ "$#" -ne 1 ]; then
+  echo "usage: japanese-prose-lint FILE" >&2
+  exit 2
+fi
+
+file=$1
+[ -f "$file" ] || {
+  echo "japanese-prose-lint: file not found: $file" >&2
+  exit 2
+}
+
+case "$file" in
+  *.md|*.markdown|*.txt) ;;
+  *)
+    jq -n --arg file "$file" '{schemaVersion: 1, file: $file, findings: []}'
+    exit 0
+    ;;
+esac
+
+for command in jq uv; do
+  command -v "$command" >/dev/null || {
+    echo "japanese-prose-lint: required command not found: $command" >&2
+    exit 2
+  }
+done
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+repo_root=$(cd -- "$script_dir/.." && pwd)
+natural_lint="$repo_root/agents/skills/natural-japanese/scripts/lint.py"
+textlint_root="$repo_root/tools/japanese-prose-lint"
+textlint="$textlint_root/node_modules/.bin/textlint"
+textlint_config="$textlint_root/.textlintrc.json"
+
+[ -x "$textlint" ] || {
+  echo "japanese-prose-lint: textlint dependencies are missing; run 'bun install --frozen-lockfile' in $textlint_root" >&2
+  exit 2
+}
+
+# English-only files are outside this check. Markdown structure alone is not
+# enough to classify a file as Japanese prose.
+if ! jq -e -n --rawfile text "$file" '$text | test("[ぁ-んァ-ヶ一-龯々〆ヵヶ]")' >/dev/null; then
+  jq -n --arg file "$file" '{schemaVersion: 1, file: $file, findings: []}'
+  exit 0
+fi
+
+tmp_dir=$(mktemp -d)
+trap 'rm -rf "$tmp_dir"' EXIT
+natural_json="$tmp_dir/natural.json"
+textlint_json="$tmp_dir/textlint.json"
+textlint_stderr="$tmp_dir/textlint.stderr"
+
+if ! uv run "$natural_lint" "$file" --json >"$natural_json"; then
+  echo "japanese-prose-lint: natural-japanese lint failed: $file" >&2
+  exit 2
+fi
+
+set +e
+"$textlint" --config "$textlint_config" --format json "$file" >"$textlint_json" 2>"$textlint_stderr"
+textlint_status=$?
+set -e
+
+if ! jq -e 'type == "array"' "$textlint_json" >/dev/null; then
+  cat "$textlint_stderr" >&2
+  echo "japanese-prose-lint: textlint failed with status $textlint_status: $file" >&2
+  exit 2
+fi
+
+jq -n \
+  --arg file "$file" \
+  --slurpfile natural "$natural_json" \
+  --slurpfile textlint "$textlint_json" '
+    def phrase_specific:
+      [
+        "forbidden_phrase",
+        "translationese",
+        "translationese_morph",
+        "english_syntax_inanimate_subject",
+        "inanimate_subject_morph",
+        "english_syntax_cleft_because"
+      ];
+
+    {
+      schemaVersion: 1,
+      file: $file,
+      findings:
+        ([
+          $natural[0].findings[]
+          | select(.severity == "warn" or .severity == "critical")
+          | . as $finding
+          | {
+              source: "natural-japanese",
+              ruleId: $finding.category,
+              severity: $finding.severity,
+              line: $finding.line,
+              column: null,
+              message: $finding.detail,
+              excerpt: $finding.excerpt,
+              fingerprint: (
+                "natural-japanese\u0000" + $finding.category + "\u0000" +
+                (if phrase_specific | index($finding.category)
+                 then $finding.detail
+                 else ""
+                 end)
+              )
+            }
+        ] + [
+          $textlint[0][]?.messages[]?
+          | {
+              source: "textlint",
+              ruleId: .ruleId,
+              severity: "warn",
+              line: .line,
+              column: .column,
+              message: .message,
+              excerpt: null,
+              fingerprint: ("textlint\u0000" + .ruleId + "\u0000" + .message)
+            }
+        ])
+    }
+  '

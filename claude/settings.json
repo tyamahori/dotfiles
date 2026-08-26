@@ -109,6 +109,15 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"$HOME/dotfiles/claude/hooks/japanese-prose-stop.sh\"",
+            "timeout": 120
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "if [ -x \"$HOME/.orca/agent-hooks/claude-hook.sh\" ]; then /bin/sh \"$HOME/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
             "timeout": 10
           }
@@ -148,6 +157,16 @@
         ]
       },
       {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/claude/hooks/japanese-prose-edit.sh\"",
+            "timeout": 120
+          }
+        ]
+      },
+      {
         "matcher": "*",
         "hooks": [
           {
@@ -166,6 +185,11 @@
             "type": "command",
             "command": "\"$HOME/dotfiles/claude/hooks/shellcheck-on-edit.sh\"",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "\"$HOME/dotfiles/claude/hooks/japanese-prose-edit.sh\"",
+            "timeout": 10
           }
         ]
       },

@@ -15,7 +15,7 @@ cd ~/project/dotfiles
 1. `scripts/init` — install Homebrew, Nix, Devbox, and `gh` extensions
 2. `scripts/link` — symlink dotfiles into `$HOME`, global gitignore into `$HOME/.config/git/ignore`, Claude Code settings (`claude/settings.json`, machine-local overrides go to the gitignored `~/.claude/settings.local.json`) into `$HOME/.claude/settings.json`, and shared agent instructions (see below) into each LLM CLI's config
 3. `scripts/apps` — `brew bundle --global` from `~/.Brewfile`
-4. `scripts/devbox` — install global devbox packages (the package list and layering rationale live in the script)
+4. `scripts/devbox` — install global devbox packages and lockfile-pinned dependencies for local hooks (the package list and layering rationale live in the script)
 5. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`
 6. `scripts/omp-plugins` — install the declared omp (Oh My Pi) plugin set (`omp plugin install`); the list and the skipped-as-built-in rationale live in the script
 
