@@ -1,6 +1,10 @@
 [user]
 	name = tyamahori
 	email = tyamahori@gmail.com
+[core]
+	# Machine-global hooks (Why-body commit check + delegation to each
+	# repository's own .git/hooks). See git/global-hooks/dispatch.
+	hooksPath = ~/dotfiles/git/global-hooks
 [filter "lfs"]
 	clean = git-lfs clean -- %f
 	smudge = git-lfs smudge -- %f

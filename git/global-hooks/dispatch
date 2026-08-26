@@ -1,0 +1,24 @@
+#!/bin/bash
+# Machine-global git hooks, wired by dotfiles/.gitconfig core.hooksPath so the
+# same checks apply to manual commits and to every agent CLI (Claude Code,
+# Codex, OMP) — they all shell out to git. Each hook name in this directory is
+# a symlink to this dispatcher: it runs the machine-global check for that hook,
+# then hands off to the repository's own .git/hooks/<name>, which a global
+# core.hooksPath would otherwise silently shadow (pre-commit framework et al.).
+# Repositories that set a local core.hooksPath (husky, lefthook, this repo)
+# bypass this file entirely — local git config wins over global.
+set -euo pipefail
+
+hook_name=$(basename "$0")
+hook_dir=$(dirname "$(readlink -f "$0")")
+
+case $hook_name in
+commit-msg)
+	"$hook_dir/checks/commit-msg-why" "$@"
+	;;
+esac
+
+repo_hook="$(git rev-parse --git-common-dir)/hooks/$hook_name"
+if [[ -x $repo_hook ]]; then
+	exec "$repo_hook" "$@" # exec preserves stdin for pre-push / post-rewrite
+fi

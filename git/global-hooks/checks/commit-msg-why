@@ -1,0 +1,74 @@
+#!/bin/bash
+# Machine-global commit-msg check: commit logs carry the Why (t_wada,
+# x.com/t_wada/status/904916106153828352; the norm itself lives in
+# agents/global-instructions.md). A hook cannot judge message quality, so it
+# enforces the mechanical proxy: a non-trivial commit must have a body, not
+# just a subject line. Runs identically for manual commits and for Claude
+# Code / Codex / OMP, which all shell out to `git commit`.
+set -euo pipefail
+
+msg_file=$1
+
+# Merge / cherry-pick / rebase messages are generated or inherited; the Why
+# lives in the original commits.
+for state in MERGE_HEAD CHERRY_PICK_HEAD REBASE_HEAD; do
+	if [[ -e "$(git rev-parse --git-path "$state")" ]]; then
+		exit 0
+	fi
+done
+
+comment_char=$(git config --get core.commentchar || echo '#')
+if [[ -z $comment_char || $comment_char == auto ]]; then
+	comment_char='#'
+fi
+
+subject=
+has_body=false
+while IFS= read -r line; do
+	if [[ ${line:0:1} == "$comment_char" ]]; then
+		if [[ $line == *' >8 '* ]]; then
+			break # scissors line: everything below is the commit -v diff
+		fi
+		continue
+	fi
+	if [[ -z $subject ]]; then
+		if [[ -n ${line//[[:space:]]/} ]]; then
+			subject=$line
+		fi
+		continue
+	fi
+	if [[ -n ${line//[[:space:]]/} ]]; then
+		has_body=true
+		break
+	fi
+done <"$msg_file"
+
+if [[ -z $subject ]]; then
+	exit 0 # git itself aborts empty messages
+fi
+case $subject in
+'fixup!'* | 'squash!'* | 'amend!'* | 'Merge '* | 'Revert '*)
+	exit 0
+	;;
+esac
+if $has_body; then
+	exit 0
+fi
+
+# A typo-class change may pass on a subject alone.
+changed=$(git diff --cached --numstat | awk '{ s += $1 + $2 } END { print s + 0 }')
+if ((changed <= 3)); then
+	exit 0
+fi
+
+cat >&2 <<EOF
+commit-msg: subject-only message for a ${changed}-line change; commit logs carry the Why.
+Rewrite the message with a body explaining why the change is needed:
+
+    <subject>
+
+    <why: the problem, constraint, or context behind this change>
+
+Genuinely trivial commit: retry with git commit --no-verify.
+EOF
+exit 1

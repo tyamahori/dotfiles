@@ -32,6 +32,26 @@ customer names to the gitignored `git/sensitive-patterns.local`, one literal
 string per line. Intentional public content can bypass the guard with
 `git commit --no-verify`.
 
+### Machine-global git hooks
+
+`.gitconfig` sets a global `core.hooksPath` to `git/global-hooks/`, so the
+hooks there run for every repository on the machine — manual commits and all
+agent CLIs (Claude Code, Codex, OMP) alike, since they all shell out to
+`git commit`. Each hook name is a symlink to `dispatch`, which runs the
+machine-global check and then delegates to the repository's own
+`.git/hooks/<name>` (a global hooksPath would otherwise silently shadow it).
+Repositories that set a local `core.hooksPath` — husky, lefthook, and this
+repository itself — bypass the global directory entirely.
+
+Current check: **commit-msg Why guard**
+(`git/global-hooks/checks/commit-msg-why`) — enforces the "commit logs carry
+the Why" rule from `agents/global-instructions.md` by rejecting subject-only
+messages for changes over 3 lines. Merge/cherry-pick/rebase messages,
+`fixup!`/`squash!`/`amend!`/`Revert` subjects, and tiny diffs are exempt;
+genuinely trivial commits can bypass with `git commit --no-verify`. This
+repository wires the same check through its local `git/hooks/commit-msg`
+symlink.
+
 ## OMP (Oh My Pi)
 
 日常の起動方法、セッション操作、モデル運用、local memory、自動学習、定期レビュー、設定変更、トラブル対応は [`docs/omp.md`](docs/omp.md) にまとめています。
