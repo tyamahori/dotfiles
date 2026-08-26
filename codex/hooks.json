@@ -1,5 +1,5 @@
 {
-  "description": "Notify on approval, title Herdr panes, and review edited Japanese prose.",
+  "description": "Block bare Python, notify on approval, title Herdr panes, and review edited Japanese prose.",
   "hooks": {
     "PermissionRequest": [
       {
@@ -14,6 +14,16 @@
       }
     ],
     "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "\"$HOME/dotfiles/scripts/deny-bare-python-hook\"",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      },
       {
         "hooks": [
           {

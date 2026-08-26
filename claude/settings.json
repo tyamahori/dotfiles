@@ -70,9 +70,7 @@
   },
   "model": "claude-fable-5",
   "skillOverrides": {
-    "freee-api-skill": "off",
-    "japanese-tech-writing": "off",
-    "orbstack-dev": "off"
+    "freee-api-skill": "off"
   },
   "hooks": {
     "UserPromptSubmit": [
@@ -141,7 +139,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$HOME/dotfiles/claude/hooks/deny-bare-python.sh\"",
+            "command": "\"$HOME/dotfiles/scripts/deny-bare-python-hook\"",
             "timeout": 10
           }
         ]

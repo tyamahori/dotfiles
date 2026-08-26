@@ -180,9 +180,9 @@ that applies.
 `python` / `python3` on `PATH` are uv-managed (`~/.local/bin/python`,
 installed by `scripts/python`). Everything runs through uv — `uv run`,
 `uv run --with <pkg>`, `uvx`, `uv venv` / `uv sync` for projects — never the
-bare interpreter, a global `pip install`, or pyenv / asdf. On Claude Code a
-PreToolUse hook denies bare invocations; a denial means switch to the uv
-form, not retry. Load the `efficient-python` skill before writing or running
+bare interpreter, a global `pip install`, or pyenv / asdf. Claude Code, Codex,
+and OMP deny bare invocations before execution; a denial means switch to the
+uv form, not retry. Load the `efficient-python` skill before writing or running
 any Python.
 
 ## Installing CLI tools
