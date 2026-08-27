@@ -66,8 +66,10 @@ gh auth login
 ### エージェントCLI
 
 - Claude Code：`claude` を起動してログインする。
-- Codex：`codex` を起動してログインし、`/hooks` を開いてリンク済みフック定義をtrustする（READMEの「Japanese prose review」節）。
+- Codex：`codex` を起動してログインし、`/hooks` を開いてリンク済みフック定義とponytailのライフサイクルフックをtrustする（READMEの「Japanese prose review」節、`docs/ponytail.md`）。
 - OMP：`omp` を起動して各プロバイダにログインする。資格情報は `~/.omp/agent/agent.db` に入る（機械ローカル）。
+
+ponytailプラグインの入れ直し（OMP・Codexはコマンド、Claude Codeは初回起動時のtrustで自動）は `docs/ponytail.md` の「新しいマシンで入れ直す」を参照。
 
 ### GUI常駐アプリ
 
@@ -130,6 +132,7 @@ sleepwatcher本体はBrewfileで入るが、サービスの起動は手動：`br
 | SSH | `ssh -T git@github.com` | 1Password承認の後に認証成功 |
 | skills | `ls ~/.claude/skills` | authored skillsのsymlinkが並ぶ |
 | OMP | `omp plugin list` | `@plannotator/pi-extension` が入っている |
+| ponytail | 各CLIで「ponytailのルールは注入されているか」と質問 | `PONYTAIL MODE ACTIVE — level: full` を引用して回答（`docs/ponytail.md`） |
 | jbcontext | リポジトリ内で `jbcontext search "..."` | 検索結果が返る |
 | launchd | `launchctl list \| grep tyamahori` | 6節で選んだジョブだけが載る |
 

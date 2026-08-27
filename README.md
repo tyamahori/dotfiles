@@ -73,6 +73,15 @@ Edit that one file to change the rules for all four. It currently tells the
 agents to default to the uv-managed Python (`scripts/python`) rather than system,
 Homebrew, or nix interpreters.
 
+### ponytail (minimal-code mode)
+
+All three coding CLIs (OMP, Claude Code, Codex) run the
+[ponytail](https://github.com/DietrichGebert/ponytail) plugin, which injects a
+YAGNI ladder every turn (default level: full). Daily usage, per-host wiring,
+reinstall steps, and uninstall order are in
+[`docs/ponytail.md`](docs/ponytail.md). Claude Code enablement is declarative
+in `claude/settings.json`; OMP and Codex installs are machine-local commands.
+
 ### Japanese prose review
 
 Claude Code, Codex, and OMP run the same Japanese prose review around file
