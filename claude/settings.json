@@ -362,7 +362,8 @@
     "phpstorm-plugin@phpstorm-marketplace": true,
     "warp@claude-code-warp": true,
     "claude-md-management@claude-plugins-official": true,
-    "reviewable-html-workbench@reviewable-html-workbench-local": true
+    "reviewable-html-workbench@reviewable-html-workbench-local": true,
+    "ponytail@ponytail": true
   },
   "extraKnownMarketplaces": {
     "phpstorm-marketplace": {
@@ -381,6 +382,12 @@
       "source": {
         "source": "github",
         "repo": "u-ichi/reviewable-html-workbench"
+      }
+    },
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
       }
     }
   },
