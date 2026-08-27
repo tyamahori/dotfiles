@@ -51,9 +51,10 @@ fi
 
 # プロンプト。左に pwd + git ブランチ、右に Claude/Codex の subscription
 # 使用率を常時表示する。使用率の源泉は omp が ~/.omp/agent/agent.db に記録
-# する usage snapshot（anthropic-usage-guard と同じ）。表示は provider 毎の
-# 有効枠の最大使用率（= 律速の枠）。omp を暫く起動しないと snapshot が更新
-# されないため、1時間より古い値は薄く `*` 付きで示す。sqlite3 の読みは数十ms
+# する usage snapshot（anthropic-usage-guard と同じ）。Claude は
+# F=Fable(7d) / A=全モデル(7d) / S=セッション(5h) の3枠、Codex は primary
+# 枠を表示する。omp を暫く起動しないと snapshot が更新されないため、
+# 1時間より古い値は薄く `*` 付きで示す。sqlite3 の読みは数十ms
 # だが毎プロンプトでは走らせず、60秒 TTL のキャッシュを挟む。
 setopt PROMPT_SUBST
 autoload -Uz vcs_info add-zsh-hook
@@ -64,36 +65,40 @@ zstyle ':vcs_info:git:*' actionformats ' %F{cyan}(%b|%a)%f'
 _agent_usage_cache="${XDG_CACHE_HOME:-$HOME/.cache}/agent-usage-prompt"
 _agent_usage_refresh() {
   local db="$HOME/.omp/agent/agent.db"
-  local -a parts
-  local provider pct age label color
+  local -a claude parts
+  local key pct age tok
   if [[ -r $db ]] && command -v sqlite3 >/dev/null 2>&1; then
-    while read -r provider pct age; do
-      case $provider in
-        anthropic) label=Claude ;;
-        openai-codex) label=Codex ;;
-        *) continue ;;
-      esac
+    while read -r key pct age; do
       if (( age > 60 )); then
-        parts+=("%F{242}${label} ${pct}%%*%f")
+        tok="%F{242}${pct}%%*%f"
       elif (( pct >= 80 )); then
-        parts+=("${label} %F{red}${pct}%%%f")
+        tok="%F{red}${pct}%%%f"
       elif (( pct >= 50 )); then
-        parts+=("${label} %F{yellow}${pct}%%%f")
+        tok="%F{yellow}${pct}%%%f"
       else
-        parts+=("${label} ${pct}%%")
+        tok="${pct}%%"
       fi
+      case $key in
+        F|A|S) claude+=("${key}${tok}") ;;
+        codex) parts+=("Codex ${tok}") ;;
+      esac
     done < <(sqlite3 -separator ' ' "file:$db?mode=ro" "
-      SELECT lower(u.provider),
+      SELECT CASE lower(u.limit_id)
+               WHEN 'anthropic:7d:fable' THEN 'F'
+               WHEN 'anthropic:7d' THEN 'A'
+               WHEN 'anthropic:5h' THEN 'S'
+               ELSE 'codex' END AS key,
              CAST(MAX(u.used_fraction)*100+0.5 AS INTEGER),
              CAST((strftime('%s','now')*1000 - MAX(u.recorded_at))/60000 AS INTEGER)
       FROM usage_history u
       WHERE u.resets_at > strftime('%s','now')*1000
         AND u.recorded_at = (SELECT MAX(recorded_at) FROM usage_history
                              WHERE lower(provider)=lower(u.provider))
-        AND (lower(u.provider)='anthropic'
-             OR (lower(u.provider)='openai-codex'
-                 AND lower(u.limit_id)='openai-codex:primary'))
-      GROUP BY lower(u.provider);" 2>/dev/null)
+        AND lower(u.limit_id) IN
+            ('anthropic:7d:fable','anthropic:7d','anthropic:5h','openai-codex:primary')
+      GROUP BY key
+      ORDER BY CASE key WHEN 'F' THEN 0 WHEN 'A' THEN 1 WHEN 'S' THEN 2 ELSE 3 END;" 2>/dev/null)
+    (( $#claude )) && parts=("Claude ${(j:/:)claude}" $parts)
   fi
   mkdir -p "${_agent_usage_cache:h}"
   print -r -- "${(j: :)parts}" > "$_agent_usage_cache"
