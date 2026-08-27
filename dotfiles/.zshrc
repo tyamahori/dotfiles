@@ -112,7 +112,10 @@ _agent_usage_precmd() {
 }
 add-zsh-hook precmd _agent_usage_precmd
 
-PROMPT='%F{blue}%~%f${vcs_info_msg_0_} %# '
+# pwd が深いと入力位置が右へ流れるので、pwd+ブランチは1行目、入力は2行目。
+# RPROMPT は入力行(2行目)の右に出る。
+PROMPT='%F{blue}%~%f${vcs_info_msg_0_}
+%# '
 [[ "$(uname)" == "Linux" ]] && PROMPT='%n@%m '$PROMPT
 RPROMPT='${_agent_usage_rprompt}'
 
