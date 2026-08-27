@@ -8,6 +8,9 @@
 // 2. Codex 週次枠（openai-codex:primary）の残量が20%以下になったら通知する。
 //    切替はしない: provider 全体枠なので omp 本体の usage-aware fallback が
 //    retry.fallbackChains（openai-codex/* → anthropic）で退避する。
+// 3. 両 pool の使用率を editor 下の widget に常時表示する（Claude 5h / 7d /
+//    モデル別 7d と Codex 週次枠）。データ源は同じ usage snapshot なので、
+//    更新は session_start とチェック周期（5分毎）に揃う。
 //
 // 動作:
 // - session_start で即チェックし、5分毎に再チェックする。
@@ -42,7 +45,14 @@ type Model = { provider?: string; id?: string };
 
 type Ctx = {
 	hasUI?: boolean;
-	ui?: { notify?: (message: string, level?: string) => void };
+	ui?: {
+		notify?: (message: string, level?: string) => void;
+		setWidget?: (
+			key: string,
+			content?: string[],
+			opts?: { placement?: "aboveEditor" | "belowEditor" },
+		) => void;
+	};
 	models?: {
 		current(): Model | undefined;
 		resolve(spec: string): Model | undefined | Promise<Model | undefined>;
@@ -86,6 +96,100 @@ function latestUsedPct(provider: string, limitFilter: string): number | null {
 		}
 	} catch {
 		return null;
+	}
+}
+
+/** 最新 snapshot の枠一覧（provider 単位、期限切れ除外、limit_id 毎に最大値）。 */
+function latestUsageRows(
+	provider: string,
+): { limitId: string; pct: number; resetsAt: number }[] {
+	try {
+		const db = new Database(USAGE_DB, { readonly: true });
+		try {
+			return db
+				.query(
+					`SELECT limit_id AS limitId,
+					        CAST(MAX(used_fraction) * 100 + 0.5 AS INTEGER) AS pct,
+					        MAX(resets_at) AS resetsAt
+					 FROM usage_history
+					 WHERE lower(provider) = ?1
+					   AND resets_at > ?2
+					   AND recorded_at = (
+					     SELECT MAX(recorded_at)
+					     FROM usage_history
+					     WHERE lower(provider) = ?1
+					   )
+					 GROUP BY limit_id
+					 ORDER BY limit_id`,
+				)
+				.all(provider, Date.now()) as {
+				limitId: string;
+				pct: number;
+				resetsAt: number;
+			}[];
+		} finally {
+			db.close();
+		}
+	} catch {
+		return [];
+	}
+}
+
+function formatReset(resetsAt: number): string {
+	const mins = Math.max(0, Math.round((resetsAt - Date.now()) / 60000));
+	if (mins < 120) return `${mins}m`;
+	const hours = Math.round(mins / 60);
+	if (hours < 48) return `${hours}h`;
+	return `${Math.round(hours / 24)}d`;
+}
+
+function coloredPct(pct: number): string {
+	if (pct >= 100 - USAGE_RESERVE_PCT) return `\x1b[31m${pct}%\x1b[39m`;
+	if (pct >= 50) return `\x1b[33m${pct}%\x1b[39m`;
+	return `${pct}%`;
+}
+
+function poolParts(
+	provider: string,
+	label: (limitId: string) => string | null,
+): string[] {
+	return latestUsageRows(provider).flatMap((row) => {
+		const name = label(row.limitId);
+		if (name === null) return [];
+		return [
+			`${name} ${coloredPct(row.pct)} \x1b[2m(${formatReset(row.resetsAt)})\x1b[22m`,
+		];
+	});
+}
+
+/** 両 pool の使用率1行。表示対象の枠が無ければ null。 */
+export function buildUsageLine(): string | null {
+	const claude = poolParts("anthropic", (id) =>
+		id.startsWith("anthropic:") ? id.slice("anthropic:".length) : null,
+	);
+	// spark:* は補助枠で常時ほぼ0%のうえ意味が不明瞭なのでノイズとして省く。
+	// guard の判定も primary（週次）だけを使っている。
+	const codex = poolParts("openai-codex", (id) =>
+		id === "openai-codex:primary" ? "wk" : null,
+	);
+	const pools: string[] = [];
+	if (claude.length > 0) pools.push(`Claude ${claude.join(" · ")}`);
+	if (codex.length > 0) pools.push(`Codex ${codex.join(" · ")}`);
+	if (pools.length === 0) return null;
+	return `\x1b[2musage\x1b[22m ${pools.join(" \x1b[2m│\x1b[22m ")}`;
+}
+
+const WIDGET_KEY = "usage-summary";
+
+function updateWidget(ctx: Ctx | undefined): void {
+	if (!ctx?.hasUI || !ctx.ui?.setWidget) return;
+	try {
+		const line = buildUsageLine();
+		ctx.ui.setWidget(WIDGET_KEY, line ? [line] : undefined, {
+			placement: "belowEditor",
+		});
+	} catch {
+		// widget 描画の失敗は guard 本体の判定に影響させない。
 	}
 }
 
@@ -191,6 +295,7 @@ export default function (pi: ExtensionHandlerApi): void {
 	}
 
 	async function check(ctx: Ctx | undefined): Promise<void> {
+		updateWidget(ctx);
 		if (inflight || !ctx?.models) return;
 		inflight = true;
 		try {

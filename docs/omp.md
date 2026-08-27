@@ -188,6 +188,8 @@ Anthropic と OpenAI Codex は別の subscription pool として使い分けま�
 利用枠の退避は双方向です。
 Anthropic の残りが 20% に達すると `retry.fallbackChains` に従って OpenAI Codex へ、Codex 週次枠の残りが 20% に達すると Anthropic へ退避します。
 `anthropic-usage-guard` extension は、omp 本体が判定しないモデル別枠（`anthropic:7d:fable` など）の切替と、Codex 週次枠 80% 到達の通知を担当します。
+同 extension は両 pool の使用率（Claude 5h / 7d / モデル別 7d、Codex 週次枠）を editor 下の widget に常時表示します。
+表示は Claude Code / Codex の GUI にある Usage 表示と同じ窓で、session_start と5分毎のチェックのたびに更新されます。
 両方の pool が実質枯渇（98% 以上）した場合は、ローカル ollama を probe して応答があるときだけ qwen へ退避します。
 ollama が起動していなければ何もせず、枠のリセットを待ちます（ollama は動いている前提にしない）。
 現在の認証状態と quota はシェルで確認できます。
