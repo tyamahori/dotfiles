@@ -54,8 +54,8 @@ fi
 # する usage snapshot（anthropic-usage-guard と同じ）。Claude は
 # F=Fable(7d) / A=全モデル(7d) / S=セッション(5h) の3枠、Codex は primary
 # 枠を表示する。provider名はClaudeがオレンジ、Codexが青。使用率は80%以上を
-# 赤、50%以上を黄で示す。snapshot が1時間より古い場合は `*` を付ける。
-# sqlite3 は毎プロンプトでは走らせず、シェル内で60秒キャッシュする。
+# 赤、50%以上を黄で示し、各枠のリセットまでの残り時間を併記する。
+# snapshot が1時間より古い場合は `*`。値はシェル内で60秒キャッシュする。
 setopt PROMPT_SUBST
 autoload -Uz vcs_info add-zsh-hook
 zstyle ':vcs_info:*' enable git
@@ -66,16 +66,24 @@ typeset -gi _agent_usage_refreshed_at=-60
 _agent_usage_refresh() {
   local db="$HOME/.omp/agent/agent.db"
   local -a claude parts
-  local key pct age tok
+  local key pct age reset_mins tok reset
   if [[ -r $db ]] && command -v sqlite3 >/dev/null 2>&1; then
-    while read -r key pct age; do
+    while read -r key pct age reset_mins; do
       tok="${pct}%%"
       (( age > 60 )) && tok+="*"
+      if (( reset_mins < 120 )); then
+        reset="${reset_mins}m"
+      elif (( reset_mins < 2880 )); then
+        reset="$(( (reset_mins + 30) / 60 ))h"
+      else
+        reset="$(( (reset_mins + 720) / 1440 ))d"
+      fi
       if (( pct >= 80 )); then
         tok="%F{red}${tok}%f"
       elif (( pct >= 50 )); then
         tok="%F{yellow}${tok}%f"
       fi
+      tok+="%F{242}(${reset})%f"
       case $key in
         F|A|S) claude+=("${key}${tok}") ;;
         codex) parts+=("%F{blue}Codex%f Usage: ${tok}") ;;
@@ -87,7 +95,8 @@ _agent_usage_refresh() {
                WHEN 'anthropic:5h' THEN 'S'
                ELSE 'codex' END AS key,
              CAST(MAX(u.used_fraction)*100+0.5 AS INTEGER),
-             CAST((strftime('%s','now')*1000 - MAX(u.recorded_at))/60000 AS INTEGER)
+             CAST((strftime('%s','now')*1000 - MAX(u.recorded_at))/60000 AS INTEGER),
+             CAST((MAX(u.resets_at) - strftime('%s','now')*1000)/60000 AS INTEGER)
       FROM usage_history u
       WHERE u.resets_at > strftime('%s','now')*1000
         AND u.recorded_at = (
