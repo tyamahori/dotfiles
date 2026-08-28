@@ -60,8 +60,8 @@ archify の JSON IR を残しておけば、見た目を直しても図の意味
 - コード diff / PR のレビュー
 - 「見た目は通るが、言葉選びが少し機械っぽい」成果物
 
-Plannotator は生成器ではなく、**人間の判断を戻す面**です。
-図を直接きれいにするより、違和感を発見して IR 側へ戻すために使います。
+Plannotator の仕事は **人間の判断を図に戻す** ことです。
+図を直接きれいにする道具というより、違和感を発見して IR 側へ戻すために使います。
 
 ## 日常の最短手順
 
@@ -111,7 +111,7 @@ node ~/.agents/skills/archify/bin/archify.mjs deliver architecture docs/diagrams
 - Claude Code / OMP: `/plannotator-annotate /tmp/runtime-overview.html`
 - Codex: `!plannotator annotate /tmp/runtime-overview.html`
 
-HTML をその場で直すのではなく、注釈を見て **JSON IR を修正** します。
+注釈を見て **JSON IR を修正** し、HTML には直接手を入れません。
 直したらもう一度 `deliver` します。
 
 ### 5. Claude Artifact で共有する
@@ -227,7 +227,7 @@ Artifact は共有面です。
 ### 図は正しいが、まだ少し機械っぽい
 
 Plannotator でラベルと境界名を見ます。
-構造ではなく言葉の問題であることが多いです。
+機械っぽさの原因は、構造よりも言葉選びにあることが多いです。
 
 ### Codex だけ自動で plan review が開かない
 
