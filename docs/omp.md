@@ -70,8 +70,9 @@ omp @README.md "セットアップ手順の不足を指摘して"
 `omp`、`omp-repo`、`omp-build` は `.zshrc` で定義した関数です。
 新しいターミナルで見つからない場合は `source ~/.zshrc` を実行してください。
 
-Python の language server は `omp/lsp.json` で user-wide に設定しています。
-Git リポジトリのルートから起動すれば、`pyproject.toml` などがないスクリプト中心のリポジトリでも Pyright を利用できます。
+Python と Go の language server は `omp/lsp.json` で user-wide に設定しています。
+Git リポジトリのルートから起動すれば、設定ファイルのないリポジトリでも Pyright と gopls を利用できます。
+Go module では `go.work` または `go.mod` もプロジェクトルートの検出に使います。
 
 ## `omp-build` を選ぶ基準
 

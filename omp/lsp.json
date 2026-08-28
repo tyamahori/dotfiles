@@ -1,5 +1,12 @@
 {
   "servers": {
+    "gopls": {
+      "rootMarkers": [
+        "go.work",
+        "go.mod",
+        ".git"
+      ]
+    },
     "pyright": {
       "rootMarkers": [
         ".git",
