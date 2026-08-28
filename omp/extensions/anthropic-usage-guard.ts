@@ -69,22 +69,23 @@ type ExtensionHandlerApi = {
 	setModel(model: Model): Promise<boolean>;
 };
 
-/** 指定 provider の最新かつ有効な枠のうち、filter に合う最大使用率（整数%）。 */
+/** 指定 provider の limit 毎の最新有効行から、filter に合う最大使用率（整数%）。 */
 function latestUsedPct(provider: string, limitFilter: string): number | null {
 	try {
 		const db = new Database(USAGE_DB, { readonly: true });
 		try {
 			const row = db
 				.query(
-					`SELECT CAST(MAX(used_fraction) * 100 + 0.5 AS INTEGER) AS pct
-					 FROM usage_history
-					 WHERE lower(provider) = ?1
-					   AND lower(limit_id) LIKE ?2
-					   AND resets_at > ?3
-					   AND recorded_at = (
-					     SELECT MAX(recorded_at)
-					     FROM usage_history
-					     WHERE lower(provider) = ?1
+					`SELECT CAST(MAX(u.used_fraction) * 100 + 0.5 AS INTEGER) AS pct
+					 FROM usage_history u
+					 WHERE lower(u.provider) = ?1
+					   AND lower(u.limit_id) LIKE ?2
+					   AND u.resets_at > ?3
+					   AND u.recorded_at = (
+					     SELECT MAX(x.recorded_at)
+					     FROM usage_history x
+					     WHERE lower(x.provider) = lower(u.provider)
+					       AND lower(x.limit_id) = lower(u.limit_id)
 					   )`,
 				)
 				.get(provider, limitFilter, Date.now()) as {
@@ -99,7 +100,7 @@ function latestUsedPct(provider: string, limitFilter: string): number | null {
 	}
 }
 
-/** 最新 snapshot の枠一覧（provider 単位、期限切れ除外、limit_id 毎に最大値）。 */
+/** limit 毎の最新行一覧（provider 単位、期限切れ除外）。 */
 function latestUsageRows(
 	provider: string,
 ): { limitId: string; pct: number; resetsAt: number }[] {
@@ -108,19 +109,19 @@ function latestUsageRows(
 		try {
 			return db
 				.query(
-					`SELECT limit_id AS limitId,
-					        CAST(MAX(used_fraction) * 100 + 0.5 AS INTEGER) AS pct,
-					        MAX(resets_at) AS resetsAt
-					 FROM usage_history
-					 WHERE lower(provider) = ?1
-					   AND resets_at > ?2
-					   AND recorded_at = (
-					     SELECT MAX(recorded_at)
-					     FROM usage_history
-					     WHERE lower(provider) = ?1
+					`SELECT u.limit_id AS limitId,
+					        CAST(u.used_fraction * 100 + 0.5 AS INTEGER) AS pct,
+					        u.resets_at AS resetsAt
+					 FROM usage_history u
+					 WHERE lower(u.provider) = ?1
+					   AND u.resets_at > ?2
+					   AND u.recorded_at = (
+					     SELECT MAX(x.recorded_at)
+					     FROM usage_history x
+					     WHERE lower(x.provider) = lower(u.provider)
+					       AND lower(x.limit_id) = lower(u.limit_id)
 					   )
-					 GROUP BY limit_id
-					 ORDER BY limit_id`,
+					 ORDER BY u.limit_id`,
 				)
 				.all(provider, Date.now()) as {
 				limitId: string;

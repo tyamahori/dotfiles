@@ -92,8 +92,12 @@ _agent_usage_refresh() {
              CAST((strftime('%s','now')*1000 - MAX(u.recorded_at))/60000 AS INTEGER)
       FROM usage_history u
       WHERE u.resets_at > strftime('%s','now')*1000
-        AND u.recorded_at = (SELECT MAX(recorded_at) FROM usage_history
-                             WHERE lower(provider)=lower(u.provider))
+        AND u.recorded_at = (
+          SELECT MAX(x.recorded_at)
+          FROM usage_history x
+          WHERE lower(x.provider)=lower(u.provider)
+            AND lower(x.limit_id)=lower(u.limit_id)
+        )
         AND lower(u.limit_id) IN
             ('anthropic:7d:fable','anthropic:7d','anthropic:5h','openai-codex:primary')
       GROUP BY key
