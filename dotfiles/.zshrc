@@ -53,9 +53,9 @@ fi
 # 使用率を常時表示する。使用率の源泉は omp が ~/.omp/agent/agent.db に記録
 # する usage snapshot（anthropic-usage-guard と同じ）。Claude は
 # F=Fable(7d) / A=全モデル(7d) / S=セッション(5h) の3枠、Codex は primary
-# 枠を表示する。omp を暫く起動しないと snapshot が更新されないため、
-# 1時間より古い値は薄く `*` 付きで示す。sqlite3 の読みは数十ms
-# だが毎プロンプトでは走らせず、60秒 TTL のキャッシュを挟む。
+# 枠を表示する。Claude はオレンジ、Codex は青。omp を暫く起動せず
+# snapshot が1時間より古くなった場合は `*` を付ける。sqlite3 の読みは
+# 数十msだが毎プロンプトでは走らせず、60秒 TTL のキャッシュを挟む。
 setopt PROMPT_SUBST
 autoload -Uz vcs_info add-zsh-hook
 zstyle ':vcs_info:*' enable git
@@ -69,18 +69,11 @@ _agent_usage_refresh() {
   local key pct age tok
   if [[ -r $db ]] && command -v sqlite3 >/dev/null 2>&1; then
     while read -r key pct age; do
-      if (( age > 60 )); then
-        tok="%F{242}${pct}%%*%f"
-      elif (( pct >= 80 )); then
-        tok="%F{red}${pct}%%%f"
-      elif (( pct >= 50 )); then
-        tok="%F{yellow}${pct}%%%f"
-      else
-        tok="${pct}%%"
-      fi
+      tok="${pct}%%"
+      (( age > 60 )) && tok+="*"
       case $key in
         F|A|S) claude+=("${key}${tok}") ;;
-        codex) parts+=("Codex ${tok}") ;;
+        codex) parts+=("%F{blue}Codex Usage: ${tok}%f") ;;
       esac
     done < <(sqlite3 -separator ' ' "file:$db?mode=ro" "
       SELECT CASE lower(u.limit_id)
@@ -102,7 +95,7 @@ _agent_usage_refresh() {
             ('anthropic:7d:fable','anthropic:7d','anthropic:5h','openai-codex:primary')
       GROUP BY key
       ORDER BY CASE key WHEN 'F' THEN 0 WHEN 'A' THEN 1 WHEN 'S' THEN 2 ELSE 3 END;" 2>/dev/null)
-    (( $#claude )) && parts=("Claude ${(j:/:)claude}" $parts)
+    (( $#claude )) && parts=("%F{208}Claude Usage: ${(j: / :)claude}%f" $parts)
   fi
   mkdir -p "${_agent_usage_cache:h}"
   print -r -- "${(j: :)parts}" > "$_agent_usage_cache"
