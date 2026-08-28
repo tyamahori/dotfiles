@@ -175,6 +175,12 @@ to be read start to finish. Chat replies follow the same norms without
 loading the skills. Code comments are exempt; the Why-not rule above is all
 that applies.
 
+
+## Diagrams and shared artifacts
+
+- **Use `archify` for diagrams** — architecture, workflow, sequence, data-flow, and lifecycle/state diagrams go through `archify`, not ad-hoc Mermaid themes or hand-rolled HTML/SVG. Keep the typed JSON IR in the repository; treat rendered HTML as a generated artifact.
+- **Use Plannotator for human review** — plans, diffs, and stakeholder-facing HTML should go through a Plannotator review when the extra pass matters.
+- **Use Claude artifacts as the share surface** — when a diagram or HTML deliverable is meant for non-agent stakeholders, prefer Claude artifacts for presentation; the repository IR/Markdown remains the source of truth.
 ## Python
 
 `python` / `python3` on `PATH` are uv-managed (`~/.local/bin/python`,

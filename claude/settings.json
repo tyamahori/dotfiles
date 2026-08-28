@@ -363,7 +363,8 @@
     "warp@claude-code-warp": true,
     "claude-md-management@claude-plugins-official": true,
     "reviewable-html-workbench@reviewable-html-workbench-local": true,
-    "ponytail@ponytail": true
+    "ponytail@ponytail": true,
+    "plannotator@plannotator": true
   },
   "extraKnownMarketplaces": {
     "phpstorm-marketplace": {
@@ -388,6 +389,12 @@
       "source": {
         "source": "github",
         "repo": "DietrichGebert/ponytail"
+      }
+    },
+    "plannotator": {
+      "source": {
+        "source": "github",
+        "repo": "backnotprop/plannotator"
       }
     }
   },

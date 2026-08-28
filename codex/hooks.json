@@ -76,6 +76,15 @@
             "type": "command"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.local/bin/plannotator",
+            "timeout": 345600
+          }
+        ]
       }
     ],
     "SessionStart": [

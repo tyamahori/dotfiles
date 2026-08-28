@@ -75,6 +75,17 @@ if command -v herdr >/dev/null 2>&1 && herdr --skill >/dev/null 2>&1; then
 	done
 fi
 
+# Machine-wide diagram/review toolchain. Unlike ordinary third-party skills,
+# these are explicit cross-host integrations used from any repository, so keep
+# them global and bootstrap them here when missing.
+if ! command -v plannotator >/dev/null 2>&1 || [[ ! -e $HOME/.agents/skills/plannotator-review/SKILL.md ]]; then
+	curl -fsSL https://plannotator.ai/install.sh | bash -s -- --non-interactive
+fi
+if [[ ! -e $HOME/.agents/skills/archify/SKILL.md ]]; then
+	npx -y skills add tt-a1i/archify -g --yes
+fi
+
+
 # OpenSkills-installed vendor skills (Cloudflare et al.) are deliberately NOT
 # installed globally: Codex and OMP discover ~/.agents/skills directly, so
 # keeping vendor sources there exposes their descriptions in every session.

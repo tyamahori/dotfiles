@@ -27,7 +27,7 @@ set -euo pipefail
 #   pi-review             -> reviewer agent; cross-review goes to Codex anyway
 
 plugins=(
-	"@plannotator/pi-extension 0.27.4" # /plannotator-* — annotate plans, messages, code reviews
+	"@plannotator/pi-extension 0.27.9" # /plannotator-* — annotate plans, messages, code reviews
 )
 
 # Retired plugins — uninstall if a machine still carries them.
