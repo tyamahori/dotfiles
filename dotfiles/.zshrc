@@ -55,14 +55,14 @@ fi
 # F=Fable(7d) / A=全モデル(7d) / S=セッション(5h) の3枠、Codex は primary
 # 枠を表示する。Claude はオレンジ、Codex は青。omp を暫く起動せず
 # snapshot が1時間より古くなった場合は `*` を付ける。sqlite3 の読みは
-# 数十msだが毎プロンプトでは走らせず、60秒 TTL のキャッシュを挟む。
+# 数十msだが毎プロンプトでは走らせず、シェル内で60秒キャッシュする。
 setopt PROMPT_SUBST
 autoload -Uz vcs_info add-zsh-hook
 zstyle ':vcs_info:*' enable git
 zstyle ':vcs_info:git:*' formats ' %F{cyan}(%b)%f'
 zstyle ':vcs_info:git:*' actionformats ' %F{cyan}(%b|%a)%f'
 
-_agent_usage_cache="${XDG_CACHE_HOME:-$HOME/.cache}/agent-usage-prompt"
+typeset -gi _agent_usage_refreshed_at=-60
 _agent_usage_refresh() {
   local db="$HOME/.omp/agent/agent.db"
   local -a claude parts
@@ -97,14 +97,13 @@ _agent_usage_refresh() {
       ORDER BY CASE key WHEN 'F' THEN 0 WHEN 'A' THEN 1 WHEN 'S' THEN 2 ELSE 3 END;" 2>/dev/null)
     (( $#claude )) && parts=("%F{208}Claude Usage: ${(j: / :)claude}%f" $parts)
   fi
-  mkdir -p "${_agent_usage_cache:h}"
-  print -r -- "${(j: :)parts}" > "$_agent_usage_cache"
+  _agent_usage_rprompt="${(j: :)parts}"
 }
 _agent_usage_precmd() {
-  local -a fresh
-  fresh=("$_agent_usage_cache"(Nmm-1))
-  (( $#fresh )) || _agent_usage_refresh
-  _agent_usage_rprompt="$(<"$_agent_usage_cache")" 2>/dev/null
+  if (( SECONDS - _agent_usage_refreshed_at >= 60 )); then
+    _agent_usage_refresh
+    _agent_usage_refreshed_at=$SECONDS
+  fi
   vcs_info
 }
 add-zsh-hook precmd _agent_usage_precmd
