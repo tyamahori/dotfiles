@@ -69,7 +69,7 @@ gh auth login
 - Codex：`codex` を起動してログインし、`/hooks` を開いてリンク済みフック定義とponytailのライフサイクルフックをtrustする（READMEの「Japanese prose review」節、`docs/ponytail.md`）。
 - OMP：`omp` を起動して各プロバイダにログインする。資格情報は `~/.omp/agent/agent.db` に入る（機械ローカル）。
 
-ponytailプラグインの入れ直し（OMP・Codexはコマンド、Claude Codeは初回起動時のtrustで自動）は `docs/ponytail.md` の「新しいマシンで入れ直す」を参照。
+ponytailプラグインは6節までのスクリプトで自動導入される（OMPは `scripts/omp-plugins`、Codexは `scripts/link`、Claude Codeは `claude/settings.json` の宣言）。Codexのフックtrustだけ手動。詳細は `docs/ponytail.md`。
 
 ### GUI常駐アプリ
 

@@ -60,23 +60,22 @@ Codex ではスキル呼び出しになるため `@ponytail-review` のように
 
 サブエージェントにも同じルールが注入されます（`PONYTAIL_SUBAGENT_MATCHER` 未設定 = 全 subagent 対象）。
 
-## 新しいマシンで入れ直す
+## 新しいマシンでの導入は自動
 
-Claude Code だけは dotfiles の `claude/settings.json` で宣言済みなので、初回起動時の marketplace trust プロンプトに同意すれば自動で入ります。
-このとき statusLine セットアップの提案（nudge）が出たら**拒否**してください。`~/.claude/settings.json` は dotfiles の symlink で、既に ccusage の statusLine を設定済みです。
+3ホストとも dotfiles の適用で入ります。手動のインストールコマンドは不要です。
 
-OMP と Codex はコマンドで入れます。
+- **OMP**: `scripts/omp-plugins`（`./scripts/setup` と `omp-apply` が呼ぶ）が marketplace 登録とインストールを再現します。
+- **Codex**: `scripts/link` が未インストールのときだけ marketplace 登録とインストールを実行します。
+- **Claude Code**: `claude/settings.json` の宣言で、初回起動時の marketplace trust プロンプトに同意すれば自動で入ります。
 
-```bash
-omp plugin marketplace add DietrichGebert/ponytail
-omp plugin install ponytail@ponytail
+手動操作が残るのは2点だけです。
 
-codex plugin marketplace add DietrichGebert/ponytail
-codex plugin add ponytail@ponytail
-```
+1. **Codex のフック trust**: 対話セッションの `/hooks` からライフサイクルフックを review して trust し、新スレッドを開くまで常時注入が始まりません（スキルだけは trust 前でも使えます）。`scripts/link` が新規インストール時にリマインダーを表示します。
+2. **Claude Code の statusLine nudge**: 初回起動時に statusLine セットアップの提案が出たら**拒否**してください。`~/.claude/settings.json` は dotfiles の symlink で、既に ccusage の statusLine を設定済みです。
 
-Codex は追加で、対話セッションの `/hooks` からライフサイクルフックを review して trust し、新スレッドを開くまで常時注入が始まりません（スキルだけは trust 前でも使えます）。
 フックの実体はプラグイン同梱の node スクリプト2本（モード注入とモード追跡）で、2026-08-28 時点のレビューでは安全でした。
+
+ホストを増やす・別の marketplace プラグインを足す場合は、OMP は `scripts/omp-plugins` の `marketplace_plugins` 配列、Codex は `scripts/link` の該当ブロックに追記します。
 
 ## アンインストール
 
@@ -90,6 +89,7 @@ claude plugin uninstall ponytail@ponytail   # claude/settings.json のエント�
 ```
 
 掃除スクリプトは `~/.config/ponytail/config.json` などプラグイン外に残る状態を消します。
+恒久的にやめる場合は、`scripts/omp-plugins` の `marketplace_plugins` エントリと `scripts/link` の ponytail ブロックも削除します。残すと次回の setup / `omp-apply` / link で再インストールされます。
 
 ---
 

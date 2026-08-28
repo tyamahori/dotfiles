@@ -79,8 +79,10 @@ All three coding CLIs (OMP, Claude Code, Codex) run the
 [ponytail](https://github.com/DietrichGebert/ponytail) plugin, which injects a
 YAGNI ladder every turn (default level: full). Daily usage, per-host wiring,
 reinstall steps, and uninstall order are in
-[`docs/ponytail.md`](docs/ponytail.md). Claude Code enablement is declarative
-in `claude/settings.json`; OMP and Codex installs are machine-local commands.
+[`docs/ponytail.md`](docs/ponytail.md). Installs are reproduced automatically:
+Claude Code declaratively via `claude/settings.json`, OMP by
+`scripts/omp-plugins`, Codex by `scripts/link` (its hook trust stays a one-time
+manual `/hooks` step).
 
 ### Japanese prose review
 

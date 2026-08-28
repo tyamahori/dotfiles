@@ -132,6 +132,20 @@ mkdir -p "$HOME/.codex"
 ln -snfv "${REPO_ROOT}/codex/hooks.json" "$HOME/.codex/hooks.json"
 if command -v codex >/dev/null 2>&1; then
 	codex features enable hooks >/dev/null
+	# ponytail plugin (docs/ponytail.md). Claude Code gets it declaratively via
+	# claude/settings.json; omp via scripts/omp-plugins. Codex has no config-file
+	# equivalent, so reproduce the install here. Lifecycle hooks still need a
+	# one-time interactive trust (/hooks) before the always-on injection works.
+	# Capture list output before grep -q: under pipefail, grep's early exit
+	# SIGPIPEs the long `codex plugin list` output and fails the pipeline.
+	codex_plugins="$(codex plugin list 2>/dev/null || true)"
+	if ! grep -Eq '^ponytail@ponytail +installed' <<<"$codex_plugins"; then
+		codex_marketplaces="$(codex plugin marketplace list 2>/dev/null || true)"
+		grep -q '^ponytail ' <<<"$codex_marketplaces" ||
+			codex plugin marketplace add DietrichGebert/ponytail
+		codex plugin add ponytail@ponytail
+		echo "link: ponytail installed for codex; open /hooks in codex once to trust its lifecycle hooks" >&2
+	fi
 else
 	echo "link: codex not found; hooks were linked but the hooks feature was not enabled" >&2
 fi

@@ -61,6 +61,31 @@ for plugin in "${plugins[@]}"; do
 	fi
 done
 
+# Marketplace plugins (Claude-compatible registry; `omp plugin marketplace`).
+# Format: "<plugin-id> <github-repo>".
+#   ponytail -> YAGNI ladder injected every turn + /ponytail commands
+#               (docs/ponytail.md)
+marketplace_plugins=(
+	"ponytail@ponytail DietrichGebert/ponytail"
+)
+
+for plugin in "${marketplace_plugins[@]}"; do
+	read -r id repo <<<"$plugin"
+	if jq -e --arg id "$id" 'any(.marketplace[]; .id == $id)' <<<"$installed" >/dev/null; then
+		echo "omp-plugins: $id already installed" >&2
+		continue
+	fi
+	marketplace="${id##*@}"
+	# `marketplace add` fails on a duplicate, so guard with the configured
+	# list. Capture before grep -q: under pipefail its early exit would
+	# SIGPIPE the list command and fail the pipeline.
+	marketplaces="$(omp plugin marketplace list || true)"
+	if ! grep -q "^  $marketplace  " <<<"$marketplaces"; then
+		omp plugin marketplace add "$repo"
+	fi
+	omp plugin install "$id"
+done
+
 # Apply local compatibility patches (omp/patches/<package>.patch) on top of the
 # installed packages. Idempotent: skips when already applied; fails if an
 # unapplied patch is incompatible with its installed package.
