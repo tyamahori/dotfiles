@@ -295,10 +295,10 @@ omp-review --days 7
 | `omp/mcp.json` | `~/.omp/agent/mcp.json` | MCP server 設定 |
 | `agents/skills/` | 各 CLI の Skill directory | Claude、Codex、Copilot、OMP で共有する authored skill |
 
-authored skill 以外のサードパーティ skill（例: `cloudflare/skills` 群）は dotfiles 管理外です。
-Codex と OMP は `~/.agents/skills` をグローバルに discovery するため、サードパーティ skill を
-そこへ `--global` で導入しません。対象プロジェクトのルートで
-`npx skills add <owner/repo>` を実行し、project scope に必要な skill だけ導入します。
+authored skill 以外のサードパーティ skill は原則として dotfiles 管理外です。
+ただし **archify** と **plannotator の core skills** は例外で、図表生成・レビュー・Artifact共有の機械共通ワークフローとして global に維持します。
+それ以外のサードパーティ skill は、対象プロジェクトのルートで `npx skills add <owner/repo>` を実行し、project scope に必要な skill だけ導入します。
+図表まわりの使い分けと更新手順は `docs/diagram-workflow.md` を参照してください。
 
 永続的な共通設定は、このリポジトリの正本を編集します。
 `~/.omp/agent/` は配置先です。

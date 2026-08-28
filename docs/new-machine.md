@@ -66,10 +66,10 @@ gh auth login
 ### エージェントCLI
 
 - Claude Code：`claude` を起動してログインする。
-- Codex：`codex` を起動してログインし、`/hooks` を開いてリンク済みフック定義とponytailのライフサイクルフックをtrustする（READMEの「Japanese prose review」節、`docs/ponytail.md`）。
+- Codex：`codex` を起動してログインし、`/hooks` を開いてリンク済みフック定義と ponytail / plannotator のライフサイクルフックを trust する（README の「Japanese prose review」節、`docs/ponytail.md`、`docs/diagram-workflow.md`）。
 - OMP：`omp` を起動して各プロバイダにログインする。資格情報は `~/.omp/agent/agent.db` に入る（機械ローカル）。
 
-ponytailプラグインは6節までのスクリプトで自動導入される（OMPは `scripts/omp-plugins`、Codexは `scripts/link`、Claude Codeは `claude/settings.json` の宣言）。Codexのフックtrustだけ手動。詳細は `docs/ponytail.md`。
+ponytail は 6節までのスクリプトで自動導入される（OMP は `scripts/omp-plugins`、Codex は `scripts/link`、Claude Code は `claude/settings.json` の宣言）。図表/レビュー系では、plannotator も `scripts/link` でバイナリと共通 skills、Claude Code は `claude/settings.json` で plugin、OMP は `scripts/omp-plugins` で pi-extension を再現する。archify は `scripts/link` が global skill として補完する。Codex の hook trust だけ手動。詳細は `docs/ponytail.md` と `docs/diagram-workflow.md`。
 
 ### GUI常駐アプリ
 
@@ -130,7 +130,10 @@ sleepwatcher本体はBrewfileで入るが、サービスの起動は手動：`br
 | brew bundle | `brew bundle check --file dotfiles/.Brewfile` | 依存が満たされている |
 | リンク | `ls -l ~/dotfiles ~/.claude/CLAUDE.md` | 本リポジトリを指すsymlink |
 | SSH | `ssh -T git@github.com` | 1Password承認の後に認証成功 |
-| skills | `ls ~/.claude/skills` | authored skillsのsymlinkが並ぶ |
+| skills | `ls ~/.claude/skills` | authored skillsのsymlinkと `archify` / `plannotator-*` が見える |
+| plannotator | `plannotator --version` | バージョンが表示される |
+| archify | `node ~/.agents/skills/archify/bin/archify.mjs doctor` | `Archify is ready.` |
+| Claude plugin | `claude plugin list` | `plannotator@plannotator` が enabled |
 | OMP | `omp plugin list` | `@plannotator/pi-extension` が入っている |
 | ponytail | 各CLIで「ponytailのルールは注入されているか」と質問 | `PONYTAIL MODE ACTIVE — level: full` を引用して回答（`docs/ponytail.md`） |
 | jbcontext | リポジトリ内で `jbcontext search "..."` | 検索結果が返る |

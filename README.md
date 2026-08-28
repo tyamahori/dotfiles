@@ -84,6 +84,16 @@ Claude Code declaratively via `claude/settings.json`, OMP by
 `scripts/omp-plugins`, Codex by `scripts/link` (its hook trust stays a one-time
 manual `/hooks` step).
 
+### diagram / artifact workflow
+
+Architecture, workflow, sequence, data-flow, and lifecycle diagrams go through
+[`archify`](https://github.com/tt-a1i/archify). Plans, diffs, and generated
+HTML are reviewed with Plannotator before sharing when that extra pass matters.
+For stakeholder handoff, the preferred presentation layer is a Claude artifact;
+the repository-owned source of truth stays the diagram JSON IR or Markdown. The
+daily workflow, host wiring, verification commands, and anti-"AIっぽさ" rules
+are in [`docs/diagram-workflow.md`](docs/diagram-workflow.md).
+
 ### Japanese prose review
 
 Claude Code, Codex, and OMP run the same Japanese prose review around file
