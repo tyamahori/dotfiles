@@ -70,6 +70,44 @@ omp @README.md "セットアップ手順の不足を指摘して"
 `omp`、`omp-repo`、`omp-build` は `.zshrc` で定義した関数です。
 新しいターミナルで見つからない場合は `source ~/.zshrc` を実行してください。
 
+Python の language server は `omp/lsp.json` で user-wide に設定しています。
+Git リポジトリのルートから起動すれば、`pyproject.toml` などがないスクリプト中心のリポジトリでも Pyright を利用できます。
+
+## `omp-build` を選ぶ基準
+
+実装前にコードを調べて方針を決める作業は `omp-build` で始めます。
+現在の設定では、要求整理と計画を default model の Fable が担当し、最初の `edit` または `write` で `@task` の Terra へ切り替わります。
+
+次の作業が対象です。
+
+- 複数ファイルを変更する
+- バグの根本原因や呼び出し元を調べてから直す
+- 新機能、API、設定、データ構造を変更する
+- 実装方法に複数の選択肢がある
+- テストや利用ガイドの更新まで含む
+
+編集しない調査、変更箇所が決まっている一行修正、文言修正には通常の `omp` を使います。
+迷った場合は、実装前にコードを読んで判断する必要があるかで選びます。
+
+### リポジトリのルートから起動する
+
+```bash
+cd ~/project/example
+omp-build
+```
+
+ホームディレクトリから起動すると LSP と jbcontext がリポジトリを認識できないことがあるため、先に作業対象へ移動します。
+
+`omp-build` は Plan Mode や Plannotatorを自動では有効にしません。
+計画の承認を挟む場合は、依頼に次の一文を含めます。
+
+```text
+まず関連コードを調査して計画を提示してください。承認後に実装と確認まで進めてください。
+```
+
+計画が固まる前に編集を許可すると、その時点で Terra へ切り替わります。
+切り替え後は、status line または model badge で `@task` を確認できます。
+
 ## セッション内でよく使うコマンド
 
 入力欄で `/` を打つとコマンド候補が出ます。
@@ -439,6 +477,7 @@ omp-review --help
 | --- | --- |
 | 起動関数 `omp`、`omp-repo`、`omp-build` | `dotfiles/.zshrc` |
 | モデル、memory、retry、autolearn | `omp/config.yml` |
+| language server の検出条件 | `omp/lsp.json` |
 | OMP にだけ追加する常設指示 | `omp/APPEND_SYSTEM.md` |
 | OMP extension | `omp/extensions/` |
 | plugin と version | `scripts/omp-plugins` |

@@ -1,0 +1,15 @@
+{
+  "servers": {
+    "pyright": {
+      "rootMarkers": [
+        ".git",
+        "pyproject.toml",
+        "pyrightconfig.json",
+        "setup.py",
+        "setup.cfg",
+        "requirements.txt",
+        "Pipfile"
+      ]
+    }
+  }
+}
