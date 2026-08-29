@@ -16,9 +16,9 @@ rootの`sonar-project.properties`でopt-inと解析範囲を定義する。
 | Docker volumes | SonarQubeの解析履歴とServer data |
 | 解析対象リポジトリ | rootの`sonar-project.properties` |
 
-したがって、「すべてがglobalでprojectには何も入らない」構成ではない。
-`sonar.projectKey`、解析対象directory、言語固有設定はprojectごとに異なるため、リポジトリと一緒にversion管理する。
-使用方法のドキュメントや実行scriptを各projectへ複製する必要はない。
+`sonar.projectKey`、解析対象directory、言語固有設定はprojectごとに異なるため、設定ファイルはprojectのrootへ置く。
+ただし、個人用として導入するだけならversion管理しない。
+共有するかどうかは、project側で合意して決める。
 
 ## リポジトリを解析対象にする
 
@@ -32,6 +32,21 @@ sonar.projectName=<repository>
 sonar.sources=.
 sonar.sourceEncoding=UTF-8
 ```
+
+### 個人利用では`.git/info/exclude`へ追加する
+
+既存の共有repositoryへ個人用として導入する場合は、`sonar-project.properties`をcommitしない。
+共有の`.gitignore`も変更せず、repository内だけに効く`.git/info/exclude`へ追加する。
+worktreeでも正しいexclude fileを選べるように、pathはGitから取得する。
+
+```bash
+exclude_file=$(git rev-parse --git-path info/exclude)
+printf '%s\n' 'sonar-project.properties' >> "$exclude_file"
+```
+
+`.git/info/exclude`はrepositoryへcommitされず、ほかの利用者には影響しない。
+すでに追跡されているファイルはexcludeの対象にならない。
+チームで同じ解析設定を使うと合意した場合だけ、`sonar-project.properties`をversion管理する。
 
 `sonar.projectKey`はlocal Server内で一意にする。
 GitHubの`owner-repository`形式に揃えると、同名repositoryを区別できる。

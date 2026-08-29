@@ -73,6 +73,12 @@ Edit that one file to change the rules for all four. It currently tells the
 agents to default to the uv-managed Python (`scripts/python`) rather than system,
 Homebrew, or nix interpreters.
 
+### Keep personal project settings local
+
+このdotfilesの設定は個人利用を前提としています。
+既存の共有repositoryへ任意の設定ファイルを個人用として追加する場合は、共有の`.gitignore`を変更せず、そのrepositoryだけに効く`.git/info/exclude`へpathを追加します。
+チームで共有することを合意した設定だけをversion管理します。
+
 ### Local SonarQube quality gate
 
 SonarQube Server、Scanner、runner、認証情報、AIエージェントの実行規約はdotfilesがmachine-globalに管理します。
