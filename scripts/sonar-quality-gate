@@ -39,18 +39,13 @@ project_key=$(read_property sonar.projectKey) ||
 project_name=$(read_property sonar.projectName || true)
 project_name=${project_name:-$project_key}
 
-untracked_exclusions=()
+sonar_exclusions=$(read_property sonar.exclusions || true)
 while IFS= read -r -d '' path; do
 	if [[ $path == *','* || $path == *'*'* || $path == *'?'* || $path == *$'\n'* ]]; then
 		fail "cannot safely exclude Git-untracked path from SonarQube: $path"
 	fi
-	untracked_exclusions+=("$path")
-done < <(git -C "$project_root" ls-files --others --exclude-standard -z)
-
-sonar_exclusions=$(read_property sonar.exclusions || true)
-for path in "${untracked_exclusions[@]}"; do
 	sonar_exclusions="${sonar_exclusions:+$sonar_exclusions,}$path"
-done
+done < <(git -C "$project_root" ls-files --others --exclude-standard -z)
 
 [[ -f $COMPOSE_FILE ]] || fail "missing $COMPOSE_FILE; run ~/dotfiles/scripts/link"
 for command_name in curl docker dscacheutil jq sonar-scanner; do
@@ -218,8 +213,7 @@ scanner_args=(
 	-Dsonar.qualitygate.timeout=300
 	-Dsonar.scm.exclusions.disabled=false
 )
-if ((${#untracked_exclusions[@]})); then
-	echo "sonar-quality-gate: excluding ${#untracked_exclusions[@]} Git-untracked file(s)"
+if [[ -n $sonar_exclusions ]]; then
 	scanner_args+=("-Dsonar.exclusions=$sonar_exclusions")
 fi
 
