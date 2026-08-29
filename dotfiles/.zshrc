@@ -49,8 +49,8 @@ if type brew &>/dev/null; then
   compinit
 fi
 
-# プロンプト。左に pwd + git ブランチ、右に Claude/Codex の subscription
-# 使用率を常時表示する。使用率の源泉は omp が ~/.omp/agent/agent.db に記録
+# プロンプト。pwd + git ブランチ、Claude/Codex の subscription 使用率、
+# 入力欄を3行に分けて常時表示する。使用率の源泉は omp が記録
 # する usage snapshot（anthropic-usage-guard と同じ）。Claude は
 # F=Fable(7d) / A=全モデル(7d) / S=セッション(5h) の3枠、Codex は primary
 # 枠を表示する。provider名はClaudeがオレンジ、Codexが青。使用率は80%以上を
@@ -111,7 +111,7 @@ _agent_usage_refresh() {
       ORDER BY CASE key WHEN 'F' THEN 0 WHEN 'A' THEN 1 WHEN 'S' THEN 2 ELSE 3 END;" 2>/dev/null)
     (( $#claude )) && parts=("%F{208}Claude%f Usage: ${(j:_:)claude}" $parts)
   fi
-  _agent_usage_rprompt="${(j: / :)parts}"
+  _agent_usage_prompt="${(j: / :)parts}"
 }
 _agent_usage_precmd() {
   if (( SECONDS - _agent_usage_refreshed_at >= 60 )); then
@@ -122,12 +122,11 @@ _agent_usage_precmd() {
 }
 add-zsh-hook precmd _agent_usage_precmd
 
-# pwd が深いと入力位置が右へ流れるので、pwd+ブランチは1行目、入力は2行目。
-# RPROMPT は入力行(2行目)の右に出る。
+# pwd+ブランチ、usage、入力をそれぞれ別の行に表示する。
 PROMPT='%F{blue}%~%f${vcs_info_msg_0_}
+${_agent_usage_prompt}
 %# '
 [[ "$(uname)" == "Linux" ]] && PROMPT='%n@%m '$PROMPT
-RPROMPT='${_agent_usage_rprompt}'
 
 export HOMEBREW_NO_ASK=1
 alias brewup='sudo -v && brew update && brew upgrade --greedy && brew cleanup --prune=all'
