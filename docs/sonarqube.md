@@ -48,6 +48,15 @@ printf '%s\n' 'sonar-project.properties' >> "$exclude_file"
 すでに追跡されているファイルはexcludeの対象にならない。
 チームで同じ解析設定を使うと合意した場合だけ、`sonar-project.properties`をversion管理する。
 
+### 解析対象はGit管理済みファイルに限る
+
+未追跡は除く。
+runnerは実行時に対象を検出し、既存の`sonar.exclusions`へ追加する。
+`.gitignore`や`.git/info/exclude`に登録されたファイルには、SonarQubeのSCM除外を適用する。
+
+Git管理済みファイルにworking tree上の変更がある場合は、その変更後の内容を解析する。
+新規ファイルは`git add`でGitの追跡対象に入るまで解析しない。
+
 `sonar.projectKey`はlocal Server内で一意にする。
 GitHubの`owner-repository`形式に揃えると、同名repositoryを区別できる。
 

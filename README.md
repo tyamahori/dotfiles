@@ -83,6 +83,7 @@ Homebrew, or nix interpreters.
 
 SonarQube Server、Scanner、runner、認証情報、AIエージェントの実行規約はdotfilesがmachine-globalに管理します。
 解析対象のrepositoryには、opt-inと解析範囲を表すroot-levelの`sonar-project.properties`だけを置きます。
+runnerはGit未追跡のファイルを解析から自動除外し、Git管理済みファイルとそのworking tree上の変更だけを解析対象にします。
 
 通常の検証後に`sonar-quality-gate`を実行すると、OrbStack上のlocal Serverを起動し、`http://sonarqube.local`経由で解析してQuality Gateを待ちます。
 初回導入、project設定、日常操作、Dashboard、初期化、troubleshootingは[`docs/sonarqube.md`](docs/sonarqube.md)を参照してください。
