@@ -109,6 +109,13 @@ carry on with what was asked. Validate at system boundaries — user input,
 external APIs — and trust internal code and framework guarantees in between.
 Prefer changing the code over adding a feature flag or compatibility shim.
 
+## Repository quality gates
+
+After the normal verification for a non-trivial implementation, check for
+`sonar-project.properties` at the repository root. If it exists, run
+`sonar-quality-gate` once before reporting completion. A failed Quality Gate
+blocks completion; repositories without that file are deliberately skipped.
+
 ## Structural edits
 
 Use language-server rename/references for symbol-aware refactors when available.

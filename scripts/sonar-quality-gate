@@ -1,0 +1,206 @@
+#!/bin/bash
+set -euo pipefail
+
+DOTFILES_ROOT=${DOTFILES_ROOT:-"$HOME/dotfiles"}
+COMPOSE_FILE="$DOTFILES_ROOT/sonarqube/compose.yaml"
+SONAR_HOST_URL=${SONAR_HOST_URL:-http://sonarqube.local}
+TOKEN_SERVICE=dotfiles-sonarqube-token
+ADMIN_SERVICE=dotfiles-sonarqube-admin
+TOKEN_ACCOUNT=${USER:-local-user}
+TOKEN_NAME="dotfiles-quality-gate-$(hostname -s)"
+
+fail() {
+	echo "sonar-quality-gate: $*" >&2
+	exit 1
+}
+
+project_root=$(git rev-parse --show-toplevel 2>/dev/null) ||
+	fail "run this command inside a Git repository"
+
+if [[ ! -f "$project_root/sonar-project.properties" ]]; then
+	echo "sonar-quality-gate: skipped; $project_root has no sonar-project.properties"
+	exit 0
+fi
+
+read_property() {
+	local key=$1
+	local line
+	while IFS= read -r line; do
+		if [[ $line == "$key="* ]]; then
+			printf '%s' "${line#*=}"
+			return
+		fi
+	done <"$project_root/sonar-project.properties"
+	return 1
+}
+
+project_key=$(read_property sonar.projectKey) ||
+	fail "sonar-project.properties must define sonar.projectKey"
+project_name=$(read_property sonar.projectName || true)
+project_name=${project_name:-$project_key}
+
+[[ -f $COMPOSE_FILE ]] || fail "missing $COMPOSE_FILE; run ~/dotfiles/scripts/link"
+for command_name in curl docker dscacheutil jq sonar-scanner; do
+	command -v "$command_name" >/dev/null 2>&1 || fail "$command_name is required"
+done
+
+start_server() {
+	docker compose -f "$COMPOSE_FILE" up -d
+
+	if [[ $SONAR_HOST_URL == http://sonarqube.local ]]; then
+		local domain_registration
+		for _ in {1..5}; do
+			domain_registration=$(dscacheutil -q host -a name sonarqube.local || true)
+			[[ -n $domain_registration ]] && break
+			sleep 1
+		done
+		if [[ -z $domain_registration ]]; then
+			docker compose -f "$COMPOSE_FILE" restart server
+		fi
+	fi
+
+	local status
+	for _ in {1..120}; do
+		status=$(curl -fsS "$SONAR_HOST_URL/api/system/status" 2>/dev/null || true)
+		if jq -e '.status == "UP"' >/dev/null 2>&1 <<<"$status"; then
+			return
+		fi
+		sleep 2
+	done
+
+	fail "SonarQube did not become ready at $SONAR_HOST_URL within 240 seconds"
+}
+
+keychain_secret() {
+	local account=$1
+	local service=$2
+	security find-generic-password -a "$account" -s "$service" -w 2>/dev/null
+}
+
+store_keychain_secret() {
+	local account=$1
+	local service=$2
+	local secret=$3
+	security add-generic-password -U -a "$account" -s "$service" -w "$secret" >/dev/null
+}
+
+valid_token() {
+	local token=$1
+	local response
+	response=$(curl -fsS -u "$token:" "$SONAR_HOST_URL/api/authentication/validate" 2>/dev/null || true)
+	jq -e '.valid == true' >/dev/null 2>&1 <<<"$response"
+}
+
+valid_admin_password() {
+	local password=$1
+	local response
+	response=$(curl -fsS -u "admin:$password" "$SONAR_HOST_URL/api/authentication/validate" 2>/dev/null || true)
+	jq -e '.valid == true' >/dev/null 2>&1 <<<"$response"
+}
+
+managed_token_valid() {
+	local token=$1
+	valid_token "$token" || return 1
+
+	local admin_password tokens
+	admin_password=$(keychain_secret admin "$ADMIN_SERVICE") || return 1
+	valid_admin_password "$admin_password" || return 1
+	tokens=$(curl -fsS -u "admin:$admin_password" "$SONAR_HOST_URL/api/user_tokens/search") ||
+		return 1
+	jq -e --arg name "$TOKEN_NAME" \
+		'.userTokens[]? | select(.name == $name and .type == "GLOBAL_ANALYSIS_TOKEN")' \
+		>/dev/null <<<"$tokens"
+}
+
+bootstrap_token() {
+	command -v security >/dev/null 2>&1 ||
+		fail "set SONAR_TOKEN; automatic local bootstrap requires macOS Keychain"
+	command -v openssl >/dev/null 2>&1 || fail "openssl is required for local bootstrap"
+
+	local admin_password
+	if admin_password=$(keychain_secret admin "$ADMIN_SERVICE") &&
+		valid_admin_password "$admin_password"; then
+		:
+	else
+		local default_auth
+		default_auth=$(curl -fsS -u admin:admin "$SONAR_HOST_URL/api/authentication/validate" 2>/dev/null || true)
+		jq -e '.valid == true' >/dev/null 2>&1 <<<"$default_auth" ||
+			fail "local admin credentials are already changed; set SONAR_TOKEN or restore the $ADMIN_SERVICE Keychain item"
+
+		admin_password="A1a!$(openssl rand -hex 20)" ||
+			fail "could not generate the local admin password"
+		curl -fsS -u admin:admin -X POST \
+			--data-urlencode login=admin \
+			--data-urlencode previousPassword=admin \
+			--data-urlencode "password=$admin_password" \
+			"$SONAR_HOST_URL/api/users/change_password" >/dev/null ||
+			fail "could not change the default local admin password"
+		store_keychain_secret admin "$ADMIN_SERVICE" "$admin_password" ||
+			fail "could not store the local admin password in Keychain"
+	fi
+
+	local tokens
+	tokens=$(curl -fsS -u "admin:$admin_password" "$SONAR_HOST_URL/api/user_tokens/search") ||
+		fail "could not list local SonarQube tokens"
+	if jq -e --arg name "$TOKEN_NAME" '.userTokens[]? | select(.name == $name)' >/dev/null <<<"$tokens"; then
+		curl -fsS -u "admin:$admin_password" -X POST \
+			--data-urlencode "name=$TOKEN_NAME" \
+			"$SONAR_HOST_URL/api/user_tokens/revoke" >/dev/null ||
+			fail "could not revoke the stale local analysis token"
+	fi
+
+	local token_response token
+	token_response=$(curl -fsS -u "admin:$admin_password" -X POST \
+		--data-urlencode "name=$TOKEN_NAME" \
+		--data-urlencode type=GLOBAL_ANALYSIS_TOKEN \
+		"$SONAR_HOST_URL/api/user_tokens/generate") ||
+		fail "could not generate the local analysis token"
+	token=$(jq -er '.token' <<<"$token_response") ||
+		fail "the local token response did not contain a token"
+	store_keychain_secret "$TOKEN_ACCOUNT" "$TOKEN_SERVICE" "$token" ||
+		fail "could not store the local analysis token in Keychain"
+	printf '%s' "$token"
+}
+
+ensure_project() {
+	local admin_password projects
+	admin_password=$(keychain_secret admin "$ADMIN_SERVICE") ||
+		fail "missing the $ADMIN_SERVICE Keychain item"
+	valid_admin_password "$admin_password" ||
+		fail "the stored local SonarQube admin password is invalid"
+	projects=$(curl -fsS -u "admin:$admin_password" --get \
+		--data-urlencode "projects=$project_key" \
+		"$SONAR_HOST_URL/api/projects/search") ||
+		fail "could not query local SonarQube projects"
+
+	if jq -e --arg key "$project_key" '.components[]? | select(.key == $key)' >/dev/null <<<"$projects"; then
+		return
+	fi
+
+	curl -fsS -u "admin:$admin_password" -X POST \
+		--data-urlencode "project=$project_key" \
+		--data-urlencode "name=$project_name" \
+		"$SONAR_HOST_URL/api/projects/create" >/dev/null ||
+		fail "could not create local SonarQube project $project_key"
+}
+
+start_server
+
+if [[ -n ${SONAR_TOKEN:-} ]]; then
+	valid_token "$SONAR_TOKEN" || fail "SONAR_TOKEN is not valid for $SONAR_HOST_URL"
+	token=$SONAR_TOKEN
+elif token=$(keychain_secret "$TOKEN_ACCOUNT" "$TOKEN_SERVICE") && managed_token_valid "$token"; then
+	:
+else
+	security delete-generic-password -a "$TOKEN_ACCOUNT" -s "$TOKEN_SERVICE" >/dev/null 2>&1 || true
+	if ! token=$(bootstrap_token); then
+		fail "could not bootstrap local SonarQube authentication"
+	fi
+fi
+
+ensure_project
+
+export SONAR_HOST_URL
+export SONAR_TOKEN=$token
+cd "$project_root"
+sonar-scanner -Dsonar.qualitygate.wait=true -Dsonar.qualitygate.timeout=300

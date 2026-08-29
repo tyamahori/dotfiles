@@ -1,0 +1,23 @@
+name: sonarqube
+
+services:
+  server:
+    image: sonarqube:latest
+    labels:
+      dev.orbstack.domains: sonarqube.local
+      dev.orbstack.http-port: "9000"
+    restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 131072
+        hard: 131072
+      nproc: 8192
+    volumes:
+      - data:/opt/sonarqube/data
+      - extensions:/opt/sonarqube/extensions
+      - logs:/opt/sonarqube/logs
+
+volumes:
+  data:
+  extensions:
+  logs:

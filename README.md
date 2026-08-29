@@ -73,6 +73,14 @@ Edit that one file to change the rules for all four. It currently tells the
 agents to default to the uv-managed Python (`scripts/python`) rather than system,
 Homebrew, or nix interpreters.
 
+### Local SonarQube quality gate
+
+SonarQube Server、Scanner、runner、認証情報、AIエージェントの実行規約はdotfilesがmachine-globalに管理します。
+解析対象のrepositoryには、opt-inと解析範囲を表すroot-levelの`sonar-project.properties`だけを置きます。
+
+通常の検証後に`sonar-quality-gate`を実行すると、OrbStack上のlocal Serverを起動し、`http://sonarqube.local`経由で解析してQuality Gateを待ちます。
+初回導入、project設定、日常操作、Dashboard、初期化、troubleshootingは[`docs/sonarqube.md`](docs/sonarqube.md)を参照してください。
+
 ### ponytail (minimal-code mode)
 
 All three coding CLIs (OMP, Claude Code, Codex) run the

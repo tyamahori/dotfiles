@@ -117,6 +117,8 @@ launchctl disable gui/$(id -u)/com.tyamahori.ollama
 | `git/sensitive-patterns.local` | pre-commitガードの追加パターン | 必要になったら再作成 |
 | `~/.wakeup` | 別プロジェクトのsleepwatcherフック | そのプロジェクト側の手順で再リンク |
 | launchdのdisable状態 | ジョブごとの有効と無効の選択 | 6節 |
+| `dotfiles-sonarqube`のDocker volumes | ローカル解析履歴と設定 | `sonar-quality-gate`の初回実行で再作成 |
+| macOS Keychainの`dotfiles-sonarqube-*` | ローカルServerのadminパスワードと解析token | `sonar-quality-gate`の初回実行で再生成 |
 
 sleepwatcher本体はBrewfileで入るが、サービスの起動は手動：`brew services start sleepwatcher`。
 `~/.wakeup` を使うプロジェクトを再構築するときだけでよい。
@@ -138,5 +140,6 @@ sleepwatcher本体はBrewfileで入るが、サービスの起動は手動：`br
 | ponytail | 各CLIで「ponytailのルールは注入されているか」と質問 | `PONYTAIL MODE ACTIVE — level: full` を引用して回答（`docs/ponytail.md`） |
 | jbcontext | リポジトリ内で `jbcontext search "..."` | 検索結果が返る |
 | launchd | `launchctl list \| grep tyamahori` | 6節で選んだジョブだけが載る |
+| SonarQube | dotfiles内で`sonar-quality-gate` | ローカルServerが起動し、Quality Gateが返る |
 
-最終更新：2026-08-26（クリーンセットアップでの通し実行は未経験）。
+最終更新：2026-08-29（クリーンセットアップでの通し実行は未経験）。
