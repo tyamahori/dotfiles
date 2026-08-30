@@ -96,7 +96,7 @@ managed skillの削除も承認対象に含める。
 - 既存skillに同じ責務があれば、重複部分を作らず既存skillへ統合する。
 - 新しいskillのfrontmatterには、具体的な発火条件を `description` に書く。
 - セッションの時系列や作業ログを転記せず、再利用する判断条件と手順だけを残す。
-- Hermes、Claude Code、Codexなど別基盤のtool名が混ざっていればOMPの語彙へ変換する。
+- Claude Code、Codexなど別基盤のtool名が混ざっていればOMPの語彙へ変換する。
 - グローバルskillを新設した場合は `~/dotfiles/scripts/link` で共有skillのsymlinkを作る。
 - 昇格済みmanaged skillは、authored側の実動確認後にだけ削除する。
 - `learned.md` とlocal memory生成物は履歴・再統合の入力なので、昇格を理由に削除しない。
