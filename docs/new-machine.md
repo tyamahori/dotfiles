@@ -61,7 +61,7 @@ gh auth login
 ```
 
 `.gitconfig` のcredential helperはgh経由なので、HTTPSリモートはこれで通るようになる。
-`gh` 本体はsetupの管理外（現行マシンは `nix profile` で導入）。`gh` がある状態で `scripts/init` を再実行すると `gh-copilot` 拡張が入る。
+`gh` 本体はsetupの管理外。未導入なら手動で導入し、`gh` がある状態で `scripts/init` を再実行すると `gh-copilot` 拡張が入る。
 
 ### エージェントCLI
 

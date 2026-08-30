@@ -15,7 +15,7 @@ Anthropic (claude-*) and OpenAI (openai-codex/*) use separate subscription pools
 
 - Cross-review Claude-authored work with a Codex-family reviewer, never Claude Code.
 - Fallback is two-way and usage-aware (`retry.fallbackChains`, 20% reserve): Anthropic drains to `openai-codex/gpt-5.6-sol` then `gpt-5.4`; Codex drains to `anthropic/claude-sonnet-5` then `claude-haiku-4-5`.
-- The `anthropic-usage-guard` extension covers the model-scoped Anthropic gap (e.g. `7d:fable`) with an automatic switch, and notifies when the Codex weekly pool passes 80% used; both check at session start and every five minutes. The guard switches at most once per depletion window; a manual `/model` choice made afterwards is kept for that window.
+- The `anthropic-usage-guard` extension covers the model-scoped Anthropic gap (e.g. `7d:fable`) with an automatic switch, and notifies when the Codex weekly pool passes 80% used; both check at session start and every five minutes. The guard's Anthropic→Codex switch happens at most once per depletion window; a manual `/model` choice made afterwards is kept for that window, except that the ≥98% dual-depletion local rescue below may override once more.
 - When both pools are effectively depleted (≥98%), the guard probes local ollama and switches the main thread to qwen only if it responds; ollama absent means no action. Never assume ollama is running.
 
 
