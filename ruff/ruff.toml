@@ -1,0 +1,8 @@
+# Machine-global fallback for `ruff check`, applied only when the checked
+# project has no pyproject.toml/ruff.toml of its own (a project config always
+# wins). scripts/lint-on-edit blocks agent edits on findings, so this stays on
+# correctness-only rules: ruff 0.16's built-in default enables opinionated
+# rules (import sorting I001, EXE001, ...) that would turn the hook into a
+# style nag in unconfigured repos.
+[lint]
+select = ["E4", "E7", "E9", "F"]

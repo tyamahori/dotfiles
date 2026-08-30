@@ -182,7 +182,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$HOME/dotfiles/scripts/shellcheck-on-edit\"",
+            "command": "\"$HOME/dotfiles/scripts/lint-on-edit\"",
             "timeout": 15
           },
           {

@@ -30,6 +30,12 @@ done
 mkdir -p "$HOME/.config/git"
 ln -snfv "${GIT_DIR}/ignore" "$HOME/.config/git/ignore"
 
+# ruff user-level fallback (correctness-only rules); a project's own
+# pyproject.toml/ruff.toml always takes precedence. ruff resolves the user
+# config from XDG ~/.config even on macOS.
+mkdir -p "$HOME/.config/ruff"
+ln -snfv "${REPO_ROOT}/ruff/ruff.toml" "$HOME/.config/ruff/ruff.toml"
+
 # Keep this public repository's machine-specific data guard active for both
 # agent-driven and manual commits.
 git -C "$REPO_ROOT" config core.hooksPath "${REPO_ROOT}/git/hooks"
@@ -140,6 +146,7 @@ ln -snfv "${REPO_ROOT}/scripts/omp-review" "$HOME/.local/bin/omp-review"
 ln -snfv "${REPO_ROOT}/scripts/omp-learning-review" "$HOME/.local/bin/omp-learning-review"
 ln -snfv "${REPO_ROOT}/scripts/worktree-include-copy" "$HOME/.local/bin/worktree-include-copy"
 ln -snfv "${REPO_ROOT}/scripts/sonar-quality-gate" "$HOME/.local/bin/sonar-quality-gate"
+ln -snfv "${REPO_ROOT}/scripts/semgrep-quality-gate" "$HOME/.local/bin/semgrep-quality-gate"
 mkdir -p "$HOME/.codex"
 ln -snfv "${REPO_ROOT}/codex/hooks.json" "$HOME/.codex/hooks.json"
 if command -v codex >/dev/null 2>&1; then

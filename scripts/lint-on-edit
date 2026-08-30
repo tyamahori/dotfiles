@@ -1,0 +1,45 @@
+#!/bin/bash
+# Shared PostToolUse hook: lint a file right after an agent writes or edits
+# it, feeding findings back so they are fixed before commit. Dispatches by
+# file type: shellcheck for sh/bash, ruff for Python, actionlint for GitHub
+# workflow files. Reads Claude-style JSON ({tool_input:{file_path}}) on stdin
+# and emits a {decision:"block"} JSON on findings. Consumers: Claude Code
+# (settings.json, Write|Edit matcher), Codex (codex/hooks/lint-edit.sh
+# adapter), OMP (omp/extensions/lint-on-edit.ts). zsh is skipped (shellcheck
+# cannot parse it). Clean files, non-target files, and files whose linter is
+# not installed produce no output at all.
+set -euo pipefail
+
+file=$(jq -r '.tool_input.file_path // empty')
+[ -n "$file" ] && [ -f "$file" ] || exit 0
+
+linter=
+case "$file" in
+  */.github/workflows/*.yml|*/.github/workflows/*.yaml) linter=actionlint ;;
+  *.py) linter=ruff ;;
+  *.sh|*.bash) linter=shellcheck ;;
+  *.zsh) exit 0 ;;
+  *)
+    shebang=$(head -1 "$file")
+    if printf '%s' "$shebang" | grep -Eq '^#!.*\b(ba)?sh\b'; then
+      linter=shellcheck
+    elif printf '%s' "$shebang" | grep -Eq '^#!.*\bpython'; then
+      linter=ruff
+    else
+      exit 0
+    fi
+    ;;
+esac
+
+command -v "$linter" >/dev/null || exit 0
+
+# Never fail the hook itself; findings go back via decision:block.
+case "$linter" in
+  shellcheck) findings=$(shellcheck --format=gcc "$file" 2>&1 | head -c 4000) || true ;;
+  ruff) findings=$(ruff check --no-cache --quiet --output-format concise "$file" 2>&1 | head -c 4000) || true ;;
+  actionlint) findings=$(actionlint -no-color "$file" 2>&1 | head -c 4000) || true ;;
+esac
+[ -n "$findings" ] || exit 0
+
+jq -n --arg reason "$linter found issues in the file you just edited — fix them now:
+$findings" '{decision: "block", reason: $reason}'

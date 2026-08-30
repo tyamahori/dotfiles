@@ -1,7 +1,7 @@
 #!/bin/bash
-# Translate Codex apply_patch PostToolUse payloads into the shared shellcheck
-# hook (scripts/shellcheck-on-edit). Emits at most one block decision per
-# tool call so Codex gets a single actionable reason.
+# Translate Codex apply_patch PostToolUse payloads into the shared lint hook
+# (scripts/lint-on-edit: shellcheck / ruff / actionlint). Emits at most one
+# block decision per tool call so Codex gets a single actionable reason.
 set -euo pipefail
 
 payload=$(cat)
@@ -23,7 +23,7 @@ while IFS= read -r file; do
 	*) file="$cwd/$file" ;;
 	esac
 	result=$(jq -n --arg file "$file" '{tool_input: {file_path: $file}}' |
-		"$HOME/dotfiles/scripts/shellcheck-on-edit")
+		"$HOME/dotfiles/scripts/lint-on-edit")
 	if [ -n "$result" ]; then
 		printf '%s\n' "$result"
 		exit 0

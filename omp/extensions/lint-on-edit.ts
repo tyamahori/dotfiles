@@ -1,14 +1,14 @@
-// write/edit/apply_patch 直後にシェルスクリプトへ shellcheck をかけ、指摘を
-// steer 注入で即時に直させる。Claude(PostToolUse の decision:block)/Codex
-// (codex/hooks/shellcheck-edit.sh)と同じ共有スクリプト
-// scripts/shellcheck-on-edit を使う OMP 版。パス抽出は japanese-prose.ts と
-// 同型だが、拡張子で絞らず共有スクリプト側の shebang 判定に委ねる。
+// write/edit/apply_patch 直後に編集ファイルへ lint(shellcheck / ruff /
+// actionlint)をかけ、指摘を steer 注入で即時に直させる。Claude(PostToolUse
+// の decision:block)/Codex(codex/hooks/lint-edit.sh)と同じ共有スクリプト
+// scripts/lint-on-edit を使う OMP 版。パス抽出は japanese-prose.ts と
+// 同型だが、拡張子で絞らず共有スクリプト側の判定に委ねる。
 
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
 
-const HOOK = join(homedir(), "dotfiles/scripts/shellcheck-on-edit");
+const HOOK = join(homedir(), "dotfiles/scripts/lint-on-edit");
 const URI_OR_SELECTOR = /^[A-Za-z][A-Za-z0-9+.-]*:/;
 
 type UnknownRecord = Record<string, unknown>;
@@ -92,7 +92,7 @@ export function editedPaths(event: ToolEvent): string[] {
   return [...paths].filter((path) => !URI_OR_SELECTOR.test(path));
 }
 
-export default function shellcheckOnEdit(pi: ExtensionApi): void {
+export default function lintOnEdit(pi: ExtensionApi): void {
   pi.on("tool_result", (event, ctx) => {
     if (event.isError) return;
     const cwd = ctx?.cwd || process.cwd();
@@ -112,7 +112,7 @@ export default function shellcheckOnEdit(pi: ExtensionApi): void {
           decision.decision === "block" &&
           typeof decision.reason === "string"
         ) {
-          pi.sendUserMessage?.(`[shellcheck-on-edit] ${decision.reason}`, {
+          pi.sendUserMessage?.(`[lint-on-edit] ${decision.reason}`, {
             deliverAs: "steer",
           });
         }

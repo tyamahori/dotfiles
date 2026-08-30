@@ -1,5 +1,5 @@
 {
-  "description": "Block bare Python, notify on approval, title Herdr panes, review edited Japanese prose, shellcheck edited shell scripts, detect jbcontext clobbers, sweep worktree includes, and hint on locked-1Password SSH failures.",
+  "description": "Block bare Python, notify on approval, title Herdr panes, review edited Japanese prose, lint edited shell/Python/workflow files, detect jbcontext clobbers, sweep worktree includes, and hint on locked-1Password SSH failures.",
   "hooks": {
     "PermissionRequest": [
       {
@@ -44,7 +44,7 @@
             "type": "command"
           },
           {
-            "command": "\"$HOME/dotfiles/codex/hooks/shellcheck-edit.sh\"",
+            "command": "\"$HOME/dotfiles/codex/hooks/lint-edit.sh\"",
             "timeout": 15,
             "type": "command"
           }
