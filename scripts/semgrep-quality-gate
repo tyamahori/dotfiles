@@ -1,0 +1,30 @@
+#!/bin/bash
+set -euo pipefail
+
+fail() {
+	echo "semgrep-quality-gate: $*" >&2
+	exit 1
+}
+
+project_root=$(git rev-parse --show-toplevel 2>/dev/null) ||
+	fail "run this command inside a Git repository"
+
+if [[ ! -f "$project_root/.semgrep.yaml" ]]; then
+	echo "semgrep-quality-gate: skipped; $project_root has no .semgrep.yaml"
+	exit 0
+fi
+
+command -v semgrep >/dev/null 2>&1 ||
+	fail "semgrep is required; run ~/dotfiles/scripts/devbox"
+
+cd "$project_root"
+# --metrics=off keeps the scan fully local, which restricts --config to local
+# rule files: registry packs (p/...) refuse to load without metrics, so repos
+# vendor them into .semgrep.yaml instead (see docs/semgrep.md).
+# The rules file excludes itself because generic-language patterns would
+# otherwise match their own source text.
+semgrep scan \
+	--config .semgrep.yaml \
+	--exclude .semgrep.yaml \
+	--metrics=off \
+	--error

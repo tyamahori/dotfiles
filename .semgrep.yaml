@@ -1,0 +1,19 @@
+rules:
+  # scripts/link 76ec771: under `set -o pipefail`, `cmd | grep -q pat` dies
+  # with SIGPIPE (141) when grep exits at the first match before cmd finishes
+  # writing, so guard branches misfire. Capture first, then grep the variable.
+  # printf/echo producers are the prescribed fix shape and stay allowed.
+  - id: pipe-into-grep-q-under-pipefail
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      "cmd | grep -q" under pipefail fails with SIGPIPE when grep exits early.
+      Capture first: out="$(cmd || true)"; then grep -q pattern <<<"$out".
+    patterns:
+      - pattern: "| grep -q"
+      - pattern-not-inside: printf ... | grep -q
+      - pattern-not-inside: echo ... | grep -q
+    paths:
+      include:
+        - scripts
+        - git
