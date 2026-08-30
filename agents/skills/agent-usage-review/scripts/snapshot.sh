@@ -228,7 +228,7 @@ find "$HOME/.claude/projects" -name '*.jsonl' -newermt "$CUTOFF" 2>/dev/null | w
 		| ([$a[].message.usage.cache_creation_input_tokens // 0] | add // 0) as $cw
 		| ($fresh + $cr + $cw) as $seen
 		| (if $seen > 0 then $cr / $seen else 1 end) as $hit
-		| ([$a[].message.model // "?"] | unique | length) as $models
+		| ([$a[].message.model // "?" | select(. != "<synthetic>")] | unique | length) as $models
 		| ([$human[]
 			| .message.content
 			| if type=="string" then length
