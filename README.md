@@ -12,7 +12,7 @@ cd ~/project/dotfiles
 
 `scripts/setup` runs the following in order:
 
-1. `scripts/init` — install Homebrew, Nix, Devbox, and `gh` extensions
+1. `scripts/init` — install Homebrew, Nix, Devbox, and — only when `gh` is already installed — its extensions (`gh` itself is not managed by setup)
 2. `scripts/apps` — install the repository Brewfile on macOS
 3. `scripts/devbox` — install global devbox packages and lockfile-pinned dependencies for local hooks
 4. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`
@@ -185,7 +185,7 @@ the ecosystem move, a self-checking loop keeps it honest:
   `--save` archives a snapshot to `~/.local/state/python-usage-audit/` and
   prints a delta vs the previous one. This is how to tell whether the skill
   is actually improving agent behavior.
-- **`launchd/com.tyamahori.python-skill-review.plist`** (linked & loaded by
+- **`launchd/com.tyamahori.python-skill-review.plist`** (rendered & loaded by
   `scripts/link`) fires **`scripts/python-skill-review`** quarterly
   (Jan/Apr/Jul/Oct 15th, 09:47; a sleeping Mac runs it on wake). It runs a
   headless `claude -p` that re-audits, checks uv release notes, and writes a

@@ -61,7 +61,7 @@ gh auth login
 ```
 
 `.gitconfig` のcredential helperはgh経由なので、HTTPSリモートはこれで通るようになる。
-`gh-copilot` 拡張は `scripts/init` が導入済み。
+`gh` 本体はsetupの管理外（現行マシンは `nix profile` で導入）。`gh` がある状態で `scripts/init` を再実行すると `gh-copilot` 拡張が入る。
 
 ### エージェントCLI
 
@@ -87,10 +87,10 @@ OrbStack、Superwhisper、Slackなどは各自サインインする。
 3. 直後に `git -C ~/dotfiles status` を確認する。
    setup-agentは共有指示ファイル（`agents/global-instructions.md`）を単一エージェント流儀に書き換えるので、差分が出ていたらエージェント中立版（コミット `e674eb5` の形）に再マージする。
    `claude/settings.json` に差分が出た場合もrevertする。jbcontextのClaudeフックの置き場は `~/.claude/settings.local.json` であり、リポジトリ管理の `settings.json` には入れない。
-4. 自動更新による再書き換えを防ぐため、`~/.jbcontext/config.json` の `agentSetups` でCLAUDE:USERの `hooks` と `instructions`、CODEX:USERの `instructions` を無効にする。
+4. 再書き換えの検知が効いていることを確認する。かつての予防フラグ（`agentSetups` の `hooks` / `instructions` 無効化）は0.9.11系のスキーマ変更で消滅しており、防御は検知に移行済み。`scripts/jbcontext-clobber-check`（Claude / Codexの SessionStart フック）と `omp/extensions/jbcontext-clobber-guard.ts` が、セッション開始時に監視対象2ファイルの未コミット差分を警告する。
 
-手動で `setup-agent` を再実行するとこのフラグが戻ることがある。
-実行したら毎回3と4を確認し直す。
+自動更新や手動の `setup-agent` 再実行で書き換えは再発する。
+警告が出たら3の再マージをやり直し、`~/.jbcontext/logs/jbcontext.log` のAutoUpdater行と突合する。
 
 ## 6. launchdジョブの有効と無効を選ぶ
 
@@ -117,7 +117,7 @@ launchctl disable gui/$(id -u)/com.tyamahori.ollama
 | `git/sensitive-patterns.local` | pre-commitガードの追加パターン | 必要になったら再作成 |
 | `~/.wakeup` | 別プロジェクトのsleepwatcherフック | そのプロジェクト側の手順で再リンク |
 | launchdのdisable状態 | ジョブごとの有効と無効の選択 | 6節 |
-| `dotfiles-sonarqube`のDocker volumes | ローカル解析履歴と設定 | `sonar-quality-gate`の初回実行で再作成 |
+| Composeプロジェクト`sonarqube`のDocker volumes | ローカル解析履歴と設定 | `sonar-quality-gate`の初回実行で再作成 |
 | macOS Keychainの`dotfiles-sonarqube-*` | ローカルServerのadminパスワードと解析token | `sonar-quality-gate`の初回実行で再生成 |
 
 sleepwatcher本体はBrewfileで入るが、サービスの起動は手動：`brew services start sleepwatcher`。

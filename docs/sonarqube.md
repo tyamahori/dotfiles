@@ -91,7 +91,7 @@ Git rootを検出して、次の処理を順に行う。
 
 1. OrbStackでSonarQube Serverを起動する。
 2. `http://sonarqube.local`が応答するまで待つ。
-3. 初回だけadmin passwordとanalysis tokenを生成し、macOS Keychainへ保存する。
+3. 初回にadmin passwordとanalysis tokenを生成してmacOS Keychainへ保存する（保存済みtokenが無効になっていた場合は再生成する）。
 4. 未作成のprojectをlocal Serverへ登録する。
 5. `sonar-scanner`を実行し、Quality Gateの判定を最大300秒待つ。
 

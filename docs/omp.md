@@ -137,7 +137,8 @@ OMP 17.4.2 の `/handoff` は新しいセッションを作らず、引き継ぎ
 
 モデルを永続的に変更する場合は、`omp/config.yml` の `modelRoles` を更新してください。
 セッション内での選択だけでは永続化されません。
-手動で選んだモデルは、現在のセッションでは quota guard による自動切り替えより優先されます。
+quota guard の自動切り替えは、利用枠のしきい値到達時に一度だけ走ります。
+その後に手動で選び直したモデルは、同じ枠が続く間は guard に再上書きされません。
 
 ## 依頼の出し方
 
@@ -384,7 +385,7 @@ omp-apply
 ## plugin の管理
 
 本体にない plugin は `scripts/omp-plugins` で宣言しています。
-現在導入しているのは Plannotator です。
+現在導入しているのは Plannotator と ponytail（`docs/ponytail.md`）です。
 `/context` や外部 directory の追加など、本体に同等機能があるものは重複して導入しません。
 
 OMP 更新後の通常運用では、前節の `omp-apply` を使います。
@@ -454,7 +455,7 @@ cd ~/dotfiles
 omp usage
 ```
 
-自分で `/model` から選んだモデルは現在のセッションで優先されます。
+guard の切り替えは利用枠ごとに一度だけなので、`/model` で選び直せばその枠の間は再上書きされません。
 恒久的に変える場合は `omp/config.yml` の role と fallback を見直します。
 
 ### コマンドの仕様を忘れた
