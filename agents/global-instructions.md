@@ -216,6 +216,9 @@ CA bundles and diverge behind corporate CAs). devbox precedes Homebrew in
 PATH, so a duplicate install silently shadows the brew copy. Don't
 `brew install` / `devbox global add` / `nix profile add` ad hoc — add the
 package to the owning file and run its script.
+Upgrades go through `~/dotfiles/scripts/brewUpdate`, never bare
+`brew upgrade` — bare upgrades trigger `brew cleanup`, which deletes old omp
+kegs that running OMP sessions still spawn from.
 
 ## Fetching web content
 
