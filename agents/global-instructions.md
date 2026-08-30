@@ -111,10 +111,15 @@ Prefer changing the code over adding a feature flag or compatibility shim.
 
 ## Repository quality gates
 
-After the normal verification for a non-trivial implementation, check for
-`sonar-project.properties` at the repository root. If it exists, run
-`sonar-quality-gate` once before reporting completion. A failed Quality Gate
-blocks completion; repositories without that file are deliberately skipped.
+After the normal verification for a non-trivial implementation, check the
+repository root for these opt-in files and run each matching gate once
+before reporting completion:
+
+- `sonar-project.properties` → `sonar-quality-gate`
+- `.semgrep.yaml` → `semgrep-quality-gate`
+
+A failed gate blocks completion; repositories without the corresponding
+file are deliberately skipped.
 
 ## Structural edits
 
