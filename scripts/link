@@ -81,6 +81,17 @@ if command -v herdr >/dev/null 2>&1 && herdr --skill >/dev/null 2>&1; then
 	done
 fi
 
+# hunk's bundled hunk-review skill (live diff session control): symlink the
+# unversioned brew opt path so links survive upgrades. Machine-level tool
+# like herdr, so it IS linked globally.
+hunk_skill="$(brew --prefix hunk 2>/dev/null || true)/libexec/skills/hunk-review"
+if [[ -d $hunk_skill ]]; then
+	for skills_dir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills" "$HOME/.agents/skills"; do
+		mkdir -p "$skills_dir"
+		ln -snfv "$hunk_skill" "$skills_dir/hunk-review"
+	done
+fi
+
 # Machine-wide diagram/review toolchain. Unlike ordinary third-party skills,
 # these are explicit cross-host integrations used from any repository, so keep
 # them global and bootstrap them here when missing.
