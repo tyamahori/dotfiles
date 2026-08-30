@@ -37,3 +37,9 @@ if ((${#failures[@]} > 0)); then
 	printf 'Review the staged paths and added lines. If the content is intentionally public, commit with --no-verify.\n' >&2
 	exit 1
 fi
+
+# This repo sets a local core.hooksPath, which bypasses the machine-global
+# dispatcher — run the same global pre-commit checks here explicitly (same
+# pattern as the commit-msg symlink).
+"$repo_root/git/global-hooks/checks/pre-commit-semgrep"
+"$repo_root/git/global-hooks/checks/pre-commit-gitleaks"

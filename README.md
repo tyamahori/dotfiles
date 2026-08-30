@@ -43,14 +43,25 @@ machine-global check and then delegates to the repository's own
 Repositories that set a local `core.hooksPath` — husky, lefthook, and this
 repository itself — bypass the global directory entirely.
 
-Current check: **commit-msg Why guard**
-(`git/global-hooks/checks/commit-msg-why`) — enforces the "commit logs carry
-the Why" rule from `agents/global-instructions.md` by rejecting subject-only
-messages for changes over 3 lines. Merge/cherry-pick/rebase messages,
-`fixup!`/`squash!`/`amend!`/`Revert` subjects, and tiny diffs are exempt;
-genuinely trivial commits can bypass with `git commit --no-verify`. This
-repository wires the same check through its local `git/hooks/commit-msg`
-symlink.
+Current checks:
+
+- **commit-msg Why guard**
+  (`git/global-hooks/checks/commit-msg-why`) — enforces the "commit logs carry
+  the Why" rule from `agents/global-instructions.md` by rejecting subject-only
+  messages for changes over 3 lines. Merge/cherry-pick/rebase messages,
+  `fixup!`/`squash!`/`amend!`/`Revert` subjects, and tiny diffs are exempt.
+- **pre-commit semgrep** (`checks/pre-commit-semgrep`) — runs the same rules
+  as `semgrep-quality-gate` on the staged files only (repo `.semgrep.yaml`,
+  falling back to `semgrep/default.yaml`), so the completion gate holds even
+  when a session forgets to run it. See [`docs/semgrep.md`](docs/semgrep.md).
+- **pre-commit gitleaks** (`checks/pre-commit-gitleaks`) — scans the staged
+  diff for secrets; false positives are silenced with a `gitleaks:allow`
+  comment.
+
+Genuinely exceptional commits bypass all checks with `git commit --no-verify`.
+This repository sets a local `core.hooksPath`, so it wires the same checks
+through `git/hooks/commit-msg` (symlink) and explicit calls at the end of its
+`git/hooks/pre-commit`.
 
 ## OMP (Oh My Pi)
 
@@ -139,9 +150,9 @@ OMP mirrors each one as an extension in `omp/extensions/`:
 
 - **bare-Python deny** — `scripts/deny-bare-python-hook` forces the
   uv invocation forms required by the shared instructions.
-- **shellcheck on edit** — `scripts/shellcheck-on-edit` lints shell scripts
-  right after an agent writes or edits them and feeds findings back for an
-  immediate fix.
+- **lint on edit** — `scripts/lint-on-edit` lints files right after an agent
+  writes or edits them (shellcheck for shell, ruff for Python, actionlint for
+  GitHub workflow files) and feeds findings back for an immediate fix.
 - **jbcontext clobber check** — `scripts/jbcontext-clobber-check` warns at
   session start when `agents/global-instructions.md` or
   `claude/settings.json` carry uncommitted changes — the signature of a

@@ -79,20 +79,28 @@ semgrep-quality-gate
 ```
 
 commandはGit repository内のどのdirectoryから実行してもよい。
-Git rootの`.semgrep.yaml`をruleとして`semgrep scan`を実行し、指摘が1件でもあればexit statusが非0になる。
+Git rootの`.semgrep.yaml`（なければdotfilesのdefault ruleset）をruleとして`semgrep scan`を実行し、指摘が1件でもあればexit statusが非0になる。
 `.gitignore`されたファイルは検査しない。
-Claude Code、Codex、OMPは、rootに`.semgrep.yaml`があるリポジトリで、通常の検証後にこのcommandを一度実行する。
+Claude Code、Codex、OMPは、すべてのリポジトリで通常の検証後にこのcommandを一度実行する。
 
 誤検知を1行だけ抑止する場合は、該当行に理由つきで`# nosemgrep: <rule id>`commentを置く。
 抑止が繰り返し必要なruleは、rule側の`pattern-not-inside`や`paths`を直す。
+
+## pre-commitでも同じruleが走る
+
+machine-globalのgit hook（`git/global-hooks/checks/pre-commit-semgrep`）が、commitのたびにstaged fileだけを同じrule設定で検査する。
+エージェントがgateを実行し忘れても、手動commitでも、指摘があるfileはcommitできない。
+rule解決はgateと同じで、repoの`.semgrep.yaml`が優先、なければdotfilesのdefault rulesetにfallbackする。
+意図的に通す場合は`--no-verify`で1回だけbypassする。
+検査対象はstaged fileのworking tree版であり、index版ではない。
 
 ## エラーから復旧する
 
 ### `skipped; ... has no .semgrep.yaml`
 
 これは正常終了である。
-対象リポジトリはopt-inしていない。
-検査する場合はrootへ`.semgrep.yaml`を追加する。
+rootの`.semgrep.yaml`もdotfilesの`semgrep/default.yaml`も見つからないマシンでだけ表示される。
+dotfilesを`~/dotfiles`へ配置済みなら通常は発生しない。
 
 ### `semgrep is required`
 

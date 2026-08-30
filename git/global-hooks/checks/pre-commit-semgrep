@@ -1,0 +1,34 @@
+#!/bin/bash
+# Machine-global pre-commit check: run the same semgrep rules that
+# semgrep-quality-gate uses, but only on the files staged in this commit, so
+# the gate holds structurally — for manual commits and for agent sessions
+# that forget the completion gate. Repo-local .semgrep.yaml wins; otherwise
+# the machine-global default ruleset applies. A repo opts out with a
+# committed `rules: []` config; one commit escapes with --no-verify.
+# ponytail: scans the working-tree version of staged files, not the index —
+# fine for a lint gate; switch to a temp-index checkout if it ever matters.
+set -euo pipefail
+
+command -v semgrep >/dev/null || exit 0
+
+repo_root=$(git rev-parse --show-toplevel)
+DOTFILES_ROOT=${DOTFILES_ROOT:-"$HOME/dotfiles"}
+config="$repo_root/.semgrep.yaml"
+[[ -f $config ]] || config="$DOTFILES_ROOT/semgrep/default.yaml"
+[[ -f $config ]] || exit 0
+
+cd "$repo_root"
+targets=()
+while IFS= read -r -d '' file; do
+	# Skip files deleted from the working tree and the rule file itself
+	# (generic-language patterns would match their own source text).
+	[[ -f $file && $file != .semgrep.yaml ]] && targets+=("$file")
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+((${#targets[@]})) || exit 0
+
+# --metrics=off keeps the scan local (see scripts/semgrep-quality-gate).
+if ! semgrep scan --config "$config" --metrics=off --error --quiet "${targets[@]}"; then
+	echo "pre-commit: semgrep found issues in staged files (rules: $config)." >&2
+	echo "Fix them, add '# nosemgrep: <rule id>' with a reason, or commit with --no-verify." >&2
+	exit 1
+fi

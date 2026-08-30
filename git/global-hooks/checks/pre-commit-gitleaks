@@ -1,0 +1,16 @@
+#!/bin/bash
+# Machine-global pre-commit check: scan the staged diff for secrets with
+# gitleaks before they enter history. Complements the semgrep check (bug
+# patterns) with credential detection; dotfiles' own machine-specific-data
+# guard stays separate in that repo's local pre-commit. Intentional test
+# fixtures can bypass a single commit with --no-verify or an inline
+# `gitleaks:allow` comment.
+set -euo pipefail
+
+command -v gitleaks >/dev/null || exit 0
+
+if ! gitleaks git --pre-commit --staged --redact --no-banner --verbose; then
+	echo "pre-commit: gitleaks flagged a possible secret in the staged diff." >&2
+	echo "Remove it, mark a false positive with a 'gitleaks:allow' comment, or commit with --no-verify." >&2
+	exit 1
+fi

@@ -16,6 +16,10 @@ case $hook_name in
 commit-msg)
 	"$hook_dir/checks/commit-msg-why" "$@"
 	;;
+pre-commit)
+	"$hook_dir/checks/pre-commit-semgrep" "$@"
+	"$hook_dir/checks/pre-commit-gitleaks" "$@"
+	;;
 esac
 
 repo_hook="$(git rev-parse --git-common-dir)/hooks/$hook_name"
