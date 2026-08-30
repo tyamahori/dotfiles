@@ -508,6 +508,29 @@ audience として残る。各 target の settle・配送・着火観測を個�
 5. aggregate unresolved high/mid はユーザーの DECISION を待つ。二人の VERIFIED と
    必要な DECISION が揃い、`require-closed` が通るまで完了と報告しない。
 
+### hunk による live 案内（任意・presentation 層）
+
+レビュー対象の checkout で hunk TUI（`brew "hunk"`、live session を
+`hunk session ...` CLI で外部制御できる diff ビューア）が開いているとき、
+coordinator は指摘を画面上で案内してよい。contract は一切変えない —
+台帳が唯一の正本で、hunk のコメントは live session 限りの表示にすぎない。
+
+- 発動条件: `hunk session list` に対象 repo / worktree の session がある
+  ときだけ。案内のために TUI の起動をピアへ要求しない（開くのはユーザー）。
+- coordinator は FINDINGS（panel は CONSOLIDATED）を台帳へ取り込んだ後、
+  high/mid を `hunk session comment apply --repo <対象> --stdin` で
+  インラインコメントとして鏡映する。summary の先頭に source ID を書き
+  （例: `finding-2: ...`）、`navigate --next-comment` で該当行を案内する。
+- 固定 revision の表示: revision が `commit:` の flow では
+  `hunk session reload --repo <対象> -- show <commit>` で pane を該当
+  changeset に合わせられる（APPLIED 後の再検証案内は `<result-revision>`）。
+  snapshot revision に対応する表示コマンドはないので、worktree 表示のまま
+  案内に留める。
+- 操作は coordinator のみ。reviewer の contract は不変 — return file を
+  書いて turn を終える（sandbox の loopback 制限で reviewer からは daemon が
+  見えないことがある）。hunk 上のコメント有無・既読状態から FINDINGS /
+  VERIFIED / closure を主張しない。
+
 ## トポロジー
 
 - **1:1直接配送**: coordinator からピアへの HANDOFF / REVIEW-REQ / APPLIED や、
