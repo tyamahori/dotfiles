@@ -58,12 +58,14 @@ rootに`.semgrep.yaml`がないリポジトリでは、`semgrep-quality-gate`は
 Semgrep公式のregistry ruleset（`p/secrets`など）を使う場合は、参照ではなくfileへ取り込む。
 runnerは解析をlocalに保つため`--metrics=off`で実行しており、registryの動的参照はmetrics送信なしでは動かない。
 
+まず一時fileへ取得し、内容を確認して不要なruleを削る。
+
 ```bash
-curl -fsS https://semgrep.dev/c/p/<ruleset名> >> .semgrep.yaml
+curl -fsS https://semgrep.dev/c/p/<ruleset名> -o /tmp/<ruleset名>.yaml
 ```
 
-取り込んだfileは`rules:`配下のlistが重複するため、複数取り込むときは手で一つの`rules:`にまとめる。
-取り込み後は内容を確認し、不要なruleを削ってからcommitまたはexcludeする。
+`.semgrep.yaml`がまだないrepositoryでは、確認済みの一時fileをそのまま`.semgrep.yaml`として置く。
+既存の`.semgrep.yaml`があるrepositoryでは、追記（`>>`）すると`rules:`のtop-level keyが重複して単一のconfigとして読めなくなるため、一時fileの`rules:`配下のentryを既存fileの`rules:` list末尾へ手で移す。
 
 ## Quality Gateを実行する
 
