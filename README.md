@@ -151,8 +151,9 @@ OMP mirrors each one as an extension in `omp/extensions/`:
 - **bare-Python deny** — `scripts/deny-bare-python-hook` forces the
   uv invocation forms required by the shared instructions.
 - **lint on edit** — `scripts/lint-on-edit` lints files right after an agent
-  writes or edits them (shellcheck for shell, ruff for Python, actionlint for
-  GitHub workflow files) and feeds findings back for an immediate fix.
+  writes or edits them (shellcheck for shell, ruff for Python, oxlint for
+  TypeScript/JavaScript, actionlint for GitHub workflow files) and feeds
+  findings back for an immediate fix.
 - **jbcontext clobber check** — `scripts/jbcontext-clobber-check` warns at
   session start when `agents/global-instructions.md` or
   `claude/settings.json` carry uncommitted changes — the signature of a

@@ -1,8 +1,9 @@
 #!/bin/bash
 # Shared PostToolUse hook: lint a file right after an agent writes or edits
 # it, feeding findings back so they are fixed before commit. Dispatches by
-# file type: shellcheck for sh/bash, ruff for Python, actionlint for GitHub
-# workflow files. Reads Claude-style JSON ({tool_input:{file_path}}) on stdin
+# file type: shellcheck for sh/bash, ruff for Python, oxlint for
+# TypeScript/JavaScript, actionlint for GitHub workflow files. Reads
+# Claude-style JSON ({tool_input:{file_path}}) on stdin
 # and emits a {decision:"block"} JSON on findings. Consumers: Claude Code
 # (settings.json, Write|Edit matcher), Codex (codex/hooks/lint-edit.sh
 # adapter), OMP (omp/extensions/lint-on-edit.ts). zsh is skipped (shellcheck
@@ -16,6 +17,7 @@ file=$(jq -r '.tool_input.file_path // empty')
 linter=
 case "$file" in
   */.github/workflows/*.yml|*/.github/workflows/*.yaml) linter=actionlint ;;
+  *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) linter=oxlint ;;
   *.py) linter=ruff ;;
   *.sh|*.bash) linter=shellcheck ;;
   *.zsh) exit 0 ;;
@@ -37,6 +39,9 @@ command -v "$linter" >/dev/null || exit 0
 case "$linter" in
   shellcheck) findings=$(shellcheck --format=gcc "$file" 2>&1 | head -c 4000) || true ;;
   ruff) findings=$(ruff check --no-cache --quiet --output-format concise "$file" 2>&1 | head -c 4000) || true ;;
+  # Default categories only (correctness-centred, near-zero FP); a project's
+  # own .oxlintrc.json is discovered and wins. Clean files print nothing.
+  oxlint) findings=$(oxlint --format=unix "$file" 2>&1 | head -c 4000) || true ;;
   actionlint) findings=$(actionlint -no-color "$file" 2>&1 | head -c 4000) || true ;;
 esac
 [ -n "$findings" ] || exit 0
