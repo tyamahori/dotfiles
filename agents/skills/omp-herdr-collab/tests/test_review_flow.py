@@ -638,6 +638,91 @@ class ReviewFlowTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("reviewer: reviewer-b\nlens: security\n", output.read_text(encoding="utf-8"))
 
+    def test_panel_cross_check_scaffold_lists_peer_high_mid_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            panel_request(directory)
+            panel_findings(
+                directory,
+                2,
+                "reviewer-a",
+                [
+                    ("mid", "scripts/review-flow.py:103", "Missing branch", "The branch is absent"),
+                    ("low", "scripts/review-flow.py:104", "Naming nit", "The name is unclear"),
+                ],
+            )
+            barrier_output = directory / "early-cross-check.md"
+            barrier = self.invoke(
+                "scaffold", "--dir", str(directory), "--tag", "cross-check",
+                "--reviewer", "reviewer-b", "--out", str(barrier_output),
+            )
+            self.assertNotEqual(barrier.returncode, 0)
+            self.assertIn("independence barrier", barrier.stderr)
+
+            panel_findings(directory, 3, "reviewer-b", [])
+            checker_b_output = directory / "b-cross-check.md"
+            checker_b = self.invoke(
+                "scaffold", "--dir", str(directory), "--tag", "cross-check",
+                "--reviewer", "reviewer-b", "--out", str(checker_b_output),
+            )
+            self.assertEqual(checker_b.returncode, 0, checker_b.stderr)
+            content = checker_b_output.read_text(encoding="utf-8")
+            self.assertIn("source-reviewer: reviewer-a\n", content)
+            self.assertIn("checker: reviewer-b\n", content)
+            self.assertIn("finding-ids: a-1\n", content)
+            self.assertIn("evidence-a-1: TODO\n", content)
+            self.assertNotIn("evidence-a-2", content)
+
+            checker_a_output = directory / "a-cross-check.md"
+            checker_a = self.invoke(
+                "scaffold", "--dir", str(directory), "--tag", "cross-check",
+                "--reviewer", "reviewer-a", "--out", str(checker_a_output),
+            )
+            self.assertEqual(checker_a.returncode, 0, checker_a.stderr)
+            empty_content = checker_a_output.read_text(encoding="utf-8")
+            self.assertIn("finding-ids: none\n", empty_content)
+            self.assertIn("confirmed: none\n", empty_content)
+            self.assertNotIn("evidence-", empty_content)
+
+    def test_panel_verified_scaffold_prefills_owned_canonical_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            reviewer_a_entries = [("mid", "scripts/review-flow.py:103", "Missing branch", "The branch is absent")]
+            panel_request(directory)
+            panel_findings(directory, 2, "reviewer-a", reviewer_a_entries)
+            panel_findings(directory, 3, "reviewer-b", [])
+            panel_consolidated(directory, 4, panel_source_findings(reviewer_a_entries, []))
+
+            owner_output = directory / "a-verified.md"
+            owner = self.invoke(
+                "scaffold", "--dir", str(directory), "--tag", "verified",
+                "--reviewer", "reviewer-a", "--out", str(owner_output),
+            )
+            self.assertEqual(owner.returncode, 0, owner.stderr)
+            self.assertIn("finding-ids: a-1\n", owner_output.read_text(encoding="utf-8"))
+
+            zero_output = directory / "b-verified.md"
+            zero = self.invoke(
+                "scaffold", "--dir", str(directory), "--tag", "verified",
+                "--reviewer", "reviewer-b", "--out", str(zero_output),
+            )
+            self.assertEqual(zero.returncode, 0, zero.stderr)
+            zero_content = zero_output.read_text(encoding="utf-8")
+            self.assertIn("finding-ids: none\n", zero_content)
+            self.assertIn("resolved: none\n", zero_content)
+            self.assertIn("unresolved-high-mid: none\n", zero_content)
+
+    def test_cross_check_scaffold_rejects_single_flow(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            review_request(directory)
+            result = self.invoke(
+                "scaffold", "--dir", str(directory), "--tag", "cross-check",
+                "--out", str(directory / "out.md"),
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("panel", result.stderr)
+
     def test_status_reports_next_action(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)

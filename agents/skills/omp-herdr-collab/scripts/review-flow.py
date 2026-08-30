@@ -1112,7 +1112,53 @@ def scaffold_verified_fields(
     ]
     if panel:
         require_panel_reviewer(request, reviewer)
-        fields.append(("reviewer", reviewer))
+        prefix = "a" if reviewer == request.value("reviewer-a") else "b"
+        consolidated = next((message for message in reversed(messages) if message.tag == "consolidated"), None)
+        finding_ids = "TODO"
+        if consolidated is not None:
+            raw = consolidated.values.get("canonical-ids", "")
+            owned = [value.strip() for value in raw.split(",") if value.strip().startswith(f"{prefix}-")]
+            finding_ids = ",".join(owned) if owned else "none"
+        fields.extend([("reviewer", reviewer), ("finding-ids", finding_ids)])
+        if finding_ids == "none":
+            partition_keys = {"resolved", "unresolved-high-mid", "unresolved-low"}
+            fields = [(key, "none" if key in partition_keys else value) for key, value in fields]
+    return fields
+
+
+def scaffold_cross_check_fields(
+    messages: list[Message], request: Message, reviewer: str
+) -> list[tuple[str, str]]:
+    require_panel_reviewer(request, reviewer)
+    if sum(1 for message in messages if message.tag == "findings") < 2:
+        fail("cross-check scaffold requires both panel FINDINGS recorded (independence barrier)")
+    peer_key = "reviewer-b" if reviewer == request.value("reviewer-a") else "reviewer-a"
+    peer = request.value(peer_key)
+    peer_findings = next(
+        (message for message in messages if message.tag == "findings" and message.values.get("reviewer") == peer),
+        None,
+    )
+    if peer_findings is None:
+        fail(f"cross-check scaffold could not find the recorded FINDINGS of peer {peer}")
+    prefix = "b" if peer_key == "reviewer-b" else "a"
+    key_pattern = re.compile(rf"^finding-({prefix}-[1-9][0-9]*)$")
+    high_mid = [
+        match.group(1)
+        for key, value in peer_findings.values.items()
+        if (match := key_pattern.fullmatch(key)) and value.split(maxsplit=1)[0] in {"high", "mid"}
+    ]
+    high_mid.sort(key=lambda source_id: int(source_id.split("-")[1], 10))
+    fields = [
+        ("reviewed-revision", request.value("revision")),
+        ("source-reviewer", peer),
+        ("checker", reviewer),
+        ("finding-ids", ",".join(high_mid) if high_mid else "none"),
+        ("confirmed", "TODO" if high_mid else "none"),
+        ("rejected", "TODO" if high_mid else "none"),
+        ("verification", "TODO"),
+    ]
+    for source_id in high_mid:
+        fields.extend([(f"evidence-{source_id}", "TODO"), (f"confidence-{source_id}", "TODO")])
     return fields
 
 
@@ -1133,6 +1179,10 @@ def command_scaffold(directory_value: str, tag: str, reviewer: str | None, outpu
 
     if tag == "findings":
         title, fields = "[FINDINGS] TODO", scaffold_findings_fields(request, panel, reviewer)
+    elif tag == "cross-check":
+        if not panel:
+            fail("cross-check scaffold applies only to panel flows")
+        title, fields = "[CROSS-CHECK] TODO", scaffold_cross_check_fields(messages, request, reviewer)
     else:
         title, fields = "[VERIFIED] TODO", scaffold_verified_fields(messages, request, panel, reviewer)
 
@@ -1162,7 +1212,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         state.add_argument("--dir", required=True, metavar="DIR")
     scaffold = subcommands.add_parser("scaffold", help="write a return-file skeleton")
     scaffold.add_argument("--dir", required=True, metavar="DIR")
-    scaffold.add_argument("--tag", required=True, choices=("findings", "verified"))
+    scaffold.add_argument("--tag", required=True, choices=("findings", "cross-check", "verified"))
     scaffold.add_argument("--reviewer")
     scaffold.add_argument("--out")
     return parser.parse_args(argv)
