@@ -44,3 +44,4 @@ fi
 "$repo_root/git/global-hooks/checks/pre-commit-semgrep"
 "$repo_root/git/global-hooks/checks/pre-commit-gitleaks"
 "$repo_root/git/global-hooks/checks/pre-commit-dclint"
+"$repo_root/git/global-hooks/checks/pre-commit-json"

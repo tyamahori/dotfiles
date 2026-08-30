@@ -1,0 +1,31 @@
+#!/bin/bash
+# Machine-global pre-commit check: validate staged JSON files with jq so
+# syntactically broken JSON (bad merges, stray commas, duplicated blocks)
+# cannot be committed even when the edit-time hook was bypassed. JSONC
+# dialects (*.jsonc, tsconfig/jsconfig, .vscode, devcontainer) are skipped;
+# one commit escapes with --no-verify.
+set -euo pipefail
+
+command -v jq >/dev/null || exit 0
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+failed=0
+while IFS= read -r -d '' file; do
+	[[ -f $file ]] || continue
+	case "$file" in
+	*.jsonc | tsconfig*.json | */tsconfig*.json | jsconfig*.json | */jsconfig*.json | .vscode/*.json | */.vscode/*.json | devcontainer.json | */devcontainer.json | .devcontainer/*.json | */.devcontainer/*.json) continue ;;
+	*.json) ;;
+	*) continue ;;
+	esac
+	if ! err=$(jq empty "$file" 2>&1); then
+		printf '%s\n' "$err" >&2
+		failed=1
+	fi
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+if ((failed)); then
+	echo "pre-commit: jq found invalid JSON in staged files." >&2
+	echo "Fix the syntax, or commit with --no-verify." >&2
+	exit 1
+fi

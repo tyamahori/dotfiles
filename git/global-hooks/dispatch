@@ -20,6 +20,7 @@ pre-commit)
 	"$hook_dir/checks/pre-commit-semgrep" "$@"
 	"$hook_dir/checks/pre-commit-gitleaks" "$@"
 	"$hook_dir/checks/pre-commit-dclint" "$@"
+	"$hook_dir/checks/pre-commit-json" "$@"
 	;;
 esac
 

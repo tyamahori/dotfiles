@@ -3,7 +3,8 @@
 # it, feeding findings back so they are fixed before commit. Dispatches by
 # file type: shellcheck for sh/bash, ruff for Python, oxlint for
 # TypeScript/JavaScript, actionlint for GitHub workflow files, dclint for
-# Docker Compose files. Reads Claude-style JSON ({tool_input:{file_path}})
+# Docker Compose files, jq syntax validation for JSON. Reads Claude-style
+# JSON ({tool_input:{file_path}})
 # on stdin and emits a {decision:"block"} JSON on findings. Consumers: Claude
 # Code (settings.json, Write|Edit matcher), Codex (codex/hooks/lint-edit.sh
 # adapter), OMP (omp/extensions/lint-on-edit.ts). zsh is skipped (shellcheck
@@ -19,6 +20,9 @@ case "$file" in
   */.github/workflows/*.yml|*/.github/workflows/*.yaml) linter=actionlint ;;
   # dclint's own discovery pattern: (docker-)?compose*.ya?ml
   compose*.yml|compose*.yaml|docker-compose*.yml|docker-compose*.yaml|*/compose*.yml|*/compose*.yaml|*/docker-compose*.yml|*/docker-compose*.yaml) linter=dclint ;;
+  # JSONC dialects (comments/trailing commas are legal there) — never jq them.
+  *.jsonc|tsconfig*.json|*/tsconfig*.json|jsconfig*.json|*/jsconfig*.json|*/.vscode/*.json|devcontainer.json|*/devcontainer.json|*/.devcontainer/*.json) exit 0 ;;
+  *.json) linter=jq ;;
   *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) linter=oxlint ;;
   *.py) linter=ruff ;;
   *.sh|*.bash) linter=shellcheck ;;
@@ -47,6 +51,7 @@ fi
 # Never fail the hook itself; findings go back via decision:block.
 case "$linter" in
   shellcheck) findings=$(shellcheck --format=gcc "$file" 2>&1 | head -c 4000) || true ;;
+  jq) findings=$(jq empty "$file" 2>&1 | head -c 4000) || true ;;
   ruff) findings=$(ruff check --no-cache --quiet --output-format concise "$file" 2>&1 | head -c 4000) || true ;;
   # Default categories only (correctness-centred, near-zero FP); a project's
   # own .oxlintrc.json is discovered and wins. Clean files print nothing.

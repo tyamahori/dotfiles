@@ -61,6 +61,10 @@ Current checks:
   Compose files against modern Compose notation with dclint (errors only; a
   repo's own `.dclintrc` wins, `# dclint disable-line <rule>` opts out a
   line).
+- **pre-commit json** (`checks/pre-commit-json`) — validates staged JSON files
+  with `jq empty` so broken syntax (bad merges, stray commas) cannot land.
+  JSONC dialects (`*.jsonc`, `tsconfig`/`jsconfig`, `.vscode`, devcontainer)
+  are skipped.
 
 Genuinely exceptional commits bypass all checks with `git commit --no-verify`.
 This repository sets a local `core.hooksPath`, so it wires the same checks
@@ -156,7 +160,8 @@ OMP mirrors each one as an extension in `omp/extensions/`:
   uv invocation forms required by the shared instructions.
 - **lint on edit** — `scripts/lint-on-edit` lints files right after an agent
   writes or edits them (shellcheck for shell, ruff for Python, oxlint for
-  TypeScript/JavaScript, actionlint for GitHub workflow files, dclint for
+  TypeScript/JavaScript, actionlint for GitHub workflow files, jq syntax
+  validation for JSON, dclint for
   Docker Compose files — errors only, so obsolete notation like a `version`
   field, untagged images, or unquoted ports blocks immediately) and feeds
   findings back for an immediate fix. dclint is a locked Node dependency in
