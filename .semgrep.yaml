@@ -27,3 +27,33 @@ rules:
       include:
         - scripts
         - git
+
+  # docs/ops 2026-08-28: a plannotator installer wrote an absolute
+  # /Users/... path into repo-managed codex/hooks.json through the home
+  # symlink. Hardcoded macOS home paths also break the Linux cloud-init
+  # machine (different username, /home). docs/ is excluded because session
+  # logs legitimately quote such paths when recording these incidents.
+  - id: no-hardcoded-users-path
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Hardcoded macOS home path. Use $HOME or ~ in scripts and @HOME@ /
+      @REPO_ROOT@ in launchd templates; absolute user paths break the Linux
+      cloud-init machine and pin machine-specific state into the repo.
+    pattern: /Users/
+    paths:
+      exclude:
+        - docs
+
+  # CLAUDE.md "measured 2026-08-18": a usage journal with agent session IDs
+  # landed in public history before being untracked. Session IDs are UUIDs;
+  # no legitimate committed file in this repo contains one, so any match is
+  # leaked machine-local state.
+  - id: no-session-uuid
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      UUID literal — likely an agent session ID or other machine-local
+      identifier. Keep session IDs in local-only (gitignored) files.
+    patterns:
+      - pattern-regex: \b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b
