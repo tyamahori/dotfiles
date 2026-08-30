@@ -2,9 +2,12 @@ rules:
   # scripts/link 76ec771: under `set -o pipefail`, `cmd | grep -q pat` dies
   # with SIGPIPE (141) when grep exits at the first match before cmd finishes
   # writing, so guard branches misfire. Capture first, then grep the variable.
-  # printf/echo producers are the prescribed fix shape and stay allowed, and
-  # files that never enable pipefail are exempt (pattern-inside requires a
-  # preceding "pipefail"; the span option lets it reach across whole scripts).
+  # printf/echo producers are the prescribed fix shape and stay allowed.
+  # Only files that actually declare pipefail are checked: pattern-either
+  # requires a preceding "set -o pipefail" or "set -euo pipefail" (the two
+  # forms used in this repo), so comment-only mentions of the bare word and
+  # explicit "set +o pipefail" disables stay exempt. Known ceiling: a comment
+  # quoting a full declaration form still matches; use nosemgrep there.
   - id: pipe-into-grep-q-under-pipefail
     languages: [generic]
     severity: ERROR
@@ -15,7 +18,9 @@ rules:
       generic_ellipsis_max_span: 5000
     patterns:
       - pattern: "| grep -q"
-      - pattern-inside: pipefail ... | grep -q
+      - pattern-either:
+          - pattern-inside: set -o pipefail ... | grep -q
+          - pattern-inside: set -euo pipefail ... | grep -q
       - pattern-not-inside: printf ... | grep -q
       - pattern-not-inside: echo ... | grep -q
     paths:
