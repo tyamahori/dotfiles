@@ -111,15 +111,17 @@ Prefer changing the code over adding a feature flag or compatibility shim.
 
 ## Repository quality gates
 
-After the normal verification for a non-trivial implementation, check the
-repository root for these opt-in files and run each matching gate once
-before reporting completion:
+After the normal verification for a non-trivial implementation, run each
+gate once before reporting completion:
 
-- `sonar-project.properties` → `sonar-quality-gate`
-- `.semgrep.yaml` → `semgrep-quality-gate`
+- `semgrep-quality-gate` — always. Repo-root `.semgrep.yaml` takes
+  precedence; without it the machine-global default ruleset
+  (`~/dotfiles/semgrep/default.yaml`) runs, so no repository is skipped.
+- `sonar-quality-gate` — only when `sonar-project.properties` exists at the
+  repository root; repositories without it are deliberately skipped (the
+  gate needs a registered server project).
 
-A failed gate blocks completion; repositories without the corresponding
-file are deliberately skipped.
+A failed gate blocks completion.
 
 ## Structural edits
 

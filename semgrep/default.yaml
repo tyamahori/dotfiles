@@ -1,0 +1,34 @@
+rules:
+  # Machine-global default ruleset: runs in every repository that has no
+  # .semgrep.yaml of its own (scripts/semgrep-quality-gate falls back here).
+  # Findings BLOCK completion in arbitrary repos, so only universal rules
+  # with a near-zero false-positive rate belong in this file; anything
+  # repo-shaped goes into that repo's own .semgrep.yaml.
+
+  # scripts/link 76ec771: under `set -o pipefail`, `cmd | grep -q pat` dies
+  # with SIGPIPE (141) when grep exits at the first match before cmd finishes
+  # writing, so guard branches misfire. Capture first, then grep the variable.
+  # printf/echo producers are the prescribed fix shape and stay allowed.
+  # Only files that declare pipefail are checked (pattern-either requires a
+  # preceding "set -o pipefail" or "set -euo pipefail"). Unlike the dotfiles
+  # copy this cannot use repo directory names, so it is scoped to *.sh /
+  # *.bash; extensionless scripts are covered only by a repo-local config.
+  - id: pipe-into-grep-q-under-pipefail
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      "cmd | grep -q" under pipefail fails with SIGPIPE when grep exits early.
+      Capture first: out="$(cmd || true)"; then grep -q pattern <<<"$out".
+    options:
+      generic_ellipsis_max_span: 5000
+    patterns:
+      - pattern: "| grep -q"
+      - pattern-either:
+          - pattern-inside: set -o pipefail ... | grep -q
+          - pattern-inside: set -euo pipefail ... | grep -q
+      - pattern-not-inside: printf ... | grep -q
+      - pattern-not-inside: echo ... | grep -q
+    paths:
+      include:
+        - "*.sh"
+        - "*.bash"

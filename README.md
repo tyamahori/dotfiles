@@ -90,11 +90,11 @@ runnerはGit未追跡のファイルを解析から自動除外し、Git管理�
 
 ### Local Semgrep quality gate
 
-Semgrep runner（`semgrep-quality-gate`）とAIエージェントの実行規約はdotfilesがmachine-globalに管理します。
-解析対象のrepositoryには、opt-inとrepository固有ruleを表すroot-levelの`.semgrep.yaml`だけを置きます。
+Semgrep runner（`semgrep-quality-gate`）、machine-globalのdefault ruleset（`semgrep/default.yaml`）、AIエージェントの実行規約はdotfilesが管理します。
+repository固有ruleを使う場合だけ、root-levelの`.semgrep.yaml`を置いてdefaultを置き換えます。
 SonarQubeが履歴つきの品質判定を担い、Semgrepはserverなしの高速なpattern検査とrepository固有ruleを担います。
 
-通常の検証後に`semgrep-quality-gate`を実行すると、local ruleだけで解析し、指摘があれば失敗します。
+通常の検証後に`semgrep-quality-gate`を実行すると、repositoryのruleかdefault rulesetをlocalだけで解析し、指摘があれば失敗します。
 rule作成、registry rulesetの取り込み、SonarQubeとの使い分けは[`docs/semgrep.md`](docs/semgrep.md)を参照してください。
 
 ### ponytail (minimal-code mode)

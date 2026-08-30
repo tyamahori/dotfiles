@@ -16,16 +16,16 @@ SonarQubeのcustom ruleはplugin開発を要するのに対し、Semgrepのrule�
 「このrepositoryで過去に起きたbugの類型を機械検査にする」用途はSemgrepが担う。
 coverageや重複などの履歴つき品質判定はSonarQubeが担う。
 
-## globalには実行環境、projectには検査ruleを置く
+## globalには実行環境とdefault rule、projectには検査ruleを置く
 
-runner、Semgrep本体、AIエージェントの実行規約はdotfilesがmachine-globalに管理する。
+runner、Semgrep本体、machine-globalのdefault ruleset、AIエージェントの実行規約はdotfilesが管理する。
 project側の追加物は一つだけである。
-rootの`.semgrep.yaml`でopt-inと検査ruleを定義する。
+rootの`.semgrep.yaml`で検査ruleを定義する。
 
 | 管理場所 | 対象 |
 | --- | --- |
-| dotfiles | devbox globalの`semgrep`、`semgrep-quality-gate`、global agent instructions |
-| 検査対象リポジトリ | rootの`.semgrep.yaml` |
+| dotfiles | devbox globalの`semgrep`、`semgrep-quality-gate`、`semgrep/default.yaml`、global agent instructions |
+| 検査対象リポジトリ | rootの`.semgrep.yaml`（任意） |
 
 ## リポジトリを検査対象にする
 
@@ -51,7 +51,10 @@ shell scriptのように専用parserが未成熟な言語は、`languages: [gene
 既存の共有repositoryへ個人用として導入する場合は、SonarQubeと同じく`.semgrep.yaml`をcommitせず`.git/info/exclude`へ追加する（[`docs/sonarqube.md`](sonarqube.md)の該当節を参照）。
 チームで同じruleを使うと合意した場合だけversion管理する。
 
-rootに`.semgrep.yaml`がないリポジトリでは、`semgrep-quality-gate`は成功扱いでskipする。
+rootに`.semgrep.yaml`がないリポジトリでは、`semgrep-quality-gate`はdotfilesの`semgrep/default.yaml`へfallbackする。
+default rulesetは全repositoryの完了をblockするため、誤検知がほぼ出ない普遍的なruleに限定する。
+repository固有の事情（directory構成、拡張子なしscript）を検査したいときは、rootの`.semgrep.yaml`で置き換える。
+default rulesetも不要なrepositoryは、`rules: []`だけを書いた`.semgrep.yaml`を置いてopt-outする。
 
 ## registry rulesetを取り込む
 

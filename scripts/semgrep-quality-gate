@@ -9,9 +9,18 @@ fail() {
 project_root=$(git rev-parse --show-toplevel 2>/dev/null) ||
 	fail "run this command inside a Git repository"
 
-if [[ ! -f "$project_root/.semgrep.yaml" ]]; then
-	echo "semgrep-quality-gate: skipped; $project_root has no .semgrep.yaml"
-	exit 0
+# Repo-local rules take precedence; without them the machine-global default
+# ruleset (dotfiles semgrep/default.yaml) still runs, so every repository
+# gets the universal checks with zero per-repo setup. A repo opts out of
+# even those by committing a .semgrep.yaml with `rules: []`.
+DOTFILES_ROOT=${DOTFILES_ROOT:-"$HOME/dotfiles"}
+config="$project_root/.semgrep.yaml"
+if [[ ! -f $config ]]; then
+	config="$DOTFILES_ROOT/semgrep/default.yaml"
+	if [[ ! -f $config ]]; then
+		echo "semgrep-quality-gate: skipped; no .semgrep.yaml and no $config"
+		exit 0
+	fi
 fi
 
 command -v semgrep >/dev/null 2>&1 ||
@@ -24,7 +33,7 @@ cd "$project_root"
 # The rules file excludes itself because generic-language patterns would
 # otherwise match their own source text.
 semgrep scan \
-	--config .semgrep.yaml \
+	--config "$config" \
 	--exclude .semgrep.yaml \
 	--metrics=off \
 	--error
