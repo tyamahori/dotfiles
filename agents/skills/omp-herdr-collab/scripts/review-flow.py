@@ -41,14 +41,15 @@ NAMESPACED_ID_LIST_RE = re.compile(r"^[ab]-[1-9][0-9]*(?:\s*,\s*[ab]-[1-9][0-9]*
 DUPLICATE_MAP_RE = re.compile(r"^(?P<duplicate>[ab]-[1-9][0-9]*)=(?P<canonical>[ab]-[1-9][0-9]*)$")
 SEVERITY_RANK = {"low": 0, "mid": 1, "high": 2}
 HANDOFF_FIELDS = {"briefing", "coordinator", "ledger-directory", "return-mode", "return-directory", "instructions"}
+HINT_REPORT_DONE = "完了を報告できる。"
 STATUS_HINTS = {
     "open-review": "FINDINGS の return file を待つ（取込は send.sh --record-only）。",
     "open-findings": "指摘ありなら triage して APPLIED を配送、count 0 なら reviewer の VERIFIED を取込。",
     "open-applied": "reviewer の VERIFIED を取込（result-revision を再読）。",
     "awaiting-decision": "ユーザーの DECISION が必要。",
-    "closed-pass": "完了を報告できる。",
-    "closed-low": "完了を報告できる。",
-    "closed-risk": "完了を報告できる。",
+    "closed-pass": HINT_REPORT_DONE,
+    "closed-low": HINT_REPORT_DONE,
+    "closed-risk": HINT_REPORT_DONE,
     "rework": "旧 flow を context として参照する新規 flow を開始。",
     "panel-open-review": "両 reviewer の FINDINGS return file を待つ（取込は send.sh --record-only）。",
     "panel-open-findings": "不足している reviewer の FINDINGS return file を待つ。",
@@ -1068,6 +1069,53 @@ def command_validate_message(path_value: str) -> int:
     return 0
 
 
+def scaffold_path(request: Message, reviewer: str, tag: str, output: str | None) -> Path:
+    if output:
+        return Path(output)
+    return_directory = request.values.get("return-directory")
+    if not return_directory:
+        fail("scaffold requires --out or REVIEW-REQ return-directory")
+    return Path(return_directory) / f"{reviewer}-{tag}.md"
+
+
+def require_panel_reviewer(request: Message, reviewer: str) -> None:
+    if reviewer not in {request.value("reviewer-a"), request.value("reviewer-b")}:
+        fail(f"panel reviewer {reviewer} is not assigned by REVIEW-REQ")
+
+
+def scaffold_findings_fields(request: Message, panel: bool, reviewer: str) -> list[tuple[str, str]]:
+    fields = [
+        ("reviewed-revision", request.value("revision")),
+        ("scope", request.value("scope")),
+        ("verification", "TODO"),
+        ("count", "TODO"),
+    ]
+    if panel:
+        require_panel_reviewer(request, reviewer)
+        reviewer_key = "reviewer-a" if reviewer == request.value("reviewer-a") else "reviewer-b"
+        fields.extend([("reviewer", reviewer), ("lens", request.value(f"{reviewer_key}-lens"))])
+    return fields
+
+
+def scaffold_verified_fields(
+    messages: list[Message], request: Message, panel: bool, reviewer: str
+) -> list[tuple[str, str]]:
+    applied = next((message for message in reversed(messages) if message.tag == "applied"), None)
+    result_revision = request.value("revision") if applied is None else require_revision(applied, "result-revision")
+    fields = [
+        ("result-revision", result_revision),
+        ("resolved", "TODO"),
+        ("unresolved-high-mid", "TODO"),
+        ("unresolved-low", "TODO"),
+        ("verification", "TODO"),
+        ("status", "TODO"),
+    ]
+    if panel:
+        require_panel_reviewer(request, reviewer)
+        fields.append(("reviewer", reviewer))
+    return fields
+
+
 def command_scaffold(directory_value: str, tag: str, reviewer: str | None, output: str | None) -> int:
     messages = review_messages(Path(directory_value))
     if not messages or messages[0].tag != "review-req":
@@ -1076,49 +1124,17 @@ def command_scaffold(directory_value: str, tag: str, reviewer: str | None, outpu
     panel = request.values.get("review-mode") == "panel"
     if panel:
         validate_panel_review_request(request)
+        if not reviewer:
+            fail("panel scaffold requires --reviewer")
     else:
         validate_review_request(request)
-
-    if panel and not reviewer:
-        fail("panel scaffold requires --reviewer")
     reviewer = reviewer or request.value("reviewer")
-    if output:
-        path = Path(output)
-    else:
-        return_directory = request.values.get("return-directory")
-        if not return_directory:
-            fail("scaffold requires --out or REVIEW-REQ return-directory")
-        path = Path(return_directory) / f"{reviewer}-{tag}.md"
+    path = scaffold_path(request, reviewer, tag, output)
 
     if tag == "findings":
-        fields = [
-            ("reviewed-revision", request.value("revision")),
-            ("scope", request.value("scope")),
-            ("verification", "TODO"),
-            ("count", "TODO"),
-        ]
-        if panel:
-            reviewer_key = "reviewer-a" if reviewer == request.value("reviewer-a") else "reviewer-b"
-            if reviewer != request.value(reviewer_key):
-                fail(f"panel reviewer {reviewer} is not assigned by REVIEW-REQ")
-            fields.extend([("reviewer", reviewer), ("lens", request.value(f"{reviewer_key}-lens"))])
-        title = "[FINDINGS] TODO"
+        title, fields = "[FINDINGS] TODO", scaffold_findings_fields(request, panel, reviewer)
     else:
-        applied = next((message for message in reversed(messages) if message.tag == "applied"), None)
-        result_revision = request.value("revision") if applied is None else require_revision(applied, "result-revision")
-        fields = [
-            ("result-revision", result_revision),
-            ("resolved", "TODO"),
-            ("unresolved-high-mid", "TODO"),
-            ("unresolved-low", "TODO"),
-            ("verification", "TODO"),
-            ("status", "TODO"),
-        ]
-        if panel:
-            if reviewer not in {request.value("reviewer-a"), request.value("reviewer-b")}:
-                fail(f"panel reviewer {reviewer} is not assigned by REVIEW-REQ")
-            fields.append(("reviewer", reviewer))
-        title = "[VERIFIED] TODO"
+        title, fields = "[VERIFIED] TODO", scaffold_verified_fields(messages, request, panel, reviewer)
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join([title, *(f"{key}: {value}" for key, value in fields), ""]), encoding="utf-8")
