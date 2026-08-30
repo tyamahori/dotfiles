@@ -69,6 +69,7 @@ Memory だけを根拠に昇格しない。
 | プロジェクト固有の手順 | そのリポジトリで既に使われているskillディレクトリ |
 | エージェントの常時規範 | 該当するinstructionsファイル |
 | 機械的に保証すべき挙動 | コード、設定、hook、テスト |
+| 再発したbugの機械検査pattern | そのrepoの`.semgrep.yaml`。repoを問わず誤検知がほぼ出ない場合のみ`~/dotfiles/semgrep/default.yaml` |
 | 単なる過去事実 | memoryに残し、skillへ昇格しない |
 
 プロジェクトにskillの既存規約がなければ、新しい配置規約を無断で作らずmanaged skillのまま保留する。
