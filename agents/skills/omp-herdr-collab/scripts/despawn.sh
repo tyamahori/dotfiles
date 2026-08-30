@@ -1,5 +1,5 @@
 #!/bin/bash
-# herdr-collab: spawn.sh で開けたピアのペインを閉じる。pane close だけで完結する。
+# omp-herdr-collab: spawn.sh で開けたピアのペインを閉じる。pane close だけで完結する。
 # 自分 (このフロー) が開けたペイン以外には使わない。
 # usage: despawn.sh <target(agent名|spawn.sh が返した pane_id)>
 set -euo pipefail

@@ -1,5 +1,5 @@
 #!/bin/bash
-# herdr-collab: herdr ペインへピア CLI を起動する。
+# omp-herdr-collab: herdr ペインへピア CLI を起動する。
 #
 # usage: spawn.sh <kind> [name]
 #   kind: herdr の agent kind (claude|codex|omp|copilot|...)。一覧は `herdr agent`。

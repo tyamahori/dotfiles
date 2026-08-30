@@ -1,5 +1,5 @@
 #!/bin/bash
-# herdr-collab: フローのメッセージ一覧を番号順にヘッダ付きで表示する。
+# omp-herdr-collab: フローのメッセージ一覧を番号順にヘッダ付きで表示する。
 # usage: inbox.sh [--flow <name>] [--root <dir>]
 set -euo pipefail
 

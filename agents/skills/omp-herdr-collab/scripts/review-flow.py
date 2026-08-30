@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = []
 # ///
-"""Validate the revision-pinned herdr-collab review lifecycle."""
+"""Validate the revision-pinned omp-herdr-collab review lifecycle."""
 
 from __future__ import annotations
 
@@ -33,13 +33,31 @@ TITLE_RE = re.compile(
     r"^\[(?P<tag>REVIEW-REQ|FINDINGS|CROSS-CHECK|CONSOLIDATED|APPLIED|VERIFIED|DECISION|FYI)\]\s+\S.*$"
 )
 KEY_VALUE_RE = re.compile(r"^(?P<key>[a-z][a-z0-9-]*):\s*(?P<value>\S(?:.*\S)?)$")
-REVISION_RE = re.compile(r"^(?:commit:[0-9A-Fa-f]{7,64}|snapshot:sha256:[0-9A-Fa-f]{64})$")
+REVISION_RE = re.compile(r"^commit:[0-9A-Fa-f]{7,64}$")
 FINDING_RE = re.compile(r"^(?P<severity>high|mid|low)\s+(?P<path>\S+):(?P<line>[1-9][0-9]*)\s+\S.*$")
 ID_LIST_RE = re.compile(r"^[1-9][0-9]*(?:\s*,\s*[1-9][0-9]*)*$")
 NAMESPACED_ID_RE = re.compile(r"^[ab]-[1-9][0-9]*$")
 NAMESPACED_ID_LIST_RE = re.compile(r"^[ab]-[1-9][0-9]*(?:\s*,\s*[ab]-[1-9][0-9]*)*$")
 DUPLICATE_MAP_RE = re.compile(r"^(?P<duplicate>[ab]-[1-9][0-9]*)=(?P<canonical>[ab]-[1-9][0-9]*)$")
 SEVERITY_RANK = {"low": 0, "mid": 1, "high": 2}
+HANDOFF_FIELDS = {"briefing", "coordinator", "ledger-directory", "return-mode", "return-directory", "instructions"}
+STATUS_HINTS = {
+    "open-review": "FINDINGS の return file を待つ（取込は send.sh --record-only）。",
+    "open-findings": "指摘ありなら triage して APPLIED を配送、count 0 なら reviewer の VERIFIED を取込。",
+    "open-applied": "reviewer の VERIFIED を取込（result-revision を再読）。",
+    "awaiting-decision": "ユーザーの DECISION が必要。",
+    "closed-pass": "完了を報告できる。",
+    "closed-low": "完了を報告できる。",
+    "closed-risk": "完了を報告できる。",
+    "rework": "旧 flow を context として参照する新規 flow を開始。",
+    "panel-open-review": "両 reviewer の FINDINGS return file を待つ（取込は send.sh --record-only）。",
+    "panel-open-findings": "不足している reviewer の FINDINGS return file を待つ。",
+    "panel-open-relay": "coordinator の FYI を配送する。",
+    "panel-open-cross-check": "両 reviewer の CROSS-CHECK を取込。",
+    "panel-open-consolidated": "CONSOLIDATED を配送する。",
+    "panel-open-applied": "APPLIED を配送する。",
+    "panel-open-verified": "両 reviewer の VERIFIED を取込（result-revision を再読）。",
+}
 MODEL_FAMILY_ALIASES = {
     "claude": "claude",
     "codex": "codex",
@@ -151,8 +169,23 @@ def require_nonempty(message: Message, key: str) -> None:
 def require_revision(message: Message, key: str) -> str:
     revision = message.value(key)
     if not REVISION_RE.fullmatch(revision):
-        fail(f"{message.path.name}: {key} must be commit:<7-64 hex> or snapshot:sha256:<64 hex>")
+        fail(f"{message.path.name}: {key} must be commit:<7-64 hex>")
     return revision
+
+
+def validate_handoff_fields(message: Message) -> None:
+    for key in HANDOFF_FIELDS & message.values.keys():
+        require_nonempty(message, key)
+    mode = message.values.get("return-mode")
+    if mode is None:
+        return
+    if mode not in {"record-only", "artifact-import"}:
+        fail(f"{message.path.name}: return-mode must be record-only or artifact-import")
+    has_directory = "return-directory" in message.values
+    if mode == "artifact-import" and not has_directory:
+        fail(f"{message.path.name}: artifact-import return-mode requires return-directory")
+    if mode == "record-only" and has_directory:
+        fail(f"{message.path.name}: record-only return-mode forbids return-directory")
 
 
 def parse_id_list(message: Message, key: str) -> set[int]:
@@ -269,9 +302,6 @@ def unambiguous_model_family(value: str) -> str:
     if len(families) != 1:
         return ""
     return families.pop()
-    return tokens[0]
-
-
 def validate_review_request(message: Message) -> None:
     required = {
         "revision",
@@ -284,10 +314,11 @@ def validate_review_request(message: Message) -> None:
         "reviewer-model",
         "reviewer-context",
     }
-    allowed = required | {"independence-exception"}
+    allowed = required | {"independence-exception"} | HANDOFF_FIELDS
     require_fields(message, required, allowed)
     for key in required:
         require_nonempty(message, key)
+    validate_handoff_fields(message)
     require_revision(message, "revision")
 
     if message.sender != message.value("implementer"):
@@ -296,7 +327,6 @@ def validate_review_request(message: Message) -> None:
         fail(f"{message.path.name}: to header must name the reviewer")
     if message.value("implementer") == message.value("reviewer"):
         fail(f"{message.path.name}: implementer and reviewer must be different identities")
-
 
     fresh = message.value("reviewer-context") == "fresh"
     same_family = model_family(message.value("implementer-model")) == model_family(message.value("reviewer-model"))
@@ -451,9 +481,10 @@ def validate_panel_review_request(message: Message) -> None:
         "reviewer-b-lens",
         "reviewer-b-lens-reason",
     }
-    require_fields(message, required, required)
+    require_fields(message, required, required | HANDOFF_FIELDS)
     for key in required:
         require_nonempty(message, key)
+    validate_handoff_fields(message)
     if message.value("review-mode") != "panel":
         fail(f"{message.path.name}: review-mode must be panel")
     require_revision(message, "revision")
@@ -1037,11 +1068,71 @@ def command_validate_message(path_value: str) -> int:
     return 0
 
 
+def command_scaffold(directory_value: str, tag: str, reviewer: str | None, output: str | None) -> int:
+    messages = review_messages(Path(directory_value))
+    if not messages or messages[0].tag != "review-req":
+        fail(f"{directory_value}: review flow must begin with review-req")
+    request = messages[0]
+    panel = request.values.get("review-mode") == "panel"
+    if panel:
+        validate_panel_review_request(request)
+    else:
+        validate_review_request(request)
+
+    if panel and not reviewer:
+        fail("panel scaffold requires --reviewer")
+    reviewer = reviewer or request.value("reviewer")
+    if output:
+        path = Path(output)
+    else:
+        return_directory = request.values.get("return-directory")
+        if not return_directory:
+            fail("scaffold requires --out or REVIEW-REQ return-directory")
+        path = Path(return_directory) / f"{reviewer}-{tag}.md"
+
+    if tag == "findings":
+        fields = [
+            ("reviewed-revision", request.value("revision")),
+            ("scope", request.value("scope")),
+            ("verification", "TODO"),
+            ("count", "TODO"),
+        ]
+        if panel:
+            reviewer_key = "reviewer-a" if reviewer == request.value("reviewer-a") else "reviewer-b"
+            if reviewer != request.value(reviewer_key):
+                fail(f"panel reviewer {reviewer} is not assigned by REVIEW-REQ")
+            fields.extend([("reviewer", reviewer), ("lens", request.value(f"{reviewer_key}-lens"))])
+        title = "[FINDINGS] TODO"
+    else:
+        applied = next((message for message in reversed(messages) if message.tag == "applied"), None)
+        result_revision = request.value("revision") if applied is None else require_revision(applied, "result-revision")
+        fields = [
+            ("result-revision", result_revision),
+            ("resolved", "TODO"),
+            ("unresolved-high-mid", "TODO"),
+            ("unresolved-low", "TODO"),
+            ("verification", "TODO"),
+            ("status", "TODO"),
+        ]
+        if panel:
+            if reviewer not in {request.value("reviewer-a"), request.value("reviewer-b")}:
+                fail(f"panel reviewer {reviewer} is not assigned by REVIEW-REQ")
+            fields.append(("reviewer", reviewer))
+        title = "[VERIFIED] TODO"
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join([title, *(f"{key}: {value}" for key, value in fields), ""]), encoding="utf-8")
+    print(path)
+    return 0
+
+
 def command_status(directory_value: str, require_closed: bool) -> int:
     state, revision = validate_flow(Path(directory_value))
     if require_closed and state not in {"closed-pass", "closed-low", "closed-risk"}:
         raise ValidationError(f"state={state} is not closed")
     print(f"state={state} revision={revision}")
+    if not require_closed:
+        print(f"next: {STATUS_HINTS[state]}")
     return 0
 
 
@@ -1053,6 +1144,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     for command in ("status", "require-closed"):
         state = subcommands.add_parser(command, help="report a review flow state")
         state.add_argument("--dir", required=True, metavar="DIR")
+    scaffold = subcommands.add_parser("scaffold", help="write a return-file skeleton")
+    scaffold.add_argument("--dir", required=True, metavar="DIR")
+    scaffold.add_argument("--tag", required=True, choices=("findings", "verified"))
+    scaffold.add_argument("--reviewer")
+    scaffold.add_argument("--out")
     return parser.parse_args(argv)
 
 
@@ -1061,6 +1157,8 @@ def main(argv: list[str]) -> int:
     try:
         if args.command == "validate-message":
             return command_validate_message(args.file)
+        if args.command == "scaffold":
+            return command_scaffold(args.dir, args.tag, args.reviewer, args.out)
         return command_status(args.dir, args.command == "require-closed")
     except ValidationError as error:
         print(f"review-flow.py: {error}", file=sys.stderr)

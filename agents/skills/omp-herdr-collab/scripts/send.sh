@@ -1,6 +1,6 @@
 #!/bin/bash
-# herdr-collab: メッセージファイルを書き、宛先の settle を待って herdr prompt で配送する。
-#
+# omp-herdr-collab: メッセージファイルを書き、宛先の settle を待って herdr prompt で配送する。
+# 
 # usage:
 #   send.sh --to <target[,second-target]> --tag <handoff|review-req|findings|cross-check|consolidated|applied|verified|decision|fyi> \
 #           [--flow <name>] [--from <name>] [--body <file>|-] \
@@ -16,6 +16,19 @@
 #       未観測なら警告を添えて 0)
 #       2=引数エラー 3=ファイルは在るが未配送 (blocked / timeout / stalled 未着火)
 set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+usage: send.sh --to <target[,second-target]> --tag <tag> [--body <file>|-] [options]
+
+Provide a non-empty body with --body FILE, --body - (stdin), or stdin without --body.
+--record-only records and validates a new message without Herdr delivery.
+--file FILE re-delivers an existing recorded message.
+--retry-target TARGET re-delivers a group message only to its failed target; requires --file.
+exit: 0 recorded/delivered, 2 invalid arguments or empty body, 3 recorded but not delivered.
+If delivery is blocked, inspect `herdr agent read <target>`, resolve the block, then re-deliver with --file.
+EOF
+}
 
 die() { echo "send.sh: $*" >&2; exit 2; }
 
@@ -48,6 +61,7 @@ cleanup_locked_message() {
 TO="" TAG="" FLOW="collab" FROM="" BODY="" FILE="" RETRY_TARGET="" WAIT_TIMEOUT=300000 ROOT="" CREATED=0 LOCK_DIR="" RECORD_ONLY=0
 while [ $# -gt 0 ]; do
   case "$1" in
+    -h|--help) usage; exit 0 ;;
     --to) TO="$2"; shift 2 ;;
     --tag) TAG="$2"; shift 2 ;;
     --flow) FLOW="$2"; shift 2 ;;

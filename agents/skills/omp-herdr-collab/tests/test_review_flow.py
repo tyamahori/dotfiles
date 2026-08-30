@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = []
 # ///
-"""Behavioral contract tests for the herdr-collab review lifecycle."""
+"""Behavioral contract tests for the omp-herdr-collab review lifecycle."""
 
 from __future__ import annotations
 
@@ -21,6 +21,28 @@ DESPAWN = SKILL_DIR / "scripts" / "despawn.sh"
 BASE_REVISION = "commit:" + "a" * 40
 RESULT_REVISION = "commit:" + "b" * 40
 STALE_REVISION = "commit:" + "c" * 40
+
+STATUS_HINTS = {
+    "open-review": "FINDINGS の return file を待つ（取込は send.sh --record-only）。",
+    "open-findings": "指摘ありなら triage して APPLIED を配送、count 0 なら reviewer の VERIFIED を取込。",
+    "open-applied": "reviewer の VERIFIED を取込（result-revision を再読）。",
+    "awaiting-decision": "ユーザーの DECISION が必要。",
+    "closed-pass": "完了を報告できる。",
+    "closed-low": "完了を報告できる。",
+    "closed-risk": "完了を報告できる。",
+    "rework": "旧 flow を context として参照する新規 flow を開始。",
+    "panel-open-review": "両 reviewer の FINDINGS return file を待つ（取込は send.sh --record-only）。",
+    "panel-open-findings": "不足している reviewer の FINDINGS return file を待つ。",
+    "panel-open-relay": "coordinator の FYI を配送する。",
+    "panel-open-cross-check": "両 reviewer の CROSS-CHECK を取込。",
+    "panel-open-consolidated": "CONSOLIDATED を配送する。",
+    "panel-open-applied": "APPLIED を配送する。",
+    "panel-open-verified": "両 reviewer の VERIFIED を取込（result-revision を再読）。",
+}
+
+
+def status_output(state: str, revision: str) -> str:
+    return f"state={state} revision={revision}\nnext: {STATUS_HINTS[state]}\n"
 
 
 def write_message(
@@ -446,7 +468,7 @@ class ReviewFlowTest(unittest.TestCase):
             self.assertEqual(self.invoke("validate-message", str(final)).returncode, 0)
             status = self.invoke("status", "--dir", str(directory))
             self.assertEqual(status.returncode, 0, status.stderr)
-            self.assertEqual(status.stdout, f"state=closed-pass revision={RESULT_REVISION}\n")
+            self.assertEqual(status.stdout, status_output("closed-pass", RESULT_REVISION))
             self.assertEqual(self.invoke("require-closed", "--dir", str(directory)).returncode, 0)
 
     def test_no_findings_skips_applied_and_closes_at_reviewed_revision(self) -> None:
@@ -459,7 +481,7 @@ class ReviewFlowTest(unittest.TestCase):
             self.assertEqual(self.invoke("validate-message", str(final)).returncode, 0)
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
-                f"state=closed-pass revision={BASE_REVISION}\n",
+                status_output("closed-pass", BASE_REVISION),
             )
 
     def test_low_only_unresolved_finding_closes_with_reporting(self) -> None:
@@ -471,7 +493,7 @@ class ReviewFlowTest(unittest.TestCase):
             verified(directory, "none", "none", "1", "unresolved")
 
             status = self.invoke("status", "--dir", str(directory))
-            self.assertEqual(status.stdout, f"state=closed-low revision={RESULT_REVISION}\n")
+            self.assertEqual(status.stdout, status_output("closed-low", RESULT_REVISION))
             self.assertEqual(self.invoke("require-closed", "--dir", str(directory)).returncode, 0)
 
     def test_high_or_mid_unresolved_finding_requires_decision(self) -> None:
@@ -483,7 +505,7 @@ class ReviewFlowTest(unittest.TestCase):
             verified(directory, "none", "1", "none", "unresolved")
 
             status = self.invoke("status", "--dir", str(directory))
-            self.assertEqual(status.stdout, f"state=awaiting-decision revision={RESULT_REVISION}\n")
+            self.assertEqual(status.stdout, status_output("awaiting-decision", RESULT_REVISION))
             self.assertNotEqual(self.invoke("require-closed", "--dir", str(directory)).returncode, 0)
 
     def test_user_accepted_risk_is_closed(self) -> None:
@@ -496,7 +518,7 @@ class ReviewFlowTest(unittest.TestCase):
             decision(directory, "accept-risk")
 
             status = self.invoke("status", "--dir", str(directory))
-            self.assertEqual(status.stdout, f"state=closed-risk revision={RESULT_REVISION}\n")
+            self.assertEqual(status.stdout, status_output("closed-risk", RESULT_REVISION))
             self.assertEqual(self.invoke("require-closed", "--dir", str(directory)).returncode, 0)
 
     def test_rework_is_terminal_but_not_closed(self) -> None:
@@ -510,9 +532,121 @@ class ReviewFlowTest(unittest.TestCase):
 
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
-                f"state=rework revision={RESULT_REVISION}\n",
+                status_output("rework", RESULT_REVISION),
             )
             self.assertNotEqual(self.invoke("require-closed", "--dir", str(directory)).returncode, 0)
+
+    def test_snapshot_revision_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            candidate = review_request(directory)
+            candidate.write_text(
+                candidate.read_text(encoding="utf-8").replace(
+                    BASE_REVISION,
+                    "snapshot:sha256:" + "a" * 64,
+                ),
+                encoding="utf-8",
+            )
+
+            result = self.invoke("validate-message", str(candidate))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("commit:<7-64 hex>", result.stderr)
+
+    def test_review_request_accepts_handoff_fields_and_validates_return_mode(self) -> None:
+        valid_fields = (
+            "briefing: Review the lifecycle change\n"
+            "coordinator: implementer\n"
+            "ledger-directory: .agent-msgs/lifecycle\n"
+            "return-mode: artifact-import\n"
+            "return-directory: /tmp/returns\n"
+            "instructions: Use the supplied checklist\n"
+        )
+        invalid_cases = {
+            "return-mode: unsupported\n": "return-mode must be",
+            "return-mode: artifact-import\n": "requires return-directory",
+            "return-mode: record-only\nreturn-directory: /tmp/returns\n": "forbids return-directory",
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            candidate = review_request(directory)
+            candidate.write_text(candidate.read_text(encoding="utf-8") + valid_fields, encoding="utf-8")
+            self.assertEqual(self.invoke("validate-message", str(candidate)).returncode, 0)
+
+        for fields, expected_error in invalid_cases.items():
+            with self.subTest(fields=fields), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                candidate = review_request(directory)
+                candidate.write_text(candidate.read_text(encoding="utf-8") + fields, encoding="utf-8")
+
+                result = self.invoke("validate-message", str(candidate))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(expected_error, result.stderr)
+
+    def test_scaffold_copies_request_values_and_resolves_output(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            request = review_request(directory)
+            output = directory / "explicit.md"
+            result = self.invoke("scaffold", "--dir", str(directory), "--tag", "findings", "--out", str(output))
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, f"{output}\n")
+            self.assertEqual(
+                output.read_text(encoding="utf-8"),
+                "[FINDINGS] TODO\n"
+                f"reviewed-revision: {BASE_REVISION}\n"
+                "scope: agents/skills/herdr-collab\n"
+                "verification: TODO\n"
+                "count: TODO\n",
+            )
+            request.write_text(
+                request.read_text(encoding="utf-8") + "return-mode: artifact-import\nreturn-directory: " + str(directory / "returns") + "\n",
+                encoding="utf-8",
+            )
+            resolved = self.invoke("scaffold", "--dir", str(directory), "--tag", "verified")
+            resolved_output = directory / "returns" / "reviewer-verified.md"
+            self.assertEqual(resolved.returncode, 0, resolved.stderr)
+            self.assertEqual(resolved.stdout, f"{resolved_output}\n")
+            self.assertIn(f"result-revision: {BASE_REVISION}\n", resolved_output.read_text(encoding="utf-8"))
+            findings(directory, [("mid", "scripts/review-flow.py:100", "Missing validation", "The field is absent")])
+            applied(directory, "1", "none")
+            latest_output = directory / "latest-verified.md"
+            latest = self.invoke("scaffold", "--dir", str(directory), "--tag", "verified", "--out", str(latest_output))
+            self.assertEqual(latest.returncode, 0, latest.stderr)
+            self.assertIn(f"result-revision: {RESULT_REVISION}\n", latest_output.read_text(encoding="utf-8"))
+
+    def test_panel_scaffold_requires_reviewer_and_copies_lens(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            panel_request(directory)
+            output = directory / "panel-findings.md"
+
+            missing = self.invoke("scaffold", "--dir", str(directory), "--tag", "findings", "--out", str(output))
+            self.assertNotEqual(missing.returncode, 0)
+            result = self.invoke(
+                "scaffold",
+                "--dir",
+                str(directory),
+                "--tag",
+                "findings",
+                "--reviewer",
+                "reviewer-b",
+                "--out",
+                str(output),
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("reviewer: reviewer-b\nlens: security\n", output.read_text(encoding="utf-8"))
+
+    def test_status_reports_next_action(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            review_request(directory)
+
+            self.assertEqual(
+                self.invoke("status", "--dir", str(directory)).stdout,
+                status_output("open-review", BASE_REVISION),
+            )
 
     def test_stale_findings_revision_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -626,6 +760,17 @@ class ReviewFlowTest(unittest.TestCase):
             result = self.invoke("validate-message", str(candidate))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("numeric finding suffixes such as `1,2`", result.stderr)
+
+    def test_send_help_exits_without_herdr_and_explains_recovery(self) -> None:
+        for flag in ("--help", "-h"):
+            with self.subTest(flag=flag):
+                result = self.invoke_send(flag, env=os.environ)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("--record-only", result.stdout)
+                self.assertIn("--file", result.stdout)
+                self.assertIn("--retry-target", result.stdout)
+                self.assertIn("herdr agent read", result.stdout)
+                self.assertIn("empty body", result.stdout)
 
     def test_send_rejects_invalid_review_messages_before_herdr_and_only_removes_new_file(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -775,7 +920,7 @@ class ReviewFlowTest(unittest.TestCase):
 
             self.assertEqual(self.invoke("validate-message", str(request)).returncode, 0)
             status = self.invoke("status", "--dir", str(directory))
-            self.assertEqual(status.stdout, f"state=panel-open-review revision={BASE_REVISION}\n")
+            self.assertEqual(status.stdout, status_output("panel-open-review", BASE_REVISION))
 
     def test_panel_pass_closes_after_both_reviewers_verify_namespaced_findings(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -789,7 +934,7 @@ class ReviewFlowTest(unittest.TestCase):
 
             self.assertEqual(self.invoke("validate-message", str(final)).returncode, 0)
             status = self.invoke("status", "--dir", str(directory))
-            self.assertEqual(status.stdout, f"state=closed-pass revision={RESULT_REVISION}\n")
+            self.assertEqual(status.stdout, status_output("closed-pass", RESULT_REVISION))
             self.assertEqual(self.invoke("require-closed", "--dir", str(directory)).returncode, 0)
 
     def test_panel_zero_findings_requires_two_zero_id_cross_checks_and_verifications(self) -> None:
@@ -808,7 +953,7 @@ class ReviewFlowTest(unittest.TestCase):
             self.assertEqual(self.invoke("validate-message", str(final)).returncode, 0)
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
-                f"state=closed-pass revision={BASE_REVISION}\n",
+                status_output("closed-pass", BASE_REVISION),
             )
 
     def test_panel_low_only_unresolved_finding_closes_low(self) -> None:
@@ -822,7 +967,7 @@ class ReviewFlowTest(unittest.TestCase):
 
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
-                f"state=closed-low revision={RESULT_REVISION}\n",
+                status_output("closed-low", RESULT_REVISION),
             )
 
     def test_panel_unresolved_high_requires_group_decision_and_rework_stays_open(self) -> None:
@@ -835,13 +980,13 @@ class ReviewFlowTest(unittest.TestCase):
             panel_verified(directory, 10, "reviewer-b", "none", "none", "none", "none", "pass")
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
-                f"state=awaiting-decision revision={RESULT_REVISION}\n",
+                status_output("awaiting-decision", RESULT_REVISION),
             )
             panel_decision(directory, 11, "a-1", "rework")
 
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
-                f"state=rework revision={RESULT_REVISION}\n",
+                status_output("rework", RESULT_REVISION),
             )
             self.assertNotEqual(self.invoke("require-closed", "--dir", str(directory)).returncode, 0)
 
@@ -857,7 +1002,7 @@ class ReviewFlowTest(unittest.TestCase):
 
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
-                f"state=closed-risk revision={RESULT_REVISION}\n",
+                status_output("closed-risk", RESULT_REVISION),
             )
             self.assertEqual(self.invoke("require-closed", "--dir", str(directory)).returncode, 0)
 
@@ -908,7 +1053,7 @@ class ReviewFlowTest(unittest.TestCase):
             panel_findings(directory, 2, "reviewer-a", reviewer_a_entries)
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
-                f"state=panel-open-findings revision={BASE_REVISION}\n",
+                status_output("panel-open-findings", BASE_REVISION),
             )
             candidate = panel_cross_check(directory, 3, "reviewer-b", "reviewer-a", reviewer_a_entries)
 
@@ -928,7 +1073,7 @@ class ReviewFlowTest(unittest.TestCase):
 
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
-                f"state=panel-open-relay revision={BASE_REVISION}\n",
+                status_output("panel-open-relay", BASE_REVISION),
             )
             premature = panel_cross_check(directory, 4, "reviewer-b", "reviewer-a", reviewer_a_entries)
             result = self.invoke("validate-message", str(premature))
@@ -940,12 +1085,12 @@ class ReviewFlowTest(unittest.TestCase):
             self.assertEqual(self.invoke("validate-message", str(relay)).returncode, 0)
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
-                f"state=panel-open-cross-check revision={BASE_REVISION}\n",
+                status_output("panel-open-cross-check", BASE_REVISION),
             )
             panel_cross_check(directory, 5, "reviewer-b", "reviewer-a", reviewer_a_entries)
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
-                f"state=panel-open-cross-check revision={BASE_REVISION}\n",
+                status_output("panel-open-cross-check", BASE_REVISION),
             )
 
 
@@ -993,7 +1138,7 @@ class ReviewFlowTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
-                f"state=panel-open-applied revision={BASE_REVISION}\n",
+                status_output("panel-open-applied", BASE_REVISION),
             )
 
     def test_panel_rejects_relay_before_both_findings(self) -> None:
@@ -1096,7 +1241,7 @@ class ReviewFlowTest(unittest.TestCase):
             panel_verified(directory, 9, "reviewer-a", "a-1", "a-1", "none", "none", "pass")
             self.assertEqual(
                 self.invoke("status", "--dir", str(directory)).stdout,
-                f"state=panel-open-verified revision={RESULT_REVISION}\n",
+                status_output("panel-open-verified", RESULT_REVISION),
             )
             candidate = panel_decision(directory, 10, "a-1", "accept-risk")
 
