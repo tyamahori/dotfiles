@@ -220,4 +220,13 @@ fi
 export SONAR_HOST_URL
 export SONAR_TOKEN=$token
 cd "$project_root"
-sonar-scanner "${scanner_args[@]}"
+# Scanner INFO logs are captured and shown only on failure; a passing gate
+# costs one line of agent context instead of hundreds.
+scanner_log=$(mktemp)
+trap 'rm -f "$scanner_log"' EXIT
+if sonar-scanner "${scanner_args[@]}" >"$scanner_log" 2>&1; then
+	echo "sonar-quality-gate: passed ($project_key)"
+else
+	cat "$scanner_log" >&2
+	exit 1
+fi

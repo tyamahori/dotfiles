@@ -32,8 +32,18 @@ cd "$project_root"
 # vendor them into .semgrep.yaml instead (see docs/semgrep.md).
 # The rules file excludes itself because generic-language patterns would
 # otherwise match their own source text.
-semgrep scan \
+# Output is captured and shown only on failure: success costs one line of
+# agent context instead of ~27, and unlike --quiet (which also swallows
+# rule-file parse errors) the failure path keeps the full diagnosis.
+log=$(mktemp)
+trap 'rm -f "$log"' EXIT
+if semgrep scan \
 	--config "$config" \
 	--exclude .semgrep.yaml \
 	--metrics=off \
-	--error
+	--error >"$log" 2>&1; then
+	echo "semgrep-quality-gate: passed ($config)"
+else
+	cat "$log" >&2
+	exit 1
+fi

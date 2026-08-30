@@ -27,8 +27,13 @@ done < <(git diff --cached --name-only --diff-filter=ACMR -z)
 ((${#targets[@]})) || exit 0
 
 # --metrics=off keeps the scan local (see scripts/semgrep-quality-gate).
-if ! semgrep scan --config "$config" --metrics=off --error --quiet "${targets[@]}"; then
-	echo "pre-commit: semgrep found issues in staged files (rules: $config)." >&2
-	echo "Fix them, add '# nosemgrep: <rule id>' with a reason, or commit with --no-verify." >&2
+# Captured instead of --quiet: --quiet also swallows rule-file parse errors
+# (exit 7 with zero output), which would fail every commit undiagnosably.
+log=$(mktemp)
+trap 'rm -f "$log"' EXIT
+if ! semgrep scan --config "$config" --metrics=off --error "${targets[@]}" >"$log" 2>&1; then
+	cat "$log" >&2
+	echo "pre-commit: semgrep failed for staged files (rules: $config)." >&2
+	echo "Fix findings, add '# nosemgrep: <rule id>' with a reason, or commit with --no-verify." >&2
 	exit 1
 fi
