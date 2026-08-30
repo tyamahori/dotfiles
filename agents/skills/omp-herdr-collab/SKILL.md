@@ -274,7 +274,7 @@ $S/review-flow.py require-closed --dir .agent-msgs/fix-auth
 $S/despawn.sh w1:p2
 ```
 
-配送の要点（詳細は `--help`）:
+配送の要点は次のとおり（詳細は `--help`）。
 
 - 通常配送は宛先の settle を待って注入し、着火（working 遷移）を確認して返る。
   配送成功後は `herdr agent wait <peer>` してよい。
