@@ -202,42 +202,35 @@ the ecosystem move, a self-checking loop keeps it honest:
 
 ### Agent collaboration (Herdr only)
 
-Claude Code, Codex, omp, and Copilot collaborate without manual
-copy-pasting. `review-mode` absent is the existing **single** review:
-one fresh reviewer from a model family different from the implementer,
-following `REVIEW-REQ → FINDINGS → APPLIED` (when needed)
-`→ VERIFIED → DECISION` (for unresolved high/mid).
+Agents collaborate without manual copy-pasting. The coordinator is always an
+**omp session** that has loaded the `omp-herdr-collab` skill; Claude Code and
+Codex participate as peers (reviewers or task recipients) and receive their
+contract via the skill's shipped templates — peers never read the skill.
 
-Explicit `review-mode: panel` is a manual **Herdr-only** mode, not automatic
-risk triggering or arbitrary-N review. It starts exactly two distinct fresh
-reviewers with unique pane names: reviewer-a from the model family opposite
-the implementer, and reviewer-b from the implementer's model family.
-Reviewer-a is the independent `correctness-contract` anchor; reviewer-b
-selects one documented failure-mode lens with a reason as a same-family
-complement. Both first perform the common baseline. The Herdr coordinator
-withholds each peer's
-FINDINGS until both initial FINDINGS exist, then sends one group FYI containing
-both absolute FINDINGS paths before routing the two CROSS-CHECK messages, a
-lossless CONSOLIDATED ledger, canonical APPLIED, two owner-scoped VERIFIED
-messages, and an aggregate user DECISION if high/mid remains. A
+`review-mode` absent is the **single** review: one fresh reviewer from a
+model family different from the implementer, following
+`REVIEW-REQ → FINDINGS → APPLIED` (when needed)
+`→ VERIFIED → DECISION` (for unresolved high/mid). Revisions are pinned as
+`commit:` only; uncommitted work gets a temporary commit in a worktree.
+
+Explicit `review-mode: panel` is a manual **Herdr-only** mode owned by the
+`omp-herdr-collab-panel` skill: exactly two distinct fresh reviewers
+(reviewer-a from the opposite model family as the independent
+`correctness-contract` anchor, reviewer-b same-family with a documented
+failure-mode lens), a FINDINGS independence barrier, CROSS-CHECK, a lossless
+CONSOLIDATED ledger, owner-scoped VERIFIED partitions, and group fanout. A
 decline or timeout is non-go: panel never silently becomes single.
 
-- **Inside Herdr**: use `herdr-collab` for single, panel, handoffs, and
-  research sharing. It addresses unique Herdr pane names and stores one flow
-  ledger under `.agent-msgs/`. Its `send.sh --to reviewer-a,reviewer-b`
-  fanout validates distinct recipients and requires every target delivery to
-  succeed; ignition observation keeps the existing warning-on-unobserved
-  behavior.
+- **Inside Herdr**: `omp-herdr-collab` stores one flow ledger under
+  `.agent-msgs/`, validates every review tag before delivery, scaffolds
+  return-file skeletons (`review-flow.py scaffold`), and prints the next
+  action with `review-flow.py status`.
 - **Outside Herdr**: there is no skill-based transport. An occasional second
   opinion from a GUI Claude or Codex session is a manual paste of the
   template and artifact; it carries no review tags and never claims review
   closure.
 
-The exact panel fields, reviewer-b lens catalog, common baseline, source-ID
-provenance, group routing, closure partitions, and nine review tags
-(`REVIEW-REQ`, `FINDINGS`, `CROSS-CHECK`, `CONSOLIDATED`, `APPLIED`,
-`VERIFIED`, `DECISION`, `HANDOFF`, `FYI`) are in `herdr-collab`. Shared
-closure accepts only `closed-pass`, `closed-low`, and `closed-risk`;
+Shared closure accepts only `closed-pass`, `closed-low`, and `closed-risk`;
 unresolved high/mid needs a user DECISION. Direct message transport is not
 itself mutual review. `adversarial-verification` remains the distinct,
 higher-cost, broader two-pass mode for high-risk work.
@@ -248,18 +241,19 @@ higher-cost, broader two-pass mode for high-risk work.
   - 「この変更を Herdr の panel review にかけて」
   - 「この調査結果を Codex に共有して」
   - 「このタスクを Codex に渡して」
-  All of these run inside Herdr; panel included.
+  All of these run inside Herdr, coordinated from omp; panel included.
 - **Inspect a conversation**: inside Herdr, use
-  `~/.agents/skills/herdr-collab/scripts/inbox.sh --flow <flow>`. Formal
+  `~/.agents/skills/omp-herdr-collab/scripts/inbox.sh --flow <flow>`. Formal
   reviews use `.agent-msgs/<flow>` as the ledger and must pass
   `review-flow.py require-closed --dir .agent-msgs/<flow>`.
 
-The herdr-collab scripts exit unless `HERDR_ENV=1`, so Herdr sessions are
+The omp-herdr-collab scripts exit unless `HERDR_ENV=1`, so Herdr sessions are
 never operated from outside.
 
-Sources of truth (this section is only the human entry point): the shared
-review contract, tags/templates, lifecycle, validator, and Herdr transport
-live in `agents/skills/herdr-collab/`; routing lives in
+Sources of truth (this section is only the human entry point): the review
+contract, tags/templates, lifecycle, validator, and Herdr transport live in
+`agents/skills/omp-herdr-collab/` (panel extensions in
+`agents/skills/omp-herdr-collab-panel/`); routing lives in
 `agents/global-instructions.md`.
 
 ## OrbStack VM (Ubuntu 24.04)
