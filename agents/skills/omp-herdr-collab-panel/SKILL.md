@@ -106,8 +106,8 @@ finding-ids: <peer high/mid source IDs、なければ none>
 confirmed: <subset、なければ none>
 rejected: <残り、なければ none>
 verification: <確認内容>
-evidence-a-1: <根拠>
-confidence-a-1: <high|mid|low>
+evidence-<peer source ID>: <ID ごとの根拠>
+confidence-<peer source ID>: <high|mid|low>
 
 [CONSOLIDATED] <panel findings>
 reviewed-revision: <REVIEW-REQ revision>
@@ -127,6 +127,8 @@ cross-check-a-1: <not-required|confirmed|rejected|mixed>
   `unresolved-low` に完全 partition する。panel VERIFIED には `reviewer` と
   `finding-ids` を追加する。panel DECISION は aggregate unresolved high/mid
   canonical ID を対象にする。
+- CROSS-CHECK の `evidence-` / `confidence-` の ID prefix は **peer のもの**
+  （reviewer-b が reviewer-a の指摘を検査するなら `evidence-a-N`）。
 
 ## fanout
 
@@ -145,19 +147,29 @@ panel の REVIEW-REQ、group FYI、CONSOLIDATED、APPLIED、DECISION は
 
 1. coordinator は一意な pane 名で、実装者と反対 model family の fresh
    reviewer-a と、実装者と同じ model family の fresh reviewer-b を一人ずつ
-   spawn する。lens と理由を決め、group REVIEW-REQ を fanout する
-   （spawn したてのピアには base skill と同様に handoff フィールド統合で
+   spawn する。reviewer-b は実装者と同系統なので `spawn.sh` の既定 pane 名が
+   実装者と衝突し得る。第二引数で明示名を渡す。lens と理由を決め、
+   `instructions:` に `templates/reviewer-instructions-panel.md` の絶対パスを
+   入れた group REVIEW-REQ を fanout する（single 用
+   `reviewer-instructions.md` は数値 ID 前提で panel では使わない）。
+   spawn したてのピアには base skill と同様に handoff フィールド統合で
    go/no-go 往復を省略できる。既存ピアを使う場合は group HANDOFF で
-   go/no-go を先に取る）。
+   go/no-go を先に取る。fanout 直後に findings の skeleton を二人分生成する
+   （`review-flow.py scaffold --dir <flow> --tag findings --reviewer <各ペイン名>`）。
 2. 各 reviewer は peer の結果を見ずに担当 lens と common baseline の FINDINGS
    を合意した return mode で返して turn を終える。coordinator は二人の settle
    と台帳への取り込みを確認し、両方が揃うまで相互配送しない。
-3. 両 FINDINGS 後、coordinator は二つの FINDINGS 絶対 path を一つの group
-   `[FYI]` で二人へ送り、各 reviewer は peer path の high/mid だけを
+3. 両 FINDINGS を台帳へ取り込んだ後、cross-check の skeleton を二人分生成し
+   （`scaffold --tag cross-check --reviewer <各ペイン名>`。両 FINDINGS 記録前は
+   independence barrier のため拒否される）、二つの FINDINGS 絶対 path を一つの
+   group `[FYI]` で二人へ送る。各 reviewer は peer path の high/mid だけを
    CROSS-CHECK し、合意した return mode で返す。FINDINGS file 自体の `to:` を
    書き換えたり再配送したりしない。
 4. coordinator は全 source を CONSOLIDATED に保持し、重複 mapping と対立を
-   残したうえで、canonical ID を一つの APPLIED で triage する。各 reviewer は
+   残したうえで、canonical ID を一つの APPLIED で triage する。APPLIED
+   （canonical が無ければ CONSOLIDATED）の配送後に verified の skeleton を
+   二人分生成する（`scaffold --tag verified --reviewer <各ペイン名>`。
+   CONSOLIDATED 記録後なら各自の `finding-ids` は自動で埋まる）。各 reviewer は
    自分の prefix を持つ canonical ID を result revision 上で VERIFIED し、
    合意した return mode で返す。
 5. aggregate unresolved high/mid はユーザーの DECISION を待つ。二人の VERIFIED
