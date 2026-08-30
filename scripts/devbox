@@ -15,7 +15,7 @@ set -euo pipefail
 # and ghostty come from brew/casks on macOS but have no Linux counterpart
 # there; jq and sqlite live in .Brewfile on macOS. git/curl on Linux come
 # from apt (cloud-init/ubuntu.yaml).
-packages=(php go direnv bun ccusage git-lfs jujutsu nodejs httpie cmake go-task uv google-cloud-sdk gopls pyright terraform-ls)
+packages=(php go direnv bun ccusage git-lfs jujutsu nodejs httpie cmake go-task uv google-cloud-sdk gopls pyright terraform-ls gh)
 if [ "$(uname)" = Darwin ]; then
 	packages+=(mas)
 else
