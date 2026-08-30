@@ -28,3 +28,4 @@ devbox global add "${packages[@]}"
 # after bun is available from the global toolchain above.
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 bun install --frozen-lockfile --cwd "$script_dir/../tools/japanese-prose-lint"
+bun install --frozen-lockfile --cwd "$script_dir/../tools/dclint"

@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-dclint",
+  "private": true,
+  "devDependencies": {
+    "dclint": "3.1.0"
+  }
+}

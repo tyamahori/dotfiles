@@ -2,10 +2,10 @@
 # Shared PostToolUse hook: lint a file right after an agent writes or edits
 # it, feeding findings back so they are fixed before commit. Dispatches by
 # file type: shellcheck for sh/bash, ruff for Python, oxlint for
-# TypeScript/JavaScript, actionlint for GitHub workflow files. Reads
-# Claude-style JSON ({tool_input:{file_path}}) on stdin
-# and emits a {decision:"block"} JSON on findings. Consumers: Claude Code
-# (settings.json, Write|Edit matcher), Codex (codex/hooks/lint-edit.sh
+# TypeScript/JavaScript, actionlint for GitHub workflow files, dclint for
+# Docker Compose files. Reads Claude-style JSON ({tool_input:{file_path}})
+# on stdin and emits a {decision:"block"} JSON on findings. Consumers: Claude
+# Code (settings.json, Write|Edit matcher), Codex (codex/hooks/lint-edit.sh
 # adapter), OMP (omp/extensions/lint-on-edit.ts). zsh is skipped (shellcheck
 # cannot parse it). Clean files, non-target files, and files whose linter is
 # not installed produce no output at all.
@@ -17,6 +17,8 @@ file=$(jq -r '.tool_input.file_path // empty')
 linter=
 case "$file" in
   */.github/workflows/*.yml|*/.github/workflows/*.yaml) linter=actionlint ;;
+  # dclint's own discovery pattern: (docker-)?compose*.ya?ml
+  compose*.yml|compose*.yaml|docker-compose*.yml|docker-compose*.yaml|*/compose*.yml|*/compose*.yaml|*/docker-compose*.yml|*/docker-compose*.yaml) linter=dclint ;;
   *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) linter=oxlint ;;
   *.py) linter=ruff ;;
   *.sh|*.bash) linter=shellcheck ;;
@@ -33,7 +35,14 @@ case "$file" in
     ;;
 esac
 
-command -v "$linter" >/dev/null || exit 0
+# dclint is a locked Node dependency (tools/dclint, installed by
+# scripts/devbox), not a PATH binary.
+dclint_bin="$HOME/dotfiles/tools/dclint/node_modules/.bin/dclint"
+if [ "$linter" = dclint ]; then
+  [ -x "$dclint_bin" ] || exit 0
+else
+  command -v "$linter" >/dev/null || exit 0
+fi
 
 # Never fail the hook itself; findings go back via decision:block.
 case "$linter" in
@@ -43,6 +52,10 @@ case "$linter" in
   # own .oxlintrc.json is discovered and wins. Clean files print nothing.
   oxlint) findings=$(oxlint --format=unix "$file" 2>&1 | head -c 4000) || true ;;
   actionlint) findings=$(actionlint -no-color "$file" 2>&1 | head -c 4000) || true ;;
+  # Errors only (--quiet): blocks obsolete notation (version field, untagged
+  # images, unquoted ports, key order) without warning-level ordering
+  # opinions. A project's own .dclintrc is discovered and wins.
+  dclint) findings=$("$dclint_bin" --formatter compact --no-color --quiet "$file" 2>&1 | head -c 4000) || true ;;
 esac
 [ -n "$findings" ] || exit 0
 
