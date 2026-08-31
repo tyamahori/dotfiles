@@ -211,6 +211,18 @@ and OMP deny bare invocations before execution; a denial means switch to the
 uv form, not retry. Load the `efficient-python` skill before writing or running
 any Python.
 
+## JSON processing (jq / jaq)
+
+Both are installed via `~/.Brewfile`: `jq` (reference implementation) and
+`jaq` (Rust reimplementation; instant startup, clearer errors). Default to
+`jq` for anything repo-durable — scripts, docs, CI — because it is the
+portable baseline. Use `jaq` for two things jq can't do: format conversion
+(`--from yaml`, `--to <format>`) and in-place editing (`-i`). Never alias or
+shadow `jq` with `jaq`: jaq lacks `--stream`, `--seq`, and `-a`, and edge-case
+behavior differs. Note for OMP sessions: the built-in `jq` in OMP's bash tool
+is actually jaq, so jq-only flags fail there — call `/opt/homebrew/bin/jq`
+explicitly when a real jq is required.
+
 ## Installing CLI tools
 
 Global tools are layered; each tool has exactly one owning layer. `devbox
