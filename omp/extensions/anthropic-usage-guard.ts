@@ -100,10 +100,12 @@ function latestUsedPct(provider: string, limitFilter: string): number | null {
 	}
 }
 
-/** limit 毎の最新行一覧（provider 単位、期限切れ除外）。 */
+/** limit 毎の最新行一覧（provider 単位、期限切れ除外）。
+ *  Anthropic は使用量 0 の枠を utilization 0 / resets_at null で返すので、
+ *  NULL を期限切れ扱いにすると枠リセット直後に Claude 表示が丸ごと消える。 */
 function latestUsageRows(
 	provider: string,
-): { limitId: string; pct: number; resetsAt: number }[] {
+): { limitId: string; pct: number; resetsAt: number | null }[] {
 	try {
 		const db = new Database(USAGE_DB, { readonly: true });
 		try {
@@ -114,7 +116,7 @@ function latestUsageRows(
 					        u.resets_at AS resetsAt
 					 FROM usage_history u
 					 WHERE lower(u.provider) = ?1
-					   AND u.resets_at > ?2
+					   AND (u.resets_at IS NULL OR u.resets_at > ?2)
 					   AND u.recorded_at = (
 					     SELECT MAX(x.recorded_at)
 					     FROM usage_history x
@@ -126,7 +128,7 @@ function latestUsageRows(
 				.all(provider, Date.now()) as {
 				limitId: string;
 				pct: number;
-				resetsAt: number;
+				resetsAt: number | null;
 			}[];
 		} finally {
 			db.close();
@@ -136,7 +138,8 @@ function latestUsageRows(
 	}
 }
 
-function formatReset(resetsAt: number): string {
+function formatReset(resetsAt: number | null): string {
+	if (resetsAt === null) return "idle";
 	const mins = Math.max(0, Math.round((resetsAt - Date.now()) / 60000));
 	if (mins < 120) return `${mins}m`;
 	const hours = Math.round(mins / 60);
