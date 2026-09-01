@@ -324,8 +324,14 @@ $S/despawn.sh w1:p2
 5. reviewer の settle 後に `[VERIFIED]` を取り込む。unresolved high/mid は
    ユーザーの `[DECISION]` を待つ。`rework` ならこの flow を閉じず、旧 flow を
    context に結んだ新規 flow を始める。
-6. `require-closed` が通ってからだけ完了を報告する。low-only は ID と理由も
-   報告する。棄却した指摘の類型は、次回の briefing の非目標欄へ還流する。
+6. `require-closed` を実行する。通った flow に、次回のレビューでも再利用できる手順や
+   判断基準があれば、`learn` へ候補として保存する。`FINDINGS` と
+   `APPLIED` / `VERIFIED` を根拠にする。未検証の指摘、通常のコードバグ、
+   単発の好みは保存しない。
+   `learn` は候補の記録だけに使い、skill への昇格は `omp-learning-loop` の
+   裏取りと項目別承認に委ねる。
+7. low-only は ID と理由も含めて完了を報告する。
+8. 棄却した指摘の類型は、次回の briefing の非目標欄へ還流する。
 
 ### reviewer
 
