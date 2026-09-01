@@ -167,6 +167,13 @@ omp-build() {
 # PI_CONFIG_FILES を設定すると omp が起動エラーになるため、存在ガード必須。
 # このファイルは dotfiles 管理外(マシン固有なので symlink しない)。
 [[ -f "$HOME/.omp/agent/config.local.yml" ]] && export PI_CONFIG_FILES="$HOME/.omp/agent/config.local.yml"
+# terminal-browser: デフォルトは display リフレッシュ(ProMotion=120fps) × Retina 2x で
+# フレームを kitty graphics として herdr server → Ghostty に流すため、スクロール中に
+# Ghostty のレンダラと herdr server が飽和してターミナル全体が重くなる
+# (実測: 30fps+1x でも ghostty ~113% / herdr server ~61%)。観察・プレビュー用途には
+# 30fps + 非Retina描画で十分。
+export TERMINAL_BROWSER_FPS=30
+export TERMINAL_BROWSER_RENDER_SCALE=1
 alias ll='ls -la'
 alias reload='source ~/.zshrc'
 
