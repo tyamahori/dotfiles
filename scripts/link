@@ -245,6 +245,22 @@ fi
 mkdir -p "$HOME/.config/herdr"
 ln -snfv "${REPO_ROOT}/herdr/config.toml" "$HOME/.config/herdr/config.toml"
 
+# herdr plugin configs: per-plugin dirs under plugins/config are linked as
+# directories (not files) because plugins persist settings back into them at
+# runtime (e.g. official.browser writes browserZoom on toolbar zoom) — a
+# rename-style rewrite would replace a file symlink but stays inside a dir
+# symlink. Only plugins with actual config are managed; a pre-existing real
+# dir is replaced by the repo-managed one.
+for plugin_config in "${REPO_ROOT}/herdr/plugins-config"/*/; do
+	plugin_config="${plugin_config%/}"
+	target="$HOME/.config/herdr/plugins/config/$(basename "$plugin_config")"
+	mkdir -p "$(dirname "$target")"
+	if [[ -d $target && ! -L $target ]]; then
+		rm -rf "$target"
+	fi
+	ln -snfv "$plugin_config" "$target"
+done
+
 # herdr worktree-track plugin: follow same-named remote branches in new
 # worktrees. `plugin link` is idempotent; it needs a reachable herdr server,
 # so tolerate failure on machines where herdr isn't running yet.
