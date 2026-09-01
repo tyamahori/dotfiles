@@ -1,10 +1,20 @@
 [user]
 	name = tyamahori
 	email = tyamahori@gmail.com
+[init]
+	defaultBranch = main
 [core]
 	# Machine-global hooks (Why-body commit check + delegation to each
 	# repository's own .git/hooks). See git/global-hooks/dispatch.
 	hooksPath = ~/dotfiles/git/global-hooks
+	quotepath = false
+[diff]
+	algorithm = histogram
+	colorMoved = zebra
+[fetch]
+	prune = true
+[push]
+	autoSetupRemote = true
 [filter "lfs"]
 	clean = git-lfs clean -- %f
 	smudge = git-lfs smudge -- %f

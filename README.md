@@ -32,6 +32,10 @@ customer names to the gitignored `git/sensitive-patterns.local`, one literal
 string per line. Intentional public content can bypass the guard with
 `git commit --no-verify`.
 
+`.gitconfig` also standardizes `main` as the initial branch, readable non-ASCII
+paths, histogram/moved-line diffs, stale remote pruning, and first-push upstream
+setup.
+
 ### Machine-global git hooks
 
 `.gitconfig` sets a global `core.hooksPath` to `git/global-hooks/`, so the
