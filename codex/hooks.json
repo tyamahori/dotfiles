@@ -13,28 +13,6 @@
         "matcher": "*"
       }
     ],
-    "PreToolUse": [
-      {
-        "hooks": [
-          {
-            "command": "\"$HOME/dotfiles/scripts/deny-bare-python-hook\"",
-            "timeout": 10,
-            "type": "command"
-          }
-        ],
-        "matcher": "Bash"
-      },
-      {
-        "hooks": [
-          {
-            "command": "\"$HOME/dotfiles/codex/hooks/japanese-prose-edit.sh\"",
-            "timeout": 120,
-            "type": "command"
-          }
-        ],
-        "matcher": "Edit|Write"
-      }
-    ],
     "PostToolUse": [
       {
         "hooks": [
@@ -67,24 +45,26 @@
         "matcher": "Bash"
       }
     ],
-    "Stop": [
+    "PreToolUse": [
       {
         "hooks": [
           {
-            "command": "JAPANESE_PROSE_RUNTIME=codex \"$HOME/dotfiles/scripts/japanese-prose-hook-stop\"",
-            "timeout": 120,
+            "command": "\"$HOME/dotfiles/scripts/deny-bare-python-hook\"",
+            "timeout": 10,
             "type": "command"
           }
-        ]
+        ],
+        "matcher": "Bash"
       },
       {
         "hooks": [
           {
-            "type": "command",
-            "command": "$HOME/.local/bin/plannotator",
-            "timeout": 345600
+            "command": "\"$HOME/dotfiles/codex/hooks/japanese-prose-edit.sh\"",
+            "timeout": 120,
+            "type": "command"
           }
-        ]
+        ],
+        "matcher": "Edit|Write"
       }
     ],
     "SessionStart": [
@@ -98,6 +78,26 @@
           {
             "command": "\"$HOME/dotfiles/scripts/jbcontext-clobber-check\"",
             "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "JAPANESE_PROSE_RUNTIME=codex \"$HOME/dotfiles/scripts/japanese-prose-hook-stop\"",
+            "timeout": 120,
+            "type": "command"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "$HOME/.local/bin/plannotator",
+            "timeout": 345600,
             "type": "command"
           }
         ]

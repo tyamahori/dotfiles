@@ -1,31 +1,47 @@
 #!/bin/bash
-# Machine-global pre-commit check: validate staged JSON files with jq so
-# syntactically broken JSON (bad merges, stray commas, duplicated blocks)
-# cannot be committed even when the edit-time hook was bypassed. JSONC
-# dialects (*.jsonc, tsconfig/jsconfig, .vscode, devcontainer) are skipped;
-# one commit escapes with --no-verify.
+# Machine-global pre-commit check: validate staged JSON with jq and require
+# canonical jq --sort-keys formatting for the tracked Claude, Codex, and OMP
+# configuration files. JSONC dialects (*.jsonc, tsconfig/jsconfig, .vscode,
+# devcontainer) are skipped; one commit escapes with --no-verify.
 set -euo pipefail
 
-command -v jq >/dev/null || exit 0
+if ! command -v jq >/dev/null; then
+	echo "pre-commit: jq is required to validate staged JSON." >&2
+	exit 1
+fi
 
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
 failed=0
+staged=$(mktemp)
+formatted=$(mktemp)
+trap 'rm -f "$staged" "$formatted"' EXIT
 while IFS= read -r -d '' file; do
-	[[ -f $file ]] || continue
+	git show ":$file" >"$staged"
 	case "$file" in
 	*.jsonc | tsconfig*.json | */tsconfig*.json | jsconfig*.json | */jsconfig*.json | .vscode/*.json | */.vscode/*.json | devcontainer.json | */devcontainer.json | .devcontainer/*.json | */.devcontainer/*.json) continue ;;
 	*.json) ;;
 	*) continue ;;
 	esac
-	if ! err=$(jq empty "$file" 2>&1); then
+	if ! err=$(jq empty "$staged" 2>&1); then
 		printf '%s\n' "$err" >&2
 		failed=1
+		continue
 	fi
+	case "$file" in
+	claude/settings.json | codex/hooks.json | omp/lsp.json | omp/mcp.json)
+		jq --sort-keys . "$staged" >"$formatted"
+		if ! cmp -s "$staged" "$formatted"; then
+			printf 'pre-commit: %s must match jq --sort-keys output.\n' "$file" >&2
+			diff -u --label "$file (staged)" --label "$file (jq --sort-keys)" "$staged" "$formatted" | head -c 4000 >&2 || true
+			failed=1
+		fi
+		;;
+	esac
 done < <(git diff --cached --name-only --diff-filter=ACMR -z)
 
 if ((failed)); then
-	echo "pre-commit: jq found invalid JSON in staged files." >&2
-	echo "Fix the syntax, or commit with --no-verify." >&2
+	echo "pre-commit: staged JSON is invalid or not canonically formatted." >&2
+	echo "Format agent configuration with jq --sort-keys, stage it again, or commit with --no-verify." >&2
 	exit 1
 fi

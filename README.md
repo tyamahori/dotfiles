@@ -66,9 +66,10 @@ Current checks:
   repo's own `.dclintrc` wins, `# dclint disable-line <rule>` opts out a
   line).
 - **pre-commit json** (`checks/pre-commit-json`) — validates staged JSON files
-  with `jq empty` so broken syntax (bad merges, stray commas) cannot land.
-  JSONC dialects (`*.jsonc`, `tsconfig`/`jsconfig`, `.vscode`, devcontainer)
-  are skipped.
+  with `jq empty` and requires `jq --sort-keys` canonical formatting for
+  `claude/settings.json`, `codex/hooks.json`, `omp/lsp.json`, and
+  `omp/mcp.json`. JSONC dialects (`*.jsonc`, `tsconfig`/`jsconfig`, `.vscode`,
+  devcontainer) are skipped.
 
 Genuinely exceptional commits bypass all checks with `git commit --no-verify`.
 This repository sets a local `core.hooksPath`, so it wires the same checks
@@ -165,11 +166,12 @@ OMP mirrors each one as an extension in `omp/extensions/`:
 - **lint on edit** — `scripts/lint-on-edit` lints files right after an agent
   writes or edits them (shellcheck for shell, ruff for Python, oxlint for
   TypeScript/JavaScript, actionlint for GitHub workflow files, jq syntax
-  validation for JSON, dclint for
-  Docker Compose files — errors only, so obsolete notation like a `version`
-  field, untagged images, or unquoted ports blocks immediately) and feeds
-  findings back for an immediate fix. dclint is a locked Node dependency in
-  `tools/dclint`, installed by `scripts/devbox`.
+  validation for JSON, `jq --sort-keys` formatting for the linked
+  Claude/Codex/OMP JSON configuration, and dclint for Docker Compose files)
+  and feeds findings back for an immediate fix. dclint runs errors only, so
+  obsolete notation like a `version` field, untagged images, or unquoted ports
+  blocks immediately. Its binary is a locked Node dependency in `tools/dclint`,
+  installed by `scripts/devbox`.
 - **jbcontext clobber check** — `scripts/jbcontext-clobber-check` warns at
   session start when `agents/global-instructions.md` or
   `claude/settings.json` carry uncommitted changes — the signature of a

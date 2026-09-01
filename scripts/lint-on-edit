@@ -3,11 +3,12 @@
 # it, feeding findings back so they are fixed before commit. Dispatches by
 # file type: shellcheck for sh/bash, ruff for Python, oxlint for
 # TypeScript/JavaScript, actionlint for GitHub workflow files, dclint for
-# Docker Compose files, jq syntax validation for JSON. Reads Claude-style
-# JSON ({tool_input:{file_path}})
-# on stdin and emits a {decision:"block"} JSON on findings. Consumers: Claude
-# Code (settings.json, Write|Edit matcher), Codex (codex/hooks/lint-edit.sh
-# adapter), OMP (omp/extensions/lint-on-edit.ts). zsh is skipped (shellcheck
+# Docker Compose files, jq syntax validation for JSON, and canonical
+# jq --sort-keys formatting for tracked Claude/Codex/OMP configuration.
+# Reads Claude-style JSON ({tool_input:{file_path}}) on stdin and emits a
+# {decision:"block"} JSON on findings. Consumers: Claude Code
+# (settings.json, Write|Edit matcher), Codex (codex/hooks/lint-edit.sh
+# adapter), and OMP (omp/extensions/lint-on-edit.ts). zsh is skipped (shellcheck
 # cannot parse it). Clean files, non-target files, and files whose linter is
 # not installed produce no output at all.
 set -euo pipefail
@@ -16,12 +17,14 @@ file=$(jq -r '.tool_input.file_path // empty')
 [ -n "$file" ] && [ -f "$file" ] || exit 0
 
 linter=
+json_format=
 case "$file" in
   */.github/workflows/*.yml|*/.github/workflows/*.yaml) linter=actionlint ;;
   # dclint's own discovery pattern: (docker-)?compose*.ya?ml
   compose*.yml|compose*.yaml|docker-compose*.yml|docker-compose*.yaml|*/compose*.yml|*/compose*.yaml|*/docker-compose*.yml|*/docker-compose*.yaml) linter=dclint ;;
   # JSONC dialects (comments/trailing commas are legal there) — never jq them.
   *.jsonc|tsconfig*.json|*/tsconfig*.json|jsconfig*.json|*/jsconfig*.json|*/.vscode/*.json|devcontainer.json|*/devcontainer.json|*/.devcontainer/*.json) exit 0 ;;
+  */claude/settings.json|*/.claude/settings.json|*/codex/hooks.json|*/.codex/hooks.json|*/omp/lsp.json|*/.omp/agent/lsp.json|*/omp/mcp.json|*/.omp/agent/mcp.json) linter=jq; json_format=canonical ;;
   *.json) linter=jq ;;
   *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) linter=oxlint ;;
   *.py) linter=ruff ;;
@@ -51,7 +54,14 @@ fi
 # Never fail the hook itself; findings go back via decision:block.
 case "$linter" in
   shellcheck) findings=$(shellcheck --format=gcc "$file" 2>&1 | head -c 4000) || true ;;
-  jq) findings=$(jq empty "$file" 2>&1 | head -c 4000) || true ;;
+  jq)
+    findings=$(jq empty "$file" 2>&1 | head -c 4000) || true
+    if [ -z "$findings" ] && [ "$json_format" = canonical ]; then
+      findings=$(diff -u "$file" <(jq --sort-keys . "$file") | head -c 4000) || true
+      [ -z "$findings" ] || findings="agent config JSON must match jq --sort-keys output:
+$findings"
+    fi
+    ;;
   ruff) findings=$(ruff check --no-cache --quiet --output-format concise "$file" 2>&1 | head -c 4000) || true ;;
   # Default categories only (correctness-centred, near-zero FP); a project's
   # own .oxlintrc.json is discovered and wins. Clean files print nothing.
