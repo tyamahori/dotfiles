@@ -251,6 +251,7 @@ repository 固有の記憶を machine scope へ一般化する場合は、固有
 
 snapshot の `ツール鮮度` は Brewfile 管理ツールの陳腐化を可視化する。
 自動 upgrade はせず、更新は人間の判断で `scripts/brewUpdate` を実行する。
+omp の更新経路は Cellar の keg 残存で判別できる: `scripts/brewUpdate` 経由なら旧 keg が残り、素の `brew upgrade` は cleanup で旧 keg を即削除する（旧 keg 消失は稼働中 OMP セッションの respawn ENOENT の兆候）。
 
 ## 3. 提案
 
