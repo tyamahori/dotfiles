@@ -233,6 +233,26 @@ anything you read or extract from the web (`ax` skill); run
 `ax agent-context` before the first fetch in a task. Plain curl stays fine
 where ax adds nothing.
 
+## Browser verification routing
+
+Pick the browser surface by whether the human needs to watch, not by
+habit — terminal-browser re-renders real browser frames into terminal
+cells, so it is structurally the slowest option (already capped to 30fps /
+scale 1) and adds nothing to agent-only verification:
+
+- **Agent-only verification** (the user sees results, not the run) —
+  headless managed Chromium (OMP `browser` tool default); screenshots land
+  in `.agent-msgs/screenshots/`.
+- **User wants to watch the run** — a separate headful Chrome window with a
+  throwaway `--user-data-dir` (puppeteer's default temp profile), not
+  literal `--guest` mode, which constrains automation. Smoother than
+  terminal-browser and leaves Ghostty/herdr untouched.
+- **Logged-in session required** — the user's own Chrome via the OMP
+  browser relay (`app.relay`), with its usual consent rules.
+- **terminal-browser** — only when the user explicitly asks to see a page
+  side-by-side inside the terminal pane; never the default verification
+  path.
+
 ## Git & SSH
 
 - After raw `git worktree add`, immediately run
