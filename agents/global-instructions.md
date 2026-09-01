@@ -235,23 +235,12 @@ where ax adds nothing.
 
 ## Browser verification routing
 
-Pick the browser surface by whether the human needs to watch, not by
-habit — terminal-browser re-renders real browser frames into terminal
-cells, so it is structurally the slowest option (already capped to 30fps /
-scale 1) and adds nothing to agent-only verification:
-
-- **Agent-only verification** (the user sees results, not the run) —
-  headless managed Chromium (OMP `browser` tool default); screenshots land
-  in `.agent-msgs/screenshots/`.
-- **User wants to watch the run** — a separate headful Chrome window with a
-  throwaway `--user-data-dir` (puppeteer's default temp profile), not
-  literal `--guest` mode, which constrains automation. Smoother than
-  terminal-browser and leaves Ghostty/herdr untouched.
-- **Logged-in session required** — the user's own Chrome via the OMP
-  browser relay (`app.relay`), with its usual consent rules.
-- **terminal-browser** — only when the user explicitly asks to see a page
-  side-by-side inside the terminal pane; never the default verification
-  path.
+Browser work goes through the `browser-verify` skill; load it before the
+first browser action. The one rule that must hold before the skill loads:
+pick the surface by whether the human needs to watch — agent-only
+verification is headless (OMP `browser` tool), a human watching gets a
+separate throwaway-profile Chrome window, and terminal-browser is used only
+when the user explicitly asks to see the page inside the terminal pane.
 
 ## Git & SSH
 
