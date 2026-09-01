@@ -289,9 +289,10 @@ $S/despawn.sh w1:p2
 
 - 置き場所: `<git toplevel>/.agent-msgs/<フロー名>/NN-<tag>.md`（NN は
   send.sh が採番）。`.agent-msgs/` は dotfiles の global gitignore で ignore
-  済み。リポ外で使う場合は `--root` で起点を明示する。フロー名 `handoff` は
-  予約済み — セッション引き継ぎメモの置き場 `.agent-msgs/handoff/` と衝突する
-  ため使わない。
+  済み。リポ外で使う場合は `--root` で起点を明示する。フロー名
+  `handoff` / `scratch` / `screenshots` は予約済み — それぞれセッション
+  引き継ぎメモ・作業ファイル・ブラウザ検証スクリーンショットの置き場
+  （global-instructions の Agent output directory 節）と衝突するため使わない。
 - ファイル先頭の `from:` / `to:` / `date:` header は send.sh が書く。review tag
   は送信・取り込みの前に `review-flow.py validate-message` が内容と状態遷移を
   検証し、不正なら配送・記録しない。
@@ -300,8 +301,8 @@ $S/despawn.sh w1:p2
   安定させる。
 - 完了報告の直前に必ず `review-flow.py require-closed --dir <flow-dir>` を
   実行する。通らなければ完了と報告しない。
-- ディレクトリ名を汎用名（`.agents/` 等）に変えない。ignore 対象はこの
-  プロトコル専用の `.agent-msgs/` に限定する。
+- ディレクトリ名を汎用名（`.agents/` 等）に変えない。ignore 対象は
+  agent 出力専用の `.agent-msgs/` に限定する。
 - msgs ディレクトリがそのままフローの作業ログになる（改ざん耐性はない —
   監査証跡が要る場合は永続化先へ別途保存する）。
 

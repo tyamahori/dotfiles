@@ -139,6 +139,16 @@ permission denied, lock busy, identity mismatch, delivery timeout — stop
 retrying. Report the root cause and the exact fix the user must apply, then
 end the turn. Never attempt a third time (measured).
 
+## Agent output directory
+
+All agent by-products that don't belong in the repository — scratch notes,
+plan drafts, verification screenshots, handoff notes, collab flows — go
+under `<git toplevel>/.agent-msgs/` (machine-globally gitignored):
+`scratch/` for working files, `screenshots/` for browser verification
+shots, `handoff/` for session handoff notes, `<flow>/` for
+`omp-herdr-collab` flows. Never scatter temp artifacts elsewhere in the
+working tree.
+
 ## Session hygiene under subscription limits
 
 Subscription quota is spent on context re-reads, not output (measured). For
