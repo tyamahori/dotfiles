@@ -1,17 +1,37 @@
 #!/bin/bash
 # Weekly agent-usage report, fired by launchd
-# (launchd/com.tyamahori.agent-usage-weekly.plist). Writes the report to
-# ~/.local/state/agent-usage/ and posts a macOS notification with the
-# omp total / compaction count / churn ratio (--notify).
+# (launchd/com.tyamahori.agent-usage-weekly.plist). Runs the agent-usage-review
+# snapshot (the same instrument omp-review uses) into ~/.local/state/agent-usage/
+# and posts a macOS notification with the omp cost / compaction count / churn
+# ratio pulled from that report, so the notification and the review never
+# disagree on the numbers.
 set -euo pipefail
-export PATH="$HOME/.local/bin:$HOME/.nix-profile/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
-# launchd env has no devbox profile, and uv (agent-usage's shebang) lives
-# there; devbox itself is /usr/local/bin on one machine, ~/.nix-profile/bin
-# on the other, so resolve it via PATH
-eval "$(devbox global shellenv)"
+# launchd env has no devbox profile, and ccusage (snapshot.sh) lives there.
+# The profile bin is addressed directly instead of `devbox global shellenv`:
+# under launchd that needs nix on PATH and fails otherwise, silently leaving
+# the ccusage sections of the report empty.
+export PATH="$HOME/.local/share/devbox/global/default/.devbox/nix/profile/default/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
+DAYS=7
+CHURN_WARN=25 # 8/16 の churn 50% 事件後、14% まで改善した実測に合わせた早期警戒線
 STATE_DIR="$HOME/.local/state/agent-usage"
 mkdir -p "$STATE_DIR"
+REPORT="$STATE_DIR/weekly-$(date +%Y-%m-%d).md"
 
-"$HOME/dotfiles/scripts/agent-usage" --days 7 --all --notify \
-	>"$STATE_DIR/weekly-$(date +%Y-%m-%d).txt"
+bash "$HOME/dotfiles/agents/skills/agent-usage-review/scripts/snapshot.sh" --days "$DAYS" >"$REPORT"
+
+# OMP 節の値だけを拾う。取れなかった値は "?" にして通知自体は必ず出す。
+cost=$(awk -F'\t' '
+	/^model\tagent_type\tcalls/ { table = 1; next }
+	table && NF == 10 { sum += $10; next }
+	table && !/^[^\t]*\t/ { table = 0 }
+	END { if (sum != "") printf "%.2f", sum; else print "?" }
+' "$REPORT")
+compactions=$(sed -n 's/^- compaction: \([0-9]*\) \/ handoff:.*/\1/p' "$REPORT")
+churn=$(sed -n 's/^- cacheWrite >50k の応答: .* (\([0-9]*\)%).*/\1/p' "$REPORT")
+
+body="omp 過去${DAYS}日: \$${cost} / compaction ${compactions:-?}回 / churn ${churn:-?}%"
+if [ -n "$churn" ] && [ "$churn" -gt "$CHURN_WARN" ]; then
+	body="警告: セッション交代を推奨 — $body"
+fi
+osascript -e "display notification \"$body\" with title \"agent-usage 週次\""

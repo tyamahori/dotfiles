@@ -320,7 +320,10 @@ omp-review --days 7
 `~/.omp/agent/memories/` と managed skill を走査し、前回レビュー以降の
 新しい学習候補があるプロジェクトだけを macOS 通知で知らせます。
 通知が来たら該当プロジェクトで `omp-learning-review` を実行します。
-利用効率のレポート(`agent-usage-weekly`、月曜 9:30 通知)を見て気になる週は
+月曜 9:30 の `agent-usage-weekly` は `omp-review` と同じ計測スクリプト
+(`agent-usage-review/scripts/snapshot.sh`)を過去 7 日で走らせ、レポートを
+`~/.local/state/agent-usage/weekly-YYYY-MM-DD.md` に保存し、OMP の費用・
+compaction 回数・churn 率を macOS 通知で知らせます。気になる週は
 `omp-review --days 7` を実行します。
 
 ## 設定を変更する

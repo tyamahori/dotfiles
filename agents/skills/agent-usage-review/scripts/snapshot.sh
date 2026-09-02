@@ -542,7 +542,7 @@ else
 		IFS=$'\t' read -r OMP_CACHE_WRITE OMP_LARGE_CACHE_WRITE <<<"$OMP_CHURN"
 		if [ "$OMP_CACHE_WRITE" -gt 0 ]; then
 			OMP_CHURN_RATE="$(( OMP_LARGE_CACHE_WRITE * 100 / OMP_CACHE_WRITE ))"
-			echo "- cacheWrite >50k の応答: ${OMP_LARGE_CACHE_WRITE}/${OMP_CACHE_WRITE} tokens (${OMP_CHURN_RATE}%)。既存 \`agent-usage\` と同じ >50k 閾値で、compaction 後の再キャッシュ候補を示す。"
+			echo "- cacheWrite >50k の応答: ${OMP_LARGE_CACHE_WRITE}/${OMP_CACHE_WRITE} tokens (${OMP_CHURN_RATE}%)。>50k 閾値で compaction 後の再キャッシュ候補を示す（週次通知 \`agent-usage-weekly\` もこの値を使う）。"
 		else
 			echo "- cacheWrite: 0 tokens（churn 判定不能ではなく、対象期間に記録なし）。"
 		fi
