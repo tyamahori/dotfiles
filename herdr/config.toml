@@ -38,12 +38,14 @@ delivery = "off"
 [ui.sound]
 enabled = false
 
-# reviewr サイドバーのトグル。auto-open は worktree.created 限定なので、
-# worktree を使わない workspace ではこのキーで開閉する。
+# Hunk pane (レビュー面は Hunk に一本化。旧 reviewr plugin は撤去済み)。
+# type = "pane" は一時 pane を開き、hunk を q で抜けると pane も閉じる。
+# cwd は terminal.new_cwd = "follow" で作成元 pane と同じ worktree になる。
 [[keys.command]]
 key = "cmd+r"
-type = "plugin_action"
-command = "persiyanov.reviewr.toggle"
+type = "pane"
+command = "hunk diff --watch"
+description = "Hunk で working tree の差分を開く"
 
 [experimental]
 # herdr-browser（Chromiumをペインに描画）が要求。Kitty graphics対応ターミナル前提。
