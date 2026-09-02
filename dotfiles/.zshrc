@@ -21,6 +21,10 @@ setopt HIST_REDUCE_BLANKS
 setopt AUTO_CD
 cdpath=("$HOME" "$HOME/project")
 
+# 補完。fpath は前にある方が優先。devbox の nix profile は
+# `devbox global shellenv` が PATH にしか載せないので、そこにある
+# gh/jj/uv/pnpm/bun/aws/gcloud/task の補完は明示しないと一切効かない。
+#
 # CLI 補完のキャッシュ。毎起動の eval はツールの起動コスト（omp は ~1秒）が
 # 乗るため、バイナリが更新されたときだけ再生成して fpath に載せる。
 # omp の補完本体は実行時に `omp __complete` を呼ぶ薄いラッパなので陳腐化しない。
@@ -36,18 +40,40 @@ _cache_completion() {
 }
 _cache_completion omp omp completions zsh
 _cache_completion herdr herdr completion zsh
-FPATH="$_comp_cache_dir:$FPATH"
-unset _comp_cache_dir
+_cache_completion devbox devbox completion zsh
 unfunction _cache_completion
 
-if type brew &>/dev/null; then
-  FPATH=$(brew --prefix)/share/zsh-completions:$FPATH
-  [ -r "$(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ] && \
-    source "$(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+typeset -U fpath FPATH
+fpath=(
+  "$_comp_cache_dir"
+  "$HOME"/.grok/completions/zsh(N-/)
+  "$HOME"/.local/share/devbox/global/default/.devbox/nix/profile/default/share/zsh/site-functions(N-/)
+  "${HOMEBREW_PREFIX:-/opt/homebrew}"/share/zsh-completions(N-/)
+  "${HOMEBREW_PREFIX:-/opt/homebrew}"/share/zsh/site-functions(N-/)
+  $fpath
+)
+unset _comp_cache_dir
 
-  autoload -Uz compinit
-  compinit
-fi
+# compinit は dump が古いか fpath のファイル数が変わると再生成（~600ms）、
+# それ以外でも compaudit 込みで ~60ms かかる。dump が24時間以内なら -C で
+# 読み込みだけ（~20ms）。新しい補完を即反映したいときは `rm ~/.zcompdump; reload`。
+autoload -Uz compinit
+if [[ -n ~/.zcompdump(#qN.mh-24) ]]; then compinit -C; else compinit; fi
+# clap 生成の _jj は初回呼び出しで本体関数を定義して compdef し直すだけなので、
+# そのままだと各シェルで最初の TAB が空振りする。先に一度呼んで定義させる。
+(( $+functions[_jj] )) && _jj
+
+zstyle ':completion:*' menu select                                  # 候補を矢印キーで選ぶ
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=*'  # 大小無視、区切り文字の途中一致
+zstyle ':completion:*' group-name ''                                # 種別ごとに見出しを付けて分ける
+zstyle ':completion:*:descriptions' format '%F{yellow}%d%f'
+zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
+zstyle ':completion:*' use-cache yes                                # brew/gh など重い候補列挙を保存
+zstyle ':completion:*' cache-path "$HOME/.zsh/cache"
+setopt COMPLETE_IN_WORD                                             # カーソルが単語の途中でも補完
+
+[ -r "${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ] && \
+  source "${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
 
 # プロンプト。pwd + git ブランチ、Claude/Codex の subscription 使用率、
 # 入力欄を3行に分けて常時表示する。使用率の源泉は omp が記録
@@ -184,6 +210,4 @@ export PATH="$PATH:${HOME}/.jbcontext/bin"
 
 # >>> grok installer >>>
 export PATH="$HOME/.grok/bin:$PATH"
-fpath=(~/.grok/completions/zsh $fpath)
-autoload -Uz compinit && compinit -C
 # <<< grok installer <<<
