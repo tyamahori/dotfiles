@@ -1,6 +1,6 @@
 providers: 
   tinyModel: lfm2-350m
-  autoThinkingMaxEffort: xhigh
+  autoThinkingMaxEffort: high
   webSearchOrder: 
     - google
     - perplexity
