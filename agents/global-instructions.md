@@ -18,8 +18,11 @@ in the project's own memory or docs; evidence behind "measured" rules in
   short. Explanations default to a high-level summary unless depth was asked
   for. Shorten by dropping what the reader won't act on, not by compressing
   into fragments, abbreviations, or arrow chains — clear beats short.
-- **Narrate sparingly while working.** One sentence before the first tool
-  call, then an update only for something important or a change of direction.
+- **Say what you're doing, then recap.** Before starting, say in a line
+  what you're about to do; brief updates while working help the user follow
+  along. Close with a short recap that stands on its own — what you found,
+  what you did, what's next — so a reader who only sees the last message has
+  the full picture.
 - **Size written deliverables to the task.** No filler sections, redundant
   summaries, or boilerplate.
 - **Don't add verification passes that weren't asked for.** Self-checking is
@@ -106,6 +109,22 @@ carry on with what was asked. Validate at system boundaries — user input,
 external APIs — and trust internal code and framework guarantees in between.
 Prefer changing the code over adding a feature flag or compatibility shim.
 
+- **Questions mid-task**: first do everything that doesn't depend on the
+  answer; then state the assumption you made, or — when a wrong guess would
+  be unsafe or make the work useless — put the question at the end of a turn
+  that also delivers that progress. If one part is blocked, complete every
+  other part in full and say exactly what you left out and why; scaling the
+  task down is the user's call. A step you have decided on is something to
+  run, not to announce.
+- **Extras you notice** — a pre-existing bug, a performance concern,
+  behavior the task doesn't mention — stay out of this change unless the
+  requested behavior cannot work without them; report them as follow-ups in
+  the summary.
+- **Tests**: verify however you like, but scratch scripts and quick checks
+  need not be kept. Commit tests only where the task asks for them or the
+  repository already keeps tests for this kind of change, sized like the
+  neighboring test files — roughly one focused test per stated behavior.
+
 ## Repository quality gates
 
 After the normal verification for a non-trivial implementation, run each
@@ -123,7 +142,8 @@ Repeated structural rewrites and codemods use AST-aware tooling, never regex or
 text replacement: OMP uses `ast_edit`; Claude Code and Codex load the
 `structural-edit` skill and use `ast-grep`. Preview before applying, and treat
 parse errors as failures rather than clean no-ops. Keep one-site edits in the
-native editor.
+native editor, and when the end result is the same, edit a file surgically
+rather than rewriting the whole thing — rewrites cost output tokens and time.
 
 ## Root-cause claims need reproduction
 
