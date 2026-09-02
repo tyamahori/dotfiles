@@ -184,10 +184,11 @@ OMP mirrors each one as an extension in `omp/extensions/`:
   `communication with agent failed` on git/ssh commands and feeds back that
   the only fix is unlocking 1Password, so agents stop misdiagnosing it as a
   network or SSH-config problem.
-- **session hygiene (Claude Code only)** — `claude/hooks/session-hygiene.sh`
-  warns on day-crossing resumes, hour-idle large-transcript resumes, and
-  from the second compaction of a session onward. OMP covers the same rules
-  with its `session-day-guard` and `session-compaction-guard` extensions.
+- **session hygiene** — `scripts/session-hygiene-hook` (Claude Code and
+  Codex `SessionStart`) warns on day-crossing resumes, hour-idle
+  large-transcript resumes, and from the second compaction of a session
+  onward. OMP covers the same rules with its `session-day-guard` and
+  `session-compaction-guard` extensions.
 
 ### Worktree-local files
 Repository-local `.worktreeinclude` files are the shared allowlist for

@@ -1,5 +1,5 @@
 {
-  "description": "Block bare Python, notify on approval, title Herdr panes, review edited Japanese prose, lint edited shell/Python/workflow files, detect jbcontext clobbers, sweep worktree includes, and hint on locked-1Password SSH failures.",
+  "description": "Block bare Python, notify on approval, title Herdr panes, review edited Japanese prose, lint edited shell/Python/workflow files, detect jbcontext clobbers, sweep worktree includes, warn on day-crossing resumes and repeated compaction, and hint on locked-1Password SSH failures.",
   "hooks": {
     "PermissionRequest": [
       {
@@ -81,6 +81,16 @@
             "type": "command"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"$HOME/dotfiles/scripts/session-hygiene-hook\"",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "resume|compact"
       }
     ],
     "Stop": [

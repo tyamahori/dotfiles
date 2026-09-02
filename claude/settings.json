@@ -211,7 +211,7 @@
             "type": "command"
           },
           {
-            "command": "\"$HOME/dotfiles/claude/hooks/session-hygiene.sh\"",
+            "command": "\"$HOME/dotfiles/scripts/session-hygiene-hook\"",
             "timeout": 10,
             "type": "command"
           }
