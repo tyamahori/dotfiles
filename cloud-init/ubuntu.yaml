@@ -29,14 +29,6 @@ packages:
 
 write_files:
 
-  - path: /usr/local/bin/refresh-global
-    permissions: '0755'
-    owner: root:root
-    content: |
-      #!/usr/bin/env bash
-      # Update all devbox global packages. Run as the user that owns the devbox global profile.
-      exec devbox global update "$@"
-
   - path: /usr/local/sbin/dev-bootstrap.sh
     permissions: '0755'
     owner: root:root
@@ -76,7 +68,7 @@ write_files:
         npm install -g @anthropic-ai/claude-code @openai/codex @github/copilot
       '
 
-      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH refresh-global'
+      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH devbox global update'
 
       # Global Python via uv: latest CPython, registered as python/python3 in ~/.local/bin.
       su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH uv python install --default --preview-features python-install-default'
