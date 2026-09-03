@@ -9,7 +9,19 @@ let warnedBadEndpoint = false
 // Orca receiver from building an unbounded queue of obsolete snapshots.
 const HOOK_POST_TIMEOUT_MS = 1000
 let activePost = false
-let pendingPost: { hookEventName: string; extra: Record<string, unknown> } | null = null
+let pendingPost: { hookEventName: string; extra: Record<string, unknown>; metadata: Record<string, unknown> } | null = null
+let sessionMetadata: Record<string, unknown> = {}
+
+function updateSessionMetadata(ctx: unknown): void {
+  const sessionManager = (ctx as { sessionManager?: { getSessionId?: () => unknown; getSessionFile?: () => unknown } } | null)?.sessionManager
+  const sessionId = sessionManager?.getSessionId?.()
+  const sessionFile = sessionManager?.getSessionFile?.()
+  sessionMetadata = typeof sessionId === 'string' && sessionId && typeof sessionFile === 'string' && sessionFile ? { session_id: sessionId } : {}
+}
+
+function updateRuntimeOmpSessionMetadata(ctx: unknown): void {
+  updateSessionMetadata(ctx)
+}
 
 // Why: re-reading the endpoint file on every event is cheap (small file,
 // rare changes) but stat+mtime caching avoids re-parsing on every event
@@ -66,8 +78,9 @@ function resolveHookCoords() {
 }
 
 
+
 function post(hookEventName: string, extra: Record<string, unknown> = {}): void {
-  pendingPost = { hookEventName, extra }
+  pendingPost = { hookEventName, extra, metadata: sessionMetadata }
   drainPosts()
 }
 
@@ -76,7 +89,7 @@ function drainPosts(): void {
   const next = pendingPost
   pendingPost = null
   activePost = true
-  void postOnce(next.hookEventName, next.extra)
+  void postOnce(next.hookEventName, next.extra, next.metadata)
     .catch(() => {})
     .finally(() => {
       activePost = false
@@ -86,7 +99,8 @@ function drainPosts(): void {
 
 async function postOnce(
   hookEventName: string,
-  extra: Record<string, unknown>
+  extra: Record<string, unknown>,
+  metadata: Record<string, unknown>
 ): Promise<void> {
   const coords = resolveHookCoords()
   const paneKey = process.env.ORCA_PANE_KEY
@@ -99,7 +113,7 @@ async function postOnce(
     worktreeId: process.env.ORCA_WORKTREE_ID || '',
     env: coords.env,
     version: coords.version,
-    payload: { hook_event_name: hookEventName, ...extra },
+    payload: { hook_event_name: hookEventName, ...metadata, ...extra },
   })
   try {
     await fetch(url, {
@@ -115,7 +129,7 @@ async function postOnce(
     // Why: status reporting must never fail the pi run just because Orca
     // is unavailable or the loopback request failed (e.g. Orca restart).
     if (!isWslRuntime()) return
-    postViaWindowsCurl(url, coords, body)
+    postViaWindowsCurl(body)
   }
 }
 
@@ -161,32 +175,30 @@ function resolveWindowsCurlPath(): string | null {
   return cachedWindowsCurlPath
 }
 
-// Why: WSL loopback is not the Windows loopback, so a WSL-side POST cannot
-// reach Orca. curl.exe runs on the Windows side, where 127.0.0.1 IS the
-// listener Orca binds. Fire-and-forget: blocking on the spawn would stall
-// the pi event loop (and the TUI) on every hook event.
-function postViaWindowsCurl(url: string, coords: { token: string }, body: string): void {
+// Why: WSL loopback is not the Windows loopback, so use curl.exe on the host.
+function postViaWindowsCurl(body: string): void {
   const curlPath = resolveWindowsCurlPath()
-  if (!curlPath) return
+  const windowsPort = process.env.ORCA_AGENT_HOOK_PORT
+  const windowsToken = process.env.ORCA_AGENT_HOOK_TOKEN
+  if (!curlPath || !windowsPort || !windowsToken) return
+  // Why: a stale guest endpoint must fall back to current host coordinates.
+  const windowsUrl = `http://127.0.0.1:${windowsPort}/hook/omp`
   try {
     const { spawn } = require('child_process')
     const child = spawn(
       curlPath,
       [
         '-sS',
-        // Why: the spawn is detached from the event loop, so these bounds
-        // size a background process, not TUI latency. WSL->Win32 interop
-        // connects can exceed 0.5s on loaded machines (observed 3/3 drops
-        // to a healthy listener); size for delivery, not snappiness.
+        // Why: detached delivery may take seconds under loaded WSL interop.
         '--connect-timeout', '3',
         '--max-time', '10',
         '--noproxy', '127.0.0.1',
         '-o', 'NUL',
         '-X', 'POST',
         '-H', 'Content-Type: application/json',
-        '-H', `X-Orca-Agent-Hook-Token: ${coords.token}`,
+        '-H', `X-Orca-Agent-Hook-Token: ${windowsToken}`,
         '--data-binary', '@-',
-        url
+        windowsUrl
       ],
       { stdio: ['pipe', 'ignore', 'ignore'] }
     )
@@ -194,8 +206,7 @@ function postViaWindowsCurl(url: string, coords: { token: string }, body: string
     child.stdin.on('error', () => {})
     child.stdin.end(body)
   } catch {
-    // Why: the bridge is best-effort; a failed spawn must not surface
-    // inside the pi TUI.
+    // Why: status delivery must not surface inside the agent TUI.
   }
 }
 
@@ -233,31 +244,36 @@ export default function (pi): void {
   const selfPid = String(process.pid)
   if (ownerPid && ownerPid !== selfPid) return
   process.env.ORCA_PI_STATUS_OWNED = selfPid
-  pi.on('before_agent_start', (event) => {
+  pi.on('before_agent_start', (event, ctx) => {
+    updateRuntimeOmpSessionMetadata(ctx)
     post('before_agent_start', { prompt: event.prompt ?? '' })
   })
 
-  pi.on('agent_start', () => {
+  pi.on('agent_start', (_event, ctx) => {
+    updateRuntimeOmpSessionMetadata(ctx)
     clearPendingAgentEndCheck()
     agentEndReported = false
     post('agent_start')
   })
 
-  pi.on('tool_execution_start', (event) => {
+  pi.on('tool_execution_start', (event, ctx) => {
+    updateRuntimeOmpSessionMetadata(ctx)
     post('tool_execution_start', {
       tool_name: event.toolName,
       tool_input: event.args,
     })
   })
 
-  pi.on('tool_call', (event) => {
+  pi.on('tool_call', (event, ctx) => {
+    updateRuntimeOmpSessionMetadata(ctx)
     post('tool_call', {
       tool_name: event.toolName,
       tool_input: event.input,
     })
   })
 
-  pi.on('tool_execution_end', (event) => {
+  pi.on('tool_execution_end', (event, ctx) => {
+    updateRuntimeOmpSessionMetadata(ctx)
     post('tool_execution_end', {
       tool_name: event.toolName,
     })
@@ -267,7 +283,8 @@ export default function (pi): void {
   // so the dashboard preview reflects the most recent reply even before
   // agent_end fires. message_end is the right hook because pi guarantees
   // it fires after the message is finalized (post-streaming).
-  pi.on('message_end', (event) => {
+  pi.on('message_end', (event, ctx) => {
+    updateRuntimeOmpSessionMetadata(ctx)
     if (event.message?.role !== 'assistant') return
     const text = extractAssistantText(event.message)
     if (!text) return
@@ -320,13 +337,19 @@ export default function (pi): void {
     agentEndIdleRecheckMs = Math.min(agentEndIdleRecheckMs * 2, AGENT_END_IDLE_RECHECK_MAX_MS)
   }
 
-  pi.on('agent_settled', () => {
+  pi.on('agent_settled', (_event, ctx) => {
+    updateRuntimeOmpSessionMetadata(ctx)
     agentSettledSupported = true
     clearPendingAgentEndCheck()
     postAgentEndOnce()
   })
 
-  pi.on('agent_end', (_event, ctx) => {
+  pi.on('agent_end', (event, ctx) => {
+    updateRuntimeOmpSessionMetadata(ctx)
+    if (event?.willContinue === true) {
+      clearPendingAgentEndCheck()
+      return
+    }
     if (agentSettledSupported) return
     if (!ctx || typeof ctx.isIdle !== 'function') {
       postAgentEndOnce()
