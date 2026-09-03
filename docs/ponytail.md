@@ -44,7 +44,13 @@
 | `ponytail:` ショートカットコメントを台帳化する | `/ponytail-debt` |
 | コマンド一覧を思い出す | `/ponytail-help` |
 
-Codex ではスキル呼び出しになるため `@ponytail-review` のように `@` で呼びます。OMP では `/skill:` 経由でも呼べます。
+上の表は Claude Code の書き方です。他のホストでは呼び出し名が変わります。
+
+| ホスト | 書き方 | 補足 |
+| --- | --- | --- |
+| Claude Code | `/ponytail lite`, `/ponytail-review`, `/ponytail:ponytail-audit` | `/ponytail` と `/ponytail-review` は UserPromptSubmit フック（`hooks/ponytail-mode-tracker.js`）が素の形と `/ponytail:` 名前空間つきの両方を受ける。audit / debt / gain / help はスキルなので `/ponytail:ponytail-audit` のように名前空間つきで呼ぶ |
+| Codex | `$ponytail-review` | Codex CLI のスキル呼び出しは `$`（`@` は ChatGPT 側の記法で、CLI ではファイル参照）。`/skills` で一覧が出る |
+| OMP | `/skill:ponytail-review` | `omp/config.yml` の `enabledProviders: [claude]` が前提。18.1.5 以降の回帰で外すと `Unknown skill` になる（upstream [#10743](https://github.com/can1357/oh-my-pi/issues/10743)、修正が入ったら外せる） |
 
 ## 各ホストでの動き方
 
