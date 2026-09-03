@@ -97,7 +97,9 @@ _agent_usage_refresh() {
     while read -r key pct age reset_mins; do
       tok="${pct}%%"
       (( age > 60 )) && tok+="*"
-      if (( reset_mins < 120 )); then
+      if (( reset_mins < 0 )); then
+        reset="-"  # 未使用の枠: リセット予定なし
+      elif (( reset_mins < 120 )); then
         reset="${reset_mins}m"
       elif (( reset_mins < 2880 )); then
         reset="$(( (reset_mins + 30) / 60 ))h"
@@ -122,9 +124,9 @@ _agent_usage_refresh() {
                ELSE 'codex' END AS key,
              CAST(MAX(u.used_fraction)*100+0.5 AS INTEGER),
              CAST((strftime('%s','now')*1000 - MAX(u.recorded_at))/60000 AS INTEGER),
-             CAST((MAX(u.resets_at) - strftime('%s','now')*1000)/60000 AS INTEGER)
+             COALESCE(CAST((MAX(u.resets_at) - strftime('%s','now')*1000)/60000 AS INTEGER), -1)
       FROM usage_history u
-      WHERE u.resets_at > strftime('%s','now')*1000
+      WHERE (u.resets_at IS NULL OR u.resets_at > strftime('%s','now')*1000)
         AND u.recorded_at = (
           SELECT MAX(x.recorded_at)
           FROM usage_history x
