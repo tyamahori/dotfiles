@@ -9,7 +9,7 @@ let warnedBadEndpoint = false
 // Orca receiver from building an unbounded queue of obsolete snapshots.
 const HOOK_POST_TIMEOUT_MS = 1000
 let activePost = false
-let pendingPost: { hookEventName: string; extra: Record<string, unknown>; metadata: Record<string, unknown> } | null = null
+let pendingPost: { hookEventName: string; extra: Record<string, unknown>; metadata: Record<string, unknown>; ompRuntime: boolean } | null = null
 let sessionMetadata: Record<string, unknown> = {}
 
 function updateSessionMetadata(ctx: unknown): void {
@@ -22,6 +22,11 @@ function updateSessionMetadata(ctx: unknown): void {
 function updateRuntimeOmpSessionMetadata(ctx: unknown): void {
   updateSessionMetadata(ctx)
 }
+
+function getPostSessionMetadata(_ompRuntime: boolean): Record<string, unknown> {
+  return sessionMetadata
+}
+
 
 // Why: re-reading the endpoint file on every event is cheap (small file,
 // rare changes) but stat+mtime caching avoids re-parsing on every event
@@ -77,10 +82,45 @@ function resolveHookCoords() {
   }
 }
 
+function processName(value: unknown): string {
+  return String(value || '').split(/[\\/]/).pop()?.toLowerCase() || ''
+}
 
+const CONFIGURED_HOOK_PATH = '/hook/omp'
+let cachedOmpRuntime: boolean | null = null
+
+function isOmpRuntime(): boolean {
+  if (cachedOmpRuntime !== null) return cachedOmpRuntime
+  if (CONFIGURED_HOOK_PATH === '/hook/omp') {
+    cachedOmpRuntime = true
+    return true
+  }
+  const executableNames = [
+    processName(process.title),
+    processName(process.env._),
+    processName(process.argv[1]),
+    processName(process.argv[0])
+  ]
+  cachedOmpRuntime = executableNames.some((name) =>
+    ['omp', 'omp.js', 'omp.sh', 'omp.cmd', 'omp.exe', 'omp.bat'].includes(name)
+  )
+  return cachedOmpRuntime
+}
+
+function resolveHookPath(ompRuntime: boolean): string {
+  // Why: runtime detection keeps a bare-shell OMP launch from reporting as Pi.
+  if (ompRuntime) return '/hook/omp'
+  return CONFIGURED_HOOK_PATH
+}
 
 function post(hookEventName: string, extra: Record<string, unknown> = {}): void {
-  pendingPost = { hookEventName, extra, metadata: sessionMetadata }
+  const ompRuntime = isOmpRuntime()
+  pendingPost = {
+    hookEventName,
+    extra,
+    metadata: getPostSessionMetadata(ompRuntime),
+    ompRuntime,
+  }
   drainPosts()
 }
 
@@ -89,7 +129,7 @@ function drainPosts(): void {
   const next = pendingPost
   pendingPost = null
   activePost = true
-  void postOnce(next.hookEventName, next.extra, next.metadata)
+  void postOnce(next.hookEventName, next.extra, next.metadata, next.ompRuntime)
     .catch(() => {})
     .finally(() => {
       activePost = false
@@ -100,12 +140,13 @@ function drainPosts(): void {
 async function postOnce(
   hookEventName: string,
   extra: Record<string, unknown>,
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
+  ompRuntime: boolean
 ): Promise<void> {
   const coords = resolveHookCoords()
   const paneKey = process.env.ORCA_PANE_KEY
   if (!coords.port || !coords.token || !paneKey) return
-  const url = `http://127.0.0.1:${coords.port}/hook/omp`
+  const url = `http://127.0.0.1:${coords.port}${resolveHookPath(ompRuntime)}`
   const body = JSON.stringify({
     paneKey,
     launchToken: process.env.ORCA_AGENT_LAUNCH_TOKEN || '',
@@ -115,21 +156,35 @@ async function postOnce(
     version: coords.version,
     payload: { hook_event_name: hookEventName, ...metadata, ...extra },
   })
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  const timeoutPromise = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(() => {
+      controller?.abort()
+      reject(new Error('Orca hook delivery timed out'))
+    }, HOOK_POST_TIMEOUT_MS)
+    if (typeof timeout.unref === 'function') timeout.unref()
+  })
   try {
-    await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Orca-Agent-Hook-Token': coords.token,
-      },
-      body,
-      signal: AbortSignal.timeout(HOOK_POST_TIMEOUT_MS),
-    })
+    await Promise.race([
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Orca-Agent-Hook-Token': coords.token,
+        },
+        body,
+        ...(controller ? { signal: controller.signal } : {}),
+      }),
+      timeoutPromise,
+    ])
   } catch {
     // Why: status reporting must never fail the pi run just because Orca
     // is unavailable or the loopback request failed (e.g. Orca restart).
     if (!isWslRuntime()) return
-    postViaWindowsCurl(body)
+    postViaWindowsCurl(body, ompRuntime)
+  } finally {
+    if (timeout) clearTimeout(timeout)
   }
 }
 
@@ -176,13 +231,13 @@ function resolveWindowsCurlPath(): string | null {
 }
 
 // Why: WSL loopback is not the Windows loopback, so use curl.exe on the host.
-function postViaWindowsCurl(body: string): void {
+function postViaWindowsCurl(body: string, ompRuntime: boolean): void {
   const curlPath = resolveWindowsCurlPath()
   const windowsPort = process.env.ORCA_AGENT_HOOK_PORT
   const windowsToken = process.env.ORCA_AGENT_HOOK_TOKEN
   if (!curlPath || !windowsPort || !windowsToken) return
   // Why: a stale guest endpoint must fall back to current host coordinates.
-  const windowsUrl = `http://127.0.0.1:${windowsPort}/hook/omp`
+  const windowsUrl = `http://127.0.0.1:${windowsPort}${resolveHookPath(ompRuntime)}`
   try {
     const { spawn } = require('child_process')
     const child = spawn(
@@ -279,6 +334,25 @@ export default function (pi): void {
     })
   })
 
+  pi.on('tool_approval_requested', (event, ctx) => {
+    updateRuntimeOmpSessionMetadata(ctx)
+    if (!isOmpRuntime()) return
+    post('tool_approval_requested', {
+      tool_name: event.toolName,
+      reason: event.reason,
+      approval_mode: event.approvalMode,
+    })
+  })
+
+  pi.on('tool_approval_resolved', (event, ctx) => {
+    updateRuntimeOmpSessionMetadata(ctx)
+    if (!isOmpRuntime()) return
+    post('tool_approval_resolved', {
+      tool_name: event.toolName,
+      approved: event.approved,
+    })
+  })
+
   // Why: capture the assistant's final text on each completed message
   // so the dashboard preview reflects the most recent reply even before
   // agent_end fires. message_end is the right hook because pi guarantees
@@ -292,7 +366,9 @@ export default function (pi): void {
   })
 
   // Why: modern Pi stays non-idle across retry/compaction/follow-up work,
-  // while legacy Pi/OMP becomes idle after its final agent_end handlers.
+  // while legacy Pi becomes idle after its final agent_end handlers.
+  // OMP instead marks non-terminal agent_end events with willContinue, so it
+  // returns before the recheck timer is ever armed.
   const AGENT_END_IDLE_RECHECK_MS = 25
   const AGENT_END_IDLE_RECHECK_MAX_MS = 250
   let agentSettledSupported = false
@@ -348,6 +424,10 @@ export default function (pi): void {
     updateRuntimeOmpSessionMetadata(ctx)
     if (event?.willContinue === true) {
       clearPendingAgentEndCheck()
+      return
+    }
+    if (isOmpRuntime()) {
+      postAgentEndOnce()
       return
     }
     if (agentSettledSupported) return

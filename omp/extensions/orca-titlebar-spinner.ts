@@ -64,7 +64,9 @@ export default function (pi) {
       return
     }
       const frame = BRAILLE_FRAMES[frameIndex % BRAILLE_FRAMES.length]
-      const title = `${frame} ${getBaseTitle(pi)}`
+      const cwd = process.cwd().split(/[\\/]/).filter(Boolean).at(-1) || process.cwd()
+      const session = pi.getSessionName()
+      const title = session ? `${frame} \u03c0 - ${session} - ${cwd}` : `${frame} \u03c0 - ${cwd}`
       ctx.ui.setTitle(title)
       frameIndex++
   }
