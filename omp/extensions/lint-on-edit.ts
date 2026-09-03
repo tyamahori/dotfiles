@@ -46,19 +46,8 @@ function unquote(path: string): string {
   return trimmed;
 }
 
-function textInput(input: unknown): string {
-  if (typeof input === "string") return input;
-  const record =
-    input !== null && typeof input === "object"
-      ? (input as UnknownRecord)
-      : undefined;
-  if (!record) return "";
-  for (const key of ["input", "patch", "command"]) {
-    if (typeof record[key] === "string") return record[key] as string;
-  }
-  return "";
-}
-
+// Both hook scripts skip paths that no longer exist, so deleted files are
+// harmless to report and one parser serves lint-on-edit and japanese-prose.
 export function editedPaths(event: ToolEvent): string[] {
   const toolName = typeof event.toolName === "string" ? event.toolName : "";
   const record =
@@ -72,7 +61,17 @@ export function editedPaths(event: ToolEvent): string[] {
     if (typeof path === "string") paths.add(path);
   }
 
-  const patch = textInput(event.input);
+  let patch = "";
+  if (typeof event.input === "string") {
+    patch = event.input;
+  } else if (record) {
+    for (const key of ["input", "patch", "command"]) {
+      if (typeof record[key] === "string") {
+        patch = record[key] as string;
+        break;
+      }
+    }
+  }
   if (toolName === "edit") {
     for (const match of patch.matchAll(/^\[([^#\r\n]+)#[0-9A-F]{4}\]$/gm)) {
       paths.add(match[1]);
@@ -83,7 +82,7 @@ export function editedPaths(event: ToolEvent): string[] {
   }
   if (toolName === "apply_patch") {
     for (const match of patch.matchAll(
-      /^\*\*\* (?:Update File|Add File|Move to): (.+)$/gm,
+      /^\*\*\* (?:Update File|Add File|Delete File|Move to): (.+)$/gm,
     )) {
       paths.add(unquote(match[1]));
     }

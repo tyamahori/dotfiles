@@ -8,22 +8,22 @@ import { stripHeredocs } from "./deny-bare-python";
 const COMMAND_POSITION =
   String.raw`(?:^|[;(]|&&|\|\|)[ \t]*(?:(?:[A-Za-z_][A-Za-z0-9_]*=[^ \t\n]+)[ \t]+)*(?:command[ \t]+)?`;
 
-export const READ_SEARCH_COMMAND = new RegExp(
+const READ_SEARCH_COMMAND = new RegExp(
   `${COMMAND_POSITION}(?:grep|rg|find|head|tail)(?=[ \\t]|$)`,
   "m",
 );
 
-export const PRINT_SED_COMMAND = new RegExp(
+const PRINT_SED_COMMAND = new RegExp(
   `${COMMAND_POSITION}sed[ \\t]+(?:-[A-Za-z]*n[A-Za-z]*|--quiet|--silent)(?=[ \\t]|$)`,
   "m",
 );
 
-export const PLAIN_CAT_COMMAND = new RegExp(
+const PLAIN_CAT_COMMAND = new RegExp(
   `${COMMAND_POSITION}cat(?=[ \\t]|$)`,
   "m",
 );
 
-export function shouldDenyShellReadSearch(command: string): boolean {
+function shouldDenyShellReadSearch(command: string): boolean {
   const stripped = stripHeredocs(command);
   if (READ_SEARCH_COMMAND.test(stripped) || PRINT_SED_COMMAND.test(stripped)) {
     return true;

@@ -7,6 +7,7 @@
 
 import net from "node:net";
 import path from "node:path";
+import { retryableErrorPattern } from "./notify";
 
 const HERDR_ENV = process.env.HERDR_ENV;
 const socketPath = process.env.HERDR_SOCKET_PATH;
@@ -74,8 +75,6 @@ type QueuedState = {
 
 const idleDebounceMs = parseDurationEnv("HERDR_OMP_IDLE_DEBOUNCE_MS", 250);
 const retryGraceMs = parseDurationEnv("HERDR_OMP_RETRY_GRACE_MS", 2500);
-const retryableErrorPattern =
-  /overloaded|provider.?returned.?error|rate.?limit|too many requests|429|500|502|503|504|service.?unavailable|server.?error|internal.?error|network.?error|connection.?error|connection.?refused|connection.?lost|websocket.?closed|websocket.?error|other side closed|fetch failed|upstream.?connect|reset before headers|socket hang up|ended without|http2 request did not get a response|timed? out|timeout|terminated|retry delay/i;
 let reportSeq = Date.now() * 1000;
 let currentAgentSessionId: string | undefined;
 let currentAgentSessionPath: string | undefined;
@@ -85,7 +84,7 @@ function nextReportSeq(): number {
   return reportSeq;
 }
 
-export function isAbsoluteSessionPath(file: unknown): file is string {
+function isAbsoluteSessionPath(file: unknown): file is string {
   return (
     typeof file === "string" &&
     (path.posix.isAbsolute(file) || path.win32.isAbsolute(file))

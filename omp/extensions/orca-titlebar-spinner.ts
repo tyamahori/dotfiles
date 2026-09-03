@@ -36,9 +36,7 @@ export default function (pi) {
     stopAnimation(ctx)
     timer = setInterval(() => {
       const frame = BRAILLE_FRAMES[frameIndex % BRAILLE_FRAMES.length]
-      const cwd = process.cwd().split(/[\\/]/).filter(Boolean).at(-1) || process.cwd()
-      const session = pi.getSessionName()
-      const title = session ? `${frame} \u03c0 - ${session} - ${cwd}` : `${frame} \u03c0 - ${cwd}`
+      const title = `${frame} ${getBaseTitle(pi)}`
       ctx.ui.setTitle(title)
       frameIndex++
     }, 80)

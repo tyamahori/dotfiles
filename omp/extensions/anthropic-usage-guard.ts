@@ -69,54 +69,28 @@ type ExtensionHandlerApi = {
 	setModel(model: Model): Promise<boolean>;
 };
 
-/** 指定 provider の limit 毎の最新有効行から、filter に合う最大使用率（整数%）。 */
-function latestUsedPct(provider: string, limitFilter: string): number | null {
-	try {
-		const db = new Database(USAGE_DB, { readonly: true });
-		try {
-			const row = db
-				.query(
-					`SELECT CAST(MAX(u.used_fraction) * 100 + 0.5 AS INTEGER) AS pct
-					 FROM usage_history u
-					 WHERE lower(u.provider) = ?1
-					   AND lower(u.limit_id) LIKE ?2
-					   AND u.resets_at > ?3
-					   AND u.recorded_at = (
-					     SELECT MAX(x.recorded_at)
-					     FROM usage_history x
-					     WHERE lower(x.provider) = lower(u.provider)
-					       AND lower(x.limit_id) = lower(u.limit_id)
-					   )`,
-				)
-				.get(provider, limitFilter, Date.now()) as {
-				pct: number | null;
-			} | null;
-			return typeof row?.pct === "number" ? row.pct : null;
-		} finally {
-			db.close();
-		}
-	} catch {
-		return null;
-	}
-}
+type UsageRow = {
+	provider: string;
+	limitId: string;
+	pct: number;
+	resetsAt: number | null;
+};
 
 /** limit 毎の最新行一覧（provider 単位、期限切れ除外）。
  *  Anthropic は使用量 0 の枠を utilization 0 / resets_at null で返すので、
  *  NULL を期限切れ扱いにすると枠リセット直後に Claude 表示が丸ごと消える。 */
-function latestUsageRows(
-	provider: string,
-): { limitId: string; pct: number; resetsAt: number | null }[] {
+function latestUsageRows(): UsageRow[] {
 	try {
 		const db = new Database(USAGE_DB, { readonly: true });
 		try {
 			return db
 				.query(
-					`SELECT u.limit_id AS limitId,
+					`SELECT lower(u.provider) AS provider,
+					        u.limit_id AS limitId,
 					        CAST(u.used_fraction * 100 + 0.5 AS INTEGER) AS pct,
 					        u.resets_at AS resetsAt
 					 FROM usage_history u
-					 WHERE lower(u.provider) = ?1
-					   AND (u.resets_at IS NULL OR u.resets_at > ?2)
+					 WHERE (u.resets_at IS NULL OR u.resets_at > ?1)
 					   AND u.recorded_at = (
 					     SELECT MAX(x.recorded_at)
 					     FROM usage_history x
@@ -125,17 +99,36 @@ function latestUsageRows(
 					   )
 					 ORDER BY u.limit_id`,
 				)
-				.all(provider, Date.now()) as {
-				limitId: string;
-				pct: number;
-				resetsAt: number | null;
-			}[];
+				.all(Date.now()) as UsageRow[];
 		} finally {
 			db.close();
 		}
 	} catch {
 		return [];
 	}
+}
+
+/** 指定 provider の limit 毎の最新有効行から、filter に合う最大使用率（整数%）。 */
+function latestUsedPct(
+	rows: UsageRow[],
+	provider: string,
+	limitFilter: string,
+): number | null {
+	const filter = limitFilter.toLowerCase();
+	const prefix = filter.endsWith("%") ? filter.slice(0, -1) : undefined;
+	let pct: number | null = null;
+	for (const row of rows) {
+		if (
+			row.provider !== provider ||
+			row.resetsAt === null ||
+			row.resetsAt <= Date.now() ||
+			(prefix ? !row.limitId.toLowerCase().startsWith(prefix) : row.limitId.toLowerCase() !== filter)
+		) {
+			continue;
+		}
+		pct = pct === null ? row.pct : Math.max(pct, row.pct);
+	}
+	return pct;
 }
 
 function formatReset(resetsAt: number | null): string {
@@ -154,10 +147,12 @@ function coloredPct(pct: number): string {
 }
 
 function poolParts(
+	rows: UsageRow[],
 	provider: string,
 	label: (limitId: string) => string | null,
 ): string[] {
-	return latestUsageRows(provider).flatMap((row) => {
+	return rows.flatMap((row) => {
+		if (row.provider !== provider) return [];
 		const name = label(row.limitId);
 		if (name === null) return [];
 		return [
@@ -167,13 +162,13 @@ function poolParts(
 }
 
 /** 両 pool の使用率1行。表示対象の枠が無ければ null。 */
-export function buildUsageLine(): string | null {
-	const claude = poolParts("anthropic", (id) =>
+function buildUsageLine(rows: UsageRow[]): string | null {
+	const claude = poolParts(rows, "anthropic", (id) =>
 		id.startsWith("anthropic:") ? id.slice("anthropic:".length) : null,
 	);
 	// spark:* は補助枠で常時ほぼ0%のうえ意味が不明瞭なのでノイズとして省く。
 	// guard の判定も primary（週次）だけを使っている。
-	const codex = poolParts("openai-codex", (id) =>
+	const codex = poolParts(rows, "openai-codex", (id) =>
 		id === "openai-codex:primary" ? "wk" : null,
 	);
 	const pools: string[] = [];
@@ -185,10 +180,10 @@ export function buildUsageLine(): string | null {
 
 const WIDGET_KEY = "usage-summary";
 
-function updateWidget(ctx: Ctx | undefined): void {
+function updateWidget(ctx: Ctx | undefined, rows: UsageRow[]): void {
 	if (!ctx?.hasUI || !ctx.ui?.setWidget) return;
 	try {
-		const line = buildUsageLine();
+		const line = buildUsageLine(rows);
 		ctx.ui.setWidget(WIDGET_KEY, line ? [line] : undefined, {
 			placement: "belowEditor",
 		});
@@ -214,8 +209,8 @@ export default function (pi: ExtensionHandlerApi): void {
 	let codexNotifiedThisWindow = false;
 	let rescuedThisWindow = false;
 
-	async function checkAnthropic(ctx: Ctx): Promise<void> {
-		const pct = latestUsedPct("anthropic", "anthropic:7d%");
+	async function checkAnthropic(ctx: Ctx, rows: UsageRow[]): Promise<void> {
+		const pct = latestUsedPct(rows, "anthropic", "anthropic:7d%");
 		if (pct === null || pct < 100 - USAGE_RESERVE_PCT) {
 			switchedThisWindow = false;
 			return;
@@ -225,7 +220,7 @@ export default function (pi: ExtensionHandlerApi): void {
 
 		// 両pool枯渇時はsubagent用のCodex reserveをメインで食わないよう切替を見送る。
 		// 通知はcheckCodex側のCodex 80%通知が担う。
-		const codexPct = latestUsedPct("openai-codex", "openai-codex:primary");
+		const codexPct = latestUsedPct(rows, "openai-codex", "openai-codex:primary");
 		if (codexPct !== null && codexPct >= 100 - USAGE_RESERVE_PCT) return;
 
 		for (const spec of CODEX_FALLBACKS) {
@@ -245,8 +240,8 @@ export default function (pi: ExtensionHandlerApi): void {
 		);
 	}
 
-	function checkCodex(ctx: Ctx): void {
-		const pct = latestUsedPct("openai-codex", "openai-codex:primary");
+	function checkCodex(ctx: Ctx, rows: UsageRow[]): void {
+		const pct = latestUsedPct(rows, "openai-codex", "openai-codex:primary");
 		if (pct === null || pct < 100 - USAGE_RESERVE_PCT) {
 			codexNotifiedThisWindow = false;
 			return;
@@ -260,9 +255,9 @@ export default function (pi: ExtensionHandlerApi): void {
 	}
 
 	/** 両pool枯渇時のみ、ローカルollamaが応答しモデルが存在すれば切り替える。 */
-	async function checkLocalRescue(ctx: Ctx): Promise<void> {
-		const anthropicPct = latestUsedPct("anthropic", "anthropic:7d%");
-		const codexPct = latestUsedPct("openai-codex", "openai-codex:primary");
+	async function checkLocalRescue(ctx: Ctx, rows: UsageRow[]): Promise<void> {
+		const anthropicPct = latestUsedPct(rows, "anthropic", "anthropic:7d%");
+		const codexPct = latestUsedPct(rows, "openai-codex", "openai-codex:primary");
 		if (
 			anthropicPct === null ||
 			codexPct === null ||
@@ -299,13 +294,15 @@ export default function (pi: ExtensionHandlerApi): void {
 	}
 
 	async function check(ctx: Ctx | undefined): Promise<void> {
-		updateWidget(ctx);
-		if (inflight || !ctx?.models) return;
+		if (!ctx || (!ctx.hasUI && !ctx.models)) return;
+		const rows = latestUsageRows();
+		updateWidget(ctx, rows);
+		if (inflight || !ctx.models) return;
 		inflight = true;
 		try {
-			await checkAnthropic(ctx);
-			checkCodex(ctx);
-			await checkLocalRescue(ctx);
+			await checkAnthropic(ctx, rows);
+			checkCodex(ctx, rows);
+			await checkLocalRescue(ctx, rows);
 		} finally {
 			inflight = false;
 		}

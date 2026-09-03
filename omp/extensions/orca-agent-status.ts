@@ -65,29 +65,6 @@ function resolveHookCoords() {
   }
 }
 
-function processName(value: unknown): string {
-  return String(value || '').split(/[\\/]/).pop()?.toLowerCase() || ''
-}
-
-function resolveHookPath(): string {
-  const configuredPath = '/hook/omp'
-  const executableNames = [
-    processName(process.title),
-    processName(process.env._),
-    processName(process.argv[1]),
-    processName(process.argv[0])
-  ]
-  const isOmpExecutable = executableNames.some((name) =>
-    ['omp', 'omp.js', 'omp.sh', 'omp.cmd', 'omp.exe', 'omp.bat'].includes(name)
-  )
-  // Why: a bare shell may launch either Pi or OMP after spawn. Runtime
-  // executable detection keeps that status labeled
-  // as OMP instead of silently reporting it as Pi.
-  if (isOmpExecutable) {
-    return '/hook/omp'
-  }
-  return configuredPath
-}
 
 function post(hookEventName: string, extra: Record<string, unknown> = {}): void {
   pendingPost = { hookEventName, extra }
@@ -114,7 +91,7 @@ async function postOnce(
   const coords = resolveHookCoords()
   const paneKey = process.env.ORCA_PANE_KEY
   if (!coords.port || !coords.token || !paneKey) return
-  const url = `http://127.0.0.1:${coords.port}${resolveHookPath()}`
+  const url = `http://127.0.0.1:${coords.port}/hook/omp`
   const body = JSON.stringify({
     paneKey,
     launchToken: process.env.ORCA_AGENT_LAUNCH_TOKEN || '',
@@ -124,35 +101,21 @@ async function postOnce(
     version: coords.version,
     payload: { hook_event_name: hookEventName, ...extra },
   })
-  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
-  let timeout: ReturnType<typeof setTimeout> | undefined
-  const timeoutPromise = new Promise<never>((_resolve, reject) => {
-    timeout = setTimeout(() => {
-      controller?.abort()
-      reject(new Error('Orca hook delivery timed out'))
-    }, HOOK_POST_TIMEOUT_MS)
-    if (typeof timeout.unref === 'function') timeout.unref()
-  })
   try {
-    await Promise.race([
-      fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Orca-Agent-Hook-Token': coords.token,
-        },
-        body,
-        ...(controller ? { signal: controller.signal } : {}),
-      }),
-      timeoutPromise,
-    ])
+    await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Orca-Agent-Hook-Token': coords.token,
+      },
+      body,
+      signal: AbortSignal.timeout(HOOK_POST_TIMEOUT_MS),
+    })
   } catch {
     // Why: status reporting must never fail the pi run just because Orca
     // is unavailable or the loopback request failed (e.g. Orca restart).
     if (!isWslRuntime()) return
     postViaWindowsCurl(url, coords, body)
-  } finally {
-    if (timeout) clearTimeout(timeout)
   }
 }
 
