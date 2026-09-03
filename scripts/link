@@ -44,13 +44,19 @@ git -C "$REPO_ROOT" config core.hooksPath "${REPO_ROOT}/git/hooks"
 mkdir -p "$HOME/.claude"
 ln -snfv "${CLAUDE_DIR}/settings.json" "$HOME/.claude/settings.json"
 
+link_into_dirs() {
+	local source=$1 name=$2 skills_dir
+	shift 2
+	for skills_dir; do
+		mkdir -p "$skills_dir"
+		ln -snfv "$source" "$skills_dir/$name"
+	done
+}
+
 # personal skills, shared across LLM CLIs
 for skill in "${AGENTS_DIR}/skills"/*/; do
 	skill="${skill%/}"
-	for skills_dir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills" "$HOME/.agents/skills"; do
-		mkdir -p "$skills_dir"
-		ln -snfv "$skill" "$skills_dir/$(basename "$skill")"
-	done
+	link_into_dirs "$skill" "$(basename "$skill")" "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills" "$HOME/.agents/skills"
 done
 
 # Clean links left by renamed or removed repository-authored skills. Restrict
@@ -75,10 +81,7 @@ if command -v herdr >/dev/null 2>&1 && herdr --skill >/dev/null 2>&1; then
 	mkdir -p "$HOME/.agents/skills/herdr"
 	herdr --skill >"$HOME/.agents/skills/herdr/SKILL.md"
 	echo "Generated $HOME/.agents/skills/herdr/SKILL.md from herdr --skill" >&2
-	for skills_dir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills"; do
-		mkdir -p "$skills_dir"
-		ln -snfv "$HOME/.agents/skills/herdr" "$skills_dir/herdr"
-	done
+	link_into_dirs "$HOME/.agents/skills/herdr" herdr "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills"
 fi
 
 # hunk's bundled hunk-review skill (live diff session control): symlink the
@@ -86,10 +89,7 @@ fi
 # like herdr, so it IS linked globally.
 hunk_skill="$(brew --prefix hunk 2>/dev/null || true)/libexec/skills/hunk-review"
 if [[ -d $hunk_skill ]]; then
-	for skills_dir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills" "$HOME/.agents/skills"; do
-		mkdir -p "$skills_dir"
-		ln -snfv "$hunk_skill" "$skills_dir/hunk-review"
-	done
+	link_into_dirs "$hunk_skill" hunk-review "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills" "$HOME/.agents/skills"
 fi
 
 # Machine-wide diagram/review toolchain. Unlike ordinary third-party skills,
