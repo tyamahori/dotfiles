@@ -39,3 +39,12 @@ settings-schema injection, re-read on every later turn (~50k tokens).
 
 2026-08-18: a usage journal with session IDs landed in public history
 before being untracked.
+
+## Herdr vs Orca
+
+2026-09-03: Herdr server log showed 51 active days since 07-02 (daily for
+the last two weeks), 8 live workspaces, 3 of them feature worktrees; Orca
+showed 13 active days in July then 3 since 08-28, with feature counters of
+terminal-tabs 500–999 versus agent-orchestration 10–19, account-switching
+5–9, usage-tracking 50–99, automations 3–4 — Orca use was mostly a
+duplicate terminal.
