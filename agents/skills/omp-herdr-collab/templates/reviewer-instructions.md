@@ -12,6 +12,8 @@
    の内容を根拠に行う。可能な検証は実行する（briefing の検証手段にある
    テスト・コマンド・再現）。読んだだけの verification で済ませない。
    実行した確認は `verification:` に記録する。
+   先に ponytail-review skill のレンズ（過剰実装の削除候補）で 1 パス通し、
+   残った指摘を finding に含める。
 4. `return-directory` にある `<自分のペイン名>-findings.md` の skeleton を
    埋める。skeleton が無ければ新規作成し、`reviewed-revision` と `scope` は
    REVIEW-REQ から**逐語コピー**する（言い換えは記録時に拒否される）。
