@@ -11,7 +11,9 @@
 # ~/.codex/rules/. scripts/link checks the /etc symlink and prints the sudo
 # command when it is missing.
 
-model = "gpt-5.6-sol"
+model = "gpt-6-astra"
+# Astra's own default is medium; kept at low per the migration guide
+# ("preserve your current effective reasoning effort"). Raise via /model.
 model_reasoning_effort = "low"
 service_tier = "default"
 
