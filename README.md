@@ -206,7 +206,10 @@ OMP mirrors each one as an extension in `omp/extensions/`:
   Codex `SessionStart`) warns on day-crossing resumes, hour-idle
   large-transcript resumes, and from the second compaction of a session
   onward. OMP covers the same rules with its `session-day-guard` and
-  `session-compaction-guard` extensions.
+  `session-compaction-guard` extensions, and its `handoff-switch` extension
+  closes the loop: once the agent saves the handoff note and calls the
+  `handoff_switch` tool, the extension opens a fresh session after the
+  current response and feeds it the note.
 
 ### Worktree-local files
 Repository-local `.worktreeinclude` files are the shared allowlist for

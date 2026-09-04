@@ -40,7 +40,7 @@ export default function (pi: ExtensionHandlerApi): void {
     sessionSwitchNudged = true;
     try {
       ctx.ui?.notify?.(
-        `session-compaction-guard: 自動コンパクションが${autoCompactionEnds}回完了した。現在の依頼を完了し、引き継ぎメモを保存してから /quit または /new で新しいセッションへ移ってください`,
+        `session-compaction-guard: 自動コンパクションが${autoCompactionEnds}回完了した。現在の依頼を完了し、引き継ぎメモを保存してから handoff_switch で新しいセッションへ移ります`,
         "warning",
       );
     } catch {
@@ -51,10 +51,10 @@ export default function (pi: ExtensionHandlerApi): void {
         "[session-compaction-guard] この有人TUIセッションでは自動コンパクションが2回完了した。" +
         "現在の依頼を中断せず完了し、完了報告の前に、次のセッションへ必要な未完タスク・決定事項・変更済みファイル・未実行確認を引き継ぎメモへ保存すること" +
         "(置き場はリポジトリが明示的に定義していればそこ、なければ gitignore 済みの .agent-msgs/handoff/)。" +
-        "完了報告の末尾で、ユーザーへ /quit または /new で新しいセッションへ移るよう案内すること。/handoff は同じセッション内の圧縮であり、セッション切り替えとして案内しないこと。";
+        "メモを保存したら handoff_switch ツールにそのパスを渡して呼ぶこと。呼ぶと応答完了後に自動で新セッションへ切り替わり、メモが読み込まれる。/handoff は同じセッション内の圧縮であり、代わりにならない。";
       const repeatedReminder =
         `[session-compaction-guard] 自動コンパクションが${autoCompactionEnds}回完了したが、セッション移行が未完了。` +
-        "現在の依頼を完了して引き継ぎメモを保存し、/quit または /new へ移ること。新しい無関係な依頼をこのセッションで始めないこと。";
+        "現在の依頼を完了して引き継ぎメモを保存し、handoff_switch ツールを呼ぶこと。新しい無関係な依頼をこのセッションで始めないこと。";
       pi.sendUserMessage?.(
         autoCompactionEnds === 2 ? firstReminder : repeatedReminder,
         { deliverAs: "followUp" },
@@ -73,7 +73,7 @@ export default function (pi: ExtensionHandlerApi): void {
 
     try {
       ctx.ui?.notify?.(
-        "session-compaction-guard: 新しいセッションへの移行が未完了です。この入力の処理後、引き継ぎメモを保存して /quit または /new を実行してください",
+        "session-compaction-guard: 新しいセッションへの移行が未完了です。この入力の処理後、引き継ぎメモを保存して handoff_switch を呼びます",
         "warning",
       );
     } catch {
@@ -83,7 +83,7 @@ export default function (pi: ExtensionHandlerApi): void {
     try {
       pi.sendUserMessage?.(
         "[session-compaction-guard] セッション移行前に新しい入力を受けた。" +
-          "この入力の処理だけを完了し、引き継ぎメモを保存して /quit または /new へ移ること。" +
+          "この入力の処理だけを完了し、引き継ぎメモを保存して handoff_switch ツールを呼ぶこと。" +
           "さらに別の依頼をこのセッションで始めないこと。",
         { deliverAs: "followUp" },
       );
