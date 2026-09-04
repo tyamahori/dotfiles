@@ -18,3 +18,7 @@ fi
 # ahead of other pythons (e.g. the nix one) on PATH.
 # --preview-features silences the "experimental" notice on --default.
 uv python install --default --preview-features python-install-default
+
+# Debug adapter for OMP's debug tool (Python targets). Go uses delve from
+# scripts/devbox; there is no uv-managed equivalent, so debugpy lives here.
+uv tool install --upgrade debugpy
