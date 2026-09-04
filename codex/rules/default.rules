@@ -1,0 +1,50 @@
+# Commands Codex may run outside the sandbox without prompting. Linked to
+# ~/.codex/rules/default.rules by scripts/link; the TUI's "always allow"
+# appends exact-match one-offs there, so periodically fold them in here as
+# prefixes and delete the literal ones. Project-only commands (a repo's own
+# scripts, test targets) belong in that repo's .codex/rules/, not here.
+#
+# The strictest matching decision wins, so a broad allow plus a narrow prompt
+# keeps the destructive variants interactive. Check with:
+#   codex execpolicy check --pretty --rules codex/rules/default.rules -- git push --force
+
+# git: the sandbox marks .git read-only inside the workspace, so every
+# mutating git command escalates. Allow the family, prompt for history loss.
+prefix_rule(pattern=["git"], decision="allow")
+prefix_rule(pattern=["git", "push", "--force"], decision="prompt")
+prefix_rule(pattern=["git", "push", "-f"], decision="prompt")
+prefix_rule(pattern=["git", "reset", "--hard"], decision="prompt")
+prefix_rule(pattern=["git", "clean"], decision="prompt")
+prefix_rule(pattern=["git", "branch", "-D"], decision="prompt")
+prefix_rule(pattern=["gh", "pr"], decision="allow")
+prefix_rule(pattern=["gh", "pr", "merge"], decision="prompt")
+prefix_rule(pattern=["gh", "pr", "close"], decision="prompt")
+
+# Agent collaboration (omp-herdr-collab): peers are driven through herdr.
+prefix_rule(pattern=["herdr"], decision="allow")
+prefix_rule(pattern=["codex", "mcp"], decision="allow")
+
+# Toolchains and task runners.
+prefix_rule(pattern=["uv", "run"], decision="allow")
+prefix_rule(pattern=["uvx"], decision="allow")
+prefix_rule(pattern=["bun"], decision="allow")
+prefix_rule(pattern=["go"], decision="allow")
+prefix_rule(pattern=["gofmt"], decision="allow")
+prefix_rule(pattern=["docker"], decision="allow")
+prefix_rule(pattern=["make"], decision="allow")
+prefix_rule(pattern=["task"], decision="allow")
+prefix_rule(pattern=["curl"], decision="allow")
+
+# dotfiles quality gates and helpers.
+prefix_rule(pattern=["semgrep"], decision="allow")
+prefix_rule(pattern=["semgrep-quality-gate"], decision="allow")
+prefix_rule(pattern=["sonar-quality-gate"], decision="allow")
+prefix_rule(pattern=["scripts/semgrep-quality-gate"], decision="allow")
+prefix_rule(pattern=["scripts/link"], decision="allow")
+
+# Read-only inspection that the model escalates when a path is outside cwd.
+prefix_rule(pattern=["ps"], decision="allow")
+prefix_rule(pattern=["top"], decision="allow")
+prefix_rule(pattern=["head"], decision="allow")
+prefix_rule(pattern=["rg"], decision="allow")
+prefix_rule(pattern=["jq"], decision="allow")

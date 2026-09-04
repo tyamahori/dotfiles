@@ -160,6 +160,8 @@ ln -snfv "${REPO_ROOT}/scripts/sonar-quality-gate" "$HOME/.local/bin/sonar-quali
 ln -snfv "${REPO_ROOT}/scripts/semgrep-quality-gate" "$HOME/.local/bin/semgrep-quality-gate"
 mkdir -p "$HOME/.codex"
 ln -snfv "${REPO_ROOT}/codex/hooks.json" "$HOME/.codex/hooks.json"
+mkdir -p "$HOME/.codex/rules"
+ln -snfv "${REPO_ROOT}/codex/rules/default.rules" "$HOME/.codex/rules/default.rules"
 # codex/config.toml is the system config layer (/etc/codex/config.toml): Codex
 # never writes there, unlike ~/.codex/config.toml. /etc needs root, so only
 # verify the link here and print the one-time command instead of running sudo.

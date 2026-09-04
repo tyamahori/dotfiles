@@ -114,6 +114,13 @@ list、hooks.state、plugin 状態、デスクトップアプリ由来の MCP �
 いないことを確認する。`/etc` は root 所有のため `scripts/link` は link の有無だ
 けを検証し、未設定なら実行すべき `sudo ln` を表示する。
 
+承認なしで sandbox 外実行を許すコマンドは `codex/rules/default.rules`
+（→ `~/.codex/rules/default.rules`）で prefix 単位に管理する。TUI の「常に許可」は
+同じファイルへコマンド文字列の完全一致ルールを追記するだけなので、溜まったら
+prefix に畳んで一回限りの行を消す。リポジトリ固有のコマンドはそのリポジトリの
+`.codex/rules/` に置く。判定の確認は
+`codex execpolicy check --pretty --rules codex/rules/default.rules -- <cmd>`。
+
 ### Local SonarQube quality gate
 
 SonarQube Server、Scanner、runner、認証情報、AIエージェントの実行規約はdotfilesがmachine-globalに管理します。
