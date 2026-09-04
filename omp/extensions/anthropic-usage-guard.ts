@@ -30,8 +30,8 @@ const USAGE_DB =
 	process.env.OMP_AGENT_DB ?? join(homedir(), ".omp/agent/agent.db");
 const USAGE_RESERVE_PCT = 20;
 const CODEX_FALLBACKS = [
+	"openai-codex/gpt-6-astra",
 	"openai-codex/gpt-5.6-sol",
-	"openai-codex/gpt-5.4",
 ];
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 // 両pool枯渇時の最終退避先。ローカルollamaが「起動していてモデルが居る」
