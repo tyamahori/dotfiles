@@ -103,6 +103,17 @@ Homebrew, or nix interpreters.
 既存の共有repositoryへ任意の設定ファイルを個人用として追加する場合は、共有の`.gitignore`を変更せず、そのrepositoryだけに効く`.git/info/exclude`へpathを追加します。
 チームで共有することを合意した設定だけをversion管理します。
 
+### Codex config
+
+Codex の好みの設定（model、approval/sandbox、features、TUI 通知）は
+`codex/config.toml` が正本で、`/etc/codex/config.toml`（system 層）に symlink
+する。Codex 自身が書き換える `~/.codex/config.toml`（プロジェクトの trust
+list、hooks.state、plugin 状態、デスクトップアプリ由来の MCP 定義、`/model` の
+選択）は machine-local のまま追跡しない。user 層が system 層より優先されるの
+で、設定を dotfiles 側で変えたら同じキーが `~/.codex/config.toml` に残って
+いないことを確認する。`/etc` は root 所有のため `scripts/link` は link の有無だ
+けを検証し、未設定なら実行すべき `sudo ln` を表示する。
+
 ### Local SonarQube quality gate
 
 SonarQube Server、Scanner、runner、認証情報、AIエージェントの実行規約はdotfilesがmachine-globalに管理します。
@@ -151,9 +162,9 @@ introduced by that agent are reported. The first report asks the agent to
 review the wording; an unchanged second result passes so a contextual judgment
 cannot create an infinite rewrite loop.
 
-This is an agent-runtime check, not a git hook. `scripts/link` enables the
-Codex hooks feature. After `codex/hooks.json` changes, open `/hooks` in Codex
-and trust the updated definition before relying on it.
+This is an agent-runtime check, not a git hook. The Codex hooks feature is
+enabled in `codex/config.toml`. After `codex/hooks.json` changes, open `/hooks`
+in Codex and trust the updated definition before relying on it.
 
 ### Runtime guard hooks
 

@@ -160,8 +160,14 @@ ln -snfv "${REPO_ROOT}/scripts/sonar-quality-gate" "$HOME/.local/bin/sonar-quali
 ln -snfv "${REPO_ROOT}/scripts/semgrep-quality-gate" "$HOME/.local/bin/semgrep-quality-gate"
 mkdir -p "$HOME/.codex"
 ln -snfv "${REPO_ROOT}/codex/hooks.json" "$HOME/.codex/hooks.json"
+# codex/config.toml is the system config layer (/etc/codex/config.toml): Codex
+# never writes there, unlike ~/.codex/config.toml. /etc needs root, so only
+# verify the link here and print the one-time command instead of running sudo.
+codex_system_config=/etc/codex/config.toml
+if [[ "$(readlink "$codex_system_config" 2>/dev/null)" != "${REPO_ROOT}/codex/config.toml" ]]; then
+	echo "link: $codex_system_config is not linked; run: sudo mkdir -p /etc/codex && sudo ln -snf ${REPO_ROOT}/codex/config.toml $codex_system_config" >&2
+fi
 if command -v codex >/dev/null 2>&1; then
-	codex features enable hooks >/dev/null
 	# ponytail plugin (docs/ponytail.md). Claude Code gets it declaratively via
 	# claude/settings.json; omp via scripts/omp-plugins. Codex has no config-file
 	# equivalent, so reproduce the install here. Lifecycle hooks still need a
@@ -177,7 +183,7 @@ if command -v codex >/dev/null 2>&1; then
 		echo "link: ponytail installed for codex; open /hooks in codex once to trust its lifecycle hooks" >&2
 	fi
 else
-	echo "link: codex not found; hooks were linked but the hooks feature was not enabled" >&2
+	echo "link: codex not found; hooks were linked but the ponytail plugin was not installed" >&2
 fi
 
 # ghostty config. macOS reads the Application Support path; on Linux ghostty

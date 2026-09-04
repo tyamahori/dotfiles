@@ -1,0 +1,33 @@
+# Codex CLI defaults, loaded as the system layer (/etc/codex/config.toml).
+#
+# Why the system layer and not ~/.codex/config.toml: Codex itself writes to the
+# user file (project trust list, hooks.state hashes, plugin/marketplace state,
+# desktop-app MCP servers, /model choices), so tracking that file would churn
+# on every session and leak project paths into this public repository. The
+# system layer is read-only from Codex's point of view and the user layer
+# overrides it, so /model and other in-session changes still win.
+#
+# Machine-local state stays in ~/.codex/config.toml. Rules live in
+# ~/.codex/rules/. scripts/link checks the /etc symlink and prints the sudo
+# command when it is missing.
+
+model = "gpt-5.6-sol"
+model_reasoning_effort = "low"
+service_tier = "default"
+
+# Auto preset made explicit: writes inside the workspace need no approval;
+# escalations (protected .git/.agents/.codex, network-blocked, outside cwd)
+# prompt. Tune here, not in the user file.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = true
+
+[features]
+hooks = true
+
+[tui]
+notifications = ["approval-requested"]
+notification_method = "osc9"
+notification_condition = "always"
