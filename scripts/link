@@ -284,6 +284,7 @@ fi
 mkdir -p "$HOME/.omp/agent"
 ln -snfv "${OMP_DIR}/config.yml" "$HOME/.omp/agent/config.yml"
 ln -snfv "${OMP_DIR}/lsp.json" "$HOME/.omp/agent/lsp.json"
+ln -snfv "${OMP_DIR}/dap.json" "$HOME/.omp/agent/dap.json"
 ln -snfv "${OMP_DIR}/APPEND_SYSTEM.md" "$HOME/.omp/agent/APPEND_SYSTEM.md"
 ln -snfv "${OMP_DIR}/extensions" "$HOME/.omp/agent/extensions"
 ln -snfv "${OMP_DIR}/mcp.json" "$HOME/.omp/agent/mcp.json"

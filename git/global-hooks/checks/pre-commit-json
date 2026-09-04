@@ -29,7 +29,7 @@ while IFS= read -r -d '' file; do
 		continue
 	fi
 	case "$file" in
-	claude/settings.json | codex/hooks.json | omp/lsp.json | omp/mcp.json)
+	claude/settings.json | codex/hooks.json | omp/lsp.json | omp/dap.json | omp/mcp.json)
 		jq --sort-keys . "$staged" >"$formatted"
 		if ! cmp -s "$staged" "$formatted"; then
 			printf 'pre-commit: %s must match jq --sort-keys output.\n' "$file" >&2

@@ -1,0 +1,6 @@
+{
+  "debugpy": {
+    "args": [],
+    "command": "debugpy-adapter"
+  }
+}
