@@ -73,6 +73,10 @@ omp @README.md "セットアップ手順の不足を指摘して"
 Python と Go の language server は `omp/lsp.json` で user-wide に設定しています。
 Git リポジトリのルートから起動すれば、設定ファイルのないリポジトリでも Pyright と gopls を利用できます。
 Go module では `go.work` または `go.mod` もプロジェクトルートの検出に使います。
+Bash と YAML は built-in 定義（root marker は `.git`）のまま、`scripts/devbox` が入れる `bash-language-server` と `yaml-language-server` で自動検出されます。
+
+`debug` ツールのアダプタは Go が `delve`（`scripts/devbox`）、Python が `debugpy`（`scripts/python` の `uv tool install`）です。
+built-in の debugpy 定義は `python -m debugpy.adapter` を起動しますが、uv tool は隔離 venv なので `omp/dap.json` で `debugpy-adapter` 実行ファイルへ差し替えています。
 
 ## `omp-build` を選ぶ基準
 
@@ -485,6 +489,7 @@ omp-review --help
 | 起動関数 `omp`、`omp-repo`、`omp-build` | `dotfiles/.zshrc` |
 | モデル、memory、retry、autolearn | `omp/config.yml` |
 | language server の検出条件 | `omp/lsp.json` |
+| debug adapter の差し替え | `omp/dap.json` |
 | OMP にだけ追加する常設指示 | `omp/APPEND_SYSTEM.md` |
 | OMP extension | `omp/extensions/` |
 | plugin と version | `scripts/omp-plugins` |

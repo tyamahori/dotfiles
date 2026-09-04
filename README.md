@@ -67,8 +67,8 @@ Current checks:
   line).
 - **pre-commit json** (`checks/pre-commit-json`) — validates staged JSON files
   with `jq empty` and requires `jq --sort-keys` canonical formatting for
-  `claude/settings.json`, `codex/hooks.json`, `omp/lsp.json`, and
-  `omp/mcp.json`. JSONC dialects (`*.jsonc`, `tsconfig`/`jsconfig`, `.vscode`,
+  `claude/settings.json`, `codex/hooks.json`, `omp/lsp.json`, `omp/dap.json`,
+  and `omp/mcp.json`. JSONC dialects (`*.jsonc`, `tsconfig`/`jsconfig`, `.vscode`,
   devcontainer) are skipped.
 
 Genuinely exceptional commits bypass all checks with `git commit --no-verify`.
