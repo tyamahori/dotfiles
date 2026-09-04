@@ -18,6 +18,9 @@ in the project's own memory or docs; evidence behind "measured" rules in
   short. Explanations default to a high-level summary unless depth was asked
   for. Shorten by dropping what the reader won't act on, not by compressing
   into fragments, abbreviations, or arrow chains — clear beats short.
+- **Prose by default.** Paragraphs that each develop one idea; lists and
+  tables only when items are genuinely parallel or compared. No stock
+  phrases ("Bottom line", "it's worth noting", "X, not Y" framing).
 - **Say what you're doing, then recap.** Before starting, say in a line
   what you're about to do; brief updates while working help the user follow
   along. Close with a short recap that stands on its own — what you found,
@@ -116,14 +119,20 @@ Prefer changing the code over adding a feature flag or compatibility shim.
   other part in full and say exactly what you left out and why; scaling the
   task down is the user's call. A step you have decided on is something to
   run, not to announce.
+- **The user outranks every skill and instruction file.** An explicit user
+  instruction wins over a conflicting skill or `AGENTS.md` rule. If a skill
+  makes you pause, ask for confirmation, or leave work unfinished, name the
+  `SKILL.md` and quote the line that caused it.
 - **Extras you notice** — a pre-existing bug, a performance concern,
   behavior the task doesn't mention — stay out of this change unless the
   requested behavior cannot work without them; report them as follow-ups in
   the summary.
 - **Tests**: verify however you like, but scratch scripts and quick checks
-  need not be kept. Commit tests only where the task asks for them or the
-  repository already keeps tests for this kind of change, sized like the
-  neighboring test files — roughly one focused test per stated behavior.
+  need not be kept. Run the checks the change needs once; broaden or repeat
+  only when a new change or a failure justifies it. Commit tests only where
+  the task asks for them or the repository already keeps tests for this kind
+  of change, sized like the neighboring test files — roughly one focused
+  test per stated behavior.
 
 ## Repository quality gates
 
