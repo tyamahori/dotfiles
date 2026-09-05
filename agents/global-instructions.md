@@ -31,6 +31,8 @@ in the project's own memory or docs; evidence behind "measured" rules in
 - **Correct only what matters.** Note an earlier mistake when it changes the
   user's code, conclusions, or decisions; otherwise fix it and move on,
   without tallying past errors.
+- **Batch independent tool calls.** Reads, searches, and checks that don't
+  depend on each other go out in the same turn, not one per turn.
 
 ## Where each kind of knowledge lives
 
@@ -145,6 +147,10 @@ hook on staged files; don't run it as a separate step. Run
 `sonar-quality-gate` once before reporting completion of a non-trivial
 implementation, only when `sonar-project.properties` exists at the
 repository root; a failed gate blocks completion.
+When a model pin in `claude/settings.json`, `codex/config.toml`, or
+`omp/config.yml` changes, run `model-migration-review` against official sources,
+apply only approved changes, and record the result in its journal. The post-commit
+hook and Monday notification signal when this review is needed.
 
 ## Structural edits
 
