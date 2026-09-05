@@ -1,6 +1,6 @@
 # ローカルSemgrepの使い方
 
-このガイドは、実装完了前にSemgrepでrepository固有のpattern検査を行う手順を扱う。
+このガイドは、Semgrepでrepository固有のpattern検査を行う手順を扱う。
 初回は「SonarQubeとの使い分け」と「リポジトリを検査対象にする」まで読み、それ以降は必要な節だけ参照する。
 
 ## SonarQubeとの使い分け
@@ -81,7 +81,7 @@ semgrep-quality-gate
 commandはGit repository内のどのdirectoryから実行してもよい。
 Git rootの`.semgrep.yaml`（なければdotfilesのdefault ruleset）をruleとして`semgrep scan`を実行し、指摘が1件でもあればexit statusが非0になる。
 `.gitignore`されたファイルは検査しない。
-Claude Code、Codex、OMPは、すべてのリポジトリで通常の検証後にこのcommandを一度実行する。
+エージェントはこのcommandを完了手順として実行しない。commit時のpre-commit hookが同じruleをstaged fileへ構造的に適用する（次節）。手で全体を検査したいときだけ実行する。
 
 誤検知を1行だけ抑止する場合は、該当行に理由つきで`# nosemgrep: <rule id>`commentを置く。
 抑止が繰り返し必要なruleは、rule側の`pattern-not-inside`や`paths`を直す。
@@ -89,7 +89,7 @@ Claude Code、Codex、OMPは、すべてのリポジトリで通常の検証後�
 ## pre-commitでも同じruleが走る
 
 machine-globalのgit hook（`git/global-hooks/checks/pre-commit-semgrep`）が、commitのたびにstaged fileだけを同じrule設定で検査する。
-エージェントがgateを実行し忘れても、手動commitでも、指摘があるfileはcommitできない。
+エージェントの完了手順に頼らず、手動commitでも、指摘があるfileはcommitできない。
 rule解決はgateと同じで、repoの`.semgrep.yaml`が優先、なければdotfilesのdefault rulesetにfallbackする。
 意図的に通す場合は`--no-verify`で1回だけbypassする。
 検査対象はstaged fileのworking tree版であり、index版ではない。
@@ -111,4 +111,4 @@ dotfilesを`~/dotfiles`へ配置済みなら通常は発生しない。
 `semgrep scan`はrule fileをparseできないと失敗する。
 指摘との区別は、出力末尾のScan Summaryとexit statusで判断する。
 
-最終更新日：2026-08-30
+最終更新日：2026-09-05

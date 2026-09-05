@@ -56,8 +56,8 @@ Current checks:
   `fixup!`/`squash!`/`amend!`/`Revert` subjects, and tiny diffs are exempt.
 - **pre-commit semgrep** (`checks/pre-commit-semgrep`) — runs the same rules
   as `semgrep-quality-gate` on the staged files only (repo `.semgrep.yaml`,
-  falling back to `semgrep/default.yaml`), so the completion gate holds even
-  when a session forgets to run it. See [`docs/semgrep.md`](docs/semgrep.md).
+  falling back to `semgrep/default.yaml`), so the gate holds structurally
+  without an agent-side completion step. See [`docs/semgrep.md`](docs/semgrep.md).
 - **pre-commit gitleaks** (`checks/pre-commit-gitleaks`) — scans the staged
   diff for secrets; false positives are silenced with a `gitleaks:allow`
   comment.

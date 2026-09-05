@@ -89,17 +89,15 @@ commit — and version-control all of it together.
   `github-pr-respond` skill** — watch, triage every unresolved thread, get
   approval, then fix-or-reply and resolve.
 
-## Task intake: confirm the framing before starting
+## Task intake: guess well, ask only when a wrong guess is costly
 
-Before a non-trivial task, four things must be agreed rather than guessed:
-the underlying **problem** (not the requested operation), the **goal** in
-verifiable terms, **why it matters now**, and the **deliverable form** and
-its durability — repo-durable work under a spec/ticket workflow goes through
-that workflow, confirmed before the first edit. Ask about whatever is still
-a guess, restate the agreed framing when you start and in the PR
-description, and re-confirm if durability changes mid-task. Trivial
-mechanical tasks are exempt. Checklist, examples, and template live in the
-`task-briefing` skill.
+Infer the underlying **problem**, the verifiable **goal**, and the
+**deliverable form** from the request, the repository, and history; then
+start. Ask up front only when a wrong guess would be unsafe or would waste
+the work — a repo-durable change under a spec/ticket workflow goes through
+that workflow, confirmed before the first edit. Restate the framing you
+acted on when you start and in the PR description. Checklist, examples,
+and template live in the `task-briefing` skill.
 
 ## Scope discipline
 
@@ -136,13 +134,11 @@ Prefer changing the code over adding a feature flag or compatibility shim.
 
 ## Repository quality gates
 
-After the normal verification for a non-trivial implementation, run each
-gate once before reporting completion; a failed gate blocks completion:
-
-- `semgrep-quality-gate` — always (repo-root `.semgrep.yaml` takes
-  precedence, else the machine-global default ruleset runs).
-- `sonar-quality-gate` — only when `sonar-project.properties` exists at the
-  repository root; without it the gate is deliberately skipped.
+`semgrep-quality-gate` runs structurally from the machine-global pre-commit
+hook on staged files; don't run it as a separate step. Run
+`sonar-quality-gate` once before reporting completion of a non-trivial
+implementation, only when `sonar-project.properties` exists at the
+repository root; a failed gate blocks completion.
 
 ## Structural edits
 
