@@ -1,0 +1,88 @@
+#!/bin/bash
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+STATE_FILE="$HOME/.local/state/model-migration/last-reviewed.tsv"
+
+show_pins() {
+	jq -r '.model' "$REPO_ROOT/claude/settings.json" \
+		| sed 's/^/claude\tmodel\t/'
+	sed -n \
+		-e 's/^model = "\(.*\)"$/codex\tmodel\t\1/p' \
+		-e 's/^model_reasoning_effort = "\(.*\)"$/codex\tmodel_reasoning_effort\t\1/p' \
+		"$REPO_ROOT/codex/config.toml"
+	awk '
+		/^modelRoles:[[:space:]]*$/ {
+			in_model_roles = 1
+			next
+		}
+		in_model_roles && !/^[[:space:]]/ {
+			exit
+		}
+		in_model_roles {
+			line = $0
+			sub(/^[[:space:]]*/, "", line)
+			if (line ~ /^[^:]+:[[:space:]]*/) {
+				key = line
+				sub(/:.*/, "", key)
+				value = line
+				sub(/^[^:]*:[[:space:]]*/, "", value)
+				printf "omp\tmodelRoles.%s\t%s\n", key, value
+			}
+		}
+	' "$REPO_ROOT/omp/config.yml"
+}
+
+check_pins() {
+	local current
+
+	if [[ ! -f $STATE_FILE ]]; then
+		show_pins | awk -F '\t' '{ printf "%s.%s: (none) -> %s\n", $1, $2, $3 }'
+		return 1
+	fi
+
+	current=$(mktemp)
+	trap 'rm -f "$current"' RETURN
+	show_pins >"$current"
+	awk -F '\t' '
+		NR == FNR {
+			old[$1 SUBSEP $2] = $3
+			next
+		}
+		{
+			key = $1 SUBSEP $2
+			if (!(key in old) || old[key] != $3) {
+				printf "%s.%s: %s -> %s\n", $1, $2, (key in old ? old[key] : "(none)"), $3
+				changed = 1
+			}
+			seen[key] = 1
+		}
+		END {
+			for (key in old) {
+				if (!(key in seen)) {
+					split(key, parts, SUBSEP)
+					printf "%s.%s: %s -> (none)\n", parts[1], parts[2], old[key]
+					changed = 1
+				}
+			}
+			exit changed
+		}
+	' "$STATE_FILE" "$current"
+}
+
+case ${1:-show} in
+	show)
+		show_pins
+		;;
+	check)
+		check_pins
+		;;
+	ack)
+		mkdir -p "$(dirname "$STATE_FILE")"
+		show_pins >"$STATE_FILE"
+		;;
+	*)
+		printf 'Usage: %s [show|check|ack]\n' "$0" >&2
+		exit 2
+		;;
+esac

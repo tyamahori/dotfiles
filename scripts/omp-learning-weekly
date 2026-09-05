@@ -79,3 +79,17 @@ if [ "$total" -gt 0 ]; then
 else
   log "no new candidates"
 fi
+
+if "$HOME/dotfiles/scripts/model-pins" check >/dev/null; then
+  :
+else
+  status=$?
+  if [ "$status" -eq 1 ]; then
+    terminal-notifier -title "モデル移行レビュー" \
+      -message "モデルピンが変更済み: model-migration-review を実行" \
+      -group model-migration >/dev/null
+    log "notify: model pins changed"
+  else
+    log "model pins check failed"
+  fi
+fi

@@ -1,0 +1,32 @@
+#!/bin/bash
+# Report model-pin changes after a commit without blocking the commit itself.
+set -euo pipefail
+
+model_pins_changed() {
+	[[ -n $(git diff-tree --no-commit-id --name-only -r HEAD -- claude/settings.json codex/config.toml omp/config.yml) ]]
+}
+
+main() {
+	local repo_root output status
+
+	repo_root=$(git rev-parse --show-toplevel)
+	if ! model_pins_changed; then
+		return 0
+	fi
+
+	if output="$("$repo_root/scripts/model-pins" check)"; then
+		return 0
+	else
+		status=$?
+	fi
+	if [[ $status -eq 1 ]]; then
+		printf '%s\n' "$output" >&2
+		printf '%s\n' "Run model-migration-review (omp: /skill:model-migration-review) and then \`scripts/model-pins ack\`." >&2
+	else
+		printf 'post-commit: model-pins check failed (exit %s)\n' "$status" >&2
+	fi
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+	main "$@"
+fi
