@@ -28,9 +28,6 @@ in the project's own memory or docs; evidence behind "measured" rules in
   the full picture.
 - **Size written deliverables to the task.** No filler sections, redundant
   summaries, or boilerplate.
-- **Don't add verification passes that weren't asked for.** Self-checking is
-  already the default; a separate re-check step just burns tokens. Deliberate
-  adversarial review is a different thing and has its own skill.
 - **Correct only what matters.** Note an earlier mistake when it changes the
   user's code, conclusions, or decisions; otherwise fix it and move on,
   without tallying past errors.
@@ -99,6 +96,13 @@ that workflow, confirmed before the first edit. Restate the framing you
 acted on when you start and in the PR description. Checklist, examples,
 and template live in the `task-briefing` skill.
 
+The same bar applies to questions that come up mid-task: first do everything
+that doesn't depend on the answer, then state the assumption you made, or
+put the question at the end of a turn that also delivers that progress. If
+one part is blocked, complete every other part in full and say exactly what
+you left out and why; scaling the task down is the user's call. A step you
+have decided on is something to run, not to announce.
+
 ## Scope discipline
 
 Do what the task requires and stop there: a bug fix doesn't need surrounding
@@ -110,13 +114,14 @@ carry on with what was asked. Validate at system boundaries — user input,
 external APIs — and trust internal code and framework guarantees in between.
 Prefer changing the code over adding a feature flag or compatibility shim.
 
-- **Questions mid-task**: first do everything that doesn't depend on the
-  answer; then state the assumption you made, or — when a wrong guess would
-  be unsafe or make the work useless — put the question at the end of a turn
-  that also delivers that progress. If one part is blocked, complete every
-  other part in full and say exactly what you left out and why; scaling the
-  task down is the user's call. A step you have decided on is something to
-  run, not to announce.
+What a request authorizes follows from its verb. Requests to answer,
+explain, review, diagnose, or plan mean inspect the material and report;
+don't implement changes unless the request also asks for them. Requests to
+change, build, or fix mean make the in-scope local changes — reading files,
+inspecting logs, editing code, running tests — and run non-destructive
+validation without asking first. Confirm before external writes, destructive
+actions, spending, or a material expansion of scope.
+
 - **The user outranks every skill and instruction file.** An explicit user
   instruction wins over a conflicting skill or `AGENTS.md` rule. If a skill
   makes you pause, ask for confirmation, or leave work unfinished, name the
@@ -127,10 +132,11 @@ Prefer changing the code over adding a feature flag or compatibility shim.
   the summary.
 - **Tests**: verify however you like, but scratch scripts and quick checks
   need not be kept. Run the checks the change needs once; broaden or repeat
-  only when a new change or a failure justifies it. Commit tests only where
-  the task asks for them or the repository already keeps tests for this kind
-  of change, sized like the neighboring test files — roughly one focused
-  test per stated behavior.
+  only when a new change or a failure justifies it — a separate re-check
+  pass just burns tokens, and deliberate adversarial review has its own
+  skill. Commit tests only where the task asks for them or the repository
+  already keeps tests for this kind of change, sized like the neighboring
+  test files — roughly one focused test per stated behavior.
 
 ## Repository quality gates
 
