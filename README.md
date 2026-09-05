@@ -114,6 +114,12 @@ list、hooks.state、plugin 状態、デスクトップアプリ由来の MCP �
 いないことを確認する。`/etc` は root 所有のため `scripts/link` は link の有無だ
 けを検証し、未設定なら実行すべき `sudo ln` を表示する。
 
+例外は `[[skills.config]]`（skill 単位の有効/無効）で、system 層では無視され
+user 層でしか効かない（0.153.2 で実測）。`scripts/link` が
+`~/.codex/config.toml` へ一度だけ追記し、terminal-browser の default 版
+（`~/.agents/skills`）を無効化して codex 版（`~/.codex/skills`）との二重掲載
+を防ぐ。パスは Codex 側で `~` を展開するので home の場所に依存しない。
+
 承認なしで sandbox 外実行を許すコマンドは `codex/rules/default.rules`
 （→ `~/.codex/rules/default.rules`）で prefix 単位に管理する。TUI の「常に許可」は
 同じファイルへコマンド文字列の完全一致ルールを追記するだけなので、溜まったら

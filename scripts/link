@@ -169,6 +169,27 @@ codex_system_config=/etc/codex/config.toml
 if [[ "$(readlink "$codex_system_config" 2>/dev/null)" != "${REPO_ROOT}/codex/config.toml" ]]; then
 	echo "link: $codex_system_config is not linked; run: sudo mkdir -p /etc/codex && sudo ln -snf ${REPO_ROOT}/codex/config.toml $codex_system_config" >&2
 fi
+# terminal-browser installs a codex flavor (~/.codex/skills) and a default
+# flavor (~/.agents/skills); Codex reads both roots and lists the skill twice,
+# and the duplicate row eats the shared skills-context budget that shortens
+# every other description. [[skills.config]] is only honored in the user file
+# (ignored in the system layer, verified 0.153.2), so append it here once;
+# Codex expands ~ in the path itself, so the literal tilde keeps the entry
+# valid if the home directory moves; the shell must not expand it.
+codex_user_config="$HOME/.codex/config.toml"
+# shellcheck disable=SC2088
+codex_tb_skill='~/.agents/skills/terminal-browser/SKILL.md'
+if ! grep -Fq "path = \"$codex_tb_skill\"" "$codex_user_config" 2>/dev/null; then
+	cat >>"$codex_user_config" <<EOF
+
+# Managed by dotfiles/scripts/link: hide the duplicate default-flavor
+# terminal-browser row (the codex flavor in ~/.codex/skills stays).
+[[skills.config]]
+path = "$codex_tb_skill"
+enabled = false
+EOF
+	echo "link: added terminal-browser skills.config entry to $codex_user_config" >&2
+fi
 if command -v codex >/dev/null 2>&1; then
 	# ponytail plugin (docs/ponytail.md). Claude Code gets it declaratively via
 	# claude/settings.json; omp via scripts/omp-plugins. Codex has no config-file
