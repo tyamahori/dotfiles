@@ -1,6 +1,6 @@
 ---
 name: orbstack-dev
-description: Gotchas for containerized development under OrbStack on this machine — host/container node_modules ping-pong, builds that fail only inside the container, and *.local dev domains that stop resolving. Load when working in a Dockerized project, debugging a container-only failure, or when a .local domain suddenly 404s or fails to resolve.
+description: Load when working in a Dockerized project on this machine, debugging a container-only failure, or when a *.local domain 404s or stops resolving. OrbStack gotchas.
 ---
 
 # orbstack-dev

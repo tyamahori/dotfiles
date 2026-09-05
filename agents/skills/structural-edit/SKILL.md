@@ -1,6 +1,6 @@
 ---
 name: structural-edit
-description: Syntax-aware code search and codemods with ast-grep. Load before repeated structural rewrites, AST matching, or changes where text replacement could touch comments or strings. Routes OMP to ast_edit and Claude Code/Codex to ast-grep. Do not use for a symbol rename when language-server rename is available or for a single local edit.
+description: Load before structural rewrites, AST matching, or edits where text replacement could hit comments or strings. ast-grep codemods (ast_edit in OMP); not for LSP renames.
 ---
 
 # structural-edit

@@ -1,6 +1,6 @@
 ---
 name: browser-verify
-description: このマシンでブラウザを動かして検証・操作・デモするときの経路選択と、エージェント別（OMP / Claude Code / Codex）の手順。「ブラウザで確認して」「画面を検証して」「スクショを撮って」「動きを見せて」「ターミナルの横で見せて」「ログインした状態で操作して」と言われたとき、Web UI の変更を検証するとき、Google 検索やサイト操作を試すときに読む。terminal-browser の CLI リファレンスは terminal-browser skill が持つ。
+description: 「ブラウザで確認して」「画面を検証して」「スクショを撮って」「ログインした状態で操作して」と言われたときや Web UI の変更を検証するとき、最初のブラウザ操作の前に読む。経路選択（headless / 別窓 Chrome / relay / terminal-browser）と CLI 別の手順。
 ---
 
 # browser-verify

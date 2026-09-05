@@ -1,6 +1,6 @@
 ---
 name: github-pr-respond
-description: PR 作者としてレビューコメントに対応する手順の正本。PR をウォッチし、新着の未解決スレッドを確認・仕訳して提示、承認後に対応（修正 → commit → push → 返信 → resolve）または理由を返信して resolve する。「PR のコメントに対応して」「PR をウォッチして」と言われたとき、レビュー指摘への対応を頼まれたときに読む。
+description: 「PR のコメントに対応して」「PR をウォッチして」と言われたとき、自分の PR のレビュー指摘に対応するときに読む。未解決スレッドを仕訳して提示し、承認後に修正 → commit → push → 返信 → resolve、または理由を返信して resolve する手順の正本。
 ---
 
 # github-pr-respond

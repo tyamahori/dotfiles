@@ -1,6 +1,6 @@
 ---
 name: omp-herdr-collab-panel
-description: omp-herdr-collab の拡張。ユーザーが review-mode panel を明示したときだけ使う Herdr 専用の二人レビュー。独立 FINDINGS バリア・CROSS-CHECK・CONSOLIDATED・group fanout の契約を持つ。単独では読まず、必ず omp-herdr-collab とあわせて読む。
+description: ユーザーが review-mode panel を明示したときだけ、omp-herdr-collab とあわせて読む（単独では読まない）。Herdr 専用の二人レビューの拡張。独立 FINDINGS バリア・CROSS-CHECK・CONSOLIDATED・group fanout の契約。
 ---
 
 # omp-herdr-collab-panel

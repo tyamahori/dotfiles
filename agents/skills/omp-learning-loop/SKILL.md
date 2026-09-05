@@ -1,6 +1,6 @@
 ---
 name: omp-learning-loop
-description: OMP の local memory、learned.md、生成 Skills、managed skills を根拠と照合し、再利用可能な手順だけを authored skill や適切な規範へ項目別承認後に昇格する。「OMPの学習をレビューして」「学習ループを回して」「managed skillを確認・昇格して」「omp-learning-review」と言われたときに使う。
+description: 「OMPの学習をレビューして」「学習ループを回して」「managed skill を確認・昇格して」「omp-learning-review」と言われたときに使う。OMP の memory・learned.md・managed skills を根拠と照合し、再利用可能な手順だけを承認後に authored skill へ昇格する。
 ---
 
 # omp-learning-loop

@@ -1,6 +1,6 @@
 ---
 name: agent-usage-review
-description: Claude Code・Codex・OMP の利用量と実行経路を週次で計測し、context churn、日跨ぎ resume、低 cache hit、ルーティング、subagent、compaction、tool error、prewalk などの非効率を診断する。根拠付きの改善案を項目別承認後に適用し、実動確認と journal 記録まで閉じる正本。「トークン利用量をチェックして」「usage review」「トークン消費を改善して」「利用量レビュー」「omp-review」と言われたときに使う。
+description: 「トークン利用量をチェックして」「usage review」「利用量レビュー」「omp-review」と言われたときに使う。Claude Code・Codex・OMP の利用量と実行経路を週次で計測して非効率を診断し、承認後に適用して journal に記録する。
 ---
 
 # agent-usage-review

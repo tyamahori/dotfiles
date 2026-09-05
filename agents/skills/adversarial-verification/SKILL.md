@@ -1,6 +1,6 @@
 ---
 name: adversarial-verification
-description: 成果物を「どこかに課題がある」前提で反証にかける敵対的検証の手順。fresh context の懐疑エージェントに反証役を与え、深刻度・根拠・確度付きの指摘と「壊せなかった点」を返させる。採否は人間が決める。反証して・裏取りして・敵対的検証して・assertive review と言われたとき、およびやり直しコストの高い成果物（公開前の記事、意思決定文書、リリース前コード、ADR、提案書）を出したあとに使う。別モデルへの受け渡しは omp-herdr-collab の担当。
+description: 「反証して」「裏取りして」「敵対的検証して」「assertive review」と言われたとき、または記事・意思決定文書・リリース前コード・ADR を出した直後に使う。fresh context の懐疑エージェントに反証させ、深刻度・根拠・確度付きの指摘と壊せなかった点を返す。別モデル経由は omp-herdr-collab。
 ---
 
 # adversarial-verification

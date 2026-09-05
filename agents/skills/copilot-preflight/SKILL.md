@@ -1,6 +1,6 @@
 ---
 name: copilot-preflight
-description: Preflight-review code changes using repository evidence and accumulated GitHub Copilot review patterns. Use before requesting Copilot review, when reducing recurring PR findings, reviewing a local diff or pull request with a cold independent pass, checking cross-file contract drift, or analyzing historical Copilot review behavior in any GitHub repository.
+description: Use before requesting Copilot review, to cut recurring PR findings, or for a cold independent pass over a local diff or PR using repo evidence and Copilot review patterns.
 ---
 
 # Copilot Preflight
