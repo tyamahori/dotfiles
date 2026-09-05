@@ -119,6 +119,9 @@ retired_global_skills=(
 	cloudflare-one
 	cloudflare-one-migrations
 	durable-objects
+	# stablyai/orca: contradicts global-instructions (Orca is not a
+	# coordination surface here); removed 2026-09-05.
+	orchestration
 	sandbox-sdk
 	turnstile-spin
 	web-perf
