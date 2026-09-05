@@ -296,6 +296,19 @@ the ecosystem move, a self-checking loop keeps it honest:
   gui/$(id -u)/com.tyamahori.python-skill-review`) to trigger a review
   off-schedule.
 
+### Model migration review
+
+`scripts/model-pins` reports the model pins in `claude/settings.json`,
+`codex/config.toml`, and `omp/config.yml`. Its `check` command compares them
+with the last reviewed values; `ack` records the current values after a
+completed review.
+
+The post-commit hook calls `check` when one of those files changes. The Monday
+`omp-learning-weekly` notification independently reports an outstanding review.
+Run `model-migration-review` (or `/skill:model-migration-review`) to compare
+the pins with official sources, propose changes for approval, and record the
+outcome in `agents/skills/model-migration-review/journal.md`.
+
 ### Agent collaboration (Herdr only)
 
 Agents collaborate without manual copy-pasting. The coordinator is always an

@@ -331,6 +331,19 @@ omp-review --days 7
 compaction 回数・churn 率を macOS 通知で知らせます。気になる週は
 `omp-review --days 7` を実行します。
 
+### モデルピンを見直す
+
+`claude/settings.json`、`codex/config.toml`、`omp/config.yml` のモデルピンは
+`scripts/model-pins` で確認します。
+`check` は前回レビュー済みの値との差分を示し、レビュー完了後の `ack` が現在値を記録します。
+
+これらのファイルを変えた commit の post-commit hook と、月曜の
+`omp-learning-weekly` 通知は、未レビューの差分を別々に知らせます。
+通知を受けたら `model-migration-review` または
+`/skill:model-migration-review` を実行します。
+公式資料と照合して項目ごとの承認後にだけ変更し、結果を
+`agents/skills/model-migration-review/journal.md` に残します。
+
 ## 設定を変更する
 
 このリポジトリでは、次のファイルだけを dotfiles で管理します。
