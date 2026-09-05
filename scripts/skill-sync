@@ -1,0 +1,94 @@
+#!/bin/bash
+# Sync vendored third-party skills under agents/skills/ with their upstream.
+#
+# A vendored skill is one whose directory holds .openskills.json with
+# repoUrl/subpath/commit; skills installed via `npx skills add -g` live in
+# ~/.agents/skills and are covered by `npx skills check` instead. Vendoring
+# is used when the repo depends on the skill's files (scripts/japanese-prose-lint
+# calls natural-japanese/scripts/lint.py) or carries deliberate local edits:
+# those edits live in <skill>/local.patch and are re-applied after every sync,
+# so a sync that no longer applies cleanly stops instead of silently dropping
+# them.
+#
+# Usage: scripts/skill-sync [--check | --apply] [skill ...]
+#   --check  (default) report skills whose upstream HEAD differs from the
+#            recorded commit; exit 1 when any is behind.
+#   --apply  replace the vendored files with upstream, re-apply local.patch,
+#            record the new commit. Review with git diff, then commit.
+set -euo pipefail
+
+root=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+mode=check
+skills=()
+for arg in "$@"; do
+	case "$arg" in
+	--check) mode=check ;;
+	--apply) mode=apply ;;
+	-h | --help)
+		sed -n '2,16p' "$0" | cut -c3-
+		exit 0
+		;;
+	*) skills+=("$arg") ;;
+	esac
+done
+if [ ${#skills[@]} -eq 0 ]; then
+	for marker in "$root"/agents/skills/*/.openskills.json; do
+		skills+=("$(basename "$(dirname "$marker")")")
+	done
+fi
+
+behind=0
+for name in "${skills[@]}"; do
+	dir=$root/agents/skills/$name
+	marker=$dir/.openskills.json
+	if [ ! -f "$marker" ]; then
+		echo "skill-sync: $name: no .openskills.json, not a vendored skill" >&2
+		exit 2
+	fi
+	repo=$(jq -r .repoUrl "$marker")
+	subpath=$(jq -r '.subpath // "."' "$marker")
+	recorded=$(jq -r '.commit // ""' "$marker")
+
+	# ls-remote costs one round trip and no clone; enough for --check.
+	head=$(git ls-remote "$repo" HEAD | cut -f1)
+	if [ -z "$head" ]; then
+		echo "skill-sync: $name: could not read HEAD of $repo" >&2
+		exit 2
+	fi
+	if [ "$head" = "$recorded" ]; then
+		echo "skill-sync: $name: up to date ($head)"
+		continue
+	fi
+	echo "skill-sync: $name: upstream ${head:0:7} != recorded ${recorded:0:7} ($repo)"
+	if [ "$mode" != apply ]; then
+		behind=1
+		continue
+	fi
+
+	work=$(mktemp -d)
+	trap 'rm -rf "$work"' EXIT
+	git clone -q --depth 1 "$repo" "$work/src"
+	head=$(git -C "$work/src" rev-parse HEAD)
+	if [ ! -d "$work/src/$subpath" ]; then
+		echo "skill-sync: $name: $subpath not found in upstream" >&2
+		exit 2
+	fi
+	rsync -a --delete \
+		--exclude .openskills.json --exclude local.patch --exclude __pycache__ \
+		"$work/src/$subpath/" "$dir/"
+	if [ -f "$dir/local.patch" ]; then
+		# --directory scopes patch paths to the skill dir. No --3way: it needs
+		# the index to match the worktree, which rsync just invalidated.
+		if ! git -C "$root" apply --directory="agents/skills/$name" "$dir/local.patch"; then
+			echo "skill-sync: $name: local.patch no longer applies; resolve by hand, then regenerate local.patch (see README)" >&2
+			exit 1
+		fi
+	fi
+	# shellcheck disable=SC2016 # $c/$t are jaq variables, not shell
+	jaq -i --arg c "$head" --arg t "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+		'.commit = $c | .installedAt = $t' "$marker"
+	rm -rf "$work"
+	trap - EXIT
+	echo "skill-sync: $name: synced to $head; review with git diff agents/skills/$name"
+done
+exit $behind

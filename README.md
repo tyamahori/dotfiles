@@ -173,6 +173,26 @@ This is an agent-runtime check, not a git hook. The Codex hooks feature is
 enabled in `codex/config.toml`. After `codex/hooks.json` changes, open `/hooks`
 in Codex and trust the updated definition before relying on it.
 
+### Vendored third-party skills
+
+Most third-party skills are installed with `npx skills add <owner/repo> -g`
+into `~/.agents/skills/` and tracked by `~/.agents/.skill-lock.json`;
+`npx skills check` / `npx skills update` keep them current. A skill is
+vendored into `agents/skills/<name>/` instead when the repo depends on its
+files (the prose lint above calls `natural-japanese/scripts/lint.py`) or
+carries deliberate local edits. Each vendored skill has `.openskills.json`
+(`repoUrl`, `subpath`, synced `commit`) and, if edited, a `local.patch`
+holding the diff against upstream.
+
+`scripts/skill-sync --check` compares the recorded commit with upstream HEAD;
+`scripts/brewUpdate` runs it so drift shows up during the routine update.
+`scripts/skill-sync --apply` replaces the files with upstream, re-applies
+`local.patch`, and records the new commit; review with `git diff` and commit.
+If the patch stops applying, resolve by hand and regenerate it: copy the
+upstream subpath into a scratch git repo, commit it, rsync the vendored
+directory over it (excluding `.openskills.json` and `local.patch`), and save
+`git diff` as `local.patch`.
+
 ### Runtime guard hooks
 
 The same three runtimes share a set of guard hooks. Claude Code and Codex

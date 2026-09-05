@@ -63,3 +63,8 @@ if command -v herdr >/dev/null 2>&1 && herdr --skill >/dev/null 2>&1; then
 	herdr --skill >"$HOME/.agents/skills/herdr/SKILL.md"
 	echo "Regenerated ~/.agents/skills/herdr/SKILL.md from herdr --skill" >&2
 fi
+
+# Vendored third-party skills (agents/skills/*/.openskills.json) are not
+# covered by `npx skills check`; report upstream drift here so it surfaces
+# during the routine update pass. Applying is deliberate: scripts/skill-sync --apply.
+"$(dirname "$0")/skill-sync" --check || true
