@@ -77,6 +77,7 @@ Bash と YAML は built-in 定義（root marker は `.git`）のまま、`script
 
 `debug` ツールのアダプタは Go が `delve`（`scripts/devbox`）、Python が `debugpy`（`scripts/python` の `uv tool install`）です。
 built-in の debugpy 定義は `python -m debugpy.adapter` を起動しますが、uv tool は隔離 venv なので `omp/dap.json` で `debugpy-adapter` 実行ファイルへ差し替えています。
+delve は built-in 定義のまま動きますが、`program` にディレクトリを渡すとき `/tmp` 配下は `/private/tmp` の symlink を `go build` が別パスと見なして「outside main module」で落ちます。`.go` ファイルを渡すか実パスを使ってください。
 
 ## `omp-build` を選ぶ基準
 
