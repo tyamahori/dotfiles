@@ -62,6 +62,10 @@ skills:
     - upgrade-php
     - freee-api-skill
     - mcp-builder
+    # Contradicts global-instructions (Orca is not a coordination surface on
+    # this machine); ignoredSkills also blocks explicit /skill: use, so only
+    # this one is dropped — user-invoked plugin skills stay loadable.
+    - orchestration
 # omp 18.1.5+ gates user-level foreign sources behind enabledProviders. PR #10666
 # (18.1.7) reopened the plugin-root filter for ~/.omp/plugins marketplace installs,
 # but extensibility/skills.ts still drops every user-level `claude-plugins` skill

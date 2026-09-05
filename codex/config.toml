@@ -33,3 +33,9 @@ hooks = true
 notifications = ["approval-requested"]
 notification_method = "osc9"
 notification_condition = "always"
+
+# Not here: `[[skills.config]]` (per-skill enable/disable). Codex ignores that
+# array in the system layer (verified 0.153.2: the entry only takes effect in
+# ~/.codex/config.toml). The one machine-local entry disables the duplicate
+# ~/.agents/skills/terminal-browser flavor, which otherwise lists twice and
+# eats the shared skills-context budget that shortens other descriptions.
