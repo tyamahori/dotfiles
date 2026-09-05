@@ -199,6 +199,15 @@ upstream subpath into a scratch git repo, commit it, rsync the vendored
 directory over it (excluding `.openskills.json` and `local.patch`), and save
 `git diff` as `local.patch`.
 
+Global skills that were removed on purpose (Cloudflare vendor packs,
+`orchestration` from stablyai/orca) are listed in `retired_global_skills` in
+`scripts/link`; a reinstall shows up as a warning on the next `link` run.
+
+Claude Code caps its skill listing at `contextWindow × 4 × 0.01` characters
+(8k) and drops whole descriptions past that cap, priority order; this machine
+lists 53 skills (~17k chars, 9 of them name-only at 16k), so
+`claude/settings.json` raises `skillListingBudgetFraction` to `0.03`.
+
 ### Runtime guard hooks
 
 The same three runtimes share a set of guard hooks. Claude Code and Codex
