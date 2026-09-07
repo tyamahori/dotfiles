@@ -101,6 +101,9 @@ fi
 if [[ ! -e $HOME/.agents/skills/archify/SKILL.md ]]; then
 	npx -y skills add tt-a1i/archify -g --yes
 fi
+if [[ ! -e $HOME/.agents/skills/frontend-design/SKILL.md ]]; then
+	npx -y skills add anthropics/skills -g --skill frontend-design --yes
+fi
 
 
 # OpenSkills-installed vendor skills (Cloudflare et al.) are deliberately NOT

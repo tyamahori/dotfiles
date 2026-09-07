@@ -53,6 +53,14 @@ archify の JSON IR を残しておけば、見た目を直しても図の意味
 この系統は `reviewable-design-doc` や `visual-html-renderer` の担当です。
 **図が主役か、文書が主役か**で分けてください。
 
+### frontend-design を先に読むもの
+
+- Claude Artifact に上げる HTML
+- 関係者向けレポートや一枚もののページを、テンプレートを使わず手書きするとき
+
+`frontend-design`（anthropics/skills）は配色・タイポグラフィ・レイアウトの指針だけを持つ skill で、「どこかで見たテンプレート」に見える出力を防ぎます。
+`visual-html-renderer` の出力は固定テンプレートなので、この skill では変わりません。見た目を直したいなら手書き経路へ切り替えます。
+
 ### Plannotator を必ず挟みたいもの
 
 - plan の承認前レビュー
@@ -212,6 +220,7 @@ trust 前でも skill 自体は見えますが、plan review の自動起動は�
 
 - **Plannotator を更新する**: `curl -fsSL https://plannotator.ai/install.sh | bash -s -- --non-interactive`
 - **archify を更新する**: `npx -y skills add tt-a1i/archify -g --yes`
+- **frontend-design を更新する**: `npx -y skills add anthropics/skills -g --skill frontend-design --yes`（`--agent '*'` は付けない。50 個近い他ツールの dot ディレクトリに symlink を撒く）
 - **OMP の plannotator extension を揃える**: `scripts/omp-plugins`
 - **dotfiles の宣言を再配置する**: `scripts/link`
 

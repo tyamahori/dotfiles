@@ -358,7 +358,7 @@ compaction 回数・churn 率を macOS 通知で知らせます。気になる�
 | `agents/skills/` | 各 CLI の Skill directory | Claude、Codex、Copilot、OMP で共有する authored skill |
 
 authored skill 以外のサードパーティ skill は原則として dotfiles 管理外です。
-ただし **archify** と **plannotator の core skills** は例外で、図表生成・レビュー・Artifact共有の機械共通ワークフローとして global に維持します。
+ただし **archify**、**frontend-design**（anthropics/skills）、**plannotator の core skills** は例外で、図表生成・HTML の見た目設計・レビュー・Artifact共有の機械共通ワークフローとして global に維持します。
 それ以外のサードパーティ skill は、対象プロジェクトのルートで `npx skills add <owner/repo>` を実行し、project scope に必要な skill だけ導入します。
 図表まわりの使い分けと更新手順は `docs/diagram-workflow.md` を参照してください。
 

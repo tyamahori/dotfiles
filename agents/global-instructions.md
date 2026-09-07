@@ -219,6 +219,7 @@ that applies.
 ## Diagrams and shared artifacts
 
 - **Use `archify` for diagrams** — architecture, workflow, sequence, data-flow, and lifecycle/state diagrams go through `archify`, not ad-hoc Mermaid themes or hand-rolled HTML/SVG. Keep the typed JSON IR in the repository; treat rendered HTML as a generated artifact.
+- **Load `frontend-design` before hand-writing HTML people will look at** — Claude Artifact uploads, stakeholder reports, one-off pages. It fixes palette, typography, and layout so the page does not read as a template. It does not restyle `visual-html-renderer` output (fixed template for comment-driven review docs) or archify diagrams.
 - **Use Plannotator for human review** — plans, diffs, and stakeholder-facing HTML should go through a Plannotator review when the extra pass matters.
 - **Use Hunk as the terminal review surface** — the human opens
   `hunk diff --watch` beside the agent pane (`cmd+r` in Herdr); never launch
