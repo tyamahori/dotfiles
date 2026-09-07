@@ -60,6 +60,7 @@ archify の JSON IR を残しておけば、見た目を直しても図の意味
 
 `frontend-design`（anthropics/skills）は配色・タイポグラフィ・レイアウトの指針だけを持つ skill で、「どこかで見たテンプレート」に見える出力を防ぎます。
 `visual-html-renderer` の出力は固定テンプレートなので、この skill では変わりません。見た目を直したいなら手書き経路へ切り替えます。
+日本語の HTML は `ja-html-typography`（authored skill）も先に読みます。Artifact のプレビュー枠は 560〜720px 程度と狭く、数値と単位の分断・式の途中折返し・表の列潰れがそこで起きるため、和欧間スペースを入れない・式は折り返さない・表は横スクロールへ逃がすといった規則と検証手順をまとめています。
 
 ### Plannotator を必ず挟みたいもの
 

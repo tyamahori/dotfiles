@@ -23,7 +23,7 @@ Anthropic (claude-*) and OpenAI (openai-codex/*) use separate subscription pools
 
 - Architecture, workflow, sequence, data-flow, and lifecycle/state diagrams go through `archify`. Keep JSON IR in the repository; treat rendered HTML as generated output.
 - Generic reviewable documents and design docs go through the existing HTML/document skills (`reviewable-design-doc`, `visual-html-renderer`) rather than `archify`.
-- Hand-written HTML meant for people (Claude Artifact uploads, stakeholder reports, one-off pages) loads `frontend-design` first for palette, typography, and layout; it does not restyle `visual-html-renderer` or archify output.
+- Hand-written HTML meant for people (Claude Artifact uploads, stakeholder reports, one-off pages) loads `frontend-design` first for palette, typography, and layout, plus `ja-html-typography` when the text is Japanese; neither restyles `visual-html-renderer` or archify output.
 - Stakeholder-facing plans, diffs, and generated HTML should go through Plannotator review when feasible before external sharing.
 # Data work goes to the eval kernel
 
