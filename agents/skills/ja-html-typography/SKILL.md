@@ -27,12 +27,13 @@ h1, h2, h3 { text-wrap: balance; }
 
 ## マークアップの規則
 
+0. **`<!DOCTYPE html><html lang="ja">` と `<meta charset="utf-8">` を必ず書く。** `<title>` や `<style>` から始めた断片は quirks mode で描画され、`lang` が無いと `word-break: auto-phrase` は何もせず、フォールバック字形も中国語寄りになる。
 1. **数値・欧文と和文の間に半角スペースを入れない。** `3 つ` `100 万円` の空白は改行候補になり、`100` と `万円` が別の行に分かれる。`3つ` `100万円` と書き、見た目のアキは `text-autospace` に任せる。
-2. **分けてはいけない語は `.nowrap`。** 日付（`2026-01`）、ID、金額と単位、`〜` で結んだ範囲。ハイフン後の改行は `line-break` では止まらない。
+2. **分けてはいけない語は `.nowrap`。** 日付（`2026-01`、`2026-09-07` は全体を）、`TASK-140` のような ID、金額と単位、`〜` で結んだ範囲。ハイフン後の改行は `line-break` では止まらない。
 3. **式・コードブロックは折り返さない。** `white-space: pre; overflow-x: auto`。`pre-wrap` + `overflow-wrap: anywhere` は演算子の途中で折れて意味が壊れる。
 4. **表は列を潰さず横スクロールへ。** `table { min-width: <列数に応じた rem> }` を包む `div { overflow-x: auto }`。先頭列のラベルと `td code` は `white-space: nowrap`。列が 5 本を超えたら 3 行に伸びたセルが必ず出る。
-5. **識別子の `<code>` は任意位置で切らない。** 本文中の `code` には `overflow-wrap: anywhere` を許すが、表や定義リストでは `nowrap`。長い識別子は `_` の後ろに `<wbr>` を置く。
-6. **本文に `<br>` を使わない。** 一文一行の Markdown を HTML にするときは文をつなげて `<p>` にする。改行を残すと閲覧幅ごとに折返し位置が二重になる。
+5. **識別子は任意位置で切らない。** 本文中の `code` には `overflow-wrap: anywhere` を許すが、表や定義リストでは外し、長い識別子は `_` の後ろに `<wbr>` を置いて区切りでだけ折れるようにする。
+6. **`<br>` を使わない。** 一文一行の Markdown を HTML にするときは文をつなげて `<p>` にする。セル内や `<dt>` で複数項目を縦に並べるときは項目ごとに `<div>` / `display: block` の `<span>` にする。改行を残すと閲覧幅ごとに折返し位置が二重になる。
 7. **書体は和文フォールバックを必ず並べる。** Web フォントが読めない環境（Artifact の CSP、オフライン）でも崩れないよう `"Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif` を末尾に置く。
 
 ## 検証
@@ -41,6 +42,8 @@ Artifact 幅で描画して確認する。OMP は `browser` ツール（headless
 
 ```js
 // 560px と 720px の両方で
+document.compatMode === 'CSS1Compat' && document.documentElement.lang === 'ja'
+[...document.querySelectorAll('.nowrap')].filter(s => s.getClientRects().length > 1).length   // 0 件
 document.documentElement.scrollWidth > innerWidth            // false であること（横はみ出しなし）
 [...document.querySelectorAll('pre')].every(p => getComputedStyle(p).whiteSpace === 'pre')
 [...document.querySelectorAll('td:first-child')].filter(td => {   // 先頭列が折れているセル。0 件であること
