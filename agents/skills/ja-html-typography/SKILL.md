@@ -43,7 +43,7 @@ Artifact の CSP は stylesheet を `fonts.googleapis.com`、font ファイル�
 とくに等幅和文フォントは効く。IBM Plex Mono のような和文を持たない等幅を mono ロールに置くと、
 式やコードは狙い通りでもラベルや表ヘッダの和文だけが黙って別書体に落ちる（規則 7 の症状）。
 
-harfbuzz だけで完結し、Python は要らない（`hb-subset` は `brew install harfbuzz`）。
+harfbuzz だけで完結し、Python は要らない（`hb-subset` は harfbuzz に入っている。この機械では `~/.Brewfile` に `brew "harfbuzz"` を追加して `~/dotfiles/scripts/brewUpdate` で入れる。素の `brew install` はしない）。
 
 ```sh
 hb-subset --font-file=~/Library/Fonts/Cica-Regular.ttf --text-file=page.html -o /tmp/sub.ttf
