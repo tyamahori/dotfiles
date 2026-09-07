@@ -55,6 +55,7 @@ nav ol { display:flex; flex-wrap:wrap; gap:6px 24px; }  /* 孤立を出さない
 - 札（stamp）や補助ラベルが見出しの下に置かれ、大 → 小 → 中の順で目が迷う
 - 並列の箱（フロー図のノード、カード）の幅がばらばらで、左右端が揃っていない
 - 中央揃えと左揃えが混在
+- sticky な目次やレールがあるのに、本文の表がその列へ張り出している（左端は揃うが、スクロールすると本文が目次の下へ潜る）
 
 直し方: 左端を 1 本にする。番号や札は見出しの**上**に小さなキッカーとして置き、小 → 大 → 中（キッカー → 見出し → リード）の階層にする。並列要素は共通グリッドに載せる。
 
@@ -105,6 +106,9 @@ h2 { font-size:1.6rem; }  .lead { font-size:1.1rem; }   /* 1.6 / 1.1 / 1（本�
 
 - 式・コードは**折り返さない**（`white-space:pre; overflow-x:auto`）。半幅の `.split` に押し込まず全幅に置く。途中改行は意味を壊すので、狭い幅では横スクロールが正しい
 - 表は列数で決める: **6 列以下**は本文幅、**7〜8 列**は本文カラムを抜けて shell 全幅へ張り出す（`.breakout { grid-column:1/-1 }`）、**9 列以上か長文の説明列がある**なら説明列を表から外して行下の注記にするか、行を縦積み（カード）にする
+- **張り出しと sticky なレールは併用できない。** sticky な目次はページ全体の y を巡るので、レールの列へ張り出した表はスクロール中に必ずレールの下へ潜る。左端が揃っていても重なるので、下の検証の重なり判定なしには気付けない。どちらかを選ぶ: レールを sticky にするなら表は本文幅に留めて `.tbl` の横スクロールへ逃がす、張り出すならレールは `position:static`（目次を本文の上へ横並びで置く）
+- 張り出しはグリッドが実際にある階層に書く。本文が入れ子のグリッド（`.body`）だと `grid-column:1/-1` は外側の shell グリッドへ届かず無効なので、`grid-template-columns:subgrid` で貫通させるか、負マージン（`margin-left:calc(-<レール幅> - <gap>)`）で外へ出す
+- 張り出しは表 1 本だけに当てない。閾値を表ごとに当てると幅と左端がばらけて反復が崩れるので、同じ役割の表（例: 各節の計算例）はまとめて同じ扱いにする
 - 2 列並べ（`.split`）は**本当に並列の対**だけ（例: 定数 | 職業係数）。式と定数のように主従があるものは縦に積む
 - 表のセルは既定 `nowrap`、自由文の列だけ `white-space:normal; min-width:18em`。数値列が折れるのが一番読みにくい
 
@@ -131,6 +135,12 @@ new Set([...document.querySelectorAll('.stamp,.n,h3,caption,thead th')]
   .map(e => { const c = getComputedStyle(e); return c.fontFamily + c.fontSize + c.letterSpacing; })).size  // 反復: 1
 document.documentElement.scrollWidth > innerWidth         // 構成: false
 [...document.querySelectorAll('.formula')].map(p => p.scrollWidth > p.clientWidth)   // 720 以上で false
+// 整列: sticky な要素と本文が x 方向で重なっていないか。上の lefts は揃っていても重なりは検出できないので必須
+const sticky = [...document.querySelectorAll('*')].filter(e => getComputedStyle(e).position === 'sticky');
+sticky.flatMap(s => { const a = s.getBoundingClientRect();
+  return [...document.querySelectorAll('.body *')].filter(e => { const b = e.getBoundingClientRect();
+    return b.width > 0 && Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0; });
+}).length                                                 // 0。1 以上ならスクロール中に必ず重なる
 ```
 
 改行の検証（`.nowrap` の分断、先頭列の折返し、compatMode）は `ja-html-typography` の検証項目をそのまま使う。
