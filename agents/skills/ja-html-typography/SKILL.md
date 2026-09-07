@@ -36,6 +36,25 @@ h1, h2, h3 { text-wrap: balance; }
 6. **`<br>` を使わない。** 一文一行の Markdown を HTML にするときは文をつなげて `<p>` にする。セル内や `<dt>` で複数項目を縦に並べるときは項目ごとに `<div>` / `display: block` の `<span>` にする。改行を残すと閲覧幅ごとに折返し位置が二重になる。
 7. **書体は和文フォールバックを必ず並べる。** Web フォントが読めない環境（Artifact の CSP、オフライン）でも崩れないよう `"Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif` を末尾に置く。
 
+## Google Fonts に無い和文フォントを使う
+
+Artifact の CSP は stylesheet を `fonts.googleapis.com`、font ファイルを `fonts.gstatic.com` からしか通さない。
+他ホストは無言で失敗するので、Google Fonts に無い書体は**そのページに出る文字だけへ subset して data URI で埋める**。
+とくに等幅和文フォントは効く。IBM Plex Mono のような和文を持たない等幅を mono ロールに置くと、
+式やコードは狙い通りでもラベルや表ヘッダの和文だけが黙って別書体に落ちる（規則 7 の症状）。
+
+harfbuzz だけで完結し、Python は要らない（`hb-subset` は `brew install harfbuzz`）。
+
+```sh
+hb-subset --font-file=~/Library/Fonts/Cica-Regular.ttf --text-file=page.html -o /tmp/sub.ttf
+base64 -i /tmp/sub.ttf > /tmp/sub.b64   # woff2 化は hb-subset では不可。ttf のまま data URI に載せる
+```
+
+- `--text-file` に HTML をそのまま渡す。タグ名や CSS まで含んだ上位集合になるが、それでも数百グリフに収まる（Cica 5.0.3 Regular で 10.8MB → 123KB、base64 で 165KB）
+- 埋め込みは `@font-face { font-family:"<別名>"; src:url(data:font/ttf;base64,…) format("truetype"); font-weight:400 500; }`。weight を範囲で書くと 500 指定の要素で合成太字が出ない
+- **ライセンスを読む。** OFL 1.1 で Reserved Font Name が宣言されている書体は、subset が派生物になるため元の名前を宣言名に使えない（Cica は `LICENSE.txt` に "with Reserved Font Name Cica"）。CSS の宣言名を別名にし、著作権表示とライセンス名を `<style>` 冒頭のコメントで一緒に運ぶ。公開配布まで厳密にやるなら font 内部の name テーブルも改名する（fonttools が必要）
+- subset はそのページ専用。本文を書き換えたら作り直す。忘れても崩れないよう fallback に `ui-monospace` などを必ず残す
+
 ## 検証
 
 Artifact 幅で描画して確認する。OMP は `browser` ツール（headless）、Claude Code / Codex は `browser-verify` skill の経路に従う。
