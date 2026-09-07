@@ -21,9 +21,10 @@ const GHOSTTY_BUNDLE = "com.mitchellh.ghostty";
 // see notify() below.
 const IS_DARWIN = process.platform === "darwin";
 
-// Same set herdr-omp-agent-state.ts uses: an agent_end carrying one of these
-// errors is followed by an automatic retry, not a finished turn.
-export const retryableErrorPattern =
+// Same set herdr-omp-agent-state.ts (herdr-managed, keeps its own copy) uses:
+// an agent_end carrying one of these errors is followed by an automatic
+// retry, not a finished turn.
+const retryableErrorPattern =
   /overloaded|provider.?returned.?error|rate.?limit|too many requests|429|500|502|503|504|service.?unavailable|server.?error|internal.?error|network.?error|connection.?error|connection.?refused|connection.?lost|websocket.?closed|websocket.?error|other side closed|fetch failed|upstream.?connect|reset before headers|socket hang up|ended without|http2 request did not get a response|timed? out|timeout|terminated|retry delay/i;
 
 type Rec = Record<string, unknown>;
