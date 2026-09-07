@@ -36,6 +36,10 @@
   tool calls」を追加。(3)(4) は据え置き。
 - 却下・保留: 25k token の reasoning/output 予約は API 利用者向けで CLI では
   対象外。Codex CLI 0.153.1-0.153.4 の Astra 修正は適用済み版で確認のみ。
+  09-07 追記(保留): reviewer(`@slow` → astra、effort 未指定=medium)を
+  reasoning guide の「code/security review は xhigh」に合わせ `slow: ...:xhigh`
+  にするか。`task` の astra 化と同じ週次数値で判断する。役割分担そのものは
+  公式特性と整合(default=fable は委譲・推測方針に合う、plan=medium 推奨どおり)。
 - 検証: 別の新セッションで skill 発火を確認し、22:01 に `scripts/model-pins ack`
   実行。`check` は差分なし(exit 0)。基準値は `plan: ...:medium` を含む現在値。
 - 1週間後:
