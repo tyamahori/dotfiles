@@ -36,6 +36,28 @@ string per line. Intentional public content can bypass the guard with
 paths, histogram/moved-line diffs, stale remote pruning, and first-push upstream
 setup.
 
+### Interactive CLI tools
+
+`scripts/devbox` installs these tools; open a new Zsh session or run `reload`
+after installation to enable the shell integrations.
+
+| Tool | Everyday use |
+| --- | --- |
+| `fzf` | `Ctrl-R` searches history, `Ctrl-T` selects files, and `Alt-C` selects a directory. |
+| `zoxide` | `z <name>` jumps to a previously visited directory; `zi <name>` selects one with fzf. |
+| `bat` | `bat <file>` displays highlighted source with line numbers and automatic paging. |
+| `xh` | `xh GET <url>` or `xh POST <url> name=value count:=2` sends HTTP requests. |
+
+Standard `cd`, `cat`, `ls`, `curl`, and `jq` are not aliased to replacements.
+Use `bat` for human-readable output, not as a required step in scripts or agent
+pipelines. `xh` replaces HTTPie, not the OS curl or ax web-reading workflow.
+Before using xh with corporate endpoints, verify its certificate/proxy behavior
+in that environment.
+
+On an existing installation, run `./scripts/devbox` first, then
+`devbox global rm httpie` if HTTPie is still installed. HTTPie plugins and
+configuration are not automatically migrated; use the `xh` command explicitly.
+
 ### Machine-global git hooks
 
 `.gitconfig` sets a global `core.hooksPath` to `git/global-hooks/`, so the
@@ -383,9 +405,9 @@ orb create --isolated --forward-ssh-agent -c cloud-init/ubuntu.yaml ubuntu:24.04
 orb shell dev   # default user inherits from the macOS host
 ```
 
-What it installs: zsh, Nix (Determinate Systems), Devbox + global packages
-(`php go direnv bun git nodejs httpie cmake curl task uv`), the latest CPython
-via `uv` as the global `python` / `python3`, `gh` + `gh-copilot` extension,
+What it installs: zsh, Nix (Determinate Systems), Devbox + the global packages
+declared in `scripts/devbox`, the latest CPython via `uv` as the global
+`python` / `python3`, `gh` + `gh-copilot` extension,
 Docker CE (with the default user added to the `docker` group), and links
 dotfiles from this repo. macOS-only items (Homebrew casks, `mas`) are skipped.
 
