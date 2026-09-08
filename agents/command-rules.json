@@ -1,0 +1,57 @@
+{
+  "rules": [
+    {
+      "id": "bare-python",
+      "matcher": "command",
+      "commands": [{ "executables": ["python", "python3"] }],
+      "clients": ["claude", "codex", "omp"],
+      "replacement": { "type": "command", "value": "uv" },
+      "reasons": {
+        "claude": "Bare python/python3 is blocked. Load `efficient-python` if needed, then use `uv run script.py`, `uv run python -c ...`, `uv run --with <pkg> ...`, or `uvx <tool>`.",
+        "codex": "Bare python/python3 is blocked. Load `efficient-python` if needed, then use `uv run script.py`, `uv run python -c ...`, `uv run --with <pkg> ...`, or `uvx <tool>`.",
+        "omp": "Bare python/python3 is blocked. Read skill://efficient-python if needed, then use `uv run script.py`, `uv run python -c ...`, `uv run --with <pkg> ...`, or `uvx <tool>`."
+      }
+    },
+    {
+      "id": "shell-read-search",
+      "matcher": "command",
+      "commands": [
+        { "executables": ["grep", "rg", "find", "head", "tail"] },
+        { "executables": ["sed"], "nextArgPattern": "^(?:-[A-Za-z]*n[A-Za-z]*|--quiet|--silent)$" },
+        { "executables": ["cat"], "requireNoRedirection": true }
+      ],
+      "excludeAfterPipe": true,
+      "clients": ["claude", "omp"],
+      "replacement": { "type": "native-tool" },
+      "reasons": {
+        "claude": "Shell read/search commands are blocked on this machine. Use Grep instead of grep/rg, Read with offset/limit instead of cat/head/tail/sed -n, and Glob instead of find. Mid-pipeline filters and write-mode cat remain allowed.",
+        "codex": "",
+        "omp": "Shell read/search commands are blocked on this machine. Use grep instead of shell grep/rg, read with a bounded selector instead of cat/head/tail/sed -n, and glob instead of find. Mid-pipeline filters and write-mode cat remain allowed."
+      }
+    },
+    {
+      "id": "curl-web-fetch",
+      "matcher": "curl-web-fetch",
+      "clients": ["claude", "codex", "omp"],
+      "commands": [{ "executables": ["curl"] }],
+      "replacement": { "type": "command", "value": "ax" },
+      "reasons": {
+        "claude": "Simple curl webpage fetches are blocked. Load `ax` and run `ax agent-context` before the first fetch, then use ax to read or extract the page. Authenticated, API, download, diagnostic, and unsupported curl options remain allowed.",
+        "codex": "Simple curl webpage fetches are blocked. Load `ax` and run `ax agent-context` before the first fetch, then use ax to read or extract the page. Authenticated, API, download, diagnostic, and unsupported curl options remain allowed.",
+        "omp": "Simple curl webpage fetches are blocked. Read skill://ax and run `ax agent-context` before the first fetch, then use ax to read or extract the page. Authenticated, API, download, diagnostic, and unsupported curl options remain allowed."
+      }
+    },
+    {
+      "id": "brew-upgrade",
+      "matcher": "command",
+      "commands": [{ "executables": ["brew"], "subcommand": "upgrade" }],
+      "clients": ["claude", "codex", "omp"],
+      "replacement": { "type": "command", "value": "scripts/brewUpdate" },
+      "reasons": {
+        "claude": "`brew upgrade` is blocked because it may remove running OMP kegs. Use `~/dotfiles/scripts/brewUpdate` instead.",
+        "codex": "`brew upgrade` is blocked because it may remove running OMP kegs. Use `~/dotfiles/scripts/brewUpdate` instead.",
+        "omp": "`brew upgrade` is blocked because it may remove running OMP kegs. Use `~/dotfiles/scripts/brewUpdate` instead."
+      }
+    }
+  ]
+}
