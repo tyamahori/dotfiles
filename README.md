@@ -74,6 +74,24 @@ fzf-tab selects candidates provided by Zsh; missing command-specific
 candidates require that CLI's completion definitions, not a Starship setting.
 Shells without the plugin retain the normal Zsh completion menu.
 
+Kiro's optional graphical autocomplete uses its existing shell integration;
+keep the Kiro pre block first and the post block last in `.zshrc`, after
+prompt initialization. It is separate from fzf-tab and history suggestions.
+If `kiro-cli doctor --all` reports an outdated terminal integration or a
+failed Qterm socket connection, try `Q_NEW_SESSION=1 zsh -il` in a spare
+terminal pane and rerun the diagnostic there. This starts a nested shell;
+use `exit` to return. `reload` alone does not replace the Kiro terminal
+wrapper. Verify the graphical dropdown in the visible terminal as well;
+a passing socket check does not prove that it is displayed correctly.
+Ghostty also has an unresolved
+[popup-positioning report](https://github.com/kirodotdev/Kiro/issues/4635);
+successful shell integration does not rule out this separate issue.
+To use fzf-tab without Kiro's graphical dropdown, run
+`kiro-cli settings autocomplete.disable true`; this leaves Tab completion
+and history suggestions intact.
+If an existing dropdown remains visible, run `kiro-cli quit` to close the
+Kiro desktop app without closing the terminal.
+
 #### Zsh prompt
 
 Run `./scripts/devbox` and `./scripts/link`, then `reload` in existing shells
