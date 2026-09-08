@@ -143,17 +143,7 @@
       {
         "hooks": [
           {
-            "command": "\"$HOME/dotfiles/scripts/deny-bare-python-hook\"",
-            "timeout": 10,
-            "type": "command"
-          }
-        ],
-        "matcher": "Bash"
-      },
-      {
-        "hooks": [
-          {
-            "command": "\"$HOME/dotfiles/claude/hooks/deny-shell-read-search.sh\"",
+            "command": "bun \"$HOME/dotfiles/scripts/deny-command-hook.ts\" claude",
             "timeout": 10,
             "type": "command"
           }

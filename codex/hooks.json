@@ -49,7 +49,7 @@
       {
         "hooks": [
           {
-            "command": "\"$HOME/dotfiles/scripts/deny-bare-python-hook\"",
+            "command": "bun \"$HOME/dotfiles/scripts/deny-command-hook.ts\" codex",
             "timeout": 10,
             "type": "command"
           }
