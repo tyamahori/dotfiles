@@ -15,7 +15,7 @@ command -v git >/dev/null 2>&1 || exit 0
 [ -e "$repo/.git" ] || exit 0
 
 dirty=$(git -C "$repo" status --porcelain -- \
-	agents/global-instructions.md claude/settings.json 2>/dev/null) || exit 0
+	agents/global-instructions.md claude/settings.json codex/hooks.json 2>/dev/null) || exit 0
 [ -n "$dirty" ] || exit 0
 
 cat <<EOF
@@ -26,7 +26,7 @@ If these were not edited intentionally in a current session, a jbcontext
 setup-agent run or its auto-updater likely rewrote them through the symlinks.
 Diagnose by matching the file mtime against AutoUpdater lines in
 ~/.jbcontext/logs/jbcontext.log. Recover with git -C ~/dotfiles diff /
-checkout, then re-check that ~/.jbcontext/config.json agentSetups still has
-instructions/hooks disabled for CLAUDE:USER and CODEX:USER.
+checkout, then re-check that \`jbcontext config get skip-agents-on-upgrade\`
+still prints true (0.9.12+; a setup-agent run does not change it).
 EOF
 exit 0

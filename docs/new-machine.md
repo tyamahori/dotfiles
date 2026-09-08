@@ -87,9 +87,11 @@ OrbStack、Superwhisper、Slackなどは各自サインインする。
 3. 直後に `git -C ~/dotfiles status` を確認する。
    setup-agentは共有指示ファイル（`agents/global-instructions.md`）を単一エージェント流儀に書き換えるので、差分が出ていたらエージェント中立版（コミット `e674eb5` の形）に再マージする。
    `claude/settings.json` に差分が出た場合もrevertする。jbcontextのClaudeフックの置き場は `~/.claude/settings.local.json` であり、リポジトリ管理の `settings.json` には入れない。
-4. 再書き換えの検知が効いていることを確認する。かつての予防フラグ（`agentSetups` の `hooks` / `instructions` 無効化）は0.9.11系のスキーマ変更で消滅しており、防御は検知に移行済み。`scripts/jbcontext-clobber-check`（Claude / Codexの SessionStart フック）と `omp/extensions/jbcontext-clobber-guard.ts` が、セッション開始時に監視対象2ファイルの未コミット差分を警告する。
+4. `jbcontext config set skip-agents-on-upgrade true` を実行する（0.9.12以降）。
+   自動更新のたびに走る agent prompt の refresh（instructions / hooks の書き換え）を止める。これがないと 2026-09-09 の 0.9.12 更新のように、`agents/global-instructions.md`・`claude/settings.json`・`codex/hooks.json`（検知フック自体が消える）が更新ごとに書き換わる。
+   `jbcontext config get skip-agents-on-upgrade` が `true` を返すことを確認する。この設定は `~/.jbcontext/config.json` にあり dotfiles 管理外。手動の `setup-agent` 再実行は対象外なので、走らせたら3の手順を繰り返す。
+5. 再書き換えの検知が効いていることを確認する。かつての予防フラグ（`agentSetups` の `hooks` / `instructions` 無効化）は0.9.11系のスキーマ変更で消滅している。`scripts/jbcontext-clobber-check`（Claude / Codexの SessionStart フック）と `omp/extensions/jbcontext-clobber-guard.ts` が、セッション開始時に監視対象3ファイルの未コミット差分を警告する。
 
-自動更新や手動の `setup-agent` 再実行で書き換えは再発する。
 警告が出たら3の再マージをやり直し、`~/.jbcontext/logs/jbcontext.log` のAutoUpdater行と突合する。
 
 ## 6. launchdジョブの有効と無効を選ぶ

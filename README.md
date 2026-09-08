@@ -327,10 +327,11 @@ extensions in `omp/extensions/`:
   blocks immediately. Its binary is a locked Node dependency in `tools/dclint`,
   installed by `scripts/devbox`.
 - **jbcontext clobber check** — `scripts/jbcontext-clobber-check` warns at
-  session start when `agents/global-instructions.md` or
-  `claude/settings.json` carry uncommitted changes — the signature of a
+  session start when `agents/global-instructions.md`, `claude/settings.json`,
+  or `codex/hooks.json` carry uncommitted changes — the signature of a
   jbcontext setup-agent run or auto-update rewriting them through the
-  symlinks.
+  symlinks. Prevention is `jbcontext config set skip-agents-on-upgrade true`
+  (machine-local; see `docs/new-machine.md`).
 - **worktree include sweep** — `scripts/worktree-copy-hook` runs
   `worktree-include-copy` automatically after a raw `git worktree add`
   (see "Worktree-local files" below).

@@ -1,10 +1,12 @@
 // session_start で ~/dotfiles のエージェント管理ファイル
-// (agents/global-instructions.md, claude/settings.json)の未コミット差分を検知
-// して通知する。jbcontext setup-agent とその AutoUpdater が symlink 越しに
-// これらを書き換える事故(2026-08-26 日誌: 0.9.9->0.9.10 自動更新で中立指示
-// ブロックが Codex テンプレに置換された)を、数日後の謎 diff 調査ではなく
-// セッション開始時の即時警告に変える。Claude/Codex は
-// scripts/jbcontext-clobber-check(SessionStart hook)で同じ検査を行う。
+// (agents/global-instructions.md, claude/settings.json, codex/hooks.json)の
+// 未コミット差分を検知して通知する。jbcontext setup-agent とその AutoUpdater が
+// symlink 越しにこれらを書き換える事故(2026-08-26 日誌: 0.9.9->0.9.10 自動更新で
+// 中立指示ブロックが Codex テンプレに置換された。2026-09-09 の 0.9.12 更新では
+// codex/hooks.json からこの検知フック自体が消された)を、数日後の謎 diff 調査では
+// なくセッション開始時の即時警告に変える。予防は `jbcontext config set
+// skip-agents-on-upgrade true`(0.9.12+)で、ここはその取りこぼしの検知。
+// Claude/Codex は scripts/jbcontext-clobber-check(SessionStart hook)で同じ検査を行う。
 
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -12,7 +14,11 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 const REPO = join(homedir(), "dotfiles");
-const WATCHED = ["agents/global-instructions.md", "claude/settings.json"];
+const WATCHED = [
+  "agents/global-instructions.md",
+  "claude/settings.json",
+  "codex/hooks.json",
+];
 
 type Ctx = {
   hasUI?: boolean;
