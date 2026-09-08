@@ -104,6 +104,22 @@ QUALITY GATE STATUS: PASSED
 Claude Code、Codex、OMPは、rootに`sonar-project.properties`があるリポジトリで、通常の検証後にこのcommandを一度実行する。
 解析結果はlocal Serverだけに送られ、SonarQube Cloudへは送られない。
 
+### このdotfilesでは、先にBunのカバレッジを生成する
+
+リポジトリのrootで次を実行する。
+コマンドフックとOMP拡張のテストをまとめて計測し、成功した場合だけGateへ進む。
+
+```bash
+bun test --coverage --coverage-reporter=text --coverage-reporter=lcov \
+  --coverage-dir=.agent-msgs/scratch/coverage \
+  ./scripts/*.test.ts ./omp/tests/*.test.ts &&
+  sonar-quality-gate
+```
+
+古い計測結果は使わない。
+`sonar-project.properties`は、この実行で生成した`lcov.info`を読み込むため、Gateの前には一部だけでなく全テストを計測し直す。
+テストコードは`sonar.tests`へ登録し、production codeの解析・カバレッジ対象とは分ける。
+
 ## 解析結果をブラウザで確認する
 
 DashboardはOrbStackのlocal domainから開く。
