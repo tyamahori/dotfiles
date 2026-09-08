@@ -59,6 +59,21 @@ On an existing installation, run `./scripts/devbox` first, then
 `devbox global rm httpie` if HTTPie is still installed. HTTPie plugins and
 configuration are not automatically migrated; use the `xh` command explicitly.
 
+#### Searchable Tab completion (macOS)
+
+`scripts/apps` installs `fzf-tab` from `.Brewfile`; it uses the `fzf` supplied
+by devbox. Run `reload` after installation, or open a new Zsh pane.
+
+Press `Tab` after a command, option prefix, or path to open the completion
+menu, then type to filter candidates. `Enter` inserts the selected candidate;
+check the resulting command before pressing `Enter` again to execute it.
+`Esc` cancels selection. No previews or popup windows are enabled.
+
+History suggestions and `Ctrl-R` / `Ctrl-T` / `Alt-C` remain available.
+fzf-tab selects candidates provided by Zsh; missing command-specific
+candidates require that CLI's completion definitions, not a Starship setting.
+Shells without the plugin retain the normal Zsh completion menu.
+
 #### Zsh prompt
 
 Run `./scripts/devbox` and `./scripts/link`, then `reload` in existing shells

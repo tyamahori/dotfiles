@@ -57,6 +57,8 @@ unset _comp_cache_dir
 # compinit は dump が古いか fpath のファイル数が変わると再生成（~600ms）、
 # それ以外でも compaudit 込みで ~60ms かかる。dump が24時間以内なら -C で
 # 読み込みだけ（~20ms）。新しい補完を即反映したいときは `rm ~/.zcompdump; reload`。
+# reload 前の fzf-tab フックを外し、compinit で上書きした関数を再ラップしない。
+(( $+functions[disable-fzf-tab] )) && disable-fzf-tab
 autoload -Uz compinit
 if [[ -n ~/.zcompdump(#qN.mh-24) ]]; then compinit -C; else compinit; fi
 # clap 生成の _jj は初回呼び出しで本体関数を定義して compdef し直すだけなので、
@@ -71,6 +73,14 @@ zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
 zstyle ':completion:*' use-cache yes                                # brew/gh など重い候補列挙を保存
 zstyle ':completion:*' cache-path "$HOME/.zsh/cache"
 setopt COMPLETE_IN_WORD                                             # カーソルが単語の途中でも補完
+(( $+commands[fzf] )) && source <(fzf --zsh)
+
+# Tab の所有者を fzf-tab にし、autosuggestions が widget を包む前に読み込む。
+if (( $+commands[fzf] )) && [[ -r "${HOMEBREW_PREFIX:-/opt/homebrew}/opt/fzf-tab/share/fzf-tab/fzf-tab.zsh" ]]; then
+  zstyle ':completion:*' menu no
+  zstyle ':completion:*:descriptions' format '[%d]'
+  source "${HOMEBREW_PREFIX:-/opt/homebrew}/opt/fzf-tab/share/fzf-tab/fzf-tab.zsh"
+fi
 
 [ -r "${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ] && \
   source "${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
@@ -203,7 +213,6 @@ export PATH="$PATH:${HOME}/.jbcontext/bin"
 export PATH="$HOME/.grok/bin:$PATH"
 # <<< grok installer <<<
 
-(( $+commands[fzf] )) && source <(fzf --zsh)
 (( $+commands[zoxide] )) && eval "$(zoxide init zsh)"
 
 # reload 時に ZLE widget のラッパーを重ねず、終了状態の取得を使用率更新より先に行う。
