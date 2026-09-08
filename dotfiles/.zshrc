@@ -1,8 +1,8 @@
+# Kiro CLI pre block. Keep at the top of this file.
+[[ -f "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.pre.zsh" ]] && builtin source "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.pre.zsh"
 # devbox
 eval "$(devbox global shellenv)"
 
-# Kiro CLI pre block. Keep at the top of this file.
-[[ -f "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.pre.zsh" ]] && builtin source "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.pre.zsh"
 
 
 # 履歴。既定は macOS /etc/zshrc の SAVEHIST=1000 で、実際に溢れて古い
@@ -204,8 +204,6 @@ export TERMINAL_BROWSER_RENDER_SCALE=1
 alias ll='ls -la'
 alias reload='source ~/.zshrc'
 
-# Kiro CLI post block. Keep at the bottom of this file.
-[[ -f "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh" ]] && builtin source "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh"
 # JetBrains Context CLI
 export PATH="$PATH:${HOME}/.jbcontext/bin"
 
@@ -219,3 +217,5 @@ export PATH="$HOME/.grok/bin:$PATH"
 add-zsh-hook -d precmd _agent_usage_precmd
 (( $+functions[prompt_starship_precmd] )) || eval "$(starship init zsh)"
 add-zsh-hook precmd _agent_usage_precmd
+# Kiro CLI post block. Keep at the bottom of this file.
+[[ -f "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh" ]] && builtin source "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh"
