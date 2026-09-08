@@ -275,6 +275,18 @@ Upgrades go through `~/dotfiles/scripts/brewUpdate`, never bare
 `brew upgrade` — bare upgrades trigger `brew cleanup`, which deletes old omp
 kegs that running OMP sessions still spawn from.
 
+## CLI use in automation
+
+Human-facing terminal use may favor readability and interactive selection.
+For automated agent commands and scripts, prefer non-interactive modes,
+disable color, decorative output, progress animations, and pagers, and use
+documented machine-readable output (such as JSON) or stable plain text.
+Check exit codes according to the command's contract; do not infer success
+from output alone or hide failures to keep a pipeline running. Non-interactive
+mode does not authorize bypassing required user approval.
+Keep human-oriented aliases and TUI tools out of automated pipelines, and
+prefer the harness's dedicated tools over substituting CLI commands.
+
 ## Fetching web content
 
 Prefer the harness's dedicated read/browser tools where appropriate. When
