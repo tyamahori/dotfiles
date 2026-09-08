@@ -157,7 +157,7 @@ ${_agent_usage_prompt}
 [[ "$(uname)" == "Linux" ]] && PROMPT='%n@%m '$PROMPT
 
 export HOMEBREW_NO_ASK=1
-alias brewup='sudo -v && brew update && brew upgrade --greedy && brew cleanup --prune=all'
+alias brewup='"$HOME/dotfiles/scripts/brewUpdate"'
 # omp: ~ で起動しても temp ディレクトリへ自動退避せずカレントで開く。
 # quota退避はglobal extensionのanthropic-usage-guardが全起動経路で処理する。
 omp() {
