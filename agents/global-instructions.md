@@ -277,10 +277,21 @@ kegs that running OMP sessions still spawn from.
 
 ## Fetching web content
 
-Use [ax](https://github.com/yusukebe/ax) instead of curl-plus-parsing for
-anything you read or extract from the web (`ax` skill); run
-`ax agent-context` before the first fetch in a task. Plain curl stays fine
-where ax adds nothing.
+Prefer the harness's dedicated read/browser tools where appropriate. When
+using a CLI, choose by purpose rather than by the response format:
+
+- **`ax` — read and extract web content:** pages, documentation, links,
+  tables, and Markdown conversion. Use it instead of curl-plus-parsing;
+  load the `ax` skill and run `ax agent-context` before the first ax fetch.
+- **`xh` — construct and verify API requests:** query parameters, JSON
+  bodies, authentication headers, responses, and HTTP status handling.
+  It replaces HTTPie, not ax. Verify certificate/proxy behavior before using
+  it with corporate endpoints.
+- **OS `curl` — transport/TLS diagnostics and existing scripts:** retain
+  it where its options, certificate behavior, or compatibility are needed.
+
+These are defaults, not bans: ax can also read JSON APIs. Do not alias
+`curl` to either tool or rewrite working scripts solely to change clients.
 
 ## Browser verification routing
 
