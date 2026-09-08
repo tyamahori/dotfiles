@@ -13,6 +13,16 @@ const URI_OR_SELECTOR = /^[A-Za-z][A-Za-z0-9+.-]*:/;
 
 type UnknownRecord = Record<string, unknown>;
 
+const PATCH_KEYS = ["input", "patch", "command"] as const;
+function patchText(input: unknown, record: UnknownRecord | undefined): string {
+  if (typeof input === "string") return input;
+  for (const key of PATCH_KEYS) {
+    const value = record?.[key];
+    if (typeof value === "string") return value;
+  }
+  return "";
+}
+
 type ToolEvent = {
   toolName?: unknown;
   input?: unknown;
@@ -61,17 +71,7 @@ export function editedPaths(event: ToolEvent): string[] {
     if (typeof path === "string") paths.add(path);
   }
 
-  let patch = "";
-  if (typeof event.input === "string") {
-    patch = event.input;
-  } else if (record) {
-    for (const key of ["input", "patch", "command"]) {
-      if (typeof record[key] === "string") {
-        patch = record[key] as string;
-        break;
-      }
-    }
-  }
+  const patch = patchText(event.input, record);
   if (toolName === "edit") {
     for (const match of patch.matchAll(/^\[([^#\r\n]+)#[0-9A-F]{4}\]$/gm)) {
       paths.add(match[1]);
