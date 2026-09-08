@@ -5,14 +5,21 @@
 # scripts, test targets) belong in that repo's .codex/rules/, not here.
 #
 # The strictest matching decision wins, so a broad allow plus a narrow prompt
-# keeps the destructive variants interactive. Check with:
+# routes selected operations to auto-review. Check with:
 #   codex execpolicy check --pretty --rules codex/rules/default.rules -- git push --force
 
 # git: the sandbox marks .git read-only inside the workspace, so every
-# mutating git command escalates. Allow the family, prompt for history loss.
+# mutating git command escalates. Review pushes regardless of push-option order.
 prefix_rule(pattern=["git"], decision="allow")
-prefix_rule(pattern=["git", "push", "--force"], decision="prompt")
-prefix_rule(pattern=["git", "push", "-f"], decision="prompt")
+prefix_rule(
+    pattern=["git", "push"],
+    decision="prompt",
+    match=[
+        "git push origin main",
+        "git push --force origin main",
+        "git push origin main --force",
+    ],
+)
 prefix_rule(pattern=["git", "reset", "--hard"], decision="prompt")
 prefix_rule(pattern=["git", "clean"], decision="prompt")
 prefix_rule(pattern=["git", "branch", "-D"], decision="prompt")

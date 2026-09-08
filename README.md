@@ -200,12 +200,19 @@ user 層でしか効かない（0.153.2 で実測）。`scripts/link` が
 （`~/.agents/skills`）を無効化して codex 版（`~/.codex/skills`）との二重掲載
 を防ぐ。パスは Codex 側で `~` を展開するので home の場所に依存しない。
 
+通常は `workspace-write` とネットワーク許可を維持し、
+`approval_policy = "on-request"` と `approvals_reviewer = "auto_review"` で
+承認要求を自動レビューへ送る。ルールの最終判定が `allow` の操作はレビューを通らない。
+自動レビューは許可・拒否をモデルが判断するため、人による確認や拒否を保証しない。
+
 承認なしで sandbox 外実行を許すコマンドは `codex/rules/default.rules`
 （→ `~/.codex/rules/default.rules`）で prefix 単位に管理する。TUI の「常に許可」は
 同じファイルへコマンド文字列の完全一致ルールを追記するだけなので、溜まったら
 prefix に畳んで一回限りの行を消す。リポジトリ固有のコマンドはそのリポジトリの
 `.codex/rules/` に置く。判定の確認は
 `codex execpolicy check --pretty --rules codex/rules/default.rules -- <cmd>`。
+`git push` は通常・force とも一律 `prompt` とし、push のオプション順に依存せず
+自動レビューへ送る。設定・ルールの変更後は Codex を再起動する。
 
 ### Local SonarQube quality gate
 

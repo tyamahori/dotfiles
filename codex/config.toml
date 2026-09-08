@@ -17,10 +17,10 @@ model = "gpt-6-astra"
 model_reasoning_effort = "low"
 service_tier = "default"
 
-# Auto preset made explicit: writes inside the workspace need no approval;
-# escalations (protected .git/.agents/.codex, network-blocked, outside cwd)
-# prompt. Tune here, not in the user file.
+# Keep workspace isolation while routing approval requests to auto-review.
+# Commands resolved as allow still bypass review.
 approval_policy = "on-request"
+approvals_reviewer = "auto_review"
 sandbox_mode = "workspace-write"
 
 [sandbox_workspace_write]
