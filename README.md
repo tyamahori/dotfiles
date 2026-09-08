@@ -101,17 +101,22 @@ the prompt uses plain-text symbols rather than Nerd Font icons.
 
 The three lines show:
 
-1. Directory, branch, and Git state: `+N` staged, `!N` modified, `?N` untracked,
-   `-N` deleted, `rN` renamed, plus `conflict:N`, `stash:N`, `ahead:N`, and
-   `behind:N` when applicable. Merge/rebase state and detached commit IDs are
-   also shown.
+1. Directory (repository name in bold), branch, and Git state: `+N` staged,
+   `!N` modified, `?N` untracked, `-N` deleted, `rN` renamed, plus
+   `conflict:N`, `stash:N`, `ahead:N`, and `behind:N` when applicable.
+   Merge/rebase state and detached commit IDs are also shown. After that,
+   `direnv:not allowed` / `direnv:denied` appears only when the directory's
+   `.envrc` needs `direnv allow`, and `task` marks a directory with a
+   `Taskfile.yml`.
 2. Claude/Codex usage from OMP snapshots, cached for 60 seconds. Claude's
    `F`/`A`/`S` are Fable weekly/all-model weekly/session windows; Codex shows
    its primary window. Parentheses show time until reset, and `*` marks
    snapshots older than one hour. Usage turns yellow at 50% and red at 80%.
    Without available snapshots, this line is empty.
 3. `exit:N` on failure, `pipe:…` for failed pipeline stages, duration for
-   commands taking at least two seconds, and the input marker.
+   commands taking at least two seconds, and the input marker. The current
+   time (`HH:MM`) sits at the right edge of this line. Commands running 45
+   seconds or longer also raise a macOS notification when they finish.
 
 Language/cloud modules stay out of the prompt. Use `starship timings` in a
 slow repository to identify expensive modules before enabling more.

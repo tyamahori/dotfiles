@@ -1,11 +1,14 @@
 add_newline = false
-format = """${env_var.host}$directory$git_branch$git_commit$git_state$git_status
+format = """${env_var.host}$directory$git_branch$git_commit$git_state$git_status$direnv${custom.task}
 ${env_var.agent_usage}
 $status$cmd_duration$character"""
+right_format = '$time'
 
 [directory]
 format = '[$path]($style)[$read_only]($read_only_style) '
-style = 'bold cyan'
+repo_root_format = '[$before_root_path]($before_repo_root_style)[$repo_root]($repo_root_style)[$path]($style)[$read_only]($read_only_style) '
+style = 'cyan'
+repo_root_style = 'bold cyan'
 truncation_length = 3
 truncation_symbol = '.../'
 read_only = ' [read-only]'
@@ -13,7 +16,7 @@ read_only = ' [read-only]'
 [git_branch]
 format = '[$branch]($style) '
 style = 'white'
-truncation_length = 24
+truncation_length = 40
 truncation_symbol = '...'
 
 [git_commit]
@@ -38,6 +41,27 @@ ahead = 'ahead:${count} '
 behind = 'behind:${count} '
 diverged = 'ahead:${ahead_count} behind:${behind_count} '
 
+# .envrc が allowed なら何も出さず、編集後にブロックされた（not allowed）か
+# deny した時だけ `direnv allow` を促す。loaded 状態はフック経由なら常に true なので見ない。
+[direnv]
+disabled = false
+format = '([direnv:$allowed]($style) )'
+style = 'bold yellow'
+allowed_msg = ''
+not_allowed_msg = 'not allowed'
+denied_msg = 'denied'
+
+[custom.task]
+detect_files = ['Taskfile.yml', 'Taskfile.yaml']
+format = '[task]($style) '
+style = 'blue'
+
+[time]
+disabled = false
+format = '[$time]($style)'
+time_format = '%H:%M'
+style = 'dimmed white'
+
 [env_var.host]
 variable = 'STARSHIP_HOST'
 format = '$env_value'
@@ -57,6 +81,8 @@ pipestatus_segment_format = '$status'
 min_time = 2000
 format = '[took $duration]($style) '
 style = 'yellow'
+show_notifications = true
+min_time_to_notify = 45000
 
 [character]
 success_symbol = '[>](bold white)'
