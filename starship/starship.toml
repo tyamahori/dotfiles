@@ -1,0 +1,67 @@
+add_newline = false
+format = """${env_var.host}$directory$git_branch$git_commit$git_state$git_status
+${env_var.agent_usage}
+$status$cmd_duration$character"""
+
+[directory]
+format = '[$path]($style)[$read_only]($read_only_style) '
+style = 'bold cyan'
+truncation_length = 3
+truncation_symbol = '.../'
+read_only = ' [read-only]'
+
+[git_branch]
+format = '[$branch]($style) '
+style = 'white'
+truncation_length = 24
+truncation_symbol = '...'
+
+[git_commit]
+format = '[@$hash]($style) '
+style = 'white'
+
+[git_state]
+format = '[\($state( $progress_current/$progress_total)\)]($style) '
+style = 'bold red'
+
+[git_status]
+format = '([$all_status$ahead_behind]($style))'
+style = 'yellow'
+conflicted = 'conflict:${count} '
+staged = '+${count} '
+modified = '!${count} '
+untracked = '?${count} '
+deleted = '-${count} '
+renamed = 'r${count} '
+stashed = 'stash:${count} '
+ahead = 'ahead:${count} '
+behind = 'behind:${count} '
+diverged = 'ahead:${ahead_count} behind:${behind_count} '
+
+[env_var.host]
+variable = 'STARSHIP_HOST'
+format = '$env_value'
+
+[env_var.agent_usage]
+variable = 'STARSHIP_AGENT_USAGE'
+format = '$env_value'
+
+[status]
+disabled = false
+format = '[exit:$status]($style) '
+pipestatus = true
+pipestatus_format = '[pipe:$pipestatus]($style) '
+pipestatus_segment_format = '$status'
+
+[cmd_duration]
+min_time = 2000
+format = '[took $duration]($style) '
+style = 'yellow'
+
+[character]
+success_symbol = '[>](bold white)'
+error_symbol = '[>](bold red)'
+vimcmd_symbol = '[<](bold white)'
+vimcmd_replace_one_symbol = '[r](bold white)'
+vimcmd_replace_symbol = '[R](bold white)'
+vimcmd_visual_symbol = '[v](bold white)'

@@ -75,18 +75,10 @@ setopt COMPLETE_IN_WORD                                             # カーソ�
 [ -r "${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ] && \
   source "${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
 
-# プロンプト。pwd + git ブランチ、Claude/Codex の subscription 使用率、
-# 入力欄を3行に分けて常時表示する。使用率の源泉は omp が記録
-# する usage snapshot（anthropic-usage-guard と同じ）。Claude は
-# F=Fable(7d) / A=全モデル(7d) / S=セッション(5h) の3枠、Codex は primary
-# 枠を表示する。provider名はClaudeがオレンジ、Codexが青。使用率は80%以上を
-# 赤、50%以上を黄で示し、各枠のリセットまでの残り時間を併記する。
-# snapshot が1時間より古い場合は `*`。値はシェル内で60秒キャッシュする。
-setopt PROMPT_SUBST
-autoload -Uz vcs_info add-zsh-hook
-zstyle ':vcs_info:*' enable git
-zstyle ':vcs_info:git:*' formats ' %F{cyan}(%b)%f'
-zstyle ':vcs_info:git:*' actionformats ' %F{cyan}(%b|%a)%f'
+# 使用率は OMP の usage snapshot（anthropic-usage-guard と同じ）から取得する。
+# Starship は描画ごとに別プロセスになるため、SQLite の読み取りは Zsh 内で
+# 60秒キャッシュし、ANSI 色付きの値だけ環境変数で渡す。
+autoload -Uz add-zsh-hook
 
 typeset -gi _agent_usage_refreshed_at=-60
 _agent_usage_refresh() {
@@ -111,10 +103,10 @@ _agent_usage_refresh() {
       elif (( pct >= 50 )); then
         tok="%F{yellow}${tok}%f"
       fi
-      tok+="%F{242}(${reset})%f"
+      tok+="%F{245}(${reset})%f"
       case $key in
-        F|A|S) claude+=("${key}${tok}") ;;
-        codex) parts+=("%F{blue}Codex%f Usage: ${tok}") ;;
+        F|A|S) claude+=("${key}:${tok}") ;;
+        codex) parts+=("%F{cyan}Codex%f ${tok}") ;;
       esac
     done < <(sqlite3 -separator ' ' "file:$db?mode=ro" "
       SELECT CASE lower(u.limit_id)
@@ -137,24 +129,21 @@ _agent_usage_refresh() {
             ('anthropic:7d:fable','anthropic:7d','anthropic:5h','openai-codex:primary')
       GROUP BY key
       ORDER BY CASE key WHEN 'F' THEN 0 WHEN 'A' THEN 1 WHEN 'S' THEN 2 ELSE 3 END;" 2>/dev/null)
-    (( $#claude )) && parts=("%F{208}Claude%f Usage: ${(j:_:)claude}" $parts)
+    (( $#claude )) && parts=("%F{208}Claude%f ${(j: :)claude}" $parts)
   fi
-  _agent_usage_prompt="${(j: / :)parts}"
+  export STARSHIP_AGENT_USAGE="$(print -P -- "${(j: / :)parts}")"
 }
 _agent_usage_precmd() {
   if (( SECONDS - _agent_usage_refreshed_at >= 60 )); then
     _agent_usage_refresh
     _agent_usage_refreshed_at=$SECONDS
   fi
-  vcs_info
+  return 0
 }
-add-zsh-hook precmd _agent_usage_precmd
 
-# pwd+ブランチ、usage、入力をそれぞれ別の行に表示する。
-PROMPT='%F{blue}%~%f${vcs_info_msg_0_}
-${_agent_usage_prompt}
-%# '
-[[ "$(uname)" == "Linux" ]] && PROMPT='%n@%m '$PROMPT
+if [[ "$OSTYPE" == linux* || -n "$SSH_CONNECTION" ]] || (( EUID == 0 )); then
+  export STARSHIP_HOST="${(%):-%n@%m }"
+fi
 
 export HOMEBREW_NO_ASK=1
 alias brewup='"$HOME/dotfiles/scripts/brewUpdate"'
@@ -216,3 +205,8 @@ export PATH="$HOME/.grok/bin:$PATH"
 
 (( $+commands[fzf] )) && source <(fzf --zsh)
 (( $+commands[zoxide] )) && eval "$(zoxide init zsh)"
+
+# reload 時に ZLE widget のラッパーを重ねず、終了状態の取得を使用率更新より先に行う。
+add-zsh-hook -d precmd _agent_usage_precmd
+(( $+functions[prompt_starship_precmd] )) || eval "$(starship init zsh)"
+add-zsh-hook precmd _agent_usage_precmd

@@ -47,6 +47,7 @@ after installation to enable the shell integrations.
 | `zoxide` | `z <name>` jumps to a previously visited directory; `zi <name>` selects one with fzf. |
 | `bat` | `bat <file>` displays highlighted source with line numbers and automatic paging. |
 | `xh` | `xh GET <url>` or `xh POST <url> name=value count:=2` sends HTTP requests. |
+| `starship` | Shows Git working state and command feedback in the Zsh prompt; configured in [`starship/starship.toml`](starship/starship.toml). |
 
 Standard `cd`, `cat`, `ls`, `curl`, and `jq` are not aliased to replacements.
 Use `bat` for human-readable output, not as a required step in scripts or agent
@@ -57,6 +58,30 @@ in that environment.
 On an existing installation, run `./scripts/devbox` first, then
 `devbox global rm httpie` if HTTPie is still installed. HTTPie plugins and
 configuration are not automatically migrated; use the `xh` command explicitly.
+
+#### Zsh prompt
+
+Run `./scripts/devbox` and `./scripts/link`, then `reload` in existing shells
+or open a new pane. `scripts/link` links `starship/starship.toml` to
+`~/.config/starship.toml`. Ghostty/Herdr and font settings need no changes;
+the prompt uses plain-text symbols rather than Nerd Font icons.
+
+The three lines show:
+
+1. Directory, branch, and Git state: `+N` staged, `!N` modified, `?N` untracked,
+   `-N` deleted, `rN` renamed, plus `conflict:N`, `stash:N`, `ahead:N`, and
+   `behind:N` when applicable. Merge/rebase state and detached commit IDs are
+   also shown.
+2. Claude/Codex usage from OMP snapshots, cached for 60 seconds. Claude's
+   `F`/`A`/`S` are Fable weekly/all-model weekly/session windows; Codex shows
+   its primary window. Parentheses show time until reset, and `*` marks
+   snapshots older than one hour. Usage turns yellow at 50% and red at 80%.
+   Without available snapshots, this line is empty.
+3. `exit:N` on failure, `pipe:…` for failed pipeline stages, duration for
+   commands taking at least two seconds, and the input marker.
+
+Language/cloud modules stay out of the prompt. Use `starship timings` in a
+slow repository to identify expensive modules before enabling more.
 
 ### Machine-global git hooks
 

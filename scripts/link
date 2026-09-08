@@ -36,6 +36,9 @@ ln -snfv "${GIT_DIR}/ignore" "$HOME/.config/git/ignore"
 mkdir -p "$HOME/.config/ruff"
 ln -snfv "${REPO_ROOT}/ruff/ruff.toml" "$HOME/.config/ruff/ruff.toml"
 
+mkdir -p "$HOME/.config"
+ln -snfv "${REPO_ROOT}/starship/starship.toml" "$HOME/.config/starship.toml"
+
 # Keep this public repository's machine-specific data guard active for both
 # agent-driven and manual commits.
 git -C "$REPO_ROOT" config core.hooksPath "${REPO_ROOT}/git/hooks"
