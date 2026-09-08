@@ -481,6 +481,50 @@ guard の切り替えは利用枠ごとに一度だけなので、`/model` で�
 例外は両プール枯渇時(98% 以上)のローカル退避で、この場合はもう一度だけ上書きされます。
 恒久的に変える場合は `omp/config.yml` の role と fallback を見直します。
 
+### 「Shell read/search commands are blocked on this machine」と出る
+
+`omp/extensions/deny-commands.ts` が、専用ツールで代替できる shell 呼び出しを拒否した表示です。
+同じコマンドを再試行せず、拒否理由に示された `read`、`grep`、`glob` を使います。
+パイプ途中の読み取りフィルタや、書き込み用の `cat`、heredoc は許可します。
+正当な用途まで拒否された場合は、コマンドと拒否理由を確認してルールを修正します。
+
+### 代替ツールのルールを追加する
+
+三 CLI 共通のルール表は `agents/command-rules.json` です。
+Claude Code と Codex は `scripts/deny-command-hook.ts`、OMP は `omp/extensions/deny-commands.ts` を通じて、同じ `scripts/command-policy.ts` の判定を使います。
+Claude Code と Codex のフック実行には、`scripts/devbox` で導入する Bun が必要です。
+
+| 対象 | 代替手段 | 適用する CLI |
+| --- | --- | --- |
+| 素の `python` / `python3` | `uv run` / `uvx` | 三 CLI |
+| shell による閲覧・検索 | 専用の Read / Grep / Glob 系ツール | Claude Code、OMP |
+| 単純な `curl` の Web 取得 | `ax`（最初に `ax agent-context`） | 三 CLI |
+| `brew upgrade` | `scripts/brewUpdate` | 三 CLI |
+
+uv、ax、brewUpdate への誘導は、代替コマンドが実行可能な場合だけ発動します。
+専用の閲覧・検索ツールの有無は、適用する CLI で区別します。
+`curl` は用途を誤判定しないよう、URL 一つと `-f` / `-s` / `-S` / `-L` などによる単純な取得に絞ります。
+認証付きリクエスト、更新系 API、ファイル保存、診断、クエリ付き URL などは許可します。
+既存スクリプト内のコマンドまでは検査せず、拒否したコマンドを自動で書き換えたり実行したりもしません。
+新しいツールを入れただけではルールは増えません。代替できる用途を確認してから登録します。
+
+追加するときは既存の `rules` 要素にならい、`id`、対象の `clients`、代替手段の `replacement`、CLI 別の `reasons` を設定します。
+通常は `matcher: "command"` を使い、`commands` にコマンド名（`executables`）と必要ならサブコマンド（`subcommand`）を指定します。
+実行可能な代替コマンドは `replacement.type: "command"` と `value`、専用ツールは `type: "native-tool"` で指定します。
+条件を満たす最初のルールで拒否するため、理由文には次に使うツールと呼び出し方を明記してください。
+単純なコマンド置換は JSON の追加だけで済みますが、`curl` のような用途判定を増やす場合は判定コードの変更も必要です。
+
+変更後は拒否・許可の境界を検証し、SonarQube 用のカバレッジを生成してから品質ゲートを実行します。
+
+```bash
+bun test scripts/command-policy.test.ts --coverage --coverage-reporter=lcov --coverage-dir=.agent-msgs/scratch/command-policy-coverage
+scripts/sonar-quality-gate
+scripts/link
+```
+
+OMP は新しいプロセスで起動し直してください。
+Claude Code も新しいセッションで確認し、Codex は `/hooks` で変更済み定義を trust してから使います。
+
 ### コマンドの仕様を忘れた
 
 シェルでは次を使います。
@@ -506,6 +550,7 @@ omp-review --help
 | debug adapter の差し替え | `omp/dap.json` |
 | OMP にだけ追加する常設指示 | `omp/APPEND_SYSTEM.md` |
 | OMP extension | `omp/extensions/` |
+| 三 CLI の代替ツール誘導ルール | `agents/command-rules.json` |
 | plugin と version | `scripts/omp-plugins` |
 | authored skill | `agents/skills/<name>/SKILL.md` |
 | 学習レビューの起動方法 | `scripts/omp-learning-review` |

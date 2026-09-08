@@ -211,11 +211,20 @@ lists 53 skills (~17k chars, 9 of them name-only at 16k), so
 ### Runtime guard hooks
 
 The same three runtimes share a set of guard hooks. Claude Code and Codex
-wire the shell scripts through `claude/settings.json` / `codex/hooks.json`;
-OMP mirrors each one as an extension in `omp/extensions/`:
+wire them through `claude/settings.json` / `codex/hooks.json`; OMP uses
+extensions in `omp/extensions/`:
 
-- **bare-Python deny** — `scripts/deny-bare-python-hook` forces the
-  uv invocation forms required by the shared instructions.
+- **command substitution guard** — `agents/command-rules.json` declares
+  client-specific rules. All three runtimes use `scripts/command-policy.ts`;
+  Claude/Codex invoke `scripts/deny-command-hook.ts` with Bun, and OMP loads
+  `omp/extensions/deny-commands.ts`. The guard redirects bare Python to uv,
+  simple curl web fetches to ax, and `brew upgrade` to `scripts/brewUpdate`
+  only when the replacement executable is available. Shell read/search
+  commands redirect to dedicated tools in Claude/OMP, not Codex.
+  Authentication, mutations, downloads, and diagnostic curl options remain
+  available. This checks agent shell calls, not commands inside existing
+  scripts, and never rewrites or runs the rejected command.
+  Rule maintenance and activation: [OMP guide](docs/omp.md#代替ツールのルールを追加する).
 - **lint on edit** — `scripts/lint-on-edit` lints files right after an agent
   writes or edits them (shellcheck for shell, ruff for Python, oxlint for
   TypeScript/JavaScript, actionlint for GitHub workflow files, jq syntax
