@@ -392,6 +392,19 @@ the ecosystem move, a self-checking loop keeps it honest:
   gui/$(id -u)/com.tyamahori.python-skill-review`) to trigger a review
   off-schedule.
 
+### efficient-ts-js skill
+
+`agents/skills/efficient-ts-js/SKILL.md` governs generated JavaScript/TypeScript
+scripts, from one-offs and JS Eval cells to reusable CLI helpers. Shared
+instructions require loading it before writing or running those scripts;
+`scripts/link` distributes it to the agent skill directories.
+
+The skill preserves a project's runtime and lockfile, disables Bun's automatic
+package installation for standalone scripts, and uses the existing oxlint hook
+plus focused behavioral checks. It distinguishes runtime execution from type
+checking. The detailed procedure is loaded on demand, with no new blocking hook,
+dependency, or scheduled audit. Token/session savings have not yet been measured.
+
 ### Model migration review
 
 `scripts/model-pins` reports the model pins in `claude/settings.json`,

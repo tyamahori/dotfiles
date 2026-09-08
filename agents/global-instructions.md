@@ -248,6 +248,11 @@ and OMP deny bare invocations before execution; a denial means switch to the
 uv form, not retry. Load the `efficient-python` skill before writing or running
 any Python.
 
+## JavaScript / TypeScript scripts
+
+Load `efficient-ts-js` before writing or running generated JavaScript/TypeScript
+scripts, including one-offs, reusable helpers, and JS Eval cells.
+
 ## JSON processing (jq / jaq)
 
 Both are installed via `~/.Brewfile`: `jq` (reference implementation) and
