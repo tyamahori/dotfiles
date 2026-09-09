@@ -202,6 +202,11 @@ every agent CLI:
   `/quit` or `/new`.
 - **Pass bulky material by file path, not inline** — inline text is re-read
   on every subsequent turn.
+- **Don't switch model or effort mid-session** — the prompt cache is keyed
+  on both, so `/model` or `/effort` re-processes the whole context on the
+  next turn. Pick them at launch; if a different model is needed, start a
+  new session with a handoff note. The automatic switch the usage guard
+  makes at quota depletion is the one intended exception.
 - **Edit `settings.json` directly; never invoke Claude Code's built-in
   `update-config` skill** — its expansion injects the ~50k-token settings
   schema into every later turn (measured).
