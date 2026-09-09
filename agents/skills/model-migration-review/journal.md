@@ -42,6 +42,13 @@
   公式特性と整合(default=fable は委譲・推測方針に合う、plan=medium 推奨どおり)。
 - 検証: 別の新セッションで skill 発火を確認し、22:01 に `scripts/model-pins ack`
   実行。`check` は差分なし(exit 0)。基準値は `plan: ...:medium` を含む現在値。
+  09-09 追記(適用): 上の「`defaultThinkingLevel: auto` で整合」は誤記。
+  `default: ...:high` のサフィックスが auto を上書きし、直近セッションは
+  configured=high 固定だった(session jsonl の `thinking_level_change`)。
+  ClaudeDevs の cost 記事(effort をタスクに合わせる)を機に `:high` を外し、
+  auto + `autoThinkingMaxEffort: high` を実際に効かせる。cache hit は既に
+  cacheRead ≫ input で問題なし。Claude Code / Codex 側は変更なし
+  (Fable 5.1 は effortLevel 未設定=high が公式既定、Astra は対象外)。
 - 1週間後:
 
 ## YYYY-MM-DD <from> → <to>
