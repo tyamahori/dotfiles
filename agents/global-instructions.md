@@ -381,44 +381,38 @@ When checking my Google Calendar, include by default: `primary`,
 `kazuki.tamahori@gmail.com`, `tyamahori@gmail.com`.
 
 <!-- jbcontext-instructions-start -->
-# Tools
-
 ## Semantic Code Search (jbcontext)
 
-`jbcontext search "<detailed and descriptive query>"` finds code by meaning,
-not just keywords (`-p <path>` scopes it; path relative to the project root;
-in OMP the same engine is also available as the `code_search` MCP tool).
-Be descriptive — "React component that renders a modal dialog", not "modal" —
-one focused natural-language query per search.
+Use `jbcontext search "<descriptive query>"` when the relevant code location
+is unknown; in OMP the same engine is available through the `code_search`
+MCP tool. Start with one focused natural-language query, read a promising
+result locally, and inspect nearby code before retrying. Narrow a retry with
+`-p <path>` (relative to the repository root; MCP: `pathFilter`).
 
-When you need to find code whose location you don't already know, your FIRST
-code-discovery step is one broad `jbcontext search`, then reading the promising
-hits locally. If that fails, do at most one narrowed retry (`-p <dir>` from the
-best hit); do not issue a second broad semantic search — escalate to the
-explorer subagent instead.
+Known files or symbols, Git operations, builds, configuration setup, and
+reviewing an existing diff do not need semantic search. Use direct reads,
+exact searches, or language-server navigation for those.
 
-Do NOT use it when the task names the exact file, class, or symbol (open or
-grep it directly), the relevant file is already open or identified, or the work
-is a git operation, test/build run, config setup, or review of a diff you
-already have.
+For substantial multi-step discovery, use the host's read-only explorer
+under its normal delegation rules; do not spawn one for a trivial lookup:
 
-## Explorer subagent
+- **Claude Code**: `context-explorer` through the available subagent tool.
+- **Codex**: `context_explorer` through `spawn_agent`, then collect its result
+  with the host's wait tool.
+- **OMP**: `scout`, instructed to use `jbcontext search` or `code_search`.
+- **Other hosts**: use an available read-only explorer, or search inline;
+  never invent a tool or agent type.
 
-For multi-step discovery — mapping an unfamiliar subsystem, tracing across
-several files — delegate instead of chaining searches inline. The explorer is
-read-only: it runs several semantic searches in its own context, reads the
-promising files, and returns concrete `file:line` references with snippets and
-a confidence note, so this thread doesn't accumulate intermediate search
-output.
+Give the explorer the question and known paths. Require locally verified
+`file:line` references, short snippets, and uncertainty notes. While it runs,
+do independent work rather than duplicating its exploration.
 
-How to spawn it, per agent:
-
-- **Claude Code**: `Task(subagent_type='context-explorer', prompt=<1-2 sentence intent describing what to find>)`
-- **Codex**: `spawn_agent(agent_type="context_explorer", fork_turns="none", message="<intent>")` — it runs in the background; do only already-known work meanwhile, and always call `wait_agent` when that work is done, otherwise you never get the report.
-- **OMP**: delegate to a `scout` subagent and instruct it to explore with `jbcontext search` (see the `context-search` skill).
-
-If you're confident the discovery is multi-step, spawn the explorer directly;
-otherwise run one `jbcontext search` first and delegate only if the results
-aren't enough. Invoking the explorer as a formality on tasks that don't
-involve locating code wastes a subagent round and returns irrelevant findings.
+For cross-repository questions, discover indexed candidates with
+`jbcontext repos "<repo or domain terms>" --limit 10 --json-output`, then
+search selected repositories with `--git-remote-url <canonical remote URL>`
+and `--revision <indexed revision>`. For GitHub, use
+`https://github.com/<owner>/<repo>.git`, not the bare `github.com/...` id.
+Check the response `message` as well as the exit code: a request error can
+arrive with exit 0 and empty results. Missing snippet content is not an empty
+match; read the returned path from the checkout or the indexed revision.
 <!-- jbcontext-instructions-end -->
