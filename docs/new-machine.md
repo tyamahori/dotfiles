@@ -85,14 +85,31 @@ OrbStack、Superwhisper、Slackなどは各自サインインする。
    JetBrains AIのトークン（`~/.jbcontext/grazie-token-prod.json`）を使うため、初回にアカウント認証がある想定（未検証）。
 2. `jbcontext setup-agent --auto` を実行する（Claude CodeとCodexの両方が対象になる）。
 3. 直後に `git -C ~/dotfiles status` を確認する。
-   setup-agentは共有指示ファイル（`agents/global-instructions.md`）を単一エージェント流儀に書き換えるので、差分が出ていたらエージェント中立版（コミット `e674eb5` の形）に再マージする。
-   `claude/settings.json` に差分が出た場合もrevertする。jbcontextのClaudeフックの置き場は `~/.claude/settings.local.json` であり、リポジトリ管理の `settings.json` には入れない。
-4. `jbcontext config set skip-agents-on-upgrade true` を実行する（0.9.12以降）。
+   setup-agentは共有指示ファイル（`agents/global-instructions.md`）を単一エージェント向けに書き換えることがある。差分が出たら、既存の作業を残してリポジトリ管理の中立版へ再マージする。
+   Claudeの `SessionStart` / `SessionEnd` に追加されたインデックス用フックは、`~/.claude/settings.local.json` の同名イベントへ移す。他のフックは保持し、`claude/settings.json` からは移設した分だけを除く。コマンドは `"$HOME/.jbcontext/bin/jbcontext" index --silent`、`async` は `true` とする。
+   `codex/hooks.json` も確認し、消えた起動フックがあれば既存の作業を残して復元する。Codexの自動インデックス設定は `~/.codex/config.toml` に入るため、`hooks.json` に重複追加しない。
+4. `jbcontext config set skip-agents-on-upgrade true --global` を実行する（0.9.12以降）。
    自動更新のたびに走る agent prompt の refresh（instructions / hooks の書き換え）を止める。これがないと 2026-09-09 の 0.9.12 更新のように、`agents/global-instructions.md`・`claude/settings.json`・`codex/hooks.json`（検知フック自体が消える）が更新ごとに書き換わる。
    `jbcontext config get skip-agents-on-upgrade` が `true` を返すことを確認する。この設定は `~/.jbcontext/config.json` にあり dotfiles 管理外。手動の `setup-agent` 再実行は対象外なので、走らせたら3の手順を繰り返す。
 5. 再書き換えの検知が効いていることを確認する。かつての予防フラグ（`agentSetups` の `hooks` / `instructions` 無効化）は0.9.11系のスキーマ変更で消滅している。`scripts/jbcontext-clobber-check`（Claude / Codexの SessionStart フック）と `omp/extensions/jbcontext-clobber-guard.ts` が、セッション開始時に監視対象3ファイルの未コミット差分を警告する。
 
 警告が出たら3の再マージをやり直し、`~/.jbcontext/logs/jbcontext.log` のAutoUpdater行と突合する。
+
+### 検索と複数リポジトリ調査を使う
+
+`jbcontext status` で対象revisionを確認し、`jbcontext search "<探したい処理>" --limit 5` で検索する。
+インデックスはコミット単位なので、未コミット変更の確認にはローカルファイルを読む。
+探索の委譲先はClaude Codeが `context-explorer`、Codexが `context_explorer`、OMPが `scout`。既知のファイルやシンボルは直接読む。
+
+複数リポジトリを調べるときは、まず `jbcontext repos "<リポジトリ名や領域>" --limit 10 --json-output` でアクセス可能な候補とrevisionを取得する。
+候補ごとに `jbcontext search --git-remote-url <remote URL> --revision <取得したrevision> --limit 5 --json-output "<探したい処理>"` を実行する。
+GitHubのremote URLには `https://github.com/<owner>/<repo>.git` を使う。0.9.12では裸の `github.com/...` IDを渡しても同じ検索にならない。
+終了コードが0でも `message` にAPIエラーが入る場合があるため、`results` とあわせて確認する。
+`content` がnullのヒットは、返されたパスをローカルまたは対象revisionから読む。
+
+このCLI経路には `setup-agent --multi-repo` の再実行は不要。
+`--hooks` / `--strong` は検索順序を強制して既知の箇所の調査も妨げるため追加しない。
+利用状況は `jbcontext stats --days 7 --json-output`、削減効果の推定は `jbcontext analyze --json-output` で確認できる。
 
 ## 6. launchdジョブの有効と無効を選ぶ
 
