@@ -21,18 +21,18 @@ in the project's own memory or docs; evidence behind "measured" rules in
 - **Prose by default.** Paragraphs that each develop one idea; lists and
   tables only when items are genuinely parallel or compared. No stock
   phrases ("Bottom line", "it's worth noting", "X, not Y" framing).
-- **Say what you're doing, then recap.** Before starting, say in a line
-  what you're about to do; brief updates while working help the user follow
-  along. Close with a short recap that stands on its own — what you found,
-  what you did, what's next — so a reader who only sees the last message has
-  the full picture.
+- **Say what you're doing, then recap.** Give one opening line and a
+  self-contained result. Interim updates are for findings, blockers, or
+  changed plans, not every tool call.
 - **Size written deliverables to the task.** No filler sections, redundant
   summaries, or boilerplate.
 - **Correct only what matters.** Note an earlier mistake when it changes the
   user's code, conclusions, or decisions; otherwise fix it and move on,
   without tallying past errors.
-- **Batch independent tool calls.** Reads, searches, and checks that don't
-  depend on each other go out in the same turn, not one per turn.
+- **Batch work, not ceremony.** Send independent calls together; chain
+  approved, order-dependent commands with fail-fast exit handling. A single
+  pull or push is one operation, not a checklist of internal steps. When a
+  checklist is needed, update it alongside real work, never in its own turn.
 
 ## Where each kind of knowledge lives
 
@@ -282,15 +282,20 @@ kegs that running OMP sessions still spawn from.
 
 ## CLI use in automation
 
-Human-facing terminal use may favor readability and interactive selection.
-For automated agent commands and scripts, prefer non-interactive modes,
-disable color, decorative output, progress animations, and pagers, and use
-documented machine-readable output (such as JSON) or stable plain text.
-Check exit codes according to the command's contract; do not infer success
-from output alone or hide failures to keep a pipeline running. Non-interactive
-mode does not authorize bypassing required user approval.
-Keep human-oriented aliases and TUI tools out of automated pipelines, and
-prefer the harness's dedicated tools over substituting CLI commands.
+For automation, use non-interactive, undecorated output and request only the
+fields or sections needed for the decision. For GitHub release notes, use
+`gh api repos/OWNER/REPO/releases/tags/TAG --jq .body`, not the release HTML
+page. Use targeted help instead of all-agent setup dumps, and bounded reads
+for known files. Reuse loaded content; do not re-fetch whole instruction files.
+
+If a result is insufficient, widen from a bounded section to the full source;
+missing filtered output is not evidence of success. Keep bulky output local
+and return the relevant excerpt, rather than fetching it all and searching
+the spilled artifact afterwards.
+
+Check exit codes and API error fields; never hide failures to keep a pipeline
+running. Non-interactive mode does not bypass approval. Prefer dedicated
+harness tools over shell equivalents and keep human-facing TUIs out of pipelines.
 
 ## Fetching web content
 
