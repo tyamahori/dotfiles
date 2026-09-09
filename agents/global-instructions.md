@@ -304,7 +304,8 @@ using a CLI, choose by purpose rather than by the response format:
 
 - **`ax` — read and extract web content:** pages, documentation, links,
   tables, and Markdown conversion. Use it instead of curl-plus-parsing;
-  load the `ax` skill and run `ax agent-context` before the first ax fetch.
+  run `ax agent-context` before the first ax fetch (there is no ax skill;
+  that command prints the usage reference).
 - **`xh` — construct and verify API requests:** query parameters, JSON
   bodies, authentication headers, responses, and HTTP status handling.
   It replaces HTTPie, not ax. Verify certificate/proxy behavior before using

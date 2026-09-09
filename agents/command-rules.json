@@ -36,9 +36,9 @@
       "commands": [{ "executables": ["curl"] }],
       "replacement": { "type": "command", "value": "ax" },
       "reasons": {
-        "claude": "Simple curl webpage fetches are blocked. Load `ax` and run `ax agent-context` before the first fetch, then use ax to read or extract the page. Authenticated, API, download, diagnostic, and unsupported curl options remain allowed.",
-        "codex": "Simple curl webpage fetches are blocked. Load `ax` and run `ax agent-context` before the first fetch, then use ax to read or extract the page. Authenticated, API, download, diagnostic, and unsupported curl options remain allowed.",
-        "omp": "Simple curl webpage fetches are blocked. Read skill://ax and run `ax agent-context` before the first fetch, then use ax to read or extract the page. Authenticated, API, download, diagnostic, and unsupported curl options remain allowed."
+        "claude": "Simple curl webpage fetches are blocked. Run `ax agent-context` before the first fetch, then use ax to read or extract the page. Authenticated, API, download, diagnostic, and unsupported curl options remain allowed.",
+        "codex": "Simple curl webpage fetches are blocked. Run `ax agent-context` before the first fetch, then use ax to read or extract the page. Authenticated, API, download, diagnostic, and unsupported curl options remain allowed.",
+        "omp": "Simple curl webpage fetches are blocked. Run `ax agent-context` before the first fetch, then use ax to read or extract the page. Authenticated, API, download, diagnostic, and unsupported curl options remain allowed."
       }
     },
     {
