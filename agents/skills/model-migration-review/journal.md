@@ -49,7 +49,16 @@
   auto + `autoThinkingMaxEffort: high` を実際に効かせる。cache hit は既に
   cacheRead ≫ input で問題なし。Claude Code / Codex 側は変更なし
   (Fable 5.1 は effortLevel 未設定=high が公式既定、Astra は対象外)。
-- 1週間後:
+  09-10 追記(適用): Anthropic の cost 最適化 3 資料(cookbook cost-optimization、
+  docs optimizing-for-cost-and-intelligence、blog reducing-cost)を dotfiles と
+  照合。Fable 5.1 は DRB-II で low/medium/high の品質差がほぼ無く費用だけ
+  約 1.5 倍に増える公表値があり、「自分のモデルで測れ」とある。Claude Code の既定 effort を
+  `claude/settings.json` の `effortLevel: medium` に置き、settings.local.json の
+  `high` を外した。cache 衛生の 1 行(mid-session の `/model` `/effort` 切替禁止)
+  を global-instructions に追加。指示文の強調語監査・MCP tool 定義の遅延読込・
+  安価モデルへの委譲は既存設定で充足、変更なし。
+- 1週間後: agent-usage-review で Claude Code の成功タスク当たりコスト・turns・再作業を
+  `high` 期(〜09-09)と比較し、悪化なら `effortLevel` を戻す。
 
 ## YYYY-MM-DD <from> → <to>
 
