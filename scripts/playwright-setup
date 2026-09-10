@@ -1,0 +1,35 @@
+#!/bin/bash
+set -euo pipefail
+
+REPO_ROOT="$(cd -P "$(dirname "$0")/.." && pwd)"
+TOOLS_DIR="$REPO_ROOT/tools/playwright"
+SKILL_SOURCE="$TOOLS_DIR/node_modules/@playwright/cli/skills/playwright-cli"
+MCP_JSON='{"type":"stdio","command":"playwright-mcp","args":["--browser","chrome","--headless","--isolated","--output-dir",".agent-msgs/screenshots/playwright-mcp"]}'
+
+bun install --frozen-lockfile --cwd "$TOOLS_DIR"
+
+mkdir -p "$HOME/.local/bin"
+for executable in playwright-cli playwright-mcp; do
+	ln -snfv "$TOOLS_DIR/node_modules/.bin/$executable" "$HOME/.local/bin/$executable"
+done
+
+for skills_dir in "$HOME/.agents/skills" "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills"; do
+	mkdir -p "$skills_dir"
+	ln -snfv "$SKILL_SOURCE" "$skills_dir/playwright-cli"
+done
+
+if [[ $(uname) == Linux ]] && ! command -v google-chrome >/dev/null 2>&1 && ! command -v google-chrome-stable >/dev/null 2>&1 && [[ ! -x /opt/google/chrome/chrome ]]; then
+	echo "playwright-setup: Google Chrome is required on Linux for --browser chrome; install it before using Playwright." >&2
+fi
+
+if command -v claude >/dev/null 2>&1; then
+	configured_mcp=
+	if [[ -f "$HOME/.claude.json" ]]; then
+		configured_mcp="$(jq -c '.mcpServers.playwright // empty' "$HOME/.claude.json")"
+	fi
+	if [[ -z $configured_mcp ]]; then
+		claude mcp add-json --scope user playwright "$MCP_JSON"
+	elif ! jq -e --argjson expected "$MCP_JSON" '. == $expected' <<<"$configured_mcp" >/dev/null; then
+		echo "playwright-setup: preserving conflicting Claude user MCP configuration for playwright" >&2
+	fi
+fi

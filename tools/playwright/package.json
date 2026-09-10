@@ -1,0 +1,8 @@
+{
+  "name": "dotfiles-playwright",
+  "private": true,
+  "devDependencies": {
+    "@playwright/cli": "0.1.19",
+    "@playwright/mcp": "0.0.80"
+  }
+}

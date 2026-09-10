@@ -95,6 +95,8 @@ if [[ -d $hunk_skill ]]; then
 	link_into_dirs "$hunk_skill" hunk-review "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills" "$HOME/.agents/skills"
 fi
 
+"${REPO_ROOT}/scripts/playwright-setup"
+
 # Machine-wide diagram/review toolchain. Unlike ordinary third-party skills,
 # these are explicit cross-host integrations used from any repository, so keep
 # them global and bootstrap them here when missing.

@@ -1,0 +1,22 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "dotfiles-playwright",
+      "devDependencies": {
+        "@playwright/cli": "0.1.19",
+        "@playwright/mcp": "0.0.80",
+      },
+    },
+  },
+  "packages": {
+    "@playwright/cli": ["@playwright/cli@0.1.19", "", { "dependencies": { "playwright": "1.63.0-alpha-2026-08-31", "playwright-core": "1.63.0-alpha-2026-08-31" }, "bin": { "playwright-cli": "playwright-cli.js" } }, "sha512-eGXIsYa5D+dC6wHGf+9uEislhPGip1djK+yiNAD7BVsXN3WzzR1J4ClFAhYhyu7wSEFqhcPrqXAYeBJF1dKJ7A=="],
+
+    "@playwright/mcp": ["@playwright/mcp@0.0.80", "", { "dependencies": { "playwright": "1.63.0-alpha-2026-08-31", "playwright-core": "1.63.0-alpha-2026-08-31" }, "bin": { "playwright-mcp": "cli.js" } }, "sha512-FOPXHm2SvFhAQylm10jMZ35B/SR2TaMLVkavAlwoG4N2qCb5RqbvhQYcu3zmXNyxR2DW0Ooxe+9XPVt5UjKRCQ=="],
+
+    "playwright": ["playwright@1.63.0-alpha-2026-08-31", "", { "dependencies": { "playwright-core": "1.63.0-alpha-2026-08-31" }, "bin": { "playwright": "cli.js" } }, "sha512-3XAsuznfu8jBVJ4QxdGvBkt0+b8ZFwuwJYyOfiIw5ZjUOrNLNRhKxzLzLuydou3gJ9c6eMwVqgzdiOwhy54Kzw=="],
+
+    "playwright-core": ["playwright-core@1.63.0-alpha-2026-08-31", "", { "bin": { "playwright-core": "cli.js" } }, "sha512-1ek0Lyr12h6jcs/WTcNoVtzZkQp7D/90PsMuBW/Rm6h3AsWAbzpqj0geMv8+8Tzzr9CSUYvg9kznrVZINQMXXw=="],
+  }
+}
