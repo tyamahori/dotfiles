@@ -556,6 +556,9 @@ dotfiles from this repo. macOS-only items (Homebrew casks, `mas`) are skipped.
 ## Maintenance
 
 ```bash
+# Pull dotfiles and apply OMP plugins and managed links (from any directory)
+update-my-dotfiles
+
 # Sync dotfiles with remote (pull --rebase, commit local diff, push)
 ./scripts/sync
 
@@ -568,6 +571,16 @@ omp-apply
 # Visualize disk usage on the desktop
 ./scripts/clean
 ```
+
+`scripts/link` installs `update-my-dotfiles` in `~/.local/bin`. On a machine
+that has not linked it yet, run `~/dotfiles/scripts/update-my-dotfiles` once.
+The command fast-forwards the checkout's current branch from its configured
+upstream, then runs the existing `omp-apply` workflow. A failed pull stops
+before application; local edits are not stashed, committed, or pushed.
+Diverged history or conflicting local edits require manual resolution.
+Application failures leave the fetched changes in place; fix the error and
+rerun the command. Open a new shell or agent session to load updated settings.
+This command does not schedule updates or upgrade Homebrew/Devbox packages.
 
 The interactive `brewup` alias invokes `scripts/brewUpdate`. It defers
 `brew cleanup` when a running OMP session still uses an old Cellar executable.
