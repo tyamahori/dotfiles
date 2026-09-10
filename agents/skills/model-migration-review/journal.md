@@ -2,6 +2,14 @@
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
 
+## 2026-09-10 Astra plan の effort を low に変更
+
+- 承認済み変更: `omp.modelRoles.plan` の `gpt-6-astra:medium` → `gpt-6-astra:low`。消費を抑えるためのユーザー指定。他ロールと指示文は変更しない。
+- 公式資料（2026-09-10取得）: https://developers.openai.com/api/docs/guides/reasoning 。低い effort は速度とトークン節約を優先する。`medium` が `xhigh` より消費するという一般則は確認できない。
+- 公開検索: Astra、medium、xhigh、usage と Reddit／X を検索したが、該当する比較投稿を特定できなかった。消費逆転の主張は計測待ちとする。
+- 検証: 設定変更のみ。新しい OMP セッションでの解決済みロールと消費削減効果は未確認。再起動後に確認する。既存の未確認ピンを含むため `model-pins ack` は実行しない。
+- 1週間後: 同条件のタスクで総トークン・再試行数・利用枠の減少を比較する。現時点では効果不明。
+
 ## 2026-09-05 claude-fable-5-1 / gpt-6-astra (初回・基準づくり)
 
 - 契機: ループ新設。直前の切替は omp `default` → `claude-fable-5-1:high`、
