@@ -140,6 +140,16 @@ actions, spending, or a material expansion of scope.
   already keeps tests for this kind of change, sized like the neighboring
   test files — roughly one focused test per stated behavior.
 
+## Slack automated messages
+
+Across all repositories and posting methods (MCP, CLI, direct API, or browser),
+every Slack message posted or updated on my behalf must end exactly with
+`[自動投稿です。玉堀の秘書システムによるものです。]`.
+This applies to both bot and human identities. Check the final visible message
+body before every send or update; if the notice is missing, append it first.
+Use an existing guarded posting wrapper when available; another tool or route
+does not waive this requirement.
+
 ## Repository quality gates
 
 `semgrep-quality-gate` runs structurally from the machine-global pre-commit
