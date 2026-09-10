@@ -3,5 +3,18 @@
   "disabledServers": [
     "freee",
     "notion"
-  ]
+  ],
+  "mcpServers": {
+    "playwright": {
+      "args": [
+        "--browser",
+        "chrome",
+        "--headless",
+        "--isolated",
+        "--output-dir",
+        ".agent-msgs/screenshots/playwright-mcp"
+      ],
+      "command": "playwright-mcp"
+    }
+  }
 }

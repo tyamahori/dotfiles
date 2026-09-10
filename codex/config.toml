@@ -34,6 +34,10 @@ notifications = ["approval-requested"]
 notification_method = "osc9"
 notification_condition = "always"
 
+[mcp_servers.playwright]
+command = "playwright-mcp"
+args = ["--browser", "chrome", "--headless", "--isolated", "--output-dir", ".agent-msgs/screenshots/playwright-mcp"]
+
 # Not here: `[[skills.config]]` (per-skill enable/disable). Codex ignores that
 # array in the system layer (verified 0.153.2: it only takes effect in
 # ~/.codex/config.toml), so scripts/link appends the one entry we need there.
