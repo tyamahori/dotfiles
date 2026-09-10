@@ -254,6 +254,13 @@ list、hooks.state、plugin 状態、デスクトップアプリ由来の MCP �
 いないことを確認する。`/etc` は root 所有のため `scripts/link` は link の有無だ
 けを検証し、未設定なら実行すべき `sudo ln` を表示する。
 
+Codex の承認通知は `codex/hooks.json` の `PermissionRequest` から
+`scripts/codex-notify` で送る。端末側の通知と重複しないよう、
+`tui.notifications = false` にしている。完了通知の `notify` 設定は変更しない。
+macOS では「システム設定 → 通知 → terminal-notifier」で通知を許可し、
+表示形式を「バナー」にする。届かない場合は `terminal-notifier -diagnose` で
+通知許可を確認する。
+
 例外は `[[skills.config]]`（skill 単位の有効/無効）で、system 層では無視され
 user 層でしか効かない（0.153.2 で実測）。`scripts/link` が
 `~/.codex/config.toml` へ一度だけ追記し、terminal-browser の default 版

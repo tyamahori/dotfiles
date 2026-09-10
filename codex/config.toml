@@ -30,9 +30,8 @@ network_access = true
 hooks = true
 
 [tui]
-notifications = ["approval-requested"]
-notification_method = "osc9"
-notification_condition = "always"
+# PermissionRequest hooks already deliver approval banners via codex-notify.
+notifications = false
 
 [mcp_servers.playwright]
 command = "playwright-mcp"
