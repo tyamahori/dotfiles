@@ -27,7 +27,9 @@
    拒否される)。
    - `finding-<自分のprefix>-N: <high|mid|low> <path>:<line> <要約>`
    - `evidence-<自分のprefix>-N: <根拠>` / `confidence-<自分のprefix>-N: <high|mid|low>`
-   - 指摘なしは `count: 0` とし、finding 行を書かない。
+   - `count` と finding / evidence / confidence の組数を一致させる。
+     `<line>` は単一の行番号にし、範囲は書かない。
+     指摘なしは `count: 0` とし、3種の行をすべて省く。
 5. peer の FINDINGS path を載せた `[FYI]` が届いたら、その path を読み、
    `<自分のペイン名>-cross-check.md` の skeleton を埋める。対象は peer の
    high/mid だけ(`finding-ids:` に列挙済み。ID の prefix は peer のもの)。
@@ -38,7 +40,13 @@
    埋める。対象は自分の prefix の canonical ID だけ(`finding-ids:` に列挙済み)。
    全 ID を `resolved` / `unresolved-high-mid` / `unresolved-low` に一度ずつ
    振り分ける。APPLIED を読んだだけで pass にしない。
+   `unresolved-high-mid` と `unresolved-low` が両方 `none` のときだけ
+   `status: pass` とする。low だけでも未解決があれば `status: unresolved`。
 7. return file は**本文のみ**。`from:` / `to:` / `date:` header を書かない。
+   どの return file も返却前に skeleton と項目を照合する。
+   各フィールドは値まで1行で書き、空値、未記入の `TODO`、独自項目、
+   コードフェンスを残さない。空の ID リスト（`rejected` など）は `none` と書く。
+   evidence / confidence はその tag の対象 ID だけに付け、余分な根拠行を足さない。
    書き終えたら turn を終える。coordinator への send / prompt は実行しない。
 8. 破壊的・対外的操作(push・デプロイ・削除・設定変更)はしない。
    承認画面が出たら回答せずそのまま待つ。
