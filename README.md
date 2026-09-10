@@ -182,6 +182,61 @@ Edit that one file to change the rules for all four. It currently tells the
 agents to default to the uv-managed Python (`scripts/python`) rather than system,
 Homebrew, or nix interpreters.
 
+### Playwright CLI and MCP
+
+`scripts/link` calls `scripts/playwright-setup`. The setup owns a Bun project in
+`tools/playwright`, where `@playwright/cli@0.1.19` and
+`@playwright/mcp@0.0.80` are exact, lockfile-pinned dependencies. It installs
+from that frozen lockfile, links the executables and the official Playwright CLI
+skill, and registers Claude Code's user-scope `playwright` MCP server as
+`playwright-mcp --browser chrome --headless --isolated --output-dir .agent-msgs/screenshots/playwright-mcp`.
+An existing conflicting Claude user entry is preserved with a warning. Install or update this tooling through
+`tools/playwright`; do not use a global npm/Bun install or an `@latest` runtime fetch.
+
+The [official Playwright CLI](https://github.com/microsoft/playwright-cli) is
+the default browser path for Claude Code and Codex: it is headless and isolated
+by default. Use the CLI skill for command-oriented work, and opt into
+[Playwright MCP](https://github.com/microsoft/playwright-mcp) only when a task
+needs sustained, tool-native page exploration. OMP keeps its native `browser`
+as the default.
+
+`scripts/link` checks the `/etc/codex/config.toml` link to `codex/config.toml`
+and prints the one-time sudo command if it is missing. A user setting in
+`~/.codex/config.toml` takes precedence over this system-layer MCP entry.
+OMP reads its managed entry from `omp/mcp.json`. Restart the agents after linking
+or updating so each agent discovers the MCP server. Existing logged-in Chrome
+connections and the optional Playwright Extension remain explicit-consent paths;
+setup does not install or attach either one.
+
+For an existing machine, install and check the tools without rerunning unrelated setup:
+
+```sh
+./scripts/playwright-setup
+playwright-cli --version
+playwright-mcp --version
+claude mcp get playwright
+codex mcp get playwright
+```
+
+The CLI skill is linked to Claude Code, Codex, Copilot and the shared
+`~/.agents/skills` directory; a new OMP session discovers it there.
+Google Chrome is required: macOS setup supplies the Brewfile cask; on Linux,
+install Chrome explicitly before using the configured `--browser chrome`.
+
+Run browser work from the target repository root. For example, ask an agent:
+“Use playwright-cli to check the form at http://localhost:3000, save a screenshot,
+and close only your named session.” For manual commands, session naming,
+output paths and headed mode, use
+[`browser-verify`](agents/skills/browser-verify/SKILL.md).
+MCP is registered but does not launch a browser until used. Do not use multiple
+drivers for the same task, or store authentication state in tracked files.
+
+To update, choose reviewed versions and run
+`bun add --dev --exact @playwright/cli@VERSION @playwright/mcp@VERSION`
+inside `tools/playwright`, then run `../../scripts/playwright-setup`.
+Keep the manifest and `bun.lock` together; never update by fetching `@latest`
+when a browser command runs.
+
 ### Keep personal project settings local
 
 このdotfilesの設定は個人利用を前提としています。

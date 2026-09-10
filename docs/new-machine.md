@@ -71,6 +71,13 @@ gh auth login
 
 ponytail は 6節までのスクリプトで自動導入される（OMP は `scripts/omp-plugins`、Codex は `scripts/link`、Claude Code は `claude/settings.json` の宣言）。図表/レビュー系では、plannotator も `scripts/link` でバイナリと共通 skills、Claude Code は `claude/settings.json` で plugin、OMP は `scripts/omp-plugins` で pi-extension を再現する。archify は `scripts/link` が global skill として補完する。Codex の hook trust だけ手動。詳細は `docs/ponytail.md` と `docs/diagram-workflow.md`。
 
+Playwright CLI/MCP の導入、再起動後の検出、ブラウザ操作の使い分けは README の
+「Playwright CLI and MCP」節に従う。ここでは個別の導入手順を重複して管理しない。
+
+`scripts/link` の実行後に Claude Code、Codex、OMP を再起動してから同節の確認を行う。
+既存のログイン済み Chrome や Extension をこの移行手順で接続・導入しない。
+
+
 ### GUI常駐アプリ
 
 Karabiner-Elements、Raycast、SoundSourceなどは初回起動時にアクセシビリティや入力監視の許可を求める。
@@ -157,6 +164,7 @@ sleepwatcher本体はBrewfileで入るが、サービスの起動は手動：`br
 | Claude plugin | `claude plugin list` | `plannotator@plannotator` が enabled |
 | OMP | `omp plugin list` | `@plannotator/pi-extension` が入っている |
 | ponytail | 各CLIで「ponytailのルールは注入されているか」と質問 | `PONYTAIL MODE ACTIVE — level: full` を引用して回答（`docs/ponytail.md`） |
+| Playwright | README の「Playwright CLI and MCP」節 | CLI/MCP の導入と検出を同節の手順で確認する |
 | jbcontext | リポジトリ内で `jbcontext search "..."` | 検索結果が返る |
 | launchd | `launchctl list \| grep tyamahori` | 6節で選んだジョブだけが載る |
 | SonarQube | dotfiles内で`sonar-quality-gate` | ローカルServerが起動し、Quality Gateが返る |
