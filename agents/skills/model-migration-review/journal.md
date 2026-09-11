@@ -2,6 +2,14 @@
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
 
+## 2026-09-11 ack マーカー消失の復旧(新規レビューなし)
+
+- 契機: post-commit hook が全ピンを `(none) -> 現在値` と報告(`scripts/model-pins check` exit 1)。原因は `~/.local/state/model-migration/last-reviewed.tsv`(machine-local、git 管理外)が消えていたこと。実際のモデルピン変更は無し。
+- 照合: `scripts/model-pins show` の現在値を本 journal の 2026-09-05・2026-09-10 エントリの適用結果と1件ずつ突き合わせ、全項目が一致(claude=claude-fable-5-1、codex=gpt-6-astra/low、omp.modelRoles.default=anthropic/claude-fable-5-1、plan=...:low、他ロールは 09-05 基準のまま変更なし)。収集・提案・承認の新サイクルは不要と判断。
+- 適用: なし(指示文・設定への変更なし)。
+- 検証: `scripts/model-pins ack` でマーカーのみ再作成。直後の `scripts/model-pins check` は差分なし(exit 0)。
+- 1週間後: 対象なし(ピン変更なしのため)。
+
 ## 2026-09-10 Astra plan の effort を low に変更
 
 - 承認済み変更: `omp.modelRoles.plan` の `gpt-6-astra:medium` → `gpt-6-astra:low`。消費を抑えるためのユーザー指定。他ロールと指示文は変更しない。
