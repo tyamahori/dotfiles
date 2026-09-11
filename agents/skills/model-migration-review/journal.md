@@ -2,6 +2,30 @@
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
 
+## 2026-09-12 Astra plan の low を検証し、レビュー済み基準へ反映
+
+- 対象: `omp.modelRoles.plan` の `openai-codex/gpt-6-astra:medium` → `:low`。
+  9月10日の承認済み変更（`5e7d66e`）を確認した。他のピンは差分なし。
+  開始時の基準ファイルは `medium` で、9月11日の記録とは一致していなかった。基準が変わった経緯は未調査。
+- 公式資料（取得日はいずれも2026-09-12）:
+  - https://developers.openai.com/api/docs/models/gpt-6-astra.md — `low` と `medium` は対応値。
+  - https://developers.openai.com/api/docs/guides/reasoning.md — 低い effort は速度とトークン消費を優先し、高い effort は品質を優先する。ローカルでの品質同等性は示さない。
+  - https://developers.openai.com/api/docs/guides/latest-model/gpt-6-astra.md — `none` / `minimal` 以外からは実効 effort の維持を推奨。`medium` → `low` は必須移行ではなく、消費を抑えて様子を見る運用判断。
+  - https://developers.openai.com/codex/config-reference → https://learn.chatgpt.com/docs/config-file/config-reference — `model_reasoning_effort` の対応値に `low` と `medium` を掲載。
+- 取得の制限: scout の `ax agent-context` はIDEの対象プロジェクト制限とタイムアウトで実行できず、専用 read で取得した。公式URLの取得失敗はなし。
+- 提案・採否: 設定・指示・Skillの変更提案なし。承認済みの `low` を維持する。効果の確定は計測待ちとし、他ロールへ展開しない。
+- 規範の棚卸し: 共通指示、OMP追記、管理下の22 Skillを規範群ごとに照合した。
+  - マシンの事実、実測ルール、書き手の好みは維持。eval利用は `5e3f8e8`、セッション中のモデル・effort切替を避ける規範は `7a818bd` に独立した導入理由があり、今回の effort 変更だけでは削除しない。
+  - `7b92c8d` の進捗・スコープ規範、`a33d261` の散文・停止原因・検証規模、`3916775` の着手判断は、現在も使うFable／Astraへの対応。旧モデルだけの回避策と判断できず、削除は保留。
+  - 上流から取り込んだ文章規範の個別理由や、コミット本文のない `7d51b49`・`34ad63c` で説明できない規範は保留。全規範の追加理由を確認できたとは扱わない。
+- 実動確認: 新規OMPプロセス（18.1.17）の `omp config get modelRoles --json` で plan が `:low`。
+  続けて `omp --mode rpc --no-session --model @plan --no-title` を起動し、`get_state` が `openai-codex/gpt-6-astra` / `thinkingLevel: low` を返した。
+  新規セッションのコマンド一覧に `skill:model-migration-review` があり、system promptにも掲載されていた。メッセージ数は0で、モデルへ推論要求は送っていない。
+  短縮版 `# OMP delegation` の読込みも確認した。検証用プロセスは終了済み。
+- 基準更新: 検証後に `scripts/model-pins ack` を実行。直後の `scripts/model-pins check` は差分なし（exit 0）。
+- 1週間後: 9月17日以降、`agent-usage-weekly` の同種タスクについて、変更前（9月3〜9日）と変更後（9月10〜16日）の成功タスク当たり総トークン、再試行、再作業、利用枠の減少を比較する。
+  9月12日の指示短縮も比較条件を変えるため、effort単独の効果とは断定しない。数値不足や品質悪化の判定不能は効果不明とし、悪化を確認した場合も復帰対象を提示して承認を得る。
+
 ## 2026-09-11 ack マーカー消失の復旧(新規レビューなし)
 
 - 契機: post-commit hook が全ピンを `(none) -> 現在値` と報告(`scripts/model-pins check` exit 1)。原因は `~/.local/state/model-migration/last-reviewed.tsv`(machine-local、git 管理外)が消えていたこと。実際のモデルピン変更は無し。
