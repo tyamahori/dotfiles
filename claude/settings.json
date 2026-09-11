@@ -465,7 +465,7 @@
     ],
     "defaultMode": "auto"
   },
-  "skillListingBudgetFraction": 0.03,
+  "skillListingBudgetFraction": 0.029999999999999999,
   "skillOverrides": {
     "freee-api-skill": "off",
     "update-config": "user-invocable-only"
