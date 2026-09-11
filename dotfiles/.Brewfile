@@ -1,6 +1,7 @@
 brew "zsh-completions"
 brew "zsh-autosuggestions"
 brew "fzf-tab"
+brew "zsh-syntax-highlighting"
 brew "terminal-notifier"
 brew "herdr"
 brew "sleepwatcher"

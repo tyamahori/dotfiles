@@ -85,6 +85,8 @@ fi
 [ -r "${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ] && \
   source "${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
 
+(( $+commands[carapace] )) && source <(carapace _carapace)
+
 # 使用率は OMP の usage snapshot（anthropic-usage-guard と同じ）から取得する。
 # Starship は描画ごとに別プロセスになるため、SQLite の読み取りは Zsh 内で
 # 60秒キャッシュし、ANSI 色付きの値だけ環境変数で渡す。
@@ -217,5 +219,9 @@ export PATH="$HOME/.grok/bin:$PATH"
 add-zsh-hook -d precmd _agent_usage_precmd
 (( $+functions[prompt_starship_precmd] )) || eval "$(starship init zsh)"
 add-zsh-hook precmd _agent_usage_precmd
+
+# zsh-syntax-highlighting はウィジェットをラップするため、Kiro post block を除き最後に読み込む。
+[ -r "${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ] && \
+  source "${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 # Kiro CLI post block. Keep at the bottom of this file.
 [[ -f "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh" ]] && builtin source "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh"
