@@ -111,6 +111,34 @@
             "type": "command"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil release --tool codex",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil acquire --tool codex --subagent",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil release --tool codex --subagent",
+            "type": "command"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
@@ -119,6 +147,14 @@
           {
             "command": "\"$HOME/dotfiles/scripts/herdr-title\" codex",
             "timeout": 10,
+            "type": "command"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil acquire --tool codex",
             "type": "command"
           }
         ]
