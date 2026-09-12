@@ -2,6 +2,16 @@
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
 
+## 2026-09-13 指示レビューの承認項目を適用
+
+- 根拠: https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra と既存の Codex・Claude 履歴。調査範囲と限界は `.agent-msgs/scratch/2026-09-13-instruction-audit.json`。
+- 承認: 提案1〜4に対するユーザーの「すすめて」。任意案の PR 応答の承認境界は変更しない。
+- 適用: AGENTS の引き継ぎ先を `.agent-msgs/handoff/` に統一。モデル移行レビューを差分中心にし、3 skill の詳細を references へ移動。PR レビューと Codex HTML レポートの発火条件を限定。
+- 保持: docs/ops の保護、モデルピン、PR 応答の項目別承認、安全・品質条件。vendored natural-japanese の差分は local.patch に含めた。
+- 検証: Bun 29 pass / 0 fail、SonarQube Gate passed。上流基準へ local.patch を適用し、入口と新規4参照の完全一致を確認。新規 OMP セッションで5 skill と詳細参照を読み、quick/full/score と依頼別の振り分けを確認した。
+- 証跡: `.agent-msgs/scratch/2026-09-13-skill-verification.json`。lint の均質なリズム等の指摘は手順文と原文保持のため残し、追加した対比表現だけを修正した。
+- 未計測: 実利用のトークン削減と品質同等性。入口のバイト数減少をその代用にはしない。次回利用量レビューで再読回数・誤発火・必要な手順の読込漏れを確認する。
+
 ## 2026-09-12 Astra plan の low を検証し、レビュー済み基準へ反映
 
 - 対象: `omp.modelRoles.plan` の `openai-codex/gpt-6-astra:medium` → `:low`。
