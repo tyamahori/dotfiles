@@ -9,6 +9,10 @@ Keep only cross-repository preferences and non-obvious machine facts here.
 Procedures belong in skills; project knowledge in project docs or memory.
 Evidence behind "measured" rules lives in `agents/measured-notes.md`.
 
+Optimize for correct completion with less context and rework, not fewer tool
+calls or a particular implementation language. Preserve requested scope,
+verification, and failure evidence when shortening an execution path.
+
 ## Working style
 
 - **Lead with the outcome.** Default to a high-level summary; add depth when
@@ -142,6 +146,11 @@ working tree.
 - **Repeated auto-compaction means stop:** write a handoff and use `/quit`
   or `/new` (measured).
 - **Pass bulky material by file path, not inline.**
+- **Reuse available evidence.** Don't reload a skill, document, or result
+  already retained in context just because a new request uses it. Refresh
+  changed sources, missing sections, and freshness-sensitive facts; get a
+  current snapshot for anchored edits. After compaction, recover missing
+  requirements from source references rather than guessing omitted content.
 - **Don't switch model or effort mid-session:** start a fresh session with a
   handoff. Automatic usage-guard switches at quota depletion are the exception.
 - **Edit `settings.json` directly; never invoke Claude Code's built-in
@@ -196,12 +205,27 @@ and run its script. Apple's curl uses Keychain trust, unlike nix/brew builds.
 Upgrade through `scripts/brewUpdate`, never bare `brew upgrade`: its cleanup
 can delete old omp kegs still used by running sessions.
 
-## CLI use in automation
+## Tool output and evidence
 
-Use non-interactive output and bounded reads; reuse loaded content. For GitHub
-release notes, use `gh api repos/OWNER/REPO/releases/tags/TAG --jq .body`.
-Keep human-facing TUIs out of pipelines; non-interactive mode does not bypass
-approval.
+- **Choose the answer shape before fetching.** Request relevant paths,
+  ranges, records, and fields at the source (`gh --json` / `--jq`, JSON
+  projection, bounded Git history). Don't retrieve everything just to
+  discard it afterward. A limit is partial evidence: follow pagination or
+  expand the range when the conclusion requires completeness.
+- **Use the host's read/search tools first.** Claude Code and OMP have
+  native file reading, search, and path discovery; use those before shell
+  `cat`, `sed -n`, `grep`, or `find`. Where equivalent tools are unavailable,
+  use bounded shell reads and scoped `rg` / `fd`. A policy denial means
+  change to the supported tool, not wrap the rejected command to bypass it.
+- **Shorten noise, not proof.** Prefer a test runner's summary over passing
+  test chatter. Preserve the command's exit status and failure diagnostics
+  from both stdout and stderr; keep captured full logs accessible. A final
+  `tail` or `|| true` is not evidence that the underlying command succeeded.
+  Read the relevant patch for correctness and commit body for rationale;
+  a diffstat or commit subject alone cannot establish either.
+- Use non-interactive output. For GitHub release notes, use
+  `gh api repos/OWNER/REPO/releases/tags/TAG --jq .body`. Keep human-facing
+  TUIs out of pipelines; non-interactive mode does not bypass approval.
 
 ## Fetching web content
 
