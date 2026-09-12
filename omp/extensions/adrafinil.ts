@@ -53,7 +53,7 @@ function runAdrafinil(args: string[]): void {
   }
 }
 
-export default function (pi: ExtensionHandlerApi): void {
+export default function adrafinilExtension(pi: ExtensionHandlerApi): void {
   pi.on("agent_start", (_event, ctx) => {
     const key = resolveSessionKey(ctx);
     if (!key) return;

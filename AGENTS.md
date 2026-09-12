@@ -9,3 +9,5 @@
 - pull 差分に `agents/` または `omp/` が含まれたら `scripts/link` を実行する。
 - `omp/config.yml`・`omp/extensions/` を変えたら、設定と extension は起動時に
   読み込まれる（`docs/omp.md`）ので、稼働中の OMP セッションに再起動が必要だと伝える。
+- SonarQube の前に、`docs/sonarqube.md`「このdotfilesでは、先にBunのカバレッジを
+  生成する」の全テスト計測を実行する。レポートなしの Gate 単独実行はしない。
