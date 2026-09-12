@@ -1,7 +1,7 @@
 # dotfiles
 
-- セッションの引き継ぎメモ・日誌は `docs/ops/YYYY-MM-DD-session.md`
-  （日付は手仕舞い日）。同日の複数セッションは同じファイルへ節を追記する。
+- エージェントの引き継ぎメモは
+  `.agent-msgs/handoff/YYYY-MM-DD-<topic>.md` に置く（日付は手仕舞い日）。
 - `docs/ops/` の日誌はユーザーの作業物。エージェントは編集・commit しない
   （`git add -A` で巻き込まない）。
 - リモートの取り込みは作業前後に `git status --short --branch` を確認し、

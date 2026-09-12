@@ -1,6 +1,6 @@
 ---
 name: codex-insights
-description: Codex の使い方の振り返り・診断・最近の利用分析を頼まれたとき（Claude Code の /insights 相当）に使う。ローカルセッション履歴から利用傾向・作業領域・摩擦・改善案を HTML レポートにまとめる。
+description: Codex の利用傾向を専用の HTML レポートにまとめるときに使う。ローカル履歴から作業領域・摩擦・改善案を分析する。
 ---
 
 # Codex Insights
@@ -8,6 +8,9 @@ description: Codex の使い方の振り返り・診断・最近の利用分析�
 `scripts/generate.py` で `~/.codex/sessions` と
 `~/.codex/archived_sessions` の JSONL をローカル解析し、自己完結した HTML
 レポートを生成する。履歴や集計値を外部へ送信しない。
+
+履歴を根拠に指示や設定を見直すだけの依頼では、HTML 生成を起動しない。
+指示の見直しは `model-migration-review`、利用効率の診断は `agent-usage-review` の対象とする。
 
 ## 実行
 
