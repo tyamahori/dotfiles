@@ -109,6 +109,9 @@ fi
 if [[ ! -e $HOME/.agents/skills/frontend-design/SKILL.md ]]; then
 	npx -y skills add anthropics/skills -g --skill frontend-design --yes
 fi
+if [[ ! -e $HOME/.agents/skills/prototype/SKILL.md ]]; then
+	npx -y skills add emilkowalski/skills -g --skill prototype --agent claude-code codex --yes
+fi
 # Da7-Tech/SureForge: gated workflow skill (research → plan → execute →
 # deliver, independent review) for complex tasks in any repository.
 if [[ ! -e $HOME/.agents/skills/sureforge/SKILL.md ]]; then

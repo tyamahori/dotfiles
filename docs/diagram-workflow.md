@@ -63,6 +63,22 @@ archify の JSON IR を残しておけば、見た目を直しても図の意味
 日本語の HTML は `ja-html-typography`（authored skill）も先に読みます。Artifact のプレビュー枠は 560〜720px 程度と狭く、数値と単位の分断・式の途中折返し・表の列潰れがそこで起きるため、和欧間スペースを入れない・式は折り返さない・表は横スクロールへ逃がすといった規則と検証手順をまとめています。
 仕上げ前、または「デザインがいけていない」「配置が変」「横幅を伸ばすか折り返すか」と言われたときは `nondesigner-design`（authored skill）で構成を監査します。ノンデザイナーズデザインブックの 4 原則（近接・整列・反復・コントラスト）ごとに症状 → CSS の型 → 計測 JS をまとめ、表の列数で本文幅・全幅・縦積みを決める閾値も持っています。プロジェクトを問わず使えます。
 
+### 構成案を比較したいときだけ prototype を使う
+
+`prototype`（emilkowalski/skills）は、重要なスライド・図や HTML 部品について、配置や情報密度の異なる案を実寸で切り替えて比較するために導入しています。
+OMP では `/skill:prototype` に対象と比較したい点を添えて明示的に呼び出します。
+本来は UI 部品向けの skill で、説明資料の理解しやすさへの効果はまだ検証していません。
+比較中も元の事実・数値は固定し、架空のデータを補わず、静止画や PDF でも意味が伝わる構成を保ちます。
+図の生成は archify、日本語組版は ja-html-typography、構成の監査は nondesigner-design に従います。固定レンダラーの見た目は変更しません。
+
+`scripts/link` が未導入時に global へ追加します。更新コマンドは次のとおりです。
+
+```bash
+npx -y skills add emilkowalski/skills -g --skill prototype --agent claude-code codex --yes
+```
+
+上流の `disable-model-invocation: true` は維持しています。導入後は新しいセッションを開いてください。
+
 ### Plannotator を必ず挟みたいもの
 
 - plan の承認前レビュー
