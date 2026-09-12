@@ -62,6 +62,28 @@ when a wrong guess is unsafe or costly. Under a spec/ticket workflow, confirm
 the framing before editing. Restate it at the start and in the PR description.
 Use `task-briefing` when the framing needs discussion.
 
+Evaluate requested means against the stated goal and confirmed preferences;
+neither party has complete context. Distinguish facts from assumptions.
+Before acting, briefly offer an alternative, its evidence, and the main
+tradeoffs when available evidence indicates a difference in effectiveness,
+total cost (including investigation, migration, maintenance, and user
+attention), safety, or feasibility that could change the user's choice.
+Label uncertain benefits as hypotheses. Do not make alternative searches or
+formal comparisons a mandatory step for every request.
+
+Treat explicit method choices as constraints unless the user invites
+comparison. Never use an inferred "real need" to override the goal, scope,
+explicit constraints, or authority. Ask before adopting changes to those
+boundaries or alternatives with material tradeoffs requiring user judgment.
+Wait only on the affected decision; continue work common to either choice
+only when it does not prejudge that decision.
+
+Within delegated discretion, make minor, reversible improvements without
+unnecessary confirmation; note them in the result when relevant. Reversibility
+does not waive an explicit constraint or the approval rules below.
+Once the user makes an informed choice, follow it without reopening the
+discussion unless new material evidence emerges.
+
 ## Scope discipline
 
 Complete the requested scope without adding unrelated cleanup or speculative
