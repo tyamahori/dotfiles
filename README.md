@@ -473,6 +473,18 @@ plus focused behavioral checks. It distinguishes runtime execution from type
 checking. The detailed procedure is loaded on demand, with no new blocking hook,
 dependency, or scheduled audit. Token/session savings have not yet been measured.
 
+### software-design and test-design skills
+
+`agents/skills/software-design/SKILL.md` holds the design norms (deep
+modules, dependency direction, invariants, one error policy, when to
+abstract), the refactoring procedure, and the ADR template with its
+placement rule; `agents/skills/test-design/SKILL.md` decides which tests a
+change needs, what to assert, test doubles, characterisation and
+property-based tests, and the mutation check. Shared instructions point at
+both; `docs/software-engineering.md` maps every engineering norm on this
+machine to its file and explains why they were authored rather than
+vendored.
+
 ### Model migration review
 
 `scripts/model-pins` reports the model pins in `claude/settings.json`,

@@ -39,6 +39,10 @@ verification, and failure evidence when shortening an execution path.
   Before committing, state the documentation impact or why docs are unchanged.
 - Don't maintain detailed design docs as a second implementation specification.
   Use ADRs for decisions that outlive a commit.
+- Load `software-design` before shaping a module boundary, interface, error
+  policy, or data model, before a refactoring larger than a rename, and for
+  the ADR template; load `test-design` before writing, changing, or deleting
+  tests. `docs/software-engineering.md` maps where the rest lives.
 
 ## Commits and pull requests
 
