@@ -34,10 +34,15 @@ it hides. A module whose interface is as large as its implementation
 callee) adds a layer without hiding anything; inline it. *Does the caller
 need to know less than before?*
 
-**Dependency direction.** Core logic does not import the edge (HTTP, DB,
-filesystem, clock, UI, framework). Edges depend on the core, never the
-reverse: pure functions in the middle, I/O at the boundary. *Can the core be
-exercised without network, disk, or a real clock?*
+**Dependency direction (the Clean Architecture rule).** Source dependencies
+point inward only: entities and use cases know nothing of HTTP, DB,
+filesystem, clock, UI, or framework; adapters at the edge depend on the
+core, never the reverse. Where the core must call outward (a repository, a
+gateway), the core owns the interface and the edge implements it. Crossing
+a boundary passes simple data, not framework objects. Do not add the four
+named layers to a small program: the rule is the direction, not the layer
+count. *Can the core be exercised without network, disk, or a real clock,
+and does any core file import an edge?*
 
 **Validate at trust boundaries, trust inside.** User input, third-party
 responses, environment, and files are untrusted; parse them into typed values
@@ -82,6 +87,14 @@ module you describe with "and" is two modules. Shotgun surgery (one change
 touching many files) and divergent change (one file changed for unrelated
 reasons) are the two symptoms. *If requirement X changes, how many files
 move?*
+
+**Do one thing, compose (UNIX philosophy).** A program, command, or function
+has one job and stops there; combine small ones instead of growing one.
+Tools speak plain text or one structured format (JSON lines) on stdin and
+stdout so they chain; diagnostics go to stderr; success is silent and
+failure is a non-zero exit. Prefer a filter over a mode flag, and a pipeline
+of existing tools over a new binary. *Could this be two things joined by a
+pipe or a call, and does its output feed the next tool unchanged?*
 
 **Facts, not derived state.** Persist and pass facts; compute views. Cached
 or duplicated derived data needs an owner and an invalidation rule, so leave
@@ -183,7 +196,9 @@ Never delete or rewrite an accepted ADR; supersede it with a new one that
 links back. Link the ADR from the code or doc it governs when the decision
 is not obvious from the code.
 
-Sources: Ousterhout, *A Philosophy of Software Design*; Fowler,
-*Refactoring*; Feathers, *Working Effectively with Legacy Code*; Nygard's
-ADR format; addyosmani/agent-skills `api-and-interface-design` and
+Sources: Ousterhout, *A Philosophy of Software Design*; Martin, *Clean
+Architecture* (dependency rule); Raymond, *The Art of Unix Programming*
+(do one thing, composition, silence on success); Fowler, *Refactoring*;
+Feathers, *Working Effectively with Legacy Code*; Nygard's ADR format;
+addyosmani/agent-skills `api-and-interface-design` and
 `documentation-and-adrs`.

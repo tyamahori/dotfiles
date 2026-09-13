@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | 知識の置き場所（Code は How、Test は What、Commit は Why、Comment は Why-not） | `agents/global-instructions.md` の「Where each kind of knowledge lives」 | 常時注入 |
 | 実装量の判断（YAGNI ラダー、既存の再利用、標準ライブラリ優先） | ponytail プラグイン。案内は `docs/ponytail.md` | 常時注入 |
-| 設計の形（深いモジュール、依存方向、境界での検証、不変条件、エラー方針、抽象化の基準、Hyrum の法則、時刻と並行性） | `agents/skills/software-design/SKILL.md` | モジュール境界・公開 IF・エラー方針・データモデルを決める前 |
+| 設計の形（深いモジュール、依存方向＝クリーンアーキテクチャの依存ルール、境界での検証、不変条件、エラー方針、抽象化の基準、Hyrum の法則、UNIX 哲学の「一つのことをして組み合わせる」、時刻と並行性） | `agents/skills/software-design/SKILL.md` | モジュール境界・公開 IF・エラー方針・データモデルを決める前 |
 | リファクタリング手順（特性テスト → seam → 小さな一歩ごとにテストと commit、smell と対処の表） | 同 skill の「Refactoring」節 | 変更に既存の形が抵抗するとき、緑になった後 |
 | ADR のテンプレートと置き場所（既存規約に合わせる、なければ `docs/adr/NNNN-title.md`） | 同 skill の「ADRs」節 | コミットを超えて残る決定をしたとき |
 | テスト設計（変更種別ごとに要るテスト、name the break、実物 > fake > stub > mock、特性テスト、property-based、mutation check、消すべきテスト） | `agents/skills/test-design/SKILL.md` | テストを書く・直す・消す前、mock や helper を足す前 |
