@@ -2,10 +2,11 @@
 name: software-design
 description: >
   Load before shaping a module boundary, public interface, error-handling
-  policy, or data model; before a refactoring larger than a rename; and when
-  a decision outlives a commit (ADR). Design norms (deep modules, dependency
-  direction, invariants, one error policy, when to abstract), the refactoring
-  procedure, and the ADR template and placement rule.
+  policy, or data model; before a refactoring larger than a rename; when a
+  decision outlives a commit (ADR); and before writing a design doc. Design
+  norms (deep modules, dependency direction, invariants, one error policy,
+  when to abstract), the refactoring procedure, what a design doc must
+  contain, and the ADR template and placement rule.
 ---
 
 # software-design
@@ -155,6 +156,53 @@ Smell to move, for the smells that matter:
 | Comment explaining what the next lines do | Rename or extract until the comment is redundant |
 | Interface, hook, or option nobody uses | Delete |
 
+## Design docs
+
+A design doc is the pre-implementation counterpart of an ADR: an ADR
+records one decision, a design doc lays out a project so reviewers can find
+the wrong decision before code exists. Write one when two or more hold:
+several people implement it; more than about three months of work; it runs
+in production for years; goals or requirements are ambiguous; a
+catastrophic risk (security, data loss, legal) can be prevented at design
+time. One "yes" is worth a one-pager; none means skip it.
+
+Content filter: **what is the cost of being wrong?** A choice that is cheap
+to reverse (a button placement, a page size) is not a design concern and
+must not consume review cycles; a choice that is expensive to reverse
+(language, storage, service boundary, data model, protocol) is the doc.
+
+What each section must do:
+
+- **Objective and background** read without any outside context: a
+  stakeholder who has not talked to the author understands the problem and
+  the motivation from the first page, with the numbers that prove it.
+- **Goals** are stated as impact on users, the team, or the business, never
+  as implementation ("fewer deploy-related outages", not "adopt
+  Kubernetes"). **Non-goals** list what a reader would otherwise assume is
+  in scope.
+- **Scenarios** show the finished system as concrete step sequences when
+  the goal alone does not make the behaviour obvious.
+- **Interfaces** show the API, CLI, file format, or type signatures that
+  consumers will see; UI as rough sketches only.
+- **Dependencies** justify the ones that are hard to change later (language,
+  storage, hosting); the easily swapped ones get a line.
+- **SLOs** are measurable numbers ("p50 < 200 ms"), and **monitoring** says
+  how a breach will be noticed.
+- **Security** names the threats considered, the attack surface, and the
+  trust boundaries (see "Validate at trust boundaries"); write the rationale
+  even when the answer is "none apply" so reviewers can disagree.
+- **Alternatives** cover only the strong candidates, a few lines each with
+  the specific reason they lost.
+- **Open issues** each state the problem, the options, a proposed answer,
+  and the immediate next step. When resolved, move the entry to **Resolved
+  issues** with the decision on top and the original discussion kept.
+
+Diagrams come from an editable source kept next to the doc (`archify` on
+this machine), never a photographed whiteboard. Use the repository's
+existing design-doc location and headings; the HTML review workflow is
+`reviewable-design-doc`, which handles rendering and comment threads, not
+content.
+
 ## ADRs
 
 Write an ADR for a decision that outlives a commit and is expensive to
@@ -200,5 +248,6 @@ Sources: Ousterhout, *A Philosophy of Software Design*; Martin, *Clean
 Architecture* (dependency rule); Raymond, *The Art of Unix Programming*
 (do one thing, composition, silence on success); Fowler, *Refactoring*;
 Feathers, *Working Effectively with Legacy Code*; Nygard's ADR format;
-addyosmani/agent-skills `api-and-interface-design` and
-`documentation-and-adrs`.
+Lynch, "How to Write an Effective Software Design Document"
+(refactoringenglish.com); addyosmani/agent-skills
+`api-and-interface-design` and `documentation-and-adrs`.

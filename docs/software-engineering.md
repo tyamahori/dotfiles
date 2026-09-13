@@ -15,6 +15,7 @@
 | 設計の形（深いモジュール、依存方向＝クリーンアーキテクチャの依存ルール、境界での検証、不変条件、エラー方針、抽象化の基準、Hyrum の法則、UNIX 哲学の「一つのことをして組み合わせる」、時刻と並行性） | `agents/skills/software-design/SKILL.md` | モジュール境界・公開 IF・エラー方針・データモデルを決める前 |
 | リファクタリング手順（特性テスト → seam → 小さな一歩ごとにテストと commit、smell と対処の表） | 同 skill の「Refactoring」節 | 変更に既存の形が抵抗するとき、緑になった後 |
 | ADR のテンプレートと置き場所（既存規約に合わせる、なければ `docs/adr/NNNN-title.md`） | 同 skill の「ADRs」節 | コミットを超えて残る決定をしたとき |
+| 設計資料に何を書くか（書くべきかの判定、間違えたときのコストで内容を選ぶ、Goals は影響で・Non-goals を明示、Open issues は問題・選択肢・次の一歩） | 同 skill の「Design docs」節。HTML 化とコメント運用は `reviewable-design-doc` | 複数人・長期・要件曖昧・致命的リスクのある案件の実装前 |
 | テスト設計（変更種別ごとに要るテスト、name the break、実物 > fake > stub > mock、特性テスト、property-based、mutation check、消すべきテスト） | `agents/skills/test-design/SKILL.md` | テストを書く・直す・消す前、mock や helper を足す前 |
 | 依頼の枠組み（背景・課題・ゴール・スコープ・成果物） | `task-briefing`、前提を問い直すなら `grill-me` | 着手前、依頼が曖昧なとき |
 | 複雑タスクの工程（調査 → 計画 → 独立レビュー → 証拠つき納品） | `sureforge` | 複数ファイル・複数段階の実装 |
