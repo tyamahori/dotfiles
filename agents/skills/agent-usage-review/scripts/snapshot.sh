@@ -805,10 +805,15 @@ if command -v jbcontext >/dev/null 2>&1; then
 	JB_ANALYZE="$(jbcontext analyze --json-output 2>/dev/null)"
 	if [ -n "$JB_ANALYZE" ] && jq -e 'type == "object"' >/dev/null 2>&1 <<<"$JB_ANALYZE"; then
 		echo '```json'
+		# jbcontext 0.9.12: adoption.* は消え embark.{availableInTasks,usedInTasks} に置換 (2026-09-13)
 		jq '{
 			window: .window.label,
 			tasks: .tasks,
-			adoption: (.adoption | {invokedShare, sessionsInvoking, sessionsAvailable, callsPerSession, errorRate}),
+			adoption: (.embark | {
+				invokedShare: (if (.availableInTasks // 0) > 0 then (.usedInTasks / .availableInTasks) else null end),
+				tasksInvoking: .usedInTasks,
+				tasksAvailable: .availableInTasks
+			}),
 			modeledReductions: .estimatedWithEmbark.reductions
 		} | with_entries(select(.value != null))' <<<"$JB_ANALYZE"
 		echo '```'
