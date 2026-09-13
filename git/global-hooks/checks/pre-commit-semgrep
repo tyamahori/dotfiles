@@ -20,9 +20,11 @@ config="$repo_root/.semgrep.yaml"
 cd "$repo_root"
 targets=()
 while IFS= read -r -d '' file; do
-	# Skip files deleted from the working tree and the rule file itself
-	# (generic-language patterns would match their own source text).
-	[[ -f $file && $file != .semgrep.yaml ]] && targets+=("$file")
+	# Skip files deleted from the working tree, symlinks (semgrep refuses
+	# them as scan roots with exit 2; the target is scanned when it is
+	# staged itself), and the rule file (generic-language patterns would
+	# match their own source text).
+	[[ -f $file && ! -L $file && $file != .semgrep.yaml ]] && targets+=("$file")
 done < <(git diff --cached --name-only --diff-filter=ACMR -z)
 ((${#targets[@]})) || exit 0
 
