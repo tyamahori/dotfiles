@@ -1,6 +1,9 @@
 // 有人TUIセッションでの自動コンパクション反復を抑えるガード。
 // 2回目以後の auto_compaction_end と、移行前の次のinteractive inputで
 // model-visibleなfollow-upを送り、引き継ぎ後のセッション切替を促す。
+// handoff_switch が成功したら以後は黙る: follow-up は 1 ターンに 1 通ずつ届くため、
+// 溜まったリマインダーが切替を 1 ターンずつ先送りしていた (measured 2026-09-08:
+// 余分に 5 ターン・compaction 1 回・cache write 100k)。
 
 type Ctx = {
   hasUI?: boolean;
@@ -21,18 +24,25 @@ type ExtensionHandlerApi = {
 export default function (pi: ExtensionHandlerApi): void {
   let autoCompactionEnds = 0;
   let sessionSwitchNudged = false;
+  let switchRequested = false;
 
   const reset = () => {
     autoCompactionEnds = 0;
     sessionSwitchNudged = false;
+    switchRequested = false;
   };
 
   // A runner can remain loaded while the TUI switches sessions.
   pi.on("session_start", reset);
   pi.on("session_switch", reset);
 
+  pi.on("tool_result", (event) => {
+    const result = event as { toolName?: string; isError?: boolean };
+    if (result.toolName === "handoff_switch" && !result.isError) switchRequested = true;
+  });
+
   pi.on("auto_compaction_end", (_event, ctx) => {
-    if (!ctx?.hasUI) return;
+    if (!ctx?.hasUI || switchRequested) return;
 
     autoCompactionEnds += 1;
     if (autoCompactionEnds < 2) return;
@@ -65,11 +75,12 @@ export default function (pi: ExtensionHandlerApi): void {
   });
 
   pi.on("input", (event, ctx) => {
-    if (!ctx?.hasUI || !sessionSwitchNudged) return;
+    if (!ctx?.hasUI || !sessionSwitchNudged || switchRequested) return;
 
     const input = event as { source?: string; text?: string };
     const text = input.text?.trimStart() ?? "";
-    if (input.source !== "interactive" || /^\/(?:new|quit|q|exit|resume|drop)(?:\s|$)/.test(text)) return;
+    // handoff-switch.ts は /handoff-switch を interactive 入力として注入する。
+    if (input.source !== "interactive" || /^\/(?:new|quit|q|exit|resume|drop|handoff-switch)(?:\s|$)/.test(text)) return;
 
     try {
       ctx.ui?.notify?.(
