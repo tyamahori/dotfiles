@@ -18,7 +18,7 @@ export default function handoffSwitch(pi: ExtensionAPI): void {
     name: "handoff_switch",
     label: "Handoff Switch",
     description:
-      "引き継ぎメモを保存し終えたら、そのパスを渡して呼ぶ。現在の応答が完了した後に自動で新しいセッションへ切り替わり、新セッションがメモを読み込む。呼んだ後は完了報告を短く書いて応答を終えること。",
+      "引き継ぎメモを保存し終えたら、そのパスを渡して呼ぶ。現在の応答が完了した後に自動で新しいセッションへ切り替わり、新セッションがメモを読み込む。未完の todo はメモに書いたうえで block(reason: handoff)してから呼ぶこと。未完 todo が残っていると停止時の todo リマインダーで作業が再開され、切替が着地しない。呼んだ後は完了報告を短く書いて応答を終えること。",
     parameters: pi.zod.object({
       path: pi.zod.string().min(1).describe("保存済みの引き継ぎメモのパス"),
     }),
