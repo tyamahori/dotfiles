@@ -47,6 +47,7 @@ typeset -U fpath FPATH
 fpath=(
   "$_comp_cache_dir"
   "$HOME"/.grok/completions/zsh(N-/)
+  "$HOME"/.docker/completions(N-/)
   "$HOME"/.local/share/devbox/global/default/.devbox/nix/profile/default/share/zsh/site-functions(N-/)
   "${HOMEBREW_PREFIX:-/opt/homebrew}"/share/zsh-completions(N-/)
   "${HOMEBREW_PREFIX:-/opt/homebrew}"/share/zsh/site-functions(N-/)
