@@ -1,0 +1,17 @@
+#!/bin/bash
+# Match the edit-time check so manual commits enforce the same policy.
+set -euo pipefail
+
+command -v hadolint >/dev/null || exit 0
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+targets=()
+while IFS= read -r -d '' file; do
+	[[ -f $file ]] || continue
+	case "${file##*/}" in
+	Dockerfile | Dockerfile.* | *.Dockerfile) targets+=("$file") ;;
+	esac
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+((${#targets[@]})) || exit 0
+
+hadolint --failure-threshold style "${targets[@]}"
