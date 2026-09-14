@@ -147,9 +147,12 @@ Current checks:
   diff for secrets; false positives are silenced with a `gitleaks:allow`
   comment.
 - **pre-commit dclint** (`checks/pre-commit-dclint`) — lints staged Docker
-  Compose files against modern Compose notation with dclint (errors only; a
-  repo's own `.dclintrc` wins, `# dclint disable-line <rule>` opts out a
-  line).
+  Compose files with all default rules, including style warnings
+  (`--max-warnings 0`). A repo's own `.dclintrc` wins;
+  `# dclint disable-line <rule>` opts out a line.
+- **pre-commit hadolint** (`checks/pre-commit-hadolint`) — lints staged
+  `Dockerfile`, `Dockerfile.*`, and `*.Dockerfile` files, including shell
+  commands in `RUN`. All severities fail (`--failure-threshold style`).
 - **pre-commit json** (`checks/pre-commit-json`) — validates staged JSON files
   with `jq empty` and requires `jq --sort-keys` canonical formatting for
   `claude/settings.json`, `codex/hooks.json`, `omp/lsp.json`, `omp/dap.json`,
@@ -385,11 +388,24 @@ extensions in `omp/extensions/`:
   writes or edits them (shellcheck for shell, ruff for Python, oxlint for
   TypeScript/JavaScript, actionlint for GitHub workflow files, jq syntax
   validation for JSON, `jq --sort-keys` formatting for the linked
-  Claude/Codex/OMP JSON configuration, and dclint for Docker Compose files)
-  and feeds findings back for an immediate fix. dclint runs errors only, so
-  obsolete notation like a `version` field, untagged images, or unquoted ports
-  blocks immediately. Its binary is a locked Node dependency in `tools/dclint`,
-  installed by `scripts/devbox`.
+  Claude/Codex/OMP JSON configuration, hadolint for Dockerfiles, and dclint
+  for Docker Compose files) and feeds findings back for an immediate fix.
+  Hadolint reports all severities; dclint permits no warnings, including
+  ordering/style rules. Project configs and inline rule exceptions still apply.
+  Both are installed by `scripts/devbox`: Hadolint via devbox global,
+  DCLint as a locked Node dependency in `tools/dclint`.
+  Run the same strict checks manually with:
+
+  ```sh
+  hadolint --failure-threshold style Dockerfile
+  ~/dotfiles/tools/dclint/node_modules/.bin/dclint --max-warnings 0 compose.yaml
+  docker compose -f compose.yaml config -q
+  ```
+
+  Compose's official validation complements linting: supply the actual
+  environment files/variables and the same `-f` override files used at runtime.
+  It is not run per edited file because override fragments need not be valid
+  standalone configurations. These checks do not build or start services.
 - **jbcontext clobber check** — `scripts/jbcontext-clobber-check` warns at
   session start when `agents/global-instructions.md`, `claude/settings.json`,
   or `codex/hooks.json` carry uncommitted changes — the signature of a

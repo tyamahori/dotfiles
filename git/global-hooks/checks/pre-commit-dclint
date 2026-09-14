@@ -2,7 +2,7 @@
 # Machine-global pre-commit check: lint staged Docker Compose files with
 # dclint so obsolete notation (version field, untagged images, unquoted
 # ports) cannot be committed even when the edit-time hook was bypassed.
-# Errors only (--quiet); a repo's own .dclintrc wins; one commit escapes
+# Warnings also fail (--max-warnings 0); a repo's own .dclintrc wins; one commit escapes
 # with --no-verify, a line opts out with `# dclint disable-line <rule>`.
 set -euo pipefail
 
@@ -22,9 +22,9 @@ while IFS= read -r -d '' file; do
 done < <(git diff --cached --name-only --diff-filter=ACMR -z)
 ((${#targets[@]})) || exit 0
 
-if ! log=$("$dclint" --formatter compact --no-color --quiet "${targets[@]}" 2>&1); then
+if ! log=$("$dclint" --formatter compact --no-color --max-warnings 0 "${targets[@]}" 2>&1); then
 	printf '%s\n' "$log" >&2
-	echo "pre-commit: dclint found obsolete Compose notation in staged files." >&2
+	echo "pre-commit: dclint found Compose lint errors or warnings in staged files." >&2
 	echo "Fix them (dclint --fix handles most), or commit with --no-verify." >&2
 	exit 1
 fi

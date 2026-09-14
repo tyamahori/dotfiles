@@ -3,7 +3,7 @@
 # it, feeding findings back so they are fixed before commit. Dispatches by
 # file type: shellcheck for sh/bash, ruff for Python, oxlint for
 # TypeScript/JavaScript, actionlint for GitHub workflow files, dclint for
-# Docker Compose files, jq syntax validation for JSON, and canonical
+# Docker Compose files, hadolint for Dockerfiles, jq syntax validation for JSON, and canonical
 # jq --sort-keys formatting for tracked Claude/Codex/OMP configuration.
 # Reads Claude-style JSON ({tool_input:{file_path}}) on stdin and emits a
 # {decision:"block"} JSON on findings. Consumers: Claude Code
@@ -22,6 +22,7 @@ case "$file" in
   */.github/workflows/*.yml|*/.github/workflows/*.yaml) linter=actionlint ;;
   # dclint's own discovery pattern: (docker-)?compose*.ya?ml
   compose*.yml|compose*.yaml|docker-compose*.yml|docker-compose*.yaml|*/compose*.yml|*/compose*.yaml|*/docker-compose*.yml|*/docker-compose*.yaml) linter=dclint ;;
+  Dockerfile|Dockerfile.*|*.Dockerfile|*/Dockerfile|*/Dockerfile.*) linter=hadolint ;;
   # JSONC dialects (comments/trailing commas are legal there) — never jq them.
   *.jsonc|tsconfig*.json|*/tsconfig*.json|jsconfig*.json|*/jsconfig*.json|*/.vscode/*.json|devcontainer.json|*/devcontainer.json|*/.devcontainer/*.json) exit 0 ;;
   */claude/settings.json|*/.claude/settings.json|*/codex/hooks.json|*/.codex/hooks.json|*/omp/lsp.json|*/.omp/agent/lsp.json|*/omp/mcp.json|*/.omp/agent/mcp.json) linter=jq; json_format=canonical ;;
@@ -67,10 +68,9 @@ $findings"
   # own .oxlintrc.json is discovered and wins. Clean files print nothing.
   oxlint) findings=$(oxlint --format=unix "$file" 2>&1 | head -c 4000) || true ;;
   actionlint) findings=$(actionlint -no-color "$file" 2>&1 | head -c 4000) || true ;;
-  # Errors only (--quiet): blocks obsolete notation (version field, untagged
-  # images, unquoted ports, key order) without warning-level ordering
-  # opinions. A project's own .dclintrc is discovered and wins.
-  dclint) findings=$("$dclint_bin" --formatter compact --no-color --quiet "$file" 2>&1 | head -c 4000) || true ;;
+  hadolint) findings=$(hadolint --failure-threshold style --format tty "$file" 2>&1 | head -c 4000) || true ;;
+  # Keep project rules; warning-level style findings also block.
+  dclint) findings=$("$dclint_bin" --formatter compact --no-color --max-warnings 0 "$file" 2>&1 | head -c 4000) || true ;;
 esac
 [ -n "$findings" ] || exit 0
 
