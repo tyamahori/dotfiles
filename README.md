@@ -342,7 +342,9 @@ vendored into `agents/skills/<name>/` instead when the repo depends on its
 files (the prose lint above calls `natural-japanese/scripts/lint.py`) or
 carries deliberate local edits. Each vendored skill has `.openskills.json`
 (`repoUrl`, `subpath`, synced `commit`) and, if edited, a `local.patch`
-holding the diff against upstream.
+holding the diff against upstream. A GitHub gist is a git repository too:
+`japanese-tech-writing` tracks `https://gist.github.com/<id>.git` with
+`subpath: "."`.
 
 `scripts/skill-sync --check` compares the recorded commit with upstream HEAD;
 `scripts/brewUpdate` runs it so drift shows up during the routine update.

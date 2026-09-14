@@ -1,6 +1,6 @@
 ---
 name: natural-japanese
-description: 日本語の文書（議事録・レポート・ガイド・企画書・メール・スライド構成・note・ブログ）を書く／直すとき、AI臭い・不自然・読みにくい・一文が長いと指摘されたとき、AI臭さの採点や文体プロファイル化を頼まれたときに使う。Markdown 整形規約は japanese-tech-writing。
+description: 日本語の文書（議事録・レポート・ガイド・企画書・メール・スライド構成・note・ブログ）を書く／直すとき、AI臭い・不自然・読みにくい・一文が長いと指摘されたとき、AI臭さの採点や文体プロファイル化を頼まれたときに使う。
 license: MIT
 argument-hint: "[write|score] [quick|full|exp] [対象ファイルや依頼内容]"
 ---
