@@ -13,11 +13,19 @@ Resolve `SKILL_DIR` as the directory containing this `SKILL.md` before reading b
 
 1. Resolve the repository with `gh repo view --json nameWithOwner -q .nameWithOwner`.
 2. Resolve the review surface:
-   - PR: read `gh pr view --json number,baseRefName,headRefName,title,body,url` and the full diff.
+   - PR: read `gh pr view --json number,baseRefName,baseRefOid,headRefName,headRefOid,title,body,url` and fix both commit SHAs. Read the full base-to-head diff initially; on repeat reviews, use the boundary below.
    - Local work: inspect `git diff`, `git diff --cached`, and committed branch changes against the intended base.
-   Read the full diff before any broader exploratory commands; scope follow-up searches to questions the diff raised.
+   On the first review, read the full diff before broader exploration; scope follow-up searches to questions it raised. For a repeat review, use the boundary below.
 3. Read current repository-owned instructions and specifications. Search for `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, contribution guides, task/spec documents, and review checklists. Treat these files as the current source of repository-specific rules; do not copy their contents into this skill.
 4. If the repository has a large historical review archive, locate only sections relevant to the changed paths or symbols with `rg`.
+
+### Repeat review of the same work
+
+When the previous fixed revision, review scope, findings, and verification evidence are available, start from the complete delta to the current fixed revision, every previous finding, and affected contracts. For uncommitted work, retain an immutable snapshot of both reviewed diffs; a moving working tree is not a comparison baseline.
+
+Do not reread unchanged files mechanically. Read enclosing functions, callers, related tests, and documentation far enough to establish the impact. Independently verify current source and run the affected checks; neither the implementer's explanation nor the previous verdict proves a fix. Check for regressions beyond the previous findings.
+
+Return to the full review when prior evidence is missing, the base or acceptance criteria change, history rewriting makes the delta unreliable, or impact exceeds the expected scope. Keep the cold-review requirement. In the report, identify both snapshots, the newly checked scope, reused evidence, and any unverified areas. The passes below apply to that scope.
 
 ## Review in priority order
 
@@ -49,7 +57,7 @@ Compare the PR body with the final diff. Verify links against Git-tracked files,
 
 ### 5. Perform a final cold read
 
-Re-read only the final diff, PR body, and applicable repository rules. Challenge claims such as “already handled,” “unchanged,” “out of scope,” and “same as before” with current evidence.
+Re-read only the final diff within the established review boundary, PR body, and applicable repository rules. Challenge claims such as “already handled,” “unchanged,” “out of scope,” and “same as before” with current evidence.
 
 ## Triage likely false positives
 

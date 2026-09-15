@@ -71,7 +71,9 @@ impl / reviewer の役割はフロー開始時に決める。
   で一時 commit を切って固定する。
 - 1フローはちょうど1回の
   `REVIEW-REQ → FINDINGS → APPLIED（指摘がある場合）→ VERIFIED → DECISION（必要な場合）`
-  である。APPLIED 後はレビュアーが `result-revision` を読み直して VERIFIED を送る。
+  である。APPLIED 後はレビュアーが固定した `revision` から `result-revision` までの
+  全差分、以前の指摘、影響範囲を確認して VERIFIED を送る。具体的な読込条件は
+  配達するreviewer手順に従う。初回の全体確認と独立性は省略しない。
 - 状態遷移は `REVIEW-REQ → open-review`、`FINDINGS → open-findings`、
   `APPLIED → open-applied`。VERIFIED は全件解決なら `closed-pass`、low-only
   なら `closed-low`、high/mid を残せば `awaiting-decision` へ進む。完了として

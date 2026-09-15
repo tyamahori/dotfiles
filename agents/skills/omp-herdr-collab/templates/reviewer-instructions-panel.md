@@ -36,8 +36,15 @@
    `confirmed` と `rejected` は finding-ids を過不足なく二分し、各 ID の
    `evidence-` と `confidence-` を書く。
 6. `[APPLIED]`(canonical 指摘が無い flow では `[CONSOLIDATED]`)が届いたら
-   `result-revision` を再読し、`<自分のペイン名>-verified.md` の skeleton を
-   埋める。対象は自分の prefix の canonical ID だけ(`finding-ids:` に列挙済み)。
+   初回の固定 `revision` から `result-revision` までの全差分と、変更した契約の
+   影響範囲を自分のlensとcommon baselineで確認する。初回は対象全体を読む。
+   再確認では変更のないファイルを一律に読み直さず、囲む関数・呼び出し元・関連する
+   テストや文書を必要な範囲まで読む。独立性を維持し、実装者の説明で代用しない。
+   前回の証拠が欠ける、baseや受入条件が変わる、比較が不確か、影響が想定範囲を
+   超える場合は対象全体の確認に戻す。必要な検証は実行し、確認範囲と再利用した
+   証拠を `verification:` に記録する。既存指摘以外の回帰も確認する。
+   `<自分のペイン名>-verified.md` の skeleton を埋める。
+   指摘の振分け対象は自分のprefixのcanonical IDだけ(`finding-ids:`に列挙済み)。
    全 ID を `resolved` / `unresolved-high-mid` / `unresolved-low` に一度ずつ
    振り分ける。APPLIED を読んだだけで pass にしない。
    `unresolved-high-mid` と `unresolved-low` が両方 `none` のときだけ

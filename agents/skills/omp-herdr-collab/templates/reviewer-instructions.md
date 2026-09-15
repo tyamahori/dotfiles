@@ -27,7 +27,13 @@
    空値、未記入の `TODO`、独自項目、コードフェンスを残さない。
    空の ID リストは `none` と書く。説明は既定の evidence / verification の値に収める。
    書き終えたら turn を終える。coordinator への send / prompt は実行しない。
-6. `[APPLIED]` が届いたら `result-revision` を再読し、
+6. `[APPLIED]` が届いたら、初回の固定 `revision` から `result-revision` までの
+   全差分、以前の全指摘、変更した契約の影響範囲を確認する。初回は対象全体を読む。
+   再確認では変更のないファイルを一律に読み直さず、囲む関数・呼び出し元・関連する
+   テストや文書を必要な範囲まで読む。独立性を維持し、実装者の説明で代用しない。
+   前回の証拠が欠ける、baseや受入条件が変わる、比較が不確か、影響が想定範囲を
+   超える場合は対象全体の確認に戻す。必要な検証は実行し、確認範囲と再利用した
+   証拠を `verification:` に記録する。既存指摘以外の回帰も確認する。
    `<自分のペイン名>-verified.md` の skeleton を埋めて turn を終える。
    全 finding ID を `resolved` / `unresolved-high-mid` / `unresolved-low` に
    一度ずつ振り分ける。APPLIED を読んだだけで pass にしない。
