@@ -46,11 +46,20 @@ if ! command -v omp >/dev/null 2>&1; then
 	exit 1
 fi
 
-installed="$(omp plugin list --json)"
+# `omp`'s worker daemon leaves a stray background process after it runs,
+# which breaks any later `<<<` herestring in this script (measured, omp
+# 18.2.0: the following heredoc/jq call hangs forever) and its
+# `--json` stdout is truncated at 512 bytes when captured through a pipe
+# (i.e. via `$(...)`, which `<file` avoids). Route every omp JSON read
+# through a temp file and have jq read the file directly — never `<<<` a
+# variable populated from omp's output.
+omp_plugin_list_json="$(mktemp)"
+trap 'rm -f "$omp_plugin_list_json"' EXIT
+omp plugin list --json >"$omp_plugin_list_json"
 
 for plugin in "${plugins[@]}"; do
 	read -r name version <<<"$plugin"
-	installed_version="$(jq -r --arg name "$name" '.npm[] | select(.name == $name) | .version' <<<"$installed")"
+	installed_version="$(jq -r --arg name "$name" '.npm[] | select(.name == $name) | .version' "$omp_plugin_list_json")"
 	if [ "$installed_version" = "$version" ]; then
 		echo "omp-plugins: $name@$version already installed" >&2
 	elif [ -n "$installed_version" ]; then
@@ -71,18 +80,20 @@ marketplace_plugins=(
 
 for plugin in "${marketplace_plugins[@]}"; do
 	read -r id repo <<<"$plugin"
-	if jq -e --arg id "$id" 'any(.marketplace[]; .id == $id)' <<<"$installed" >/dev/null; then
+	if jq -e --arg id "$id" 'any(.marketplace[]; .id == $id)' "$omp_plugin_list_json" >/dev/null; then
 		echo "omp-plugins: $id already installed" >&2
 		continue
 	fi
 	marketplace="${id##*@}"
 	# `marketplace add` fails on a duplicate, so guard with the configured
-	# list. Capture before grep -q: under pipefail its early exit would
-	# SIGPIPE the list command and fail the pipeline.
-	marketplaces="$(omp plugin marketplace list || true)"
-	if ! grep -q "^  $marketplace  " <<<"$marketplaces"; then
+	# list, read from a temp file (never `<<<`/`$(...)` on omp output —
+	# see the truncation/hang notes above).
+	omp_marketplace_list="$(mktemp)"
+	omp plugin marketplace list >"$omp_marketplace_list" || true
+	if ! grep -q "^  $marketplace  " "$omp_marketplace_list"; then
 		omp plugin marketplace add "$repo"
 	fi
+	rm -f "$omp_marketplace_list"
 	omp plugin install "$id"
 done
 
@@ -110,7 +121,7 @@ for patch_file in "$patch_dir"/*.patch; do
 done
 
 for plugin in "${retired[@]}"; do
-	if jq -e --arg name "$plugin" 'any(.npm[]; .name == $name)' <<<"$installed" >/dev/null; then
+	if jq -e --arg name "$plugin" 'any(.npm[]; .name == $name)' "$omp_plugin_list_json" >/dev/null; then
 		omp plugin uninstall "$plugin"
 	fi
 done
