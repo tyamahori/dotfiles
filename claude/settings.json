@@ -56,6 +56,7 @@
       {
         "hooks": [
           {
+            "_adrafinil": true,
             "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil release $CLAUDE_CODE_SESSION_ID --tool claude-code",
             "type": "command"
           }
@@ -195,6 +196,7 @@
       {
         "hooks": [
           {
+            "_adrafinil": true,
             "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil release $CLAUDE_CODE_SESSION_ID --tool claude-code",
             "type": "command"
           }
@@ -239,6 +241,7 @@
       {
         "hooks": [
           {
+            "_adrafinil": true,
             "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil acquire $CLAUDE_CODE_SESSION_ID --tool claude-code",
             "type": "command"
           }
@@ -277,6 +280,7 @@
       {
         "hooks": [
           {
+            "_adrafinil": true,
             "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil release $CLAUDE_CODE_SESSION_ID --tool claude-code",
             "type": "command"
           }
@@ -316,6 +320,7 @@
       {
         "hooks": [
           {
+            "_adrafinil": true,
             "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil acquire --tool claude-code --subagent",
             "type": "command"
           }
@@ -344,6 +349,7 @@
       {
         "hooks": [
           {
+            "_adrafinil": true,
             "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil release --tool claude-code --subagent",
             "type": "command"
           }
@@ -383,6 +389,7 @@
       {
         "hooks": [
           {
+            "_adrafinil": true,
             "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil acquire $CLAUDE_CODE_SESSION_ID --tool claude-code",
             "type": "command"
           }
