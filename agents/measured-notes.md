@@ -48,3 +48,14 @@ showed 13 active days in July then 3 since 08-28, with feature counters of
 terminal-tabs 500–999 versus agent-orchestration 10–19, account-switching
 5–9, usage-tracking 50–99, automations 3–4 — Orca use was mostly a
 duplicate terminal.
+
+## Reading documents — no component library
+
+2026-09-15: a side-by-side rebuild of a 6-section stakeholder spec page in
+Tailwind 4 + daisyUI 5 reproduced the hand-written version's look only
+after re-applying the same typography and spacing rules as utilities; the
+library itself contributed a color theme, a link style, and one stat
+block. Its table needed every cell overridden to get ruled financial
+tables, `table-sm` shrank body text to ~12px, `menu` removed link
+underlines, CSS grew from 6KB to 49KB inline, and the build added 22MB of
+dependencies. Text content was byte-identical; readability was not better.

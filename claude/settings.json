@@ -7,6 +7,7 @@
     "plannotator@plannotator": true,
     "ponytail@ponytail": true,
     "reviewable-html-workbench@reviewable-html-workbench-local": true,
+    "typescript-lsp@claude-plugins-official": true,
     "warp@claude-code-warp": true
   },
   "extraKnownMarketplaces": {
@@ -55,7 +56,6 @@
       {
         "hooks": [
           {
-            "_adrafinil": true,
             "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil release $CLAUDE_CODE_SESSION_ID --tool claude-code",
             "type": "command"
           }
@@ -195,7 +195,6 @@
       {
         "hooks": [
           {
-            "_adrafinil": true,
             "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil release $CLAUDE_CODE_SESSION_ID --tool claude-code",
             "type": "command"
           }
@@ -240,7 +239,6 @@
       {
         "hooks": [
           {
-            "_adrafinil": true,
             "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil acquire $CLAUDE_CODE_SESSION_ID --tool claude-code",
             "type": "command"
           }
@@ -279,7 +277,6 @@
       {
         "hooks": [
           {
-            "_adrafinil": true,
             "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil release $CLAUDE_CODE_SESSION_ID --tool claude-code",
             "type": "command"
           }
@@ -319,7 +316,6 @@
       {
         "hooks": [
           {
-            "_adrafinil": true,
             "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil acquire --tool claude-code --subagent",
             "type": "command"
           }
@@ -348,7 +344,6 @@
       {
         "hooks": [
           {
-            "_adrafinil": true,
             "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil release --tool claude-code --subagent",
             "type": "command"
           }
@@ -388,7 +383,6 @@
       {
         "hooks": [
           {
-            "_adrafinil": true,
             "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil acquire $CLAUDE_CODE_SESSION_ID --tool claude-code",
             "type": "command"
           }
@@ -465,7 +459,7 @@
     ],
     "defaultMode": "auto"
   },
-  "skillListingBudgetFraction": 0.029999999999999999,
+  "skillListingBudgetFraction": 0.03,
   "skillOverrides": {
     "freee-api-skill": "off",
     "update-config": "user-invocable-only"
