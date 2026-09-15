@@ -2,6 +2,46 @@
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
 
+## 2026-09-15 既定モデルを Fable/Astra → Sonnet に降格し、難所だけ自動escalationへ
+
+- 契機: Fable週次枠が100%消費、Codex週次枠も80%消費の状態でユーザーから相談。
+  「既定をFable/Astraに保ったまま簡単な作業だけ自動降格」は不可能(セッション単位で
+  固定されるモデルにはターン単位の難易度分類器がなく、判定した時点で既に重い方の
+  単価がかかる非対称性がある)と説明し、「既定を軽くし、難所だけ自動で重い方へ」の
+  方向で合意。ユーザー承認: 「やってみて。ダメだったら戻せばいい」。
+- 読んだソース: `~/.claude/cache/model-catalog/*-cc.json`(取得日2026-09-15、Claude Code
+  自身がfetchした一次情報)。Fable = "most capable...draws down usage much faster than
+  Opus"、Sonnet = "most efficient for everyday tasks"。`~/.claude/cache/changelog.md`で
+  auto mode classifierが権限承認専用でモデル階層切替とは無関係と確認(Web検索は
+  今回サインアップ要求で失敗、changelogの直接読解で代替)。`~/.claude/agents/context-explorer.md`
+  の`model: haiku`実例でsubagentごとのモデルpinが実装済み機能であることを確認。
+- 提案:
+  1. `claude/settings.json` `.model`: `claude-fable-5-1` → `claude-sonnet-5`(判断)
+  2. 難所自動委譲用に`~/.claude/agents/deep-solver.md`を新設、`model: claude-fable-5-1`
+     をpinし、root-cause診断/アーキ判断/セキュリティ・データ損失リスク/高リスクレビュー
+     に限定したdescriptionでSonnetからの自動委譲を発火させる(判断)
+  3. `omp/config.yml` `modelRoles.default`: `anthropic/claude-fable-5-1` →
+     `anthropic/claude-sonnet-5`(判断)
+  4. `omp/config.yml` `modelRoles.plan`/`slow`は現状維持(Plan Mode・reviewer/
+     security-reviewerが既に`@slow`=Astraへ自動ルーティングする設計を活かす、
+     変更なしの理由あり)
+- 適用(承認済み): 1〜3を適用。4は変更なし。
+- 却下・保留: なし。
+- 検証: `scripts/model-pins check`で意図した2件の差分のみを確認(claude.model、
+  omp.modelRoles.default)。OMP側は`omp --mode rpc --no-session --model @default
+  --no-title`の`get_state`で`model.id: claude-sonnet-5`を確認(推論要求なし)。
+  Claude Code側は`claude doctor`で設定ファイルの構文エラーなしを確認したうえで、
+  実際に`claude -p "reply with exactly the word: ok" --output-format json`を実行し、
+  `modelUsage`が`claude-sonnet-5`(補助呼び出しは`claude-haiku-4-5`)であることを
+  実測確認。検証後`scripts/model-pins ack`実行、直後の`check`は差分なし(exit 0)。
+  `deep-solver.md`は新規サブエージェント定義でmodel-pins追跡対象外のため、
+  実際の自動委譲発火は今後の実利用で確認する。
+- 1週間後: 9月22日以降、`agent-usage-weekly`でClaude Code・OMP双方の週次Fable/Astra
+  消費比率、成功タスク当たりコスト、`deep-solver`委譲回数と的中率(委譲すべきでない
+  簡単なタスクへの誤発火がないか)を変更前(〜09-15)と比較する。悪化または
+  難所判断の質低下が確認できたら、既定を戻す前に悪化した値と復帰対象を提示し
+  承認を得る。
+
 ## 2026-09-13 指示レビューの承認項目を適用
 
 - 根拠: https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra と既存の Codex・Claude 履歴。調査範囲と限界は `.agent-msgs/scratch/2026-09-13-instruction-audit.json`。

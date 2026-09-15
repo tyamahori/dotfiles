@@ -397,7 +397,7 @@
       }
     ]
   },
-  "model": "claude-fable-5-1",
+  "model": "claude-sonnet-5",
   "permissions": {
     "allow": [
       "Bash(herdr *)",

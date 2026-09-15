@@ -33,7 +33,7 @@ modelRoles:
   plan: openai-codex/gpt-6-astra:low
   slow: openai-codex/gpt-6-astra
   advisor: openai-codex/gpt-5.6-terra
-  default: anthropic/claude-fable-5-1
+  default: anthropic/claude-sonnet-5
 task: 
   showResolvedModelBadge: true
   maxRecursionDepth: 1
