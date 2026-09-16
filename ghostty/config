@@ -51,3 +51,15 @@
 font-family = Cica
 font-size = 15
 macos-option-as-alt = true
+
+# --- 見た目 ---
+theme = Catppuccin Mocha
+window-padding-x = 8
+window-padding-y = 8
+macos-titlebar-style = tabs
+
+# --- 体感速度(チラつき・余計な描画を削る) ---
+cursor-style = block
+cursor-style-blink = false
+mouse-hide-while-typing = true
+resize-overlay = never
