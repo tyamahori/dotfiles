@@ -50,3 +50,4 @@
 
 font-family = Cica
 font-size = 15
+macos-option-as-alt = true
