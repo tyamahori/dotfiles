@@ -315,6 +315,7 @@ fi
 echo
 echo "## OMP 改善診断"
 echo
+# shellcheck disable=SC2016 # backticks are literal markdown code-span text, not expansion
 echo '> 集計期間は上記と同じ '"${CUTOFF}"' 以降（ローカル日付境界を含む）。利用量は `~/.omp/stats.db` の正規化済み記録を使い、raw JSONL を再集計しない。compaction / handoff / prewalk は同DBにないため、`~/.omp/agent/sessions` のイベントIDを重複排除して数える。'
 echo
 
@@ -382,9 +383,11 @@ elif ! command -v omp >/dev/null 2>&1; then
 	echo "- stats index sync: **失敗**（omp command がないため、stats.db は照会しない）。"
 elif ! OMP_STATS_SYNC_OUTPUT="$(omp stats --summary 2>&1)"; then
 	OMP_STATS_USABLE=0
-	echo "- stats index sync: **失敗**（`omp stats --summary` が失敗したため、stats.db は照会しない）。"
+	# shellcheck disable=SC2016 # backticks are literal markdown code-span text, not expansion
+	echo '- stats index sync: **失敗**（`omp stats --summary` が失敗したため、stats.db は照会しない）。'
 	printf '%s\n' "$OMP_STATS_SYNC_OUTPUT" | sed 's/^/> /'
 else
+# shellcheck disable=SC2016 # backticks are literal markdown code-span text, not expansion
 	echo '- stats index sync: 完了（`omp stats --summary`）。'
 	OMP_LATEST_EVENT="$(omp_latest_event_epoch)"
 	OMP_LATEST_DB="$(
@@ -777,11 +780,14 @@ else
 fi
 
 if command -v omp >/dev/null 2>&1 && [ -f "$REPO_ROOT/scripts/omp-plugins" ]; then
-	OMP_PLUGINS="$(omp plugin list --json 2>/dev/null)"
-	if [ -n "$OMP_PLUGINS" ] && jq -e '.npm | type == "array"' >/dev/null 2>&1 <<<"$OMP_PLUGINS"; then
+	# omp's `--json` stdout truncates when captured via `$(...)`/`<<<`
+	# (see scripts/omp-plugins); route it through a temp file instead.
+	OMP_PLUGINS_JSON="$(mktemp)"
+	omp plugin list --json >"$OMP_PLUGINS_JSON" 2>/dev/null
+	if [ -s "$OMP_PLUGINS_JSON" ] && jq -e '.npm | type == "array"' "$OMP_PLUGINS_JSON" >/dev/null 2>&1; then
 		PLUGIN_DRIFT=""
 		while IFS=$'\t' read -r plugin expected; do
-			installed="$(jq -r --arg plugin "$plugin" '.npm[] | select(.name == $plugin) | .version' <<<"$OMP_PLUGINS")"
+			installed="$(jq -r --arg plugin "$plugin" '.npm[] | select(.name == $plugin) | .version' "$OMP_PLUGINS_JSON")"
 			if [ "$installed" != "$expected" ]; then
 				PLUGIN_DRIFT="${PLUGIN_DRIFT}${PLUGIN_DRIFT:+, }${plugin} (expected ${expected}, installed ${installed:-(absent)})"
 			fi
@@ -794,6 +800,7 @@ if command -v omp >/dev/null 2>&1 && [ -f "$REPO_ROOT/scripts/omp-plugins" ]; th
 	else
 		echo "- plugins: 取得不能（\`omp plugin list --json\` が利用不可）"
 	fi
+	rm -f "$OMP_PLUGINS_JSON"
 else
 	echo "- plugins: 取得不能（omp または canonical installer がない）"
 fi
@@ -829,6 +836,7 @@ fi
 echo
 echo "### 制約"
 echo
+# shellcheck disable=SC2016 # backticks are literal markdown code-span text, not expansion
 echo '- `stats.db` は完了した model 呼出と tool 実行の索引であり、未完了・判定専用の local tiny 呼出は記録されないことがある。'
 echo "- compaction / handoff / prewalk は JSONL の明示イベントのみを数える。イベントを出さない経路は取得不能で、0 と区別できない。"
 echo "- skill activation は明示的な起動または読込シグナルであり、手順の完了や成功を保証しない。skill listing と会話内の言及は数えない。"

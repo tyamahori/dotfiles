@@ -32,3 +32,26 @@ rules:
       include:
         - "*.sh"
         - "*.bash"
+
+  # scripts/omp-plugins fd6296f (measured, omp 18.2.0): omp's `--json`
+  # stdout truncates at ~512 bytes when captured through a pipe (i.e. via
+  # `$(...)`), and a later `<<<` herestring on omp output can hang forever
+  # because omp's worker daemon leaves a stray background process behind
+  # (can1357/oh-my-pi#12124). Redirect straight to a temp file instead and
+  # have jq read the file. A small ellipsis span keeps the match inside a
+  # single `$(...)` so an unrelated later `--json` invocation is not swept
+  # in (measured false positive during rule authoring at span 5000).
+  - id: omp-json-command-substitution
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      "$(omp ... --json ...)" truncates omp's JSON stdout and a later `<<<`
+      on it can hang. Redirect to a temp file (`omp ... --json >"$tmp"`) and
+      read the file with jq instead.
+    options:
+      generic_ellipsis_max_span: 60
+    pattern: $(omp ... --json ...)
+    paths:
+      include:
+        - "*.sh"
+        - "*.bash"
