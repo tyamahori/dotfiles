@@ -157,9 +157,19 @@ All agent by-products that don't belong in the repository — scratch notes,
 plan drafts, verification screenshots, handoff notes, collab flows — go
 under `<git toplevel>/.agent-msgs/` (machine-globally gitignored):
 `scratch/` for working files, `screenshots/` for browser verification
-shots, `handoff/` for session handoff notes, `<flow>/` for
-`omp-herdr-collab` flows. Never scatter temp artifacts elsewhere in the
-working tree.
+shots, `handoff/` for session handoff notes, `plans/` for durable copies of
+plan-mode plan files, `<flow>/` for `omp-herdr-collab` flows. Never scatter
+temp artifacts elsewhere in the working tree.
+
+Plan mode itself can only write `local://<slug>-plan.md`, an ephemeral
+per-session artifact the user loses track of once scrollback moves past the
+path. As the first action of the execution phase — right after a plan is
+approved and before any other file is touched — copy the approved plan's
+full content into `<git toplevel>/.agent-msgs/plans/<slug>-plan.md`
+(same `<slug>` the plan file used), creating the directory if needed and
+overwriting any existing file for that slug (one durable file per task, not
+a growing history). If the working directory has no git toplevel, skip the
+copy and say so; never fail the turn over it.
 
 ## Session hygiene under subscription limits
 
