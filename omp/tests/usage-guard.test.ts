@@ -68,12 +68,19 @@ function seedUsage(rows: UsageRow[]): void {
   }
 }
 
-function usageHarness(current: () => Model, resolve: (spec: string) => Model | undefined) {
+function usageHarness(
+  current: () => Model,
+  resolve: (spec: string) => Model | undefined,
+  chains: Record<string, string[]> = {
+    "anthropic/*": ["openai-codex/gpt-6-astra", "openai-codex/gpt-5.6-sol"],
+  },
+) {
   const selected: Model[] = [];
   const notifications: string[] = [];
   const widgets: string[][] = [];
   let sessionStart: SessionStart | undefined;
   const api = {
+    pi: { settings: { get: (_key: "retry.fallbackChains") => chains } },
     setLabel() {},
     on(event: string, handler: SessionStart) {
       if (event === "session_start") sessionStart = handler;
@@ -106,15 +113,19 @@ function usageHarness(current: () => Model, resolve: (spec: string) => Model | u
   };
 }
 
-test("switches an Anthropic model at the 7-day reserve threshold", async () => {
+test("uses the configured model-specific chain before the provider chain at the reserve threshold", async () => {
   seedUsage([
     { provider: "anthropic", limitId: "anthropic:7d:fable", pct: 80 },
     { provider: "openai-codex", limitId: "openai-codex:primary", pct: 30 },
   ]);
-  const fallback = { provider: "openai-codex", id: "gpt-5.6-sol" };
+  const fallback = { provider: "openai-codex", id: "configured-fallback" };
   const guard = usageHarness(
     () => ({ provider: "anthropic", id: "claude-sonnet-5" }),
-    (spec) => (spec === "openai-codex/gpt-5.6-sol" ? fallback : undefined),
+    (spec) => ({ provider: "openai-codex", id: spec.split("/")[1] }),
+    {
+      "anthropic/*": ["openai-codex/provider-fallback"],
+      "anthropic/claude-sonnet-5": ["openai-codex/configured-fallback"],
+    },
   );
   blockNetwork();
 
@@ -180,4 +191,37 @@ test("keeps a manual choice latched until usage recovers, then rearms the fallba
   await guard.sessionStart();
 
   expect(guard.selected).toEqual([fallback, fallback]);
+});
+
+test("an empty model chain disables the provider fallback", async () => {
+  seedUsage([{ provider: "anthropic", limitId: "anthropic:7d:fable", pct: 80 }]);
+  const guard = usageHarness(
+    () => ({ provider: "anthropic", id: "claude-sonnet-5" }),
+    () => ({ provider: "openai-codex", id: "provider-fallback" }),
+    {
+      "anthropic/*": ["openai-codex/provider-fallback"],
+      "anthropic/claude-sonnet-5": [],
+    },
+  );
+  blockNetwork();
+
+  await guard.sessionStart();
+
+  expect(guard.selected).toEqual([]);
+});
+
+test("preserves the Codex reserve even when a configured fallback resolves", async () => {
+  seedUsage([
+    { provider: "anthropic", limitId: "anthropic:7d:fable", pct: 80 },
+    { provider: "openai-codex", limitId: "openai-codex:primary", pct: 80 },
+  ]);
+  const guard = usageHarness(
+    () => ({ provider: "anthropic", id: "claude-sonnet-5" }),
+    () => ({ provider: "openai-codex", id: "configured-fallback" }),
+  );
+  blockNetwork();
+
+  await guard.sessionStart();
+
+  expect(guard.selected).toEqual([]);
 });

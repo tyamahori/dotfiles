@@ -20,7 +20,7 @@
 // - 一度切り替え/通知した後は、その枠が閾値を下回るまで再発火しない。
 // - 両 pool が 98% 以上（実質枯渇）のときだけ、ローカル ollama を probe して
 //   応答があればメインを qwen へ退避する。ollama 不在なら何もしない。
-// - 閾値と切替先は omp/config.yml の retry 設定と揃える。
+// - 切替先は実効 retry.fallbackChains を参照する（設定ファイルの再読込は本体に任せる）。
 
 import { Database } from "bun:sqlite";
 import { homedir } from "node:os";
@@ -29,10 +29,6 @@ import { join } from "node:path";
 const USAGE_DB =
 	process.env.OMP_AGENT_DB ?? join(homedir(), ".omp/agent/agent.db");
 const USAGE_RESERVE_PCT = 20;
-const CODEX_FALLBACKS = [
-	"openai-codex/gpt-6-astra",
-	"openai-codex/gpt-5.6-sol",
-];
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 // 両pool枯渇時の最終退避先。ローカルollamaが「起動していてモデルが居る」
 // 場合だけ使う(あれば使う)。chainに入れないのは、停止中でもretry budget
@@ -67,6 +63,11 @@ type ExtensionHandlerApi = {
 		handler: (event: unknown, ctx: Ctx | undefined) => void | Promise<void>,
 	): void;
 	setModel(model: Model): Promise<boolean>;
+	pi: {
+		settings: {
+			get(key: "retry.fallbackChains"): Record<string, string[]>;
+		};
+	};
 };
 
 type UsageRow = {
@@ -215,17 +216,24 @@ export default function (pi: ExtensionHandlerApi): void {
 			switchedThisWindow = false;
 			return;
 		}
-		if (switchedThisWindow || ctx.models?.current()?.provider !== "anthropic")
-			return;
+		const current = ctx.models?.current();
+		if (switchedThisWindow || current?.provider !== "anthropic") return;
 
 		// 両pool枯渇時はsubagent用のCodex reserveをメインで食わないよう切替を見送る。
 		// 通知はcheckCodex側のCodex 80%通知が担う。
 		const codexPct = latestUsedPct(rows, "openai-codex", "openai-codex:primary");
 		if (codexPct !== null && codexPct >= 100 - USAGE_RESERVE_PCT) return;
 
-		for (const spec of CODEX_FALLBACKS) {
+		const chains = pi.pi.settings.get("retry.fallbackChains");
+		// ponytail: suffixless model keys and provider/* cover this config; use the
+		// native retry matcher if role/effort/prefix-specific chains are introduced.
+		const fallbacks =
+			chains[`${current.provider}/${current.id}`] ??
+			chains[`${current.provider}/*`] ??
+			[];
+		for (const spec of fallbacks) {
 			const target = await ctx.models?.resolve(spec);
-			if (target && (await pi.setModel(target))) {
+			if (target?.provider === "openai-codex" && (await pi.setModel(target))) {
 				switchedThisWindow = true;
 				notify(
 					ctx,
