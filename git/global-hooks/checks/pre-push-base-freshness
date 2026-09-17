@@ -1,0 +1,53 @@
+#!/bin/bash
+# Machine-global pre-push check: warn when a branch's fork point is not the
+# current tip of its actual intended base (measured 2026-08-24: a branch cut
+# from a stale unmerged branch dragged 17 unrelated commits into a PR).
+#
+# The base is NOT hardcoded to origin/main: stacked PRs intentionally base a
+# branch on another in-flight PR branch (agents/global-instructions.md,
+# "Commits and pull requests"). Base is resolved per push, in priority order:
+#   1. An open PR's declared base (gh pr view --json baseRefName).
+#   2. The repo's default branch (origin/HEAD), when no PR exists yet.
+# The check itself is base-relative, not main-relative: it only asks whether
+# HEAD forked from that base's current tip, so an intentional, fresh stack
+# passes and an accidental stale/wrong branch-off is flagged either way.
+#
+# Warn-only by design (semgrep/default.yaml's own bar: only near-zero
+# false-positive checks block). gh/network failures degrade to silent skip.
+set -euo pipefail
+
+command -v gh >/dev/null || exit 0
+remote=$1
+
+while read -r local_ref local_sha _remote_ref _remote_sha; do
+	[[ $local_ref == refs/heads/* ]] || continue
+	[[ $local_sha =~ ^0+$ ]] && continue # branch deletion
+
+	branch=${local_ref#refs/heads/}
+	current=$(git symbolic-ref --short -q HEAD || true)
+	[[ $branch == "$current" ]] || continue # only check the branch actually being worked on
+
+	default_branch=$(git symbolic-ref -q "refs/remotes/$remote/HEAD" 2>/dev/null | sed "s@^refs/remotes/$remote/@@") || true
+	default_branch=${default_branch:-main}
+	[[ $branch == "$default_branch" ]] && continue # pushing the default branch itself
+
+	base=$(gh pr view "$branch" --json baseRefName -q .baseRefName 2>/dev/null) || true
+	base=${base:-$default_branch}
+
+	git fetch -q "$remote" "$base" 2>/dev/null || continue
+	base_tip=$(git rev-parse "$remote/$base" 2>/dev/null) || continue
+	merge_base=$(git merge-base "$local_sha" "$base_tip" 2>/dev/null) || continue
+
+	if [[ $merge_base != "$base_tip" ]]; then
+		cat >&2 <<EOF
+pre-push: '$branch' forked from '$base' before its current tip ($remote/$base).
+This is how an unmerged branch's unrelated commits end up dragged into a PR.
+If '$base' is genuinely this branch's intended base, rebase onto it:
+    git fetch $remote $base && git rebase $remote/$base
+If this branch intentionally stacks on a different in-flight PR, open/retarget
+the PR with that base first so this check resolves it correctly next time.
+EOF
+	fi
+done
+
+exit 0

@@ -23,6 +23,9 @@ pre-commit)
 	"$hook_dir/checks/pre-commit-hadolint" "$@"
 	"$hook_dir/checks/pre-commit-json" "$@"
 	;;
+pre-push)
+	"$hook_dir/checks/pre-push-base-freshness" "$@"
+	;;
 esac
 
 repo_hook="$(git rev-parse --git-common-dir)/hooks/$hook_name"
