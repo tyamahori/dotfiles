@@ -7,6 +7,7 @@
     "plannotator@plannotator": true,
     "ponytail@ponytail": true,
     "reviewable-html-workbench@reviewable-html-workbench-local": true,
+    "typesafe@typesafe-ai": true,
     "typescript-lsp@claude-plugins-official": true,
     "warp@claude-code-warp": true
   },
@@ -38,6 +39,12 @@
     "reviewable-html-workbench-local": {
       "source": {
         "repo": "u-ichi/reviewable-html-workbench",
+        "source": "github"
+      }
+    },
+    "typesafe-ai": {
+      "source": {
+        "repo": "typesafe-ai/skills",
         "source": "github"
       }
     }
