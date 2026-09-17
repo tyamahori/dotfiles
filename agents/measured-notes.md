@@ -50,7 +50,11 @@ Mechanized: scripts/session-hygiene-hook (resume case).
 2026-08-18: three sessions in one week each absorbed a 177k–240k-char
 settings-schema injection, re-read on every later turn (~50k tokens).
 
-Mechanized: no — no static signal in the current hook surface distinguishes invoking the built-in update-config skill from any other skill call.
+Mechanized: yes — claude/settings.json `skillOverrides.update-config =
+"user-invocable-only"` (commit 1779fe4, 2026-08-26) blocks agent-initiated
+invocation structurally; manual `/update-config` still works. This entry
+said "Mechanized: no" until 2026-09-16 — the note was committed five days
+after the actual fix and never updated to match.
 
 ## ~/dotfiles is public
 

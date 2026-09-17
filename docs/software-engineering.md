@@ -24,6 +24,7 @@
 | 構造的な編集（rename、参照列挙、codemod） | 共有指示の「Structural edits」、`structural-edit`、OMP `lsp` / `ast_edit` | 複数箇所に及ぶ書き換え |
 | 言語別のスクリプト作法 | `efficient-python`、`efficient-ts-js` | スクリプトを書く・実行する前 |
 | 品質ゲート（semgrep、SonarQube、ruff、commit-msg の Why 検査） | `docs/semgrep.md`、`docs/sonarqube.md`、`ruff/ruff.toml`、`git/global-hooks/` | commit 時、完了報告前 |
+| 判断の形式化（機械化できるか試す、`Mechanized:` の更新義務） | 本書「形式化のサイクルを回す」節、`agents/measured-notes.md` | 同じ判断を二度目にする前、hook/permission/schema を足したとき |
 
 ## 意図的に書いていないもの
 
@@ -40,3 +41,9 @@
 ## 追加するときの判断
 
 新しい規範を書きたくなったら、まず既存の skill の節として足せないかを見る。毎ターン読ませたい一行ポインタだけを `agents/global-instructions.md` に置き、手順や判断基準は skill、導入・運用の手順は `docs/` に書く。skill を増やしたら `scripts/link` を実行して各ホストの skills ディレクトリへ symlink し、`omp -p --no-session "read skill://<name>"` で新しいセッションから読めることを確かめる。
+
+## 形式化のサイクルを回す
+
+`agents/measured-notes.md` の `Mechanized:` 欄はこのリポジトリにおける形式化の実装である。判断が繰り返し必要になったら、まず構造的な信号（hook・permission・skillOverrides・型・schema・semgrep ルール）に落とせないか試す。落とせれば prose 規則を機械的な強制に置き換え、常時注入の一行ポインタだけを残せる（毎ターンの再判断が要らなくなる分だけ、共有指示は削れる）。落とせなければ理由を書いて次回の判断コストを下げる。
+
+`Mechanized: no` の行は解決済みの課題ではなく、新しい signal（hook の新機能、設定スキーマの追加、ファイル規約の整備）が出たときに再挑戦する対象のキューとして読む。逆に「no」のまま放置すると、後から追加した機械化に記録が追いつかず、規則が二重管理になる（2026-08-26 の `skillOverrides.update-config` 追加が測定ノートに反映されず 2026-09-16 まで "no" のままだった例がある）。skill や hook を足して既存の判断を機械化したら、対応する measured-notes.md のエントリを同じコミットで更新する。
