@@ -1,0 +1,62 @@
+#!/bin/bash
+# Shared PostToolUse/PostToolUseFailure hook (Bash matcher): mechanizes the
+# "fail fast on repeated identical failures" rule (agents/measured-notes.md,
+# 2026-08-23: one session repeated an identity-mismatch sweep 15 times).
+# Tracks consecutive failures of the exact same command within a session;
+# from the 2nd consecutive identical failure onward, tells the agent to stop
+# instead of trying a 3rd time. A success for that exact command resets the
+# counter. Consumers: Claude Code (PostToolUse resets, PostToolUseFailure
+# counts) and Codex (single PostToolUse handles both).
+set -euo pipefail
+
+payload=$(cat)
+client="${1:?usage: fail-fast-hook <claude|codex>}"
+
+tool_name=$(jq -r '.tool_name // empty' <<<"$payload")
+[ "$tool_name" = "Bash" ] || exit 0
+
+session_id=$(jq -r '.session_id // empty' <<<"$payload")
+command=$(jq -r '.tool_input.command // empty' <<<"$payload")
+[ -n "$session_id" ] && [ -n "$command" ] || exit 0
+
+failed=0
+case "$client" in
+claude)
+	event=$(jq -r '.hook_event_name // empty' <<<"$payload")
+	case "$event" in
+	PostToolUseFailure)
+		is_interrupt=$(jq -r '.is_interrupt // empty' <<<"$payload")
+		[ "$is_interrupt" = "true" ] && exit 0
+		failed=1
+		;;
+	PostToolUse) failed=0 ;;
+	*) exit 0 ;;
+	esac
+	;;
+codex)
+	# ponytail: Codex delivers both outcomes through one PostToolUse event with
+	# no confirmed exit-status field; detect failure by the same "Exit code N"
+	# text push-agent-hint already keys on for this event. Tighten once Codex
+	# documents a real field.
+	blob=$(jq -r '[.tool_response, .error] | map(select(. != null) | tostring) | join("\n")' <<<"$payload" 2>/dev/null) || exit 0
+	printf '%s' "$blob" | grep -qE '^Exit code [1-9]' && failed=1
+	;;
+*) exit 0 ;;
+esac
+
+dir=${XDG_CACHE_HOME:-$HOME/.cache}/agent-fail-fast
+mkdir -p "$dir"
+key=$(printf '%s\0%s' "$session_id" "$command" | shasum -a 256 | cut -d ' ' -f 1)
+count_file="$dir/$key.count"
+
+if [ "$failed" = 1 ]; then
+	count=$(($(cat "$count_file" 2>/dev/null || echo 0) + 1))
+	printf '%s' "$count" >"$count_file"
+	if [ "$count" -ge 2 ]; then
+		jq -n --arg reason "This exact command has now failed $count times in a row in this session. Per the fail-fast rule: stop retrying, report the root cause and the exact fix needed, then end the turn. Do not run it again unchanged." \
+			'{decision: "block", reason: $reason}'
+	fi
+else
+	rm -f "$count_file"
+fi
+exit 0

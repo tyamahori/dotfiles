@@ -114,6 +114,11 @@
             "command": "\"$HOME/dotfiles/scripts/push-agent-hint\"",
             "timeout": 10,
             "type": "command"
+          },
+          {
+            "command": "\"$HOME/dotfiles/scripts/fail-fast-hook\" claude",
+            "timeout": 10,
+            "type": "command"
           }
         ],
         "matcher": "Bash"
@@ -134,6 +139,11 @@
         "hooks": [
           {
             "command": "\"$HOME/dotfiles/scripts/push-agent-hint\"",
+            "timeout": 10,
+            "type": "command"
+          },
+          {
+            "command": "\"$HOME/dotfiles/scripts/fail-fast-hook\" claude",
             "timeout": 10,
             "type": "command"
           }
