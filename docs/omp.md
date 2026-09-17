@@ -209,11 +209,12 @@ OMP は起動時の作業ディレクトリを、セッション、project-local
 
 ## この dotfiles でのモデル運用
 
-`omp/config.yml` の `modelRoles` が用途別のモデルを決めます。
-具体的なモデル名は更新されるため、この文書へ重複して固定せず、設定ファイルを正本とします。
+モデル運用の正本は `omp/config.yml` です。通常の割り当てを決める `modelRoles` と、障害・使用量制限時の退避先を決める `retry` を隣にまとめています。
+具体的なモデル名はこの文書へ重複して固定しません。
 
 ```bash
 omp config get modelRoles --json
+omp config get retry.fallbackChains --json
 ```
 
 主な役割は次のとおりです。
@@ -228,6 +229,22 @@ omp config get modelRoles --json
 | `vision` | 画像確認 |
 | `commit` | commit 文面 |
 | `advisor` | メインセッションの補助レビュー |
+
+### モデルや退避先を見直す
+
+通常のモデルを変えるときは `modelRoles`、退避先を変えるときは `retry.fallbackChains` を編集します。
+モデル別のキー `provider/model-id` は、共通の `provider/*` より優先されます。
+共通設定を残したまま、特定のモデルだけ退避先を変更できます。
+
+この dotfiles では、使用量監視と同じ経路を使うため、退避元のキーは思考強度を付けない `provider/model-id` または `provider/*` に揃えます。
+退避先は `provider/model-id` の配列で、上から順に試します。空配列は、そのモデルの退避候補をなくす指定です。
+通常モデルの ID を変えた場合は、対応する退避元のキーも変更してください。`@role` は退避先には使えません。
+
+`anthropic-usage-guard` は OMP の実効設定から同じ配列を読み、Codex の候補を使います。モデル名を拡張のコードへ追加する必要はありません。
+プロジェクト設定や `--config` による上書きも反映されます。ロール別・思考強度別など、別の形式を導入する場合は、拡張側も OMP 本体の resolver に合わせて変更します。
+変更後は `scripts/link` を実行し、OMP を再起動してください。稼働中のセッションへは設定ファイルの変更が自動反映されません。
+
+### 使用量の監視
 
 Anthropic と OpenAI Codex は別の subscription pool として使い分けます。
 メインセッションは判断を担当し、実装、探索、機械的処理は OpenAI 側の subagent へ寄せる構成です。

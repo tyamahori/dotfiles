@@ -25,6 +25,7 @@ providers:
     - ecosia
     - mojeek
     - public
+# Model routing: edit roles and fallback chains together here.
 modelRoles: 
   vision: openai-codex/gpt-5.6-terra
   smol: openai-codex/gpt-5.6-luna
@@ -34,6 +35,25 @@ modelRoles:
   slow: openai-codex/gpt-6-astra
   advisor: openai-codex/gpt-5.6-terra
   default: anthropic/claude-sonnet-5
+retry:
+  fallbackChains:
+    # Model-specific chains take precedence over provider-wide defaults.
+    anthropic/claude-sonnet-5:
+      - openai-codex/gpt-5.6-terra
+    openai-codex/gpt-6-astra:
+      - anthropic/claude-fable-5-1
+    anthropic/*:
+      - openai-codex/gpt-6-astra
+      - openai-codex/gpt-5.6-sol
+    openai-codex/*:
+      - anthropic/claude-sonnet-5
+      - anthropic/claude-haiku-4-5
+  usageAwareFallback: true
+  usageReservePct: 20
+  usageReservePolicy: auto
+  modelFallback: true
+  maxRetries: 4
+  maxDelayMs: 60000
 task: 
   showResolvedModelBadge: true
   maxRecursionDepth: 1
@@ -69,20 +89,6 @@ skills:
 # in. `claude` also covers `claude-plugins` and ~/.claude/skills (context-search).
 enabledProviders:
   - claude
-retry: 
-  fallbackChains: 
-    anthropic/*: 
-      - openai-codex/gpt-6-astra
-      - openai-codex/gpt-5.6-sol
-    openai-codex/*: 
-      - anthropic/claude-sonnet-5
-      - anthropic/claude-haiku-4-5
-  usageAwareFallback: true
-  usageReservePct: 20
-  usageReservePolicy: auto
-  modelFallback: true
-  maxRetries: 4
-  maxDelayMs: 60000
 symbolPreset: unicode
 defaultThinkingLevel: auto
 magicKeywords: 

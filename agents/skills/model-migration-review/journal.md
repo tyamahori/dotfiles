@@ -2,6 +2,20 @@
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
 
+## 2026-09-17 障害・使用量制限時の退避先を用途に合わせる
+
+- 承認: 通常の Sonnet 5 は Terra へ、計画・難しい処理の Astra は Fable 5.1 へ退避する。他のモデルの退避先は維持し、今後の変更箇所をまとめる。
+- 適用: `omp/config.yml` の `modelRoles` と `retry` を隣に配置し、Sonnet と Astra のモデル別 chain を追加した。既存の provider wildcard は維持。使用量監視の拡張も実効 `retry.fallbackChains` を参照し、クラウドの退避先の固定配列を削除した。
+- 公式資料（取得日 2026-09-17）:
+  - https://developers.openai.com/api/docs/models/gpt-5.6-terra.md — Terra のモデル ID と、旧 mini 相当の位置付けを確認。
+  - https://platform.claude.com/docs/en/models/overview — Fable 5.1 のモデル ID を確認。
+  - https://github.com/can1357/oh-my-pi/blob/v18.2.2/packages/coding-agent/src/session/retry-fallback-chains.ts — モデル別キーが provider wildcard より優先されること、思考強度なしのキーが同じモデルの各強度に適用されることを確認。
+- 保持: 通常モデル、plan の `low`、他のロール、共通指示は変更しない。役割の割り当てを変えないため、`model-pins` の基準更新も行わない。
+- 検証の制限: 全 Bun テストと変更した TypeScript の lint は成功。SonarQube Gate は Docker daemon のソケットへ接続できず未完了。Docker を起動した環境で全テストのカバレッジ生成から再実行するまで、Gate 通過とは扱わない。
+- 検証: 新規 OMP プロセスで本体 resolver の6経路を確認。使用量の SQLite fixture を使い、Sonnet から Terra への切替を実際に実行した。推論要求や実際の障害・利用枠枯渇は発生させていない。
+- 運用上の範囲: 使用量監視と共用する退避元は思考強度なしのモデルキーと provider wildcard に統一する。より細かいキー形式を使う場合は拡張の resolver も変更する。反映には OMP の再起動が必要。
+- 1週間後: 次回の利用量レビューで退避後の失敗・再試行と利用枠を確認する。今回の変更だけによる品質・消費量の改善は未計測。
+
 ## 2026-09-15 既定モデルを Fable/Astra → Sonnet に降格し、難所だけ自動escalationへ
 
 - 契機: Fable週次枠が100%消費、Codex週次枠も80%消費の状態でユーザーから相談。
