@@ -179,9 +179,11 @@ working tree.
   requirements from source references rather than guessing omitted content.
 - **Don't switch model or effort mid-session:** start a fresh session with a
   handoff. Automatic usage-guard switches at quota depletion are the exception.
-- **Edit `settings.json` directly; never invoke Claude Code's built-in
-  `update-config` skill** — its expansion injects the ~50k-token settings
-  schema into every later turn (measured).
+- **`settings.json`: edit directly.** Claude Code's built-in `update-config`
+  skill is already blocked from agent invocation
+  (`skillOverrides.update-config = "user-invocable-only"`, commit `1779fe4`);
+  its expansion injects the ~50k-token settings schema into every later turn
+  (measured).
 
 ## Japanese writing
 
