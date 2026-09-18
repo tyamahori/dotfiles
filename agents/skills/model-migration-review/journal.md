@@ -2,6 +2,33 @@
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
 
+## 2026-09-18 ack マーカー消失の復旧(新規レビューなし)
+
+- 契機: `scripts/model-pins check` が `claude.model` と
+  `omp.modelRoles.default` の2件を `claude-fable-5-1 -> claude-sonnet-5` と
+  報告(exit 1)。実際の設定は既に09-15エントリで承認・適用済みの値
+  (`claude-sonnet-5` / `anthropic/claude-sonnet-5`)で、モデルピンの
+  新規変更ではない。
+- 照合: `~/.local/state/model-migration/last-reviewed.tsv`
+  (machine-local、git管理外)の mtime が Sep 12 07:12 で、内容も
+  09-15エントリ適用前の値(`claude-fable-5-1`)のままだった。09-15
+  エントリは「検証後`ack`実行、直後の`check`は差分なし」と記録して
+  いるが、マーカーの実体はその適用を反映していない。ackコマンドが
+  当時実行されなかったか、実行後に何らかの理由でファイルが古い内容
+  へ巻き戻ったかは特定できず、未調査として保留する(09-11エントリの
+  マーカー消失事例と同種だが、今回は消失ではなく内容が古い状態への
+  巻き戻りで症状が異なる)。
+- 適用: なし(指示文・設定への変更なし。09-15エントリの決定を変更しない)。
+- 検証: 新規プロセスで実測。OMP `omp --mode rpc --no-session --model @default
+  --no-title` の `get_state` が `model.id: claude-sonnet-5` を返した
+  (推論要求なし)。Claude Code は実際に
+  `claude -p "reply with exactly the word: ok" --output-format json` を
+  実行し、`modelUsage` のキーが `claude-sonnet-5` と補助呼び出しの
+  `claude-haiku-4-5-20251001` のみで、fable系の消費が無いことを確認した。
+  検証後 `scripts/model-pins ack` を実行、直後の `scripts/model-pins check`
+  は差分なし(exit 0)。
+- 1週間後: 対象なし(ピン変更なしのため)。
+
 ## 2026-09-17 障害・使用量制限時の退避先を用途に合わせる
 
 - 承認: 通常の Sonnet 5 は Terra へ、計画・難しい処理の Astra は Fable 5.1 へ退避する。他のモデルの退避先は維持し、今後の変更箇所をまとめる。
