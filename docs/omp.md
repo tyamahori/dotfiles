@@ -507,6 +507,18 @@ guard の切り替えは利用枠ごとに一度だけなので、`/model` で�
 パイプ途中の読み取りフィルタや、書き込み用の `cat`、heredoc は許可します。
 正当な用途まで拒否された場合は、コマンドと拒否理由を確認してルールを修正します。
 
+### 「`.env`-style credential files are blocked」と出る
+
+`.env`・`.env.local`・`credentials.env` のような平文の資格情報ファイルを、agent に読み込ませない仕組みです。三 CLI で層が異なります。
+
+- Claude Code: `claude/settings.json` の `permissions.deny` に `Read(//**/*.env)` と `Read(//**/.env.*)` を設定済みです。Claude 公式の deny 優先順位により、同じ設定内の `Read(~/.config/**)` などの allow より必ず優先されます。この deny は Read 本体に加えて Edit・Write、Grep・Glob、および Claude Code が認識する `cat`/`head`/`tail`/`sed`/`tee` の bash 呼び出しとリダイレクト先にも及びます。
+- OMP: `omp/extensions/deny-env-reads.ts` が `read`/`grep` ツールを同じファイル名パターンで拒否します。`glob` はファイル名列挙のみなので対象外です。
+- 三 CLI 共通: `agents/command-rules.json` の `env-file-read` ルールが `cat`/`head`/`tail`/`less`/`more`/`strings`/`od`/`xxd`/`base64`/`tee` の bash 呼び出しを拒否します。Codex には Claude Code のような native Read ツールがなく shell 経由の読み取りしか手段がないため、この bash ルールが Codex にとって唯一の防御層です。
+
+`grep`/`rg`/`awk`/`sed` は検索パターン引数と誤検知するため `env-file-read` の対象から外しています。
+これは shell 呼び出しの文字列照合とファイル名照合による防御であり、`docs/omp.md` の他ルールと同じくガイダンスです。
+Python/Node の一行スクリプトがファイルを直接開く、絶対パス経由で呼ぶなど、意図的な迂回までは防げません。
+
 ### 代替ツールのルールを追加する
 
 三 CLI 共通のルール表は `agents/command-rules.json` です。
@@ -519,6 +531,7 @@ Claude Code と Codex のフック実行には、`scripts/devbox` で導入す�
 | shell による閲覧・検索 | 専用の Read / Grep / Glob 系ツール | Claude Code、OMP |
 | 単純な `curl` の Web 取得 | `ax`（最初に `ax agent-context`） | 三 CLI |
 | `brew upgrade` | `scripts/brewUpdate` | 三 CLI |
+| `.env` 系資格情報ファイルの shell 経由の閲覧 | 読ませない（代替なし） | 三 CLI |
 
 uv、ax、brewUpdate への誘導は、代替コマンドが実行可能な場合だけ発動します。
 専用の閲覧・検索ツールの有無は、適用する CLI で区別します。
@@ -528,7 +541,7 @@ uv、ax、brewUpdate への誘導は、代替コマンドが実行可能な場�
 新しいツールを入れただけではルールは増えません。代替できる用途を確認してから登録します。
 
 追加するときは既存の `rules` 要素にならい、`id`、対象の `clients`、代替手段の `replacement`、CLI 別の `reasons` を設定します。
-通常は `matcher: "command"` を使い、`commands` にコマンド名（`executables`）と必要ならサブコマンド（`subcommand`）を指定します。
+通常は `matcher: "command"` を使い、`commands` にコマンド名（`executables`）と必要ならサブコマンド（`subcommand`）を指定します。対象語が実行ファイル直後に来ない場合（`grep pattern file` のファイル名など）は、直後の一語だけを見る `nextArgPattern` ではなく、実行ファイル以降の全語を見る `anyArgPattern` を使います。
 実行可能な代替コマンドは `replacement.type: "command"` と `value`、専用ツールは `type: "native-tool"` で指定します。
 条件を満たす最初のルールで拒否するため、理由文には次に使うツールと呼び出し方を明記してください。
 単純なコマンド置換は JSON の追加だけで済みますが、`curl` のような用途判定を増やす場合は判定コードの変更も必要です。
