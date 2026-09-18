@@ -52,6 +52,23 @@
         "codex": "`brew upgrade` is blocked because it may remove running OMP kegs. Use `~/dotfiles/scripts/brewUpdate` instead.",
         "omp": "`brew upgrade` is blocked because it may remove running OMP kegs. Use `~/dotfiles/scripts/brewUpdate` instead."
       }
+    },
+    {
+      "id": "env-file-read",
+      "matcher": "command",
+      "commands": [
+        {
+          "executables": ["cat", "head", "tail", "less", "more", "strings", "od", "xxd", "base64", "tee"],
+          "anyArgPattern": "(?:^|/)(?:\\.env(?:\\..+)?|[^/]*\\.env)$"
+        }
+      ],
+      "clients": ["claude", "codex", "omp"],
+      "replacement": { "type": "native-tool" },
+      "reasons": {
+        "claude": "Shell reads of `.env`-style credential files are blocked; a matching `Read` deny rule blocks the Read tool the same way. These files hold plaintext secrets — don't load one into context unless the user explicitly asked you to inspect that exact file.",
+        "codex": "Shell reads of `.env`-style credential files are blocked. These files hold plaintext secrets — don't load one into context unless the user explicitly asked you to inspect that exact file.",
+        "omp": "Shell and `read`/`grep` reads of `.env`-style credential files are blocked. These files hold plaintext secrets — don't load one into context unless the user explicitly asked you to inspect that exact file."
+      }
     }
   ]
 }

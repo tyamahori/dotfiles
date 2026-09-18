@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, spyOn, test, type Mock } from "bun:test"
 import * as childProcess from "node:child_process";
 import type { SpawnSyncReturns } from "node:child_process";
 import denyCommands from "../extensions/deny-commands";
+import denyEnvReads, { isEnvPath } from "../extensions/deny-env-reads";
 import japaneseProse from "../extensions/japanese-prose";
 import lintOnEdit, { editedPaths } from "../extensions/lint-on-edit";
 
@@ -152,6 +153,31 @@ test("denies managed commands and allows harmless OMP bash input", async () => {
   await expect(handler?.({ toolName: "bash", input: { command: "python3 app.py" } })).resolves.toMatchObject({ block: true });
   await expect(handler?.({ toolName: "bash", input: { command: "printf '%s' ok" } })).resolves.toBeUndefined();
   await expect(handler?.({ toolName: "read", input: { command: "python3 app.py" } })).resolves.toBeUndefined();
+});
+
+test("isEnvPath matches .env-style paths, selectors, and grep path lists, not near misses", () => {
+  expect(isEnvPath("~/.config/jev/credentials.env")).toBe(true);
+  expect(isEnvPath(".env")).toBe(true);
+  expect(isEnvPath(".env.local")).toBe(true);
+  expect(isEnvPath("src/.env:1-20")).toBe(true);
+  expect(isEnvPath("secrets.env?q=key")).toBe(true);
+  expect(isEnvPath("src/**/*.ts; .env")).toBe(true);
+  expect(isEnvPath("config.env.example")).toBe(false);
+  expect(isEnvPath("notes.environment")).toBe(false);
+  expect(isEnvPath("README.md")).toBe(false);
+});
+
+test("blocks read/grep on .env paths and leaves other tools and paths alone", () => {
+  let handler: Hook | undefined;
+  denyEnvReads({
+    on(_event, registered) { handler = registered as Hook; },
+  } as never);
+
+  expect(handler?.({ toolName: "read", input: { path: "~/.config/jev/credentials.env" } })).toMatchObject({ block: true });
+  expect(handler?.({ toolName: "grep", input: { path: "src; .env" } })).toMatchObject({ block: true });
+  expect(handler?.({ toolName: "read", input: { path: "README.md" } })).toBeUndefined();
+  expect(handler?.({ toolName: "glob", input: { path: ".env" } })).toBeUndefined();
+  expect(handler?.({ toolName: "read", input: {} })).toBeUndefined();
 });
 
 test("blocks a failed Japanese prose hook once, then recovers", () => {

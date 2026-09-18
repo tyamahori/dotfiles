@@ -481,7 +481,11 @@
       "Skill(update-config)",
       "mcp__claude-in-chrome__tabs_context_mcp"
     ],
-    "defaultMode": "auto"
+    "defaultMode": "auto",
+    "deny": [
+      "Read(//**/*.env)",
+      "Read(//**/.env.*)"
+    ]
   },
   "skillListingBudgetFraction": 0.03,
   "skillOverrides": {
