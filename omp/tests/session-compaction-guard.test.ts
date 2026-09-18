@@ -6,23 +6,34 @@ type Handler = (event: unknown, ctx: unknown) => void;
 function harness() {
   const handlers: Record<string, Handler> = {};
   const messages: string[] = [];
+  const options: Array<{ deliverAs?: string } | undefined> = [];
   guard({
     on(event: string, handler: Handler) {
       handlers[event] = handler;
     },
-    sendUserMessage(message: string) {
+    sendUserMessage(message: string, opts?: { deliverAs?: string }) {
       messages.push(message);
+      options.push(opts);
     },
   });
   const ctx = { hasUI: true };
   return {
     messages,
+    options,
     compaction: () => handlers.auto_compaction_end({}, ctx),
     input: (text: string) => handlers.input({ source: "interactive", text }, ctx),
     toolResult: (toolName: string, isError = false) => handlers.tool_result({ toolName, isError }, ctx),
     reset: () => handlers.session_start({}, ctx),
   };
 }
+
+test("delivers every reminder as aside, so a long tool-call run doesn't queue it behind followUp", () => {
+  const h = harness();
+  h.compaction();
+  h.compaction();
+  h.input("別の依頼");
+  expect(h.options).toEqual([{ deliverAs: "aside" }, { deliverAs: "aside" }]);
+});
 
 test("nudges on the second compaction and on later interactive input", () => {
   const h = harness();

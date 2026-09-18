@@ -4,6 +4,11 @@
 // handoff_switch が成功したら以後は黙る: follow-up は 1 ターンに 1 通ずつ届くため、
 // 溜まったリマインダーが切替を 1 ターンずつ先送りしていた (measured 2026-09-08:
 // 余分に 5 ターン・compaction 1 回・cache write 100k)。
+// followUp は「現在の run が完了するまで」届かない: 連続 tool 呼出が続く run では
+// 数十分単位で遅延しうる (measured 2026-09-18: 30分の連続 tool 呼出で最初の
+// リマインダー配信が 18 分遅延し、その間に compaction が 3 回さらに発生、
+// cache write 約107万token に悪化)。aside は現在の tool batch を中断せず、
+// 次の step boundary で確実に見えるため、両方の通知をこれに切替える。
 
 type Ctx = {
   hasUI?: boolean;
@@ -17,7 +22,7 @@ type ExtensionHandlerApi = {
   ): void;
   sendUserMessage?: (
     content: string,
-    options?: { deliverAs?: "steer" | "followUp" },
+    options?: { deliverAs?: "steer" | "followUp" | "aside" },
   ) => unknown;
 };
 
@@ -67,7 +72,7 @@ export default function (pi: ExtensionHandlerApi): void {
         "現在の依頼を完了して引き継ぎメモを保存し、handoff_switch ツールを呼ぶこと。新しい無関係な依頼をこのセッションで始めないこと。";
       pi.sendUserMessage?.(
         autoCompactionEnds === 2 ? firstReminder : repeatedReminder,
-        { deliverAs: "followUp" },
+        { deliverAs: "aside" },
       );
     } catch {
       // 通知済みなので、注入に失敗しても現在の依頼は続行する。
@@ -96,7 +101,7 @@ export default function (pi: ExtensionHandlerApi): void {
         "[session-compaction-guard] セッション移行前に新しい入力を受けた。" +
           "この入力の処理だけを完了し、引き継ぎメモを保存して handoff_switch ツールを呼ぶこと。" +
           "さらに別の依頼をこのセッションで始めないこと。",
-        { deliverAs: "followUp" },
+        { deliverAs: "aside" },
       );
     } catch {
       // UI通知済みなので、follow-upの失敗は入力処理を妨げない。
