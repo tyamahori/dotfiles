@@ -31,7 +31,7 @@
 // (公式ドキュメント: "a subagent spawned with restricted tools loads no
 // extensions of its own")、このフックは subagent 内部では発火しない。
 
-import { existsSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const API_URL = "https://api.typesafe.ai/v1/systemone";
@@ -40,6 +40,18 @@ const SHORTLIST = 3;
 const FITS_THRESHOLD = 0.3;
 const TIMEOUT_MS = 8_000;
 const MAX_PROMPT_CHARS = 4_000;
+// 実測ログ(JSONL, gitignore対象の.agent-msgs配下)。1行=1ターン。
+// スキーマは docs/omp.md の「Jev skill hint」節を参照。
+const LOG_PATH = join(process.cwd(), ".agent-msgs/scratch/jev-skill-hint-metrics.jsonl");
+
+function appendLog(record: Record<string, unknown>): void {
+	try {
+		mkdirSync(join(process.cwd(), ".agent-msgs/scratch"), { recursive: true });
+		appendFileSync(LOG_PATH, `${JSON.stringify(record)}\n`);
+	} catch {
+		// ponytail: ログ書き込み失敗はターンを止める理由にしない。無視して続行。
+	}
+}
 
 type ExtensionHandlerApi = {
 	on(event: string, handler: (event: unknown, ctx: unknown) => unknown): void;
@@ -129,6 +141,16 @@ async function getHint(apiKey: string, requestText: string, roster: Record<strin
 		.map(([name]) => name);
 }
 
+type TurnMetrics = {
+	ts: number;
+	promptChars: number;
+	rosterSize: number;
+	hintLatencyMs: number | null;
+	accepted: string[];
+	circuitOpen: boolean;
+	jevError: boolean;
+};
+
 export default function (pi: ExtensionHandlerApi): void {
 	const apiKey = loadApiKey();
 	if (!apiKey) return; // JEV_API_KEY 未設定 = 完全な no-op(ヒントを一切登録しない)。
@@ -137,20 +159,42 @@ export default function (pi: ExtensionHandlerApi): void {
 	// breaker)。再開は新しいセッション起動時。クールダウン付き再試行は今のところ不要。
 	let jevDisabled = false;
 
+	// 実測ログ用のターン単位バッファ。before_agent_start で開始し、turn_end で
+	// 実際に読まれた skill:// read と突き合わせて1行 flush する(スキーマは
+	// docs/omp.md の「Jev skill hint」節を参照)。
+	let pending: TurnMetrics | null = null;
+	let skillReads: string[] = [];
+
 	pi.on("before_agent_start", async (event, ctx) => {
-		if (jevDisabled) return;
+		pending = null;
+		skillReads = [];
+
+		if (jevDisabled) {
+			pending = { ts: Date.now(), promptChars: 0, rosterSize: 0, hintLatencyMs: null, accepted: [], circuitOpen: true, jevError: false };
+			return;
+		}
 		const prompt = String((event as { prompt?: unknown } | undefined)?.prompt ?? "").trim();
 		if (!prompt) return;
 
-		try {
-			const getSystemPrompt = (ctx as { getSystemPrompt?: () => unknown } | undefined)?.getSystemPrompt;
-			if (typeof getSystemPrompt !== "function") return;
-			const systemPrompt = String(await getSystemPrompt.call(ctx));
-			const roster = extractRoster(systemPrompt);
-			if (Object.keys(roster).length < 2) return;
+		const getSystemPrompt = (ctx as { getSystemPrompt?: () => unknown } | undefined)?.getSystemPrompt;
+		if (typeof getSystemPrompt !== "function") return;
+		const systemPrompt = String(await getSystemPrompt.call(ctx));
+		const roster = extractRoster(systemPrompt);
+		if (Object.keys(roster).length < 2) return;
 
-			const truncated = prompt.length > MAX_PROMPT_CHARS ? prompt.slice(0, MAX_PROMPT_CHARS) : prompt;
+		const truncated = prompt.length > MAX_PROMPT_CHARS ? prompt.slice(0, MAX_PROMPT_CHARS) : prompt;
+		const startedAt = Date.now();
+		try {
 			const accepted = await getHint(apiKey, truncated, roster);
+			pending = {
+				ts: startedAt,
+				promptChars: truncated.length,
+				rosterSize: Object.keys(roster).length,
+				hintLatencyMs: Date.now() - startedAt,
+				accepted,
+				circuitOpen: false,
+				jevError: false,
+			};
 			if (accepted.length === 0) return;
 
 			return {
@@ -168,7 +212,41 @@ export default function (pi: ExtensionHandlerApi): void {
 			// Jev API 障害・タイムアウト・不正な応答形式など。ヒント無しの
 			// 素の挙動へフォールバックし、以後このセッションでは再試行しない。
 			jevDisabled = true;
+			pending = {
+				ts: startedAt,
+				promptChars: truncated.length,
+				rosterSize: Object.keys(roster).length,
+				hintLatencyMs: Date.now() - startedAt,
+				accepted: [],
+				circuitOpen: false,
+				jevError: true,
+			};
 			return;
 		}
+	});
+
+	// 実際に読まれた Skill を突き合わせ用に記録する。accepted(Jevの推薦)との
+	// 重なり具合で、ヒントがどれだけ「無駄読み・見落とし」を減らせているかを測る。
+	pi.on("tool_call", (event) => {
+		if (pending === null) return;
+		const e = event as { toolName?: string; input?: Record<string, unknown> };
+		if (e.toolName !== "read") return;
+		const match = /^skill:\/\/([a-zA-Z0-9][a-zA-Z0-9_-]*)/.exec(String(e.input?.path ?? ""));
+		if (match) skillReads.push(match[1]);
+	});
+
+	pi.on("turn_end", () => {
+		if (pending === null) return;
+		const actual = [...new Set(skillReads)];
+		const hits = actual.filter((name) => pending?.accepted.includes(name));
+		appendLog({
+			...pending,
+			actualSkillReads: actual,
+			hits: hits.length,
+			extraReads: actual.length - hits.length,
+			missedAccepted: pending.accepted.length - hits.length,
+		});
+		pending = null;
+		skillReads = [];
 	});
 }

@@ -461,6 +461,37 @@ no-op になります。設定済みでも API 呼び出しが失敗（ネット
 `Jev候補(参考、必須ではない): ...` が挿入されるかを見ます。`JEV_API_KEY` を
 一時的に外した新しいセッションでは、ヒントが出ず、エラーも出ないことを確認します。
 
+### 実測ログで効果を測る
+
+`before_agent_start` でのヒント生成結果と、そのターン中に実際に読まれた
+`skill://` を突き合わせ、1ターン1行の JSONL として
+`.agent-msgs/scratch/jev-skill-hint-metrics.jsonl`（gitignore 対象）に追記します。
+
+| フィールド | 意味 |
+|---|---|
+| `promptChars` / `rosterSize` | 依頼文の長さ・Skill 一覧の件数 |
+| `hintLatencyMs` | Jev 呼び出し(Call1+Call2)のレイテンシ。`circuitOpen`/`jevError` 時は `null` |
+| `accepted` | Jev が採用した候補 Skill 名 |
+| `circuitOpen` | セッション内で既に失敗済みで、今回は呼び出し自体をスキップした |
+| `jevError` | 今回の呼び出しが失敗し、以後 `circuitOpen` になった |
+| `actualSkillReads` | そのターン中に実際に `read skill://...` された Skill 名(重複除去) |
+| `hits` | `accepted` と `actualSkillReads` の重なり件数(ヒントが実際に使われた数) |
+| `extraReads` | ヒント候補になかったが読まれた Skill 数(見落とし方向の指標) |
+| `missedAccepted` | ヒント候補になったが読まれなかった Skill 数(過剰提案の指標) |
+
+集計例（`hits` の合計と `accepted` の合計から採用率、`hintLatencyMs` の平均から
+レイテンシ負担を見る）:
+
+```bash
+jaq -s 'def sum(f): reduce .[] as $x (0; . + ($x|f));
+  (sum(.accepted|length)) as $accepted |
+  {turns: length,
+   avgLatencyMs: (sum(.hintLatencyMs // 0) / length),
+   hitRate: (sum(.hits) / (if $accepted == 0 then 1 else $accepted end)),
+   avgExtraReads: (sum(.extraReads) / length)}' \
+  .agent-msgs/scratch/jev-skill-hint-metrics.jsonl
+```
+
 ## OMP 本体を更新する
 
 `omp update` で本体を更新した後は、プラグインと dotfiles のリンクを再適用します。
