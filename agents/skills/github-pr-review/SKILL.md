@@ -98,6 +98,21 @@ INCONCLUSIVE の材料として残す。
 
 表にない種別に当たったら、その変更が壊すものを1つ想定し、同じ形の質問を作って答える。
 
+### Jev shadow ログ（任意）
+
+`JEV_API_KEY` が設定されている環境では、上の表と実際に確認した行を突き合わせて
+ログするだけの任意ステップを使える。**レビューの判断には使わない** — Jev の予測は
+表示されず、どの行を読むかはこれまで通り本セクションの手順だけで決める。
+
+```bash
+bun "$HOME/dotfiles/scripts/jev-pr-lens-shadow.ts" predict --ref <base>..<head> --diff-file <diffファイルのパス>
+# (観点表に沿ってレビューを進めたあとで)
+bun "$HOME/dotfiles/scripts/jev-pr-lens-shadow.ts" actual --ref <base>..<head> --rows "該当した変更種別をカンマ区切りで"
+```
+
+`JEV_API_KEY` 未設定・呼び出し失敗のどちらでも何も出力せず正常終了する。実行しなくても
+レビューの完了条件には影響しない。詳細は `docs/omp.md` の「Jev PR-review lens shadow」節を参照。
+
 ## 投稿前メタレビュー
 
 根拠や対応価値の薄い指摘を除き、レビューの信号対雑音比を上げる。指摘数の最小化は

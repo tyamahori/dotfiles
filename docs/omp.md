@@ -492,6 +492,127 @@ jaq -s 'def sum(f): reduce .[] as $x (0; . + ($x|f));
   .agent-msgs/scratch/jev-skill-hint-metrics.jsonl
 ```
 
+## Jev agent hint（プロジェクトローカルの pilot extension）
+
+`.omp/extensions/jev-agent-hint.ts` は `jev-skill-hint.ts` の姉妹 extension で、有効化・
+無効化・スコープ（このリポジトリ root で開いたセッションのみ、`.env` の
+`JEV_API_KEY`）は前節と同じ手順です。
+
+`task` ツール呼び出しのたびに、依頼文と agent roster（`task` ツール自身の description
+から都度抽出。ハードコードしない）を Jev の Choice 質問へ渡し、どの agent 種別
+（`scout`/`reviewer`/`security-reviewer`/`task`/`sonic` 等）が最適かを予測してログするだけの
+**shadow mode** です。実際の委任先には一切影響しません — `tool_call` の `input` は
+書き換えず、予測値を stdout・会話に出すこともありません。実データが溜まってから、
+`jev-skill-hint` と同じ手順（合成評価→閾値較正→Go/No-Go）でヒント注入に進むかどうかを
+判断します。
+
+### Jev が使えないとき
+
+`JEV_API_KEY` 未設定なら extension は何も登録しません（完全な no-op）。設定済みでも
+呼び出しが失敗した場合は、そのセッション内では以降呼び出さず静かに no-op へ切り替えます
+（circuit breaker）。Jev 呼び出しは `ctx.setTimeout(..., 0)` で本処理から切り離して実行する
+ため、`tool_call` ハンドラ自体は同期的に即 return し、実タスク発行にレイテンシを一切
+追加しません。ハンドラの同期部分も全体を try/catch で囲んでおり、roster 抽出などで
+何が起きても実タスク発行をブロックしません。
+
+### 動作を確認する
+
+`.agent-msgs/scratch/jev-agent-hint-metrics.jsonl`（gitignore 対象）に `task` ツール呼び出しの
+item ごと1行で追記されます。`JEV_API_KEY` を一時的に外した新しいセッションでは、このファイルが
+増えないことを確認します。
+
+| フィールド | 意味 |
+|---|---|
+| `taskTextChars` / `rosterSize` | 依頼文の長さ・agent roster の件数 |
+| `explicitAgent` | `tasks[]` の `agent` に明示指定された値。省略時は `null`（default agent を推測しない） |
+| `predictedAgent` / `predictedProb` | Jev が最も確率が高いと予測した agent とその確率 |
+| `probabilities` | 全 agent 候補の確率分布 |
+| `latencyMs` | Jev 呼び出しのレイテンシ。`circuitOpen`/`jevError` 時は失敗までの経過時間 |
+| `circuitOpen` | 今回の呼び出しが失敗し、以後セッション内で no-op になった |
+| `jevError` | 今回の呼び出しが失敗した |
+
+`explicitAgent` と `predictedAgent` の一致率は次で集計できます。
+
+```bash
+jaq -s 'def sum(f): reduce .[] as $x (0; . + ($x|f));
+  map(select(.explicitAgent != null and .jevError == false)) as $labeled |
+  {items: length,
+   labeled: ($labeled | length),
+   avgLatencyMs: (sum(.latencyMs) / length),
+   agreementRate: (($labeled | map(select(.explicitAgent == .predictedAgent)) | length) /
+     (if ($labeled | length) == 0 then 1 else ($labeled | length) end))}' \
+  .agent-msgs/scratch/jev-agent-hint-metrics.jsonl
+```
+
+## Jev PR-review lens shadow
+
+`scripts/jev-pr-lens-shadow.ts` は `github-pr-review` Skill から任意で呼ばれる CLI で、
+`.omp/extensions/` の pilot extension とは別物です（machine-global に
+`bun "$HOME/dotfiles/scripts/jev-pr-lens-shadow.ts" ...` として呼ぶため、他リポジトリの
+PR レビューでも動きます）。SKILL.md の「観点」表にある変更種別のうち、diff から
+Jev がどの行が該当すると予測するか（`predict`）と、レビュー担当が実際に確定した
+該当行（`actual`）を、同じ `--ref` を鍵にして shadow ログするだけです。行カテゴリは
+SKILL.md の表からその場で抽出します（ハードコードしない）。
+
+**レビュー結果には一切影響しません。** Jev の予測は stdout はもちろんどこにも表示せず
+（先にレビュー担当が読むと判断が引きずられるため）、JSONL ログにのみ書きます。どんな
+失敗でも常に exit 0 で、レビューを絶対にブロックしません。
+
+### 有効化する
+
+`jev-skill-hint` と同じ `.env` の `JEV_API_KEY` を使います（cwd に依存しない
+`import.meta.dir` 基準でリポジトリ root を解決するため、`.omp/extensions/` の pilot と
+異なり dotfiles リポジトリ外からの呼び出しでも動きます）。`actual` の記録に Jev は
+不要です。
+
+```bash
+bun "$HOME/dotfiles/scripts/jev-pr-lens-shadow.ts" predict --ref <base>..<head> --diff-file <diffファイルのパス>
+bun "$HOME/dotfiles/scripts/jev-pr-lens-shadow.ts" actual --ref <base>..<head> --rows "バグ修正,データアクセス（クエリ・ファイル I/O・外部呼び出し）"
+```
+
+### Jev が使えないとき
+
+`JEV_API_KEY` 未設定、diff ファイルが読めない、SKILL.md の表が見つからない、Jev
+呼び出しが失敗（ネットワーク断・タイムアウト等）のいずれでも、`predict` は何も出力せず
+静かに終了します（exit 0）。失敗時のみ `jevError:true` をログに残しますが、呼び出し元へは
+一切伝播しません。`actual` は Jev を呼ばないため、この影響を受けません。
+
+### 動作を確認する
+
+`.agent-msgs/scratch/jev-pr-lens-shadow.jsonl`（gitignore 対象）に `predict`/`actual` それぞれ
+1回の呼び出しにつき1行で追記されます。
+
+| フィールド | 意味 |
+|---|---|
+| `kind` | `predict` または `actual` |
+| `ref` | `predict`/`actual` を突き合わせる鍵（呼び出し側が決める。base..head の SHA 範囲など） |
+| `diffChars` / `rowCount`（`predict`のみ） | diff の長さ・行カテゴリの件数 |
+| `probabilities`（`predict`のみ） | 変更種別ごとの該当確率。失敗時は `null` |
+| `rows`（`actual`のみ） | レビュー担当が実際に確定した該当行 |
+| `latencyMs` / `jevError`（`predict`のみ） | Jev 呼び出しのレイテンシと成否 |
+
+`ref` で `predict` と `actual` を突き合わせ、閾値 0.5（暫定、較正前の目安）での
+行の一致率を次で集計できます。
+
+```bash
+jaq -s '
+  (map(select(.kind=="actual")) | map({(.ref): .rows}) | add) as $actual |
+  map(select(.kind=="predict")) |
+  map(. + {actualRows: ($actual[.ref] // [])}) |
+  map(. + {predictedRows: (.probabilities // {} | to_entries | map(select(.value >= 0.5)) | map(.key))}) |
+  {
+    predictions: length,
+    avgLatencyMs: (if length==0 then null else (map(.latencyMs) | add / length) end),
+    jevErrorRate: (if length==0 then null else ((map(select(.jevError)) | length) / length) end),
+    naiveThreshold: 0.5,
+    rowRecall: (
+      (map(.actualRows | length) | add) as $actualTotal |
+      (map(((.actualRows) - ((.actualRows) - (.predictedRows))) | length) | add) as $matched |
+      if $actualTotal == 0 then null else ($matched / $actualTotal) end
+    )
+  }' .agent-msgs/scratch/jev-pr-lens-shadow.jsonl
+```
+
 ## OMP 本体を更新する
 
 `omp update` で本体を更新した後は、プラグインと dotfiles のリンクを再適用します。
