@@ -479,8 +479,8 @@ no-op になります。設定済みでも API 呼び出しが失敗（ネット
 | `extraReads` | ヒント候補になかったが読まれた Skill 数(見落とし方向の指標) |
 | `missedAccepted` | ヒント候補になったが読まれなかった Skill 数(過剰提案の指標) |
 
-集計例（`hits` の合計と `accepted` の合計から採用率、`hintLatencyMs` の平均から
-レイテンシ負担を見る）:
+`hits` の合計と `accepted` の合計から採用率を、`hintLatencyMs` の平均から
+レイテンシ負担を、次のコマンドで集計できます。
 
 ```bash
 jaq -s 'def sum(f): reduce .[] as $x (0; . + ($x|f));
