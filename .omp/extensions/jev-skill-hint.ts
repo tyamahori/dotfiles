@@ -31,76 +31,30 @@
 // (公式ドキュメント: "a subagent spawned with restricted tools loads no
 // extensions of its own")、このフックは subagent 内部では発火しない。
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import {
+	type ChoiceAnswer,
+	type JevResponse,
+	type NoulAnswer,
+	appendJsonlLog,
+	jevCall,
+	loadJevApiKey,
+} from "../../scripts/jev-client.ts";
 
-const API_URL = "https://api.typesafe.ai/v1/systemone";
-const MODEL = "jev-latest";
 const SHORTLIST = 3;
 const FITS_THRESHOLD = 0.3;
-const TIMEOUT_MS = 8_000;
 const MAX_PROMPT_CHARS = 4_000;
 // 実測ログ(JSONL, gitignore対象の.agent-msgs配下)。1行=1ターン。
 // スキーマは docs/omp.md の「Jev skill hint」節を参照。
 const LOG_PATH = join(process.cwd(), ".agent-msgs/scratch/jev-skill-hint-metrics.jsonl");
 
 function appendLog(record: Record<string, unknown>): void {
-	try {
-		mkdirSync(join(process.cwd(), ".agent-msgs/scratch"), { recursive: true });
-		appendFileSync(LOG_PATH, `${JSON.stringify(record)}\n`);
-	} catch {
-		// ponytail: ログ書き込み失敗はターンを止める理由にしない。無視して続行。
-	}
+	appendJsonlLog(LOG_PATH, record);
 }
 
 type ExtensionHandlerApi = {
 	on(event: string, handler: (event: unknown, ctx: unknown) => unknown): void;
 };
-
-type ChoiceAnswer = { type: "choice"; choice: string; probabilities: Record<string, number> };
-type NoulAnswer = { type: "noul"; noul: number };
-type JevResponse = { answers: Record<string, ChoiceAnswer | NoulAnswer> };
-
-function loadApiKey(): string | undefined {
-	if (process.env.JEV_API_KEY) return process.env.JEV_API_KEY;
-	// dotfiles リポジトリ root の .env (gitignore 済み) から補完する。
-	// 値は変数に保持するだけで、ログにも例外メッセージにも出さない。
-	try {
-		const envPath = join(process.cwd(), ".env");
-		if (!existsSync(envPath)) return undefined;
-		for (const line of readFileSync(envPath, "utf-8").split("\n")) {
-			const m = /^JEV_API_KEY=(.+)$/.exec(line.trim());
-			if (m) return m[1].trim().replace(/^["']|["']$/g, "");
-		}
-	} catch {
-		// .env が読めない環境。Jev 無効として続行する。
-	}
-	return undefined;
-}
-
-async function jevCall(
-	apiKey: string,
-	state: string,
-	questions: Record<string, unknown>,
-): Promise<JevResponse> {
-	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-	try {
-		const res = await fetch(API_URL, {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${apiKey}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({ state, model: MODEL, questions }),
-			signal: controller.signal,
-		});
-		if (!res.ok) throw new Error(`Jev API ${res.status}`);
-		return (await res.json()) as JevResponse;
-	} finally {
-		clearTimeout(timer);
-	}
-}
 
 /** システムプロンプトの `<skills>\n- name: 説明\n...\n</skills>` から一覧を都度抽出する。
  * ハードコードしない: Skill 構成が変わっても extension 側の更新が要らない。 */
@@ -135,7 +89,7 @@ async function getHint(apiKey: string, requestText: string, roster: Record<strin
 			instructions: `Does handling this request require loading the skill "${name}" (described as: ${roster[name]})?`,
 		};
 	});
-	const resp2 = await jevCall(apiKey, requestText, questions);
+	const resp2: JevResponse = await jevCall(apiKey, requestText, questions);
 	return top
 		.filter(([, ], i) => (resp2.answers[`fits_${i}`] as NoulAnswer).noul >= FITS_THRESHOLD)
 		.map(([name]) => name);
@@ -152,7 +106,7 @@ type TurnMetrics = {
 };
 
 export default function (pi: ExtensionHandlerApi): void {
-	const apiKey = loadApiKey();
+	const apiKey = loadJevApiKey(process.cwd());
 	if (!apiKey) return; // JEV_API_KEY 未設定 = 完全な no-op(ヒントを一切登録しない)。
 
 	// ponytail: セッション内で一度失敗したら以降は試行しない(プロセス単位のcircuit
