@@ -271,10 +271,20 @@ can delete old omp kegs still used by running sessions.
 Prefer the harness's dedicated read/browser tools where appropriate. When
 using a CLI, choose by purpose rather than by the response format:
 
+Searching (you don't yet have a URL) and fetching (you do) are different
+jobs. For searching, use the host's native web-search tool — OMP
+`web_search`, Claude Code/Codex `WebSearch` or equivalent — never query a
+search engine's URL through `ax`/`curl`; search engines actively block or
+CAPTCHA scripted requests, so that path returns noise or a wall, not
+results. Once a candidate URL is in hand, read it with the tools below,
+falling back to the headless-browser path further down when the fetch
+comes back gated.
+
 - **`ax` — read and extract web content:** pages, documentation, links,
-  tables, and Markdown conversion. Use it instead of curl-plus-parsing;
-  run `ax agent-context` before the first ax fetch (there is no ax skill;
-  that command prints the usage reference).
+  tables, and Markdown conversion. Use it instead of curl-plus-parsing.
+  It ships its own skill at `~/.agents/skills/ax/SKILL.md` (installed by
+  the `ax` tool, not dotfiles-managed); read it before the first fetch
+  instead of running `ax agent-context`.
 - **`xh` — construct and verify API requests:** query parameters, JSON
   bodies, authentication headers, responses, and HTTP status handling.
   It replaces HTTPie, not ax. Verify certificate/proxy behavior before using
@@ -284,6 +294,19 @@ using a CLI, choose by purpose rather than by the response format:
 
 These are defaults, not bans: ax can also read JSON APIs. Do not alias
 `curl` to either tool or rewrite working scripts solely to change clients.
+
+ax fetches raw HTTP with no cookies, session, or JS execution, so some
+sites answer it with a bot-detection or soft-paywall interstitial ("Sign up
+to continue", "Log in to see this post") even when an anonymous browser
+visitor sees full content at the same URL. Treat that response as a soft
+block, not proof the page requires login: retry the same URL through the
+headless browser path from `browser-verify` (OMP native `browser`; Claude
+Code / Codex `playwright-cli`, both headless) and read the rendered DOM
+instead of the raw fetch — `tab.extract()` / `ariaSnapshot()` on OMP,
+`playwright-cli snapshot` or `eval "document.body.innerText"` on Claude
+Code/Codex. Only report the page as login-gated if the rendered DOM still
+shows nothing but the wall; never sign up, log in, accept cookies, or solve
+a bot challenge on the user's behalf.
 
 ## Browser verification routing
 
