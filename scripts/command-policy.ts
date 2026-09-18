@@ -6,6 +6,7 @@ type CommandMatch = {
   executables: string[];
   subcommand?: string;
   nextArgPattern?: string;
+  anyArgPattern?: string;
   requireNoRedirection?: boolean;
 };
 
@@ -23,9 +24,10 @@ type RuleTable = { rules: Rule[] };
 
 const rules = (ruleTable as RuleTable).rules.map((rule) => ({
   ...rule,
-  commands: rule.commands.map(({ nextArgPattern, ...match }) => ({
+  commands: rule.commands.map(({ nextArgPattern, anyArgPattern, ...match }) => ({
     ...match,
     nextArgPattern: nextArgPattern ? new RegExp(nextArgPattern) : undefined,
+    anyArgPattern: anyArgPattern ? new RegExp(anyArgPattern) : undefined,
   })),
 }));
 const repoRoot = resolve(import.meta.dir, "..");
@@ -243,6 +245,7 @@ export function denyCommand(command: string, client: Client): string | undefined
         match.executables.includes(words[index]) &&
         (!match.subcommand || words[index + 1] === match.subcommand) &&
         (!match.nextArgPattern || match.nextArgPattern.test(words[index + 1] ?? "")) &&
+        (!match.anyArgPattern || words.slice(index + 1).some((word) => match.anyArgPattern!.test(word))) &&
         (!match.requireNoRedirection || !parsed.hasRedirection) &&
         (rule.matcher !== "curl-web-fetch" || (!parsed.hasRedirection && isSimpleWebFetch(words.slice(index + 1))))
       );

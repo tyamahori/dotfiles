@@ -80,3 +80,23 @@ test("brew matches the exact upgrade subcommand, not argument text", () => {
     expect(denyCommand(command, "omp")).toBeUndefined();
   }
 });
+
+test(".env-style credential files are blocked across cat/head/tail/tee, not near-miss names", () => {
+  which.mockReturnValue("/available/replacement");
+  expect(denyCommand("cat ~/.config/jev/credentials.env", "claude")).toBeDefined();
+  expect(denyCommand("head -n 1 credentials.env", "codex")).toBeDefined();
+  expect(denyCommand("tail -f .env", "omp")).toBeDefined();
+  expect(denyCommand("less .env.local", "claude")).toBeDefined();
+  expect(denyCommand("strings ~/.config/jev/credentials.env", "codex")).toBeDefined();
+  expect(denyCommand("cat credentials.env > /tmp/copy", "omp")).toBeDefined();
+  expect(denyCommand("printf x | tee .env", "claude")).toBeDefined();
+  expect(denyCommand("cat config.env.example", "codex")).toBeUndefined();
+  expect(denyCommand("cat notes.environment", "codex")).toBeUndefined();
+  expect(denyCommand("cat README.md", "codex")).toBeUndefined();
+});
+
+test("grep/awk on .env stay outside this rule; the pattern argument would false-positive", () => {
+  which.mockReturnValue("/available/replacement");
+  expect(denyCommand("grep KEY .env", "codex")).toBeUndefined();
+  expect(denyCommand("awk '{print}' .env", "codex")).toBeUndefined();
+});
