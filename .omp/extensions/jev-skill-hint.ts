@@ -1,0 +1,174 @@
+// TypeSafe(Jev) を使った Skill 推薦ヒント(プロジェクトローカルの pilot)。
+//
+// 背景: システムプロンプトの `<skills>` には数十件の Skill が名前+説明だけ
+// 並ぶ。依頼文からどの Skill を読むべきかの判断は毎ターン、モデル自身が
+// 一覧全体を読んで下す。TypeSafe の systemone API (Jev) に依頼文と Skill
+// 一覧を渡し、合いそうな候補を`<skill_relevance>`ヒントとして参考提示する
+// ことで、必要な Skill の見落とし・不要な Skill の誤読み込みを減らせるかを
+// 検証した結果、非拘束の複数候補ヒントとして採用した。
+//
+// 設計(2026-09 検証済み。検証ケース・手順・数値は
+// .agent-msgs/handoff/2026-09-18-jev-skill-recommendation-eval.md と
+// .agent-msgs/scratch/ms-eval-tasks.json を参照):
+// - Call 1: 全 Skill の名前+説明を選択肢にした Choice 質問で「最も必要そうな
+//   Skill」を1つ選ばせ、確率上位3件を候補にする。
+// - Call 2: 上位3件それぞれに独立した Noul 質問(「この Skill を読む必要が
+//   あるか」)を投げ、FITS_THRESHOLD 以上の候補を『全て』採用する。
+//   cookbook 標準の「1件に収束させる」ステップは踏まない — 収束ステップは
+//   複数 Skill が必要なケースで足切りを誘発することが検証で確認できた。
+// - ヒントは常に非拘束・複数形: 「参考、必須ではない。依頼内容全体を読んで
+//   自分の判断で全部選ぶこと。候補にない Skill が必要ならそちらを使ってよい」。
+//   採用候補が0件、または Jev 呼び出しが失敗した場合は何も注入しない
+//   (ヒント無しの素の挙動にそのままフォールバックする)。
+//
+// 有効化・無効化の手順は docs/omp.md の「Jev skill hint」節を参照。
+// 要約: `.env` に JEV_API_KEY を置けば有効、置かなければ完全な no-op になる。
+// 実行時に呼び出しが失敗した場合も、そのセッション内では以後リトライせず
+// 静かに no-op へ切り替える(セッションを止めない・エラーを出さない)。
+//
+// スコープ: このリポジトリ配下で開いたメインセッションの通常ターンのみ。
+// task/scout 等の subagent は自分自身の extension をロードしないため
+// (公式ドキュメント: "a subagent spawned with restricted tools loads no
+// extensions of its own")、このフックは subagent 内部では発火しない。
+
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const API_URL = "https://api.typesafe.ai/v1/systemone";
+const MODEL = "jev-latest";
+const SHORTLIST = 3;
+const FITS_THRESHOLD = 0.3;
+const TIMEOUT_MS = 8_000;
+const MAX_PROMPT_CHARS = 4_000;
+
+type ExtensionHandlerApi = {
+	on(event: string, handler: (event: unknown, ctx: unknown) => unknown): void;
+};
+
+type ChoiceAnswer = { type: "choice"; choice: string; probabilities: Record<string, number> };
+type NoulAnswer = { type: "noul"; noul: number };
+type JevResponse = { answers: Record<string, ChoiceAnswer | NoulAnswer> };
+
+function loadApiKey(): string | undefined {
+	if (process.env.JEV_API_KEY) return process.env.JEV_API_KEY;
+	// dotfiles リポジトリ root の .env (gitignore 済み) から補完する。
+	// 値は変数に保持するだけで、ログにも例外メッセージにも出さない。
+	try {
+		const envPath = join(process.cwd(), ".env");
+		if (!existsSync(envPath)) return undefined;
+		for (const line of readFileSync(envPath, "utf-8").split("\n")) {
+			const m = /^JEV_API_KEY=(.+)$/.exec(line.trim());
+			if (m) return m[1].trim().replace(/^["']|["']$/g, "");
+		}
+	} catch {
+		// .env が読めない環境。Jev 無効として続行する。
+	}
+	return undefined;
+}
+
+async function jevCall(
+	apiKey: string,
+	state: string,
+	questions: Record<string, unknown>,
+): Promise<JevResponse> {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+	try {
+		const res = await fetch(API_URL, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${apiKey}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ state, model: MODEL, questions }),
+			signal: controller.signal,
+		});
+		if (!res.ok) throw new Error(`Jev API ${res.status}`);
+		return (await res.json()) as JevResponse;
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+/** システムプロンプトの `<skills>\n- name: 説明\n...\n</skills>` から一覧を都度抽出する。
+ * ハードコードしない: Skill 構成が変わっても extension 側の更新が要らない。 */
+function extractRoster(systemPrompt: string): Record<string, string> {
+	const block = /<skills>([\s\S]*?)<\/skills>/.exec(systemPrompt)?.[1];
+	if (!block) return {};
+	const roster: Record<string, string> = {};
+	const entryRe = /^- ([a-zA-Z0-9][a-zA-Z0-9_-]*): ([\s\S]*?)(?=\n- [a-zA-Z0-9][a-zA-Z0-9_-]*: |\s*$)/gm;
+	for (const m of block.matchAll(entryRe)) {
+		roster[m[1]] = m[2].trim().replace(/\s+/g, " ");
+	}
+	return roster;
+}
+
+async function getHint(apiKey: string, requestText: string, roster: Record<string, string>): Promise<string[]> {
+	const resp1 = await jevCall(apiKey, requestText, {
+		which_skill: {
+			type: "choice",
+			instructions: "Which single skill would an AI coding agent most need to load to handle this request?",
+			criteria: roster,
+		},
+	});
+	const choice = resp1.answers.which_skill as ChoiceAnswer;
+	const top = Object.entries(choice.probabilities)
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, SHORTLIST);
+
+	const questions: Record<string, unknown> = {};
+	top.forEach(([name], i) => {
+		questions[`fits_${i}`] = {
+			type: "noul",
+			instructions: `Does handling this request require loading the skill "${name}" (described as: ${roster[name]})?`,
+		};
+	});
+	const resp2 = await jevCall(apiKey, requestText, questions);
+	return top
+		.filter(([, ], i) => (resp2.answers[`fits_${i}`] as NoulAnswer).noul >= FITS_THRESHOLD)
+		.map(([name]) => name);
+}
+
+export default function (pi: ExtensionHandlerApi): void {
+	const apiKey = loadApiKey();
+	if (!apiKey) return; // JEV_API_KEY 未設定 = 完全な no-op(ヒントを一切登録しない)。
+
+	// ponytail: セッション内で一度失敗したら以降は試行しない(プロセス単位のcircuit
+	// breaker)。再開は新しいセッション起動時。クールダウン付き再試行は今のところ不要。
+	let jevDisabled = false;
+
+	pi.on("before_agent_start", async (event, ctx) => {
+		if (jevDisabled) return;
+		const prompt = String((event as { prompt?: unknown } | undefined)?.prompt ?? "").trim();
+		if (!prompt) return;
+
+		try {
+			const getSystemPrompt = (ctx as { getSystemPrompt?: () => unknown } | undefined)?.getSystemPrompt;
+			if (typeof getSystemPrompt !== "function") return;
+			const systemPrompt = String(await getSystemPrompt.call(ctx));
+			const roster = extractRoster(systemPrompt);
+			if (Object.keys(roster).length < 2) return;
+
+			const truncated = prompt.length > MAX_PROMPT_CHARS ? prompt.slice(0, MAX_PROMPT_CHARS) : prompt;
+			const accepted = await getHint(apiKey, truncated, roster);
+			if (accepted.length === 0) return;
+
+			return {
+				message: {
+					customType: "dotfiles.jev-skill-hint",
+					content:
+						`<skill_relevance>\nJev候補(参考、必須ではない): ${accepted.join("、")}。` +
+						"依頼内容全体を読んで、必要なSkillは自分の判断で全部選ぶこと。" +
+						"候補にないSkillが必要ならそちらを使ってよい。\n</skill_relevance>",
+					display: true,
+					attribution: "agent",
+				},
+			};
+		} catch {
+			// Jev API 障害・タイムアウト・不正な応答形式など。ヒント無しの
+			// 素の挙動へフォールバックし、以後このセッションでは再試行しない。
+			jevDisabled = true;
+			return;
+		}
+	});
+}

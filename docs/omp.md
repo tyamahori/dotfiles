@@ -412,6 +412,55 @@ omp config get autolearn.enabled --json
 omp config get retry.usageReservePct --json
 ```
 
+## Jev skill hint（プロジェクトローカルの pilot extension）
+
+`.omp/extensions/jev-skill-hint.ts` は、このリポジトリの root で開いたセッションだけに
+効く project-local な extension です。`omp/extensions/`（`~/.omp/agent/extensions` へ配置する
+machine-global な extension）とは別物で、他リポジトリやこの `.omp/` を持たないディレクトリ
+から起動したセッションには一切効きません。
+
+ターン開始のたびに TypeSafe（Jev）の systemone API へ依頼文と Skill 一覧（名前+説明。
+システムプロンプトの `<skills>` から都度抽出するのでハードコードしない）を渡し、合いそうな
+候補があれば `<skill_relevance>` ヒントを非拘束の参考情報として注入します。最終的にどの
+Skill を読むかはこれまで通りエージェントの判断に委ねます。設計と検証結果は
+`.agent-msgs/handoff/2026-09-18-jev-skill-recommendation-eval.md` を参照してください。
+
+### 有効化する
+
+1. https://console.typesafe.ai で API キーを発行します。
+2. dotfiles リポジトリ root の `.env`（gitignore 済み、既存）に追記します。
+
+   ```bash
+   echo 'JEV_API_KEY=sk-...' >> .env
+   ```
+
+3. dotfiles リポジトリの root で新しい OMP セッションを起動します。`.omp/extensions/` は
+   起動時の cwd だけを見て祖先ディレクトリを遡らないため、必ずリポジトリ root から
+   起動してください（`omp-repo` でも可）。
+
+### Jev が使えないとき・無効化する
+
+`JEV_API_KEY` が未設定の場合、この extension はヒント登録そのものを行わない完全な
+no-op になります。設定済みでも API 呼び出しが失敗（ネットワーク断、認証エラー、
+タイムアウトなど）した場合は、そのセッション内では以降 Jev を呼ばずヒント無しの
+挙動へフォールバックします。どちらの場合もエラーは表示されず、既存の Skill 選択の
+動きを妨げません。明示的に無効化する場合は次のいずれかです。
+
+- `.env` から `JEV_API_KEY` を削除する、またはコメントアウトする。
+- リポジトリ root に `.omp/config.yml`（project-local、未作成なら新規作成）を置き、
+  次を追記する。
+
+  ```yaml
+  disabledExtensions:
+    - extension-module:jev-skill-hint
+  ```
+
+### 動作を確認する
+
+複数の Skill が絡む依頼を投げ、応答の直前に
+`Jev候補(参考、必須ではない): ...` が挿入されるかを見ます。`JEV_API_KEY` を
+一時的に外した新しいセッションでは、ヒントが出ず、エラーも出ないことを確認します。
+
 ## OMP 本体を更新する
 
 `omp update` で本体を更新した後は、プラグインと dotfiles のリンクを再適用します。
@@ -582,6 +631,7 @@ omp-review --help
 | debug adapter の差し替え | `omp/dap.json` |
 | OMP にだけ追加する常設指示 | `omp/APPEND_SYSTEM.md` |
 | OMP extension | `omp/extensions/` |
+| プロジェクトローカルの Jev skill hint | `.omp/extensions/jev-skill-hint.ts` |
 | 三 CLI の代替ツール誘導ルール | `agents/command-rules.json` |
 | plugin と version | `scripts/omp-plugins` |
 | authored skill | `agents/skills/<name>/SKILL.md` |

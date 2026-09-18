@@ -5,3 +5,4 @@ omp/config.yml.lock
 # マシン固有の計測記録 — public リポジトリに載せない(セッションID・コスト実測を含む)
 agents/skills/agent-usage-review/journal.md
 git/sensitive-patterns.local
+.env
