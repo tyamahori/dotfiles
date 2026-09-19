@@ -1,4 +1,4 @@
-// TypeSafe(Jev) を使った Skill 推薦ヒント(プロジェクトローカルの pilot)。
+// TypeSafe(Jev) を使った Skill 推薦ヒント(machine-global extension)。
 //
 // 背景: システムプロンプトの `<skills>` には数十件の Skill が名前+説明だけ
 // 並ぶ。依頼文からどの Skill を読むべきかの判断は毎ターン、モデル自身が
@@ -8,8 +8,8 @@
 // 検証した結果、非拘束の複数候補ヒントとして採用した。
 //
 // 設計(2026-09 検証済み。検証ケース・手順・数値は
-// .agent-msgs/handoff/2026-09-18-jev-skill-recommendation-eval.md と
-// .agent-msgs/scratch/ms-eval-tasks.json を参照):
+// dotfiles リポジトリの .agent-msgs/handoff/2026-09-18-jev-skill-recommendation-eval.md
+// と .agent-msgs/scratch/ms-eval-tasks.json を参照):
 // - Call 1: 全 Skill の名前+説明を選択肢にした Choice 質問で「最も必要そうな
 //   Skill」を1つ選ばせ、確率上位3件を候補にする。
 // - Call 2: 上位3件それぞれに独立した Noul 質問(「この Skill を読む必要が
@@ -22,15 +22,18 @@
 //   (ヒント無しの素の挙動にそのままフォールバックする)。
 //
 // 有効化・無効化の手順は docs/omp.md の「Jev skill hint」節を参照。
-// 要約: `.env` に JEV_API_KEY を置けば有効、置かなければ完全な no-op になる。
+// 要約: このマシンの `~/dotfiles/.env` に JEV_API_KEY があれば有効、無ければ
+// 完全な no-op になる(cwd がどのリポジトリでも判定は `~/dotfiles/.env` 固定)。
 // 実行時に呼び出しが失敗した場合も、そのセッション内では以後リトライせず
 // 静かに no-op へ切り替える(セッションを止めない・エラーを出さない)。
 //
-// スコープ: このリポジトリ配下で開いたメインセッションの通常ターンのみ。
+// スコープ: machine-global extension(`~/.omp/agent/extensions` へ配置)なので
+// 起動 cwd に関わらず全リポジトリのメインセッションの通常ターンで発火する。
 // task/scout 等の subagent は自分自身の extension をロードしないため
 // (公式ドキュメント: "a subagent spawned with restricted tools loads no
 // extensions of its own")、このフックは subagent 内部では発火しない。
 
+import { homedir } from "node:os";
 import { join } from "node:path";
 import {
 	type ChoiceAnswer,
@@ -44,13 +47,14 @@ import {
 const SHORTLIST = 3;
 const FITS_THRESHOLD = 0.3;
 const MAX_PROMPT_CHARS = 4_000;
-// 実測ログ(JSONL, gitignore対象の.agent-msgs配下)。1行=1ターン。
-// スキーマは docs/omp.md の「Jev skill hint」節を参照。
+// JEV_API_KEY は常にこのマシンの dotfiles リポジトリの `.env` から読む。cwd は
+// 呼び出し元リポジトリごとに変わるため、固定パスで解決する(cwd 依存にしない)。
+const DOTFILES_ROOT = join(homedir(), "dotfiles");
+// 実測ログ(JSONL, gitignore対象の.agent-msgs配下)。1行=1ターン。呼び出し元
+// リポジトリの `.agent-msgs/scratch/` に書く(cwd 相対のまま — 効果測定は
+// 使われたプロジェクトごとに見る)。スキーマは docs/omp.md の「Jev skill hint」
+// 節を参照。
 const LOG_PATH = join(process.cwd(), ".agent-msgs/scratch/jev-skill-hint-metrics.jsonl");
-
-function appendLog(record: Record<string, unknown>): void {
-	appendJsonlLog(LOG_PATH, record);
-}
 
 type ExtensionHandlerApi = {
 	on(event: string, handler: (event: unknown, ctx: unknown) => unknown): void;
@@ -106,7 +110,7 @@ type TurnMetrics = {
 };
 
 export default function (pi: ExtensionHandlerApi): void {
-	const apiKey = loadJevApiKey(process.cwd());
+	const apiKey = loadJevApiKey(DOTFILES_ROOT);
 	if (!apiKey) return; // JEV_API_KEY 未設定 = 完全な no-op(ヒントを一切登録しない)。
 
 	// ponytail: セッション内で一度失敗したら以降は試行しない(プロセス単位のcircuit
@@ -193,7 +197,7 @@ export default function (pi: ExtensionHandlerApi): void {
 		if (pending === null) return;
 		const actual = [...new Set(skillReads)];
 		const hits = actual.filter((name) => pending?.accepted.includes(name));
-		appendLog({
+		appendJsonlLog(LOG_PATH, {
 			...pending,
 			actualSkillReads: actual,
 			hits: hits.length,

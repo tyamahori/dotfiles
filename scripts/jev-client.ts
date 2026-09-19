@@ -1,5 +1,5 @@
 // 共有 Jev (TypeSafe systemone) クライアント。
-// .omp/extensions/jev-skill-hint.ts, .omp/extensions/jev-agent-hint.ts,
+// omp/extensions/jev-skill-hint.ts, .omp/extensions/jev-agent-hint.ts,
 // scripts/jev-pr-lens-shadow.ts が使う。
 //
 // このモジュール自体は「Jev が使えない」を隠蔽しない。キー未設定は
