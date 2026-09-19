@@ -412,12 +412,13 @@ omp config get autolearn.enabled --json
 omp config get retry.usageReservePct --json
 ```
 
-## Jev skill hint（プロジェクトローカルの pilot extension）
+## Jev skill hint（machine-global extension）
 
-`.omp/extensions/jev-skill-hint.ts` は、このリポジトリの root で開いたセッションだけに
-効く project-local な extension です。`omp/extensions/`（`~/.omp/agent/extensions` へ配置する
-machine-global な extension）とは別物で、他リポジトリやこの `.omp/` を持たないディレクトリ
-から起動したセッションには一切効きません。
+`omp/extensions/jev-skill-hint.ts`（`~/.omp/agent/extensions` へ配置される machine-global な
+extension）は、起動 cwd に関わらずすべてのリポジトリのメインセッションで効きます。
+project-local な `.omp/extensions/`（このリポジトリの root で開いたセッションだけに効く
+仕組み）とは別物です。`JEV_API_KEY` の読み取り先は cwd に関係なく常にこのマシンの
+`~/dotfiles/.env` 固定なので、他リポジトリで使う場合も個別に鍵を置く必要はありません。
 
 ターン開始のたびに TypeSafe（Jev）の systemone API へ依頼文と Skill 一覧（名前+説明。
 システムプロンプトの `<skills>` から都度抽出するのでハードコードしない）を渡し、合いそうな
@@ -434,9 +435,9 @@ Skill を読むかはこれまで通りエージェントの判断に委ねま�
    echo 'JEV_API_KEY=sk-...' >> .env
    ```
 
-3. dotfiles リポジトリの root で新しい OMP セッションを起動します。`.omp/extensions/` は
-   起動時の cwd だけを見て祖先ディレクトリを遡らないため、必ずリポジトリ root から
-   起動してください（`omp-repo` でも可）。
+3. `./scripts/link` を実行して `omp/extensions/jev-skill-hint.ts` が
+   `~/.omp/agent/extensions/` にリンクされていることを確認し、新しい OMP セッションを
+   起動します（どのリポジトリの root から起動しても構いません）。
 
 ### Jev が使えないとき・無効化する
 
@@ -446,9 +447,9 @@ no-op になります。設定済みでも API 呼び出しが失敗（ネット
 挙動へフォールバックします。どちらの場合もエラーは表示されず、既存の Skill 選択の
 動きを妨げません。明示的に無効化する場合は次のいずれかです。
 
-- `.env` から `JEV_API_KEY` を削除する、またはコメントアウトする。
-- リポジトリ root に `.omp/config.yml`（project-local、未作成なら新規作成）を置き、
-  次を追記する。
+- `.env` から `JEV_API_KEY` を削除する、またはコメントアウトする（全リポジトリで無効化）。
+- 特定のリポジトリだけで無効化したい場合は、そのリポジトリの root に `.omp/config.yml`
+  （project-local、未作成なら新規作成）を置き、次を追記します。
 
   ```yaml
   disabledExtensions:
@@ -464,8 +465,9 @@ no-op になります。設定済みでも API 呼び出しが失敗（ネット
 ### 実測ログで効果を測る
 
 `before_agent_start` でのヒント生成結果と、そのターン中に実際に読まれた
-`skill://` を突き合わせ、1ターン1行の JSONL として
-`.agent-msgs/scratch/jev-skill-hint-metrics.jsonl`（gitignore 対象）に追記します。
+`skill://` を突き合わせ、1ターン1行の JSONL として、使われたリポジトリの
+`.agent-msgs/scratch/jev-skill-hint-metrics.jsonl`（gitignore 対象、cwd 相対）に
+追記します。
 
 | フィールド | 意味 |
 |---|---|
@@ -480,7 +482,7 @@ no-op になります。設定済みでも API 呼び出しが失敗（ネット
 | `missedAccepted` | ヒント候補になったが読まれなかった Skill 数(過剰提案の指標) |
 
 `hits` の合計と `accepted` の合計から採用率を、`hintLatencyMs` の平均から
-レイテンシ負担を、次のコマンドで集計できます。
+レイテンシ負担を、次のコマンドで集計できます（対象リポジトリの root で実行）。
 
 ```bash
 jaq -s 'def sum(f): reduce .[] as $x (0; . + ($x|f));
@@ -494,9 +496,10 @@ jaq -s 'def sum(f): reduce .[] as $x (0; . + ($x|f));
 
 ## Jev agent hint（プロジェクトローカルの pilot extension）
 
-`.omp/extensions/jev-agent-hint.ts` は `jev-skill-hint.ts` の姉妹 extension で、有効化・
-無効化・スコープ（このリポジトリ root で開いたセッションのみ、`.env` の
-`JEV_API_KEY`）は前節と同じ手順です。
+`.omp/extensions/jev-agent-hint.ts` は `jev-skill-hint.ts` の姉妹 extension です。
+`jev-skill-hint.ts` と異なりこちらは今も project-local（このリポジトリ root で開いた
+セッションのみ効く）のままで、`JEV_API_KEY` の読み取りも起動 cwd の `.env` を見ます。
+ヒント注入はまだ行わず、shadow ログ収集のみです。
 
 `task` ツール呼び出しのたびに、依頼文と agent roster（`task` ツール自身の description
 から都度抽出。ハードコードしない）を Jev の Choice 質問へ渡し、どの agent 種別
@@ -543,6 +546,33 @@ jaq -s 'def sum(f): reduce .[] as $x (0; . + ($x|f));
      (if ($labeled | length) == 0 then 1 else ($labeled | length) end))}' \
   .agent-msgs/scratch/jev-agent-hint-metrics.jsonl
 ```
+
+## Jev plan gate（machine-global extension）
+
+`omp/extensions/jev-plan-gate.ts` は Plan Mode の `<proposed_plan>` を機械的に検査する
+extension です。以前は `agents/skills/jev-plan-gate`（agent-internal skill、エージェントが
+計画提示の直前に自分で気づいて使う設計）として試作しましたが、確実性がなく
+「忘れる」問題を解決できなかったため、この turn_end 駆動の extension に置き換えました
+（旧 skill は削除済み）。
+
+`turn_end` イベントで直前のアシスタントメッセージを見て、`<proposed_plan>...
+</proposed_plan>` を含む場合だけ動きます。ブロック内の箇条書き/番号付き行を候補として
+正規表現抽出し、件数が2〜8件の範囲内なら、候補ごとに独立した Noul 質問
+（「この項目は目標達成に必要か」）を1回の Jev 呼び出しにまとめて投げます。必要性確率が
+0.5未満の候補を「不要かもしれない」候補として集め、1件以上あれば `<plan_relevance>`
+ヒントを非拘束の参考情報として注入します。深いトレードオフ・リスクレビューはこの
+仕組みの対象外で、それは `adversarial-verification` skill が担います。
+
+計画はすでに表示済み（ターンが終わっている）ため、`jev-skill-hint` のように
+`before_agent_start` の戻り値でヒントを差し込むことはできません。代わりに
+`pi.sendMessage` を `deliverAs: "nextTurn"`（`triggerTurn` なし）で呼び、ユーザーが計画に
+対して次に発言するタイミングでその発言と一緒に配信・表示します。新規ターンを強制
+起動しないため、計画提示のたびに追加の推論コストは発生しません。
+
+有効化・無効化の手順とキーの読み取り先（`~/dotfiles/.env` 固定）は
+`jev-skill-hint` と同じです。実行時に失敗した場合はそのセッション内で以後 no-op に
+切り替わり、失敗ログを `.agent-msgs/scratch/jev-plan-gate-metrics.jsonl`
+（呼び出し元リポジトリの cwd 相対、gitignore 対象）に1計画1行の JSONL で残します。
 
 ## Jev PR-review lens shadow
 
@@ -783,7 +813,9 @@ omp-review --help
 | debug adapter の差し替え | `omp/dap.json` |
 | OMP にだけ追加する常設指示 | `omp/APPEND_SYSTEM.md` |
 | OMP extension | `omp/extensions/` |
-| プロジェクトローカルの Jev skill hint | `.omp/extensions/jev-skill-hint.ts` |
+| machine-global の Jev skill hint | `omp/extensions/jev-skill-hint.ts` |
+| machine-global の Jev plan gate | `omp/extensions/jev-plan-gate.ts` |
+| プロジェクトローカルの Jev agent hint | `.omp/extensions/jev-agent-hint.ts` |
 | 三 CLI の代替ツール誘導ルール | `agents/command-rules.json` |
 | plugin と version | `scripts/omp-plugins` |
 | authored skill | `agents/skills/<name>/SKILL.md` |
