@@ -342,12 +342,17 @@ Most third-party skills are installed with `npx skills add <owner/repo> -g`
 into `~/.agents/skills/` and tracked by `~/.agents/.skill-lock.json`;
 `npx skills check` / `npx skills update` keep them current. A skill is
 vendored into `agents/skills/<name>/` instead when the repo depends on its
-files (the prose lint above calls `natural-japanese/scripts/lint.py`) or
-carries deliberate local edits. Each vendored skill has `.openskills.json`
-(`repoUrl`, `subpath`, synced `commit`) and, if edited, a `local.patch`
-holding the diff against upstream. A GitHub gist is a git repository too:
-`japanese-tech-writing` tracks `https://gist.github.com/<id>.git` with
-`subpath: "."`.
+files (the prose lint above calls `natural-japanese/scripts/lint.py`), it
+carries deliberate local edits, or it isn't in the `npx skills add`
+registry at all (`blader/humanizer` returns "not found in registry").
+Each vendored skill has `.openskills.json` (`repoUrl`, `subpath`, synced
+`commit`) and, if edited, a `local.patch` holding the diff against
+upstream. A GitHub gist is a git repository too: `japanese-tech-writing`
+tracks `https://gist.github.com/<id>.git` with `subpath: "."`. `humanizer`
+also uses `subpath: "."` (its `SKILL.md` sits at the repo root next to
+`README.md`/`LICENSE`/CI scaffolding), so its `local.patch` is
+deletion-only: it drops everything but `SKILL.md` on every sync instead of
+editing content.
 
 `scripts/skill-sync --check` compares the recorded commit with upstream HEAD;
 `scripts/brewUpdate` runs it so drift shows up during the routine update.
