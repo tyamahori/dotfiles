@@ -66,10 +66,23 @@ function extractRoster(systemPrompt: string): Record<string, string> {
 	const block = /<skills>([\s\S]*?)<\/skills>/.exec(systemPrompt)?.[1];
 	if (!block) return {};
 	const roster: Record<string, string> = {};
-	const entryRe = /^- ([a-zA-Z0-9][a-zA-Z0-9_-]*): ([\s\S]*?)(?=\n- [a-zA-Z0-9][a-zA-Z0-9_-]*: |\s*$)/gm;
-	for (const m of block.matchAll(entryRe)) {
-		roster[m[1]] = m[2].trim().replace(/\s+/g, " ");
+	const entryStart = /^- ([a-zA-Z0-9][a-zA-Z0-9_-]*): (.*)$/;
+	let currentName: string | null = null;
+	let parts: string[] = [];
+	const flush = () => {
+		if (currentName) roster[currentName] = parts.join(" ").trim().replace(/\s+/g, " ");
+	};
+	for (const line of block.split("\n")) {
+		const m = entryStart.exec(line);
+		if (m) {
+			flush();
+			currentName = m[1];
+			parts = [m[2]];
+		} else if (currentName) {
+			parts.push(line);
+		}
 	}
+	flush();
 	return roster;
 }
 
@@ -109,7 +122,7 @@ type TurnMetrics = {
 	jevError: boolean;
 };
 
-export default function (pi: ExtensionHandlerApi): void {
+export default function jevSkillHint(pi: ExtensionHandlerApi): void {
 	const apiKey = loadJevApiKey(DOTFILES_ROOT);
 	if (!apiKey) return; // JEV_API_KEY 未設定 = 完全な no-op(ヒントを一切登録しない)。
 
@@ -131,7 +144,8 @@ export default function (pi: ExtensionHandlerApi): void {
 			pending = { ts: Date.now(), promptChars: 0, rosterSize: 0, hintLatencyMs: null, accepted: [], circuitOpen: true, jevError: false };
 			return;
 		}
-		const prompt = String((event as { prompt?: unknown } | undefined)?.prompt ?? "").trim();
+		const promptValue = (event as { prompt?: unknown } | undefined)?.prompt;
+		const prompt = (typeof promptValue === "string" ? promptValue : "").trim();
 		if (!prompt) return;
 
 		const getSystemPrompt = (ctx as { getSystemPrompt?: () => unknown } | undefined)?.getSystemPrompt;
@@ -189,7 +203,8 @@ export default function (pi: ExtensionHandlerApi): void {
 		if (pending === null) return;
 		const e = event as { toolName?: string; input?: Record<string, unknown> };
 		if (e.toolName !== "read") return;
-		const match = /^skill:\/\/([a-zA-Z0-9][a-zA-Z0-9_-]*)/.exec(String(e.input?.path ?? ""));
+		const path = e.input?.path;
+		const match = /^skill:\/\/([a-zA-Z0-9][a-zA-Z0-9_-]*)/.exec(typeof path === "string" ? path : "");
 		if (match) skillReads.push(match[1]);
 	});
 

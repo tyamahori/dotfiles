@@ -39,9 +39,11 @@ export function extractRowCategories(skillMd: string): Record<string, string> {
 	// lines[0] = ヘッダー行, lines[1] = 区切り行(|---|---|)。データ行はそれ以降、
 	// テーブル形式でなくなった時点(表の終わり)で止める。
 	for (let i = 2; i < lines.length; i++) {
-		const m = /^\|\s*(.+?)\s*\|\s*(.+?)\s*\|$/.exec(lines[i]);
-		if (!m) break;
-		rows[m[1]] = m[2];
+		const line = lines[i];
+		if (!line.startsWith("|") || !line.trimEnd().endsWith("|")) break;
+		const cells = line.split("|").slice(1, -1).map((c) => c.trim());
+		if (cells.length !== 2) break;
+		rows[cells[0]] = cells[1];
 	}
 	return rows;
 }

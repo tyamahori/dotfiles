@@ -1,6 +1,7 @@
 // 共有 Jev (TypeSafe systemone) クライアント。
 // omp/extensions/jev-skill-hint.ts, omp/extensions/jev-plan-gate.ts,
-// .omp/extensions/jev-agent-hint.ts, scripts/jev-pr-lens-shadow.ts が使う。
+// omp/extensions/jev-agent-hint.ts, omp/extensions/jev-model-hint.ts,
+// scripts/jev-pr-lens-shadow.ts が使う。
 //
 // このモジュール自体は「Jev が使えない」を隠蔽しない。キー未設定は
 // loadJevApiKey が undefined を返すだけ、呼び出し失敗は jevCall が例外を

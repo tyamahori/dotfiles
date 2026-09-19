@@ -1,5 +1,5 @@
-// TypeSafe(Jev) を使ったモデル階層(tier)の shadow ログ(プロジェクトローカル
-// pilot、jev-agent-hint.ts / jev-skill-hint.ts の姉妹 extension)。
+// TypeSafe(Jev) を使ったモデル階層(tier)の shadow ログ(machine-global
+// extension、jev-agent-hint.ts / jev-skill-hint.ts の姉妹 extension)。
 //
 // 目的: ユーザー入力(ターン開始)ごとに、依頼文だけから Jev が
 // smol/default/slow のどの階層が最適だと予測するかを、実際にそのターンで
@@ -16,8 +16,8 @@
 // タスク特性ベースの判断で、意味理解が要るため Jev が担当しうる領域。
 //
 // Jev が使えない場合:
-// - `JEV_API_KEY` 未設定(env にも `.env` にも無い) → 完全な no-op。
-//   extension は何も登録しない(pi.on を一度も呼ばない)。
+// - `JEV_API_KEY` 未設定(env にも `~/dotfiles/.env` にも無い) → 完全な
+//   no-op。extension は何も登録しない(pi.on を一度も呼ばない)。
 // - 実行時に Jev 呼び出しが失敗 → そのセッション内では以降リトライせず、
 //   静かに no-op へ切り替える(circuit breaker)。ログには jevError:true を
 //   残すが、ターン処理自体は常に成功する。
@@ -27,15 +27,25 @@
 //
 // 有効化・無効化・ログの見方は docs/omp.md の「Jev model hint」節を参照。
 //
-// スコープ: jev-agent-hint.ts と同じく、このリポジトリ配下で開いたメイン
-// セッションのみ。subagent は自分自身の extension をロードしないため対象外。
+// スコープ: machine-global extension(`~/.omp/agent/extensions` へ配置)なので
+// 起動 cwd に関わらず全リポジトリのメインセッションの通常ターンで発火する。
+// `JEV_API_KEY` は常にこのマシンの dotfiles リポジトリの `.env` から読む
+// (cwd は呼び出し元リポジトリごとに変わるため固定パスで解決する)。ログは
+// 呼び出し元リポジトリの `.agent-msgs/scratch/` に書く(cwd 相対のまま —
+// 効果測定は使われたプロジェクトごとに見る)。subagent は自分自身の
+// extension をロードしないため対象外。
 
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { type ChoiceAnswer, appendJsonlLog, jevCall, loadJevApiKey } from "../../scripts/jev-client.ts";
 
 const MAX_PROMPT_CHARS = 4_000;
-// 実測ログ(JSONL, gitignore対象の.agent-msgs配下)。1入力=1行。
-// スキーマは docs/omp.md の「Jev model hint」節を参照。
+// JEV_API_KEY は常にこのマシンの dotfiles リポジトリの `.env` から読む(cwd
+// 依存にしない、理由は上のスコープ節を参照)。
+const DOTFILES_ROOT = join(homedir(), "dotfiles");
+// 実測ログ(JSONL, gitignore対象の.agent-msgs配下)。1入力=1行。呼び出し元
+// リポジトリの `.agent-msgs/scratch/` に書く(cwd 相対)。スキーマは
+// docs/omp.md の「Jev model hint」節を参照。
 const LOG_PATH = join(process.cwd(), ".agent-msgs/scratch/jev-model-hint-metrics.jsonl");
 
 // smol/default/slow の 3 階層のみを対象にする(理由は冒頭コメント参照)。
@@ -56,8 +66,8 @@ type ExtensionHandlerApi = {
 
 type InputEvent = { text?: unknown };
 
-export default function (pi: ExtensionHandlerApi): void {
-	const apiKey = loadJevApiKey(process.cwd());
+export default function jevModelHint(pi: ExtensionHandlerApi): void {
+	const apiKey = loadJevApiKey(DOTFILES_ROOT);
 	if (!apiKey) return; // JEV_API_KEY 未設定 = 完全な no-op(何も登録しない)。
 
 	// ponytail: セッション内で一度失敗したら以降は試行しない(プロセス単位の

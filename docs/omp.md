@@ -494,12 +494,14 @@ jaq -s 'def sum(f): reduce .[] as $x (0; . + ($x|f));
   .agent-msgs/scratch/jev-skill-hint-metrics.jsonl
 ```
 
-## Jev agent hint（プロジェクトローカルの pilot extension）
+## Jev agent hint（machine-global extension）
 
-`.omp/extensions/jev-agent-hint.ts` は `jev-skill-hint.ts` の姉妹 extension です。
-`jev-skill-hint.ts` と異なりこちらは今も project-local（このリポジトリ root で開いた
-セッションのみ効く）のままで、`JEV_API_KEY` の読み取りも起動 cwd の `.env` を見ます。
-ヒント注入はまだ行わず、shadow ログ収集のみです。
+`omp/extensions/jev-agent-hint.ts` は `jev-skill-hint.ts` の姉妹 extension です。
+machine-global（起動 cwd に関わらず全リポジトリのメインセッションで効く）で、
+`JEV_API_KEY` の読み取りは常にこのマシンの `~/dotfiles/.env` を固定パスで見ます
+（cwd は呼び出し元リポジトリごとに変わるため）。ヒント注入はまだ行わず、shadow
+ログ収集のみです。ログは呼び出し元リポジトリの `.agent-msgs/scratch/` に書きます
+（cwd 相対のまま — 効果測定は使われたプロジェクトごとに見ます）。
 
 `task` ツール呼び出しのたびに、依頼文と agent roster（`task` ツール自身の description
 から都度抽出。ハードコードしない）を Jev の Choice 質問へ渡し、どの agent 種別
@@ -547,11 +549,12 @@ jaq -s 'def sum(f): reduce .[] as $x (0; . + ($x|f));
   .agent-msgs/scratch/jev-agent-hint-metrics.jsonl
 ```
 
-## Jev model hint（プロジェクトローカルの pilot extension）
+## Jev model hint（machine-global extension）
 
-`.omp/extensions/jev-model-hint.ts` は `jev-agent-hint.ts` の姉妹 extension です。同じく
-project-local（このリポジトリ root で開いたセッションのみ効く）で、`JEV_API_KEY` の読み取りも
-起動 cwd の `.env` を見ます。ヒント注入・実際のモデル切替はまだ行わず、shadow ログ収集のみです。
+`omp/extensions/jev-model-hint.ts` は `jev-agent-hint.ts` の姉妹 extension です。同じく
+machine-global で、`JEV_API_KEY` の読み取りも常に `~/dotfiles/.env` を固定パスで見ます。
+ヒント注入・実際のモデル切替はまだ行わず、shadow ログ収集のみです。ログは呼び出し元
+リポジトリの `.agent-msgs/scratch/` に書きます（cwd 相対のまま）。
 
 ユーザー入力（ターン開始）のたびに、依頼文だけを Jev の Choice 質問へ渡し、`smol`/`default`/`slow`
 の3階層のうちどれが最適かを予測して、そのターンで実際に使われているモデル
@@ -859,7 +862,8 @@ omp-review --help
 | OMP extension | `omp/extensions/` |
 | machine-global の Jev skill hint | `omp/extensions/jev-skill-hint.ts` |
 | machine-global の Jev plan gate | `omp/extensions/jev-plan-gate.ts` |
-| プロジェクトローカルの Jev agent hint | `.omp/extensions/jev-agent-hint.ts` |
+| machine-global の Jev agent hint | `omp/extensions/jev-agent-hint.ts` |
+| machine-global の Jev model hint | `omp/extensions/jev-model-hint.ts` |
 | 三 CLI の代替ツール誘導ルール | `agents/command-rules.json` |
 | plugin と version | `scripts/omp-plugins` |
 | authored skill | `agents/skills/<name>/SKILL.md` |

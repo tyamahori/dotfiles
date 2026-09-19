@@ -78,11 +78,19 @@ function getLastAssistantText(ctx: unknown): string {
 
 /** `<proposed_plan>` ブロック内の箇条書き/番号付き行を候補として抽出する。 */
 function extractCandidates(planBlock: string): string[] {
-	const lineRe = /^\s*(?:[-*]|\d+\.)\s+(.+)$/gm;
 	const seen = new Set<string>();
 	const candidates: string[] = [];
-	for (const m of planBlock.matchAll(lineRe)) {
-		const text = m[1].trim().slice(0, 200);
+	for (const rawLine of planBlock.split("\n")) {
+		const line = rawLine.replace(/^[ \t]+/, "");
+		let rest: string | null = null;
+		if (line.startsWith("- ") || line.startsWith("* ")) {
+			rest = line.slice(2);
+		} else {
+			const m = /^\d+\.\s+/.exec(line);
+			if (m) rest = line.slice(m[0].length);
+		}
+		if (rest === null) continue;
+		const text = rest.trim().slice(0, 200);
 		if (text && !seen.has(text)) {
 			seen.add(text);
 			candidates.push(text);
@@ -103,7 +111,7 @@ async function getUnnecessaryCandidates(apiKey: string, planText: string, candid
 	return candidates.filter((_, i) => (resp.answers[`necessary_${i}`] as NoulAnswer).noul < UNNECESSARY_THRESHOLD);
 }
 
-export default function (pi: ExtensionHandlerApi): void {
+export default function jevPlanGate(pi: ExtensionHandlerApi): void {
 	const apiKey = loadJevApiKey(DOTFILES_ROOT);
 	if (!apiKey) return; // JEV_API_KEY 未設定 = 完全な no-op。
 
@@ -134,12 +142,13 @@ export default function (pi: ExtensionHandlerApi): void {
 			});
 			if (flagged.length === 0) return;
 
+			const flaggedList = flagged.map((f) => `「${f}」`).join("、");
 			pi.sendMessage(
 				{
 					customType: "dotfiles.jev-plan-gate",
 					content:
 						"<plan_relevance>\nJev候補(参考、必須ではない): 以下の項目は目標達成に不要かもしれません — " +
-						`${flagged.map((f) => `「${f}」`).join("、")}。` +
+						`${flaggedList}。` +
 						"深いトレードオフ検討は adversarial-verification に委ねる。最終判断はユーザー。\n</plan_relevance>",
 					display: true,
 					attribution: "agent",
