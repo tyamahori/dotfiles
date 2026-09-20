@@ -601,7 +601,8 @@ dotfiles from this repo. macOS-only items (Homebrew casks, `mas`) are skipped.
 # Pull dotfiles and apply OMP plugins and managed links (from any directory)
 update-my-dotfiles
 
-# Sync dotfiles with remote (pull --rebase, commit local diff, push)
+# Sync only what you've staged with remote (fast-forward pull, commit, push)
+git add -- <files you chose>
 ./scripts/sync
 
 # Update brew formulae and casks
@@ -613,6 +614,13 @@ omp-apply
 # Visualize disk usage on the desktop
 ./scripts/clean
 ```
+
+`./scripts/sync` never runs `git add`: stage exactly the files you want synced
+first. It refuses to run while `docs/ops` has staged changes (unstage the
+journal entries first) or while the index has unmerged paths, and it only
+fast-forwards — a diverged or conflicting pull stops before commit/push so it
+never rebases, stashes, or force-resolves on your behalf. Unstaged and
+untracked changes are left exactly as they were.
 
 `scripts/link` installs `update-my-dotfiles` in `~/.local/bin`. On a machine
 that has not linked it yet, run `~/dotfiles/scripts/update-my-dotfiles` once.

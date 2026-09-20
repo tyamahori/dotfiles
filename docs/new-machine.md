@@ -10,7 +10,7 @@
 
 ## 1. 旧マシンでの持ち出し確認
 
-- dotfilesを最新にしてpushする：`./scripts/sync`
+- dotfilesの変更をstageして`./scripts/sync`でpushする（stage済みのdocs/opsがあると停止する。詳しくはREADMEの「Maintenance」節）。
 - 7節の一覧を見て、リポジトリ外の機械ローカル状態のうち引き継ぐものを確認する。
   秘密情報は1Passwordが正本なので、ファイルとして持ち出すものは原則ない。
 - 他リポジトリの未pushコミットと未コミットの作業ツリーを掃く。
