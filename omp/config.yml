@@ -3,7 +3,6 @@ providers:
   autoThinkingMaxEffort: high
   webSearchOrder: 
     - google
-    - perplexity
     - gemini
     - anthropic
     - codex
