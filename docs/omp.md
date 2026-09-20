@@ -82,7 +82,7 @@ delve は built-in 定義のまま動きますが、`program` にディレクト
 ## `omp-build` を選ぶ基準
 
 実装前にコードを調べて方針を決める作業は `omp-build` で始めます。
-現在の設定では、要求整理と計画を default model の Fable が担当し、最初の `edit` または `write` で `@task` の Terra へ切り替わります。
+現在の設定では、要求整理と計画を default model が担当し、最初の `edit` または `write` で `@task` へ切り替わります（`dotfiles/.zshrc` の `omp-build` 定義にある `--prewalk --prewalk-into @task`）。実効モデルは `omp config get modelRoles --json` で確認してください。
 
 次の作業が対象です。
 
@@ -97,10 +97,7 @@ delve は built-in 定義のまま動きますが、`program` にディレクト
 
 ### リポジトリのルートから起動する
 
-```bash
-cd ~/project/example
-omp-build
-```
+「まず使う」節の例と同じように、対象リポジトリへ移動してから `omp-build` を実行します。
 
 ホームディレクトリから起動すると LSP と jbcontext がリポジトリを認識できないことがあるため、先に作業対象へ移動します。
 
@@ -111,7 +108,7 @@ omp-build
 まず関連コードを調査して計画を提示してください。承認後に実装と確認まで進めてください。
 ```
 
-計画が固まる前に編集を許可すると、その時点で Terra へ切り替わります。
+計画が固まる前に編集を許可すると、その時点で `@task` へ切り替わります。
 切り替え後は、status line または model badge で `@task` を確認できます。
 
 ## セッション内でよく使うコマンド
@@ -324,10 +321,7 @@ omp-learning-review
 
 ### 学習内容を整理する
 
-```bash
-cd ~/project/example
-omp-learning-review
-```
+起動方法は「学習候補のレビュー」節を参照してください。
 
 ### 利用量と実行効率を見直す
 
@@ -807,7 +801,7 @@ Claude Code と Codex のフック実行には、`scripts/devbox` で導入す�
 | --- | --- | --- |
 | 素の `python` / `python3` | `uv run` / `uvx` | 三 CLI |
 | shell による閲覧・検索 | 専用の Read / Grep / Glob 系ツール | Claude Code、OMP |
-| 単純な `curl` の Web 取得 | `ax`（最初に `ax agent-context`） | 三 CLI |
+| 単純な `curl` の Web 取得 | `ax`（最初に `~/.agents/skills/ax/SKILL.md` を読む） | 三 CLI |
 | `brew upgrade` | `scripts/brewUpdate` | 三 CLI |
 | `.env` 系資格情報ファイルの shell 経由の閲覧 | 読ませない（代替なし） | 三 CLI |
 
@@ -824,13 +818,15 @@ uv、ax、brewUpdate への誘導は、代替コマンドが実行可能な場�
 条件を満たす最初のルールで拒否するため、理由文には次に使うツールと呼び出し方を明記してください。
 単純なコマンド置換は JSON の追加だけで済みますが、`curl` のような用途判定を増やす場合は判定コードの変更も必要です。
 
-変更後は拒否・許可の境界を検証し、SonarQube 用のカバレッジを生成してから品質ゲートを実行します。
+変更後は拒否・許可の境界を個別テストで検証します。
 
 ```bash
-bun test scripts/command-policy.test.ts --coverage --coverage-reporter=lcov --coverage-dir=.agent-msgs/scratch/command-policy-coverage
-scripts/sonar-quality-gate
+bun test ./scripts/command-policy.test.ts
 scripts/link
 ```
+
+品質ゲート向けの全件カバレッジ計測手順は [docs/sonarqube.md](sonarqube.md) の
+「このdotfilesでは、先にBunのカバレッジを生成する」節にまとめています。
 
 OMP は新しいプロセスで起動し直してください。
 Claude Code も新しいセッションで確認し、Codex は `/hooks` で変更済み定義を trust してから使います。
