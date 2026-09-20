@@ -2,6 +2,29 @@
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
 
+## 2026-09-20 plan ロールをフルエフォート Astra に統一
+
+- 契機: ユーザーが会話中で「計画とレビューのときはフロンティアモデルを使いたい」と
+  明示。照合したところ `modelRoles.reviewer` 系(`task.agentModelOverrides.reviewer`
+  /`security-reviewer`)は既に `@slow`=フルエフォート `openai-codex/gpt-6-astra` を
+  使用済みで対応不要だった。`modelRoles.plan` のみ `openai-codex/gpt-6-astra:low` と
+  エフォート抑制がかかっており、計画品質がレビュー品質に対して劣っていた。
+  モデル自体の切り替えではなく、既存ピン(Astra)のエフォート修飾子のみの変更のため、
+  公式資料の新規収集は対象外(モデル一覧・移行ガイドの再照合は不要と判断)。
+- 照合: `omp/config.yml:33`。判定は「判断」(運用意図の選択、公式資料の推奨とは無関係)。
+- 提案と承認: ユーザーに `:low` を外すか現状維持か選択肢を提示し、「外す(フルエフォート)」
+  を選択(本会話内で確認済み)。
+- 適用: `omp/config.yml` の `modelRoles.plan` を `openai-codex/gpt-6-astra:low` から
+  `openai-codex/gpt-6-astra` に変更し、意図をインラインコメントで記録
+  (commit a3a3744)。
+- 検証: 新規プロセスで実測。`omp -p --no-session --model @plan --mode json
+  "reply with exactly the word: ok"` の `message.model` が `gpt-6-astra` を返した
+  (旧来 `:low` 付きのロール名は解決済みモデルIDに現れないため、config側の修飾子除去
+  そのものは設定ファイルの目視確認が根拠)。検証後 `scripts/model-pins ack` を実行、
+  直後の `scripts/model-pins check` は差分なし(exit 0)。
+- 1週間後: 2026-09-27 予定。`agent-usage-weekly` の plan/task ロールのコスト・
+  トークン消費の変化を確認する。
+
 ## 2026-09-18 ack マーカー消失の復旧(新規レビューなし)
 
 - 契機: `scripts/model-pins check` が `claude.model` と
