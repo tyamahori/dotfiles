@@ -111,7 +111,7 @@ bun "$HOME/dotfiles/scripts/jev-pr-lens-shadow.ts" actual --ref <base>..<head> -
 ```
 
 `JEV_API_KEY` 未設定・呼び出し失敗のどちらでも何も出力せず正常終了する。実行しなくても
-レビューの完了条件には影響しない。詳細は `docs/omp.md` の「Jev PR-review lens shadow」節を参照。
+レビューの完了条件には影響しない。詳細は `docs/jev.md` の「Jev PR-review lens shadow」節を参照。
 
 ## 投稿前メタレビュー
 

@@ -166,7 +166,7 @@ through `git/hooks/commit-msg` (symlink) and explicit calls at the end of its
 
 ## OMP (Oh My Pi)
 
-日常の起動方法、セッション操作、モデル運用、local memory、自動学習、定期レビュー、設定変更、トラブル対応は [`docs/omp.md`](docs/omp.md) にまとめています。
+日常の起動方法、セッション操作、モデル運用、local memory、自動学習、定期レビュー、設定変更、トラブル対応は [`docs/omp.md`](docs/omp.md) に、Jev(TypeSafe)を使った各種ヒント機能の詳細は [`docs/jev.md`](docs/jev.md) にまとめています。
 
 最短では、対象リポジトリで `omp`、場所を間違えたくない場合は `omp-repo <repository-path>`、非 trivial な実装は `omp-build` を使います。
 
