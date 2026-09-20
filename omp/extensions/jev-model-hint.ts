@@ -16,7 +16,7 @@
 // タスク特性ベースの判断で、意味理解が要るため Jev が担当しうる領域。
 //
 // Jev が使えない場合:
-// - `JEV_API_KEY` 未設定(env にも `~/dotfiles/.env` にも無い) → 完全な
+// - `JEV_API_KEY` 未設定(環境変数にも `~/dotfiles/.env` にも無い) → 完全な
 //   no-op。extension は何も登録しない(pi.on を一度も呼ばない)。
 // - 実行時に Jev 呼び出しが失敗 → そのセッション内では以降リトライせず、
 //   静かに no-op へ切り替える(circuit breaker)。ログには jevError:true を
@@ -25,12 +25,13 @@
 //   input ハンドラ自体は同期的に即 return するため、実際のターン処理に
 //   レイテンシを一切追加しない。
 //
-// 有効化・無効化・ログの見方は docs/omp.md の「Jev model hint」節を参照。
+// 有効化・無効化・ログの見方は docs/jev.md の「Jev model hint」節を参照。
 //
 // スコープ: machine-global extension(`~/.omp/agent/extensions` へ配置)なので
 // 起動 cwd に関わらず全リポジトリのメインセッションの通常ターンで発火する。
-// `JEV_API_KEY` は常にこのマシンの dotfiles リポジトリの `.env` から読む
-// (cwd は呼び出し元リポジトリごとに変わるため固定パスで解決する)。ログは
+// `JEV_API_KEY` は環境変数優先、無ければこのマシンの dotfiles リポジトリの
+// `.env` を読む(cwd は呼び出し元リポジトリごとに変わるため固定パスで
+// 解決する)。ログは
 // 呼び出し元リポジトリの `.agent-msgs/scratch/` に書く(cwd 相対のまま —
 // 効果測定は使われたプロジェクトごとに見る)。subagent は自分自身の
 // extension をロードしないため対象外。
@@ -40,12 +41,12 @@ import { join } from "node:path";
 import { type ChoiceAnswer, appendJsonlLog, jevCall, loadJevApiKey } from "../../scripts/jev-client.ts";
 
 const MAX_PROMPT_CHARS = 4_000;
-// JEV_API_KEY は常にこのマシンの dotfiles リポジトリの `.env` から読む(cwd
-// 依存にしない、理由は上のスコープ節を参照)。
+// JEV_API_KEY は環境変数優先、無ければこのマシンの dotfiles リポジトリの
+// `.env` を読む(cwd 依存にしない、理由は上のスコープ節を参照)。
 const DOTFILES_ROOT = join(homedir(), "dotfiles");
 // 実測ログ(JSONL, gitignore対象の.agent-msgs配下)。1入力=1行。呼び出し元
 // リポジトリの `.agent-msgs/scratch/` に書く(cwd 相対)。スキーマは
-// docs/omp.md の「Jev model hint」節を参照。
+// docs/jev.md の「Jev model hint」節を参照。
 const LOG_PATH = join(process.cwd(), ".agent-msgs/scratch/jev-model-hint-metrics.jsonl");
 
 // smol/default/slow の 3 階層のみを対象にする(理由は冒頭コメント参照)。

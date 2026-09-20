@@ -7,9 +7,7 @@
 // ことで、必要な Skill の見落とし・不要な Skill の誤読み込みを減らせるかを
 // 検証した結果、非拘束の複数候補ヒントとして採用した。
 //
-// 設計(2026-09 検証済み。検証ケース・手順・数値は
-// dotfiles リポジトリの .agent-msgs/handoff/2026-09-18-jev-skill-recommendation-eval.md
-// と .agent-msgs/scratch/ms-eval-tasks.json を参照):
+// 設計(2026-09 検証済み。自動検証は omp/tests/jev-skill-hint.test.ts を参照):
 // - Call 1: 全 Skill の名前+説明を選択肢にした Choice 質問で「最も必要そうな
 //   Skill」を1つ選ばせ、確率上位3件を候補にする。
 // - Call 2: 上位3件それぞれに独立した Noul 質問(「この Skill を読む必要が
@@ -21,9 +19,9 @@
 //   採用候補が0件、または Jev 呼び出しが失敗した場合は何も注入しない
 //   (ヒント無しの素の挙動にそのままフォールバックする)。
 //
-// 有効化・無効化の手順は docs/omp.md の「Jev skill hint」節を参照。
-// 要約: このマシンの `~/dotfiles/.env` に JEV_API_KEY があれば有効、無ければ
-// 完全な no-op になる(cwd がどのリポジトリでも判定は `~/dotfiles/.env` 固定)。
+// 有効化・無効化の手順は docs/jev.md の「Jev skill hint」節を参照。
+// 要約: 環境変数 JEV_API_KEY があれば最優先、無ければこのマシンの
+// `~/dotfiles/.env` を読む。どちらも無ければ完全な no-op になる。
 // 実行時に呼び出しが失敗した場合も、そのセッション内では以後リトライせず
 // 静かに no-op へ切り替える(セッションを止めない・エラーを出さない)。
 //
@@ -47,12 +45,13 @@ import {
 const SHORTLIST = 3;
 const FITS_THRESHOLD = 0.3;
 const MAX_PROMPT_CHARS = 4_000;
-// JEV_API_KEY は常にこのマシンの dotfiles リポジトリの `.env` から読む。cwd は
-// 呼び出し元リポジトリごとに変わるため、固定パスで解決する(cwd 依存にしない)。
+// JEV_API_KEY は環境変数優先、無ければこのマシンの dotfiles リポジトリの
+// `.env` にフォールバックする(loadJevApiKey 参照)。cwd は呼び出し元
+// リポジトリごとに変わるため、フォールバック先は固定パスで解決する。
 const DOTFILES_ROOT = join(homedir(), "dotfiles");
 // 実測ログ(JSONL, gitignore対象の.agent-msgs配下)。1行=1ターン。呼び出し元
 // リポジトリの `.agent-msgs/scratch/` に書く(cwd 相対のまま — 効果測定は
-// 使われたプロジェクトごとに見る)。スキーマは docs/omp.md の「Jev skill hint」
+// 使われたプロジェクトごとに見る)。スキーマは docs/jev.md の「Jev skill hint」
 // 節を参照。
 const LOG_PATH = join(process.cwd(), ".agent-msgs/scratch/jev-skill-hint-metrics.jsonl");
 
@@ -132,7 +131,7 @@ export default function jevSkillHint(pi: ExtensionHandlerApi): void {
 
 	// 実測ログ用のターン単位バッファ。before_agent_start で開始し、turn_end で
 	// 実際に読まれた skill:// read と突き合わせて1行 flush する(スキーマは
-	// docs/omp.md の「Jev skill hint」節を参照)。
+	// docs/jev.md の「Jev skill hint」節を参照)。
 	let pending: TurnMetrics | null = null;
 	let skillReads: string[] = [];
 
