@@ -30,7 +30,7 @@ modelRoles:
   smol: openai-codex/gpt-5.6-luna
   task: openai-codex/gpt-5.6-terra
   commit: openai-codex/gpt-5.6-luna
-  plan: openai-codex/gpt-6-astra:low
+  plan: openai-codex/gpt-6-astra # full effort: planning quality prioritized over cost
   slow: openai-codex/gpt-6-astra
   advisor: openai-codex/gpt-5.6-terra
   default: anthropic/claude-sonnet-5
