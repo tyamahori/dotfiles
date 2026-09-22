@@ -2,6 +2,64 @@
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
 
+## 2026-09-22 デフォルトモデルを Opus 5.5 に変更
+
+- 契機: ユーザーが「Opus5.5がリリースされた。デフォルトモデルをOpus5.5に変えて
+  検証したい」と明示指示。
+- 収集: `platform.claude.com/docs/en/models/overview`、
+  `.../models/opus-5-5/migration-guide`、`.../models/opus-5-5/whats-new-opus-5-5`
+  (以上いずれも2026-09-22取得)、Claude Code CHANGELOG 2.1.280(インストール済み
+  バージョンと一致、「Added Claude Opus 5.5 (`claude-opus-5-5`), now the default
+  Opus model」)、`code.claude.com/docs/en/settings-reference.md`(2026-09-22取得)、
+  oh-my-pi リリースノート v18.2.9(インストール済みバージョンと一致、「Updated
+  server-side fallback documentation and logic to target claude-opus-5-5」
+  「Added support for claude-opus-5-5 to model priority registry」)。
+  API ID: `claude-opus-5-5`。Pricing $4/$20 per Mtok(Sonnet5比 $2/$10 から上昇)。
+  既定 effort は `medium`(Sonnet5の`high`と異なる)。Retirement not sooner than
+  2027-09-22。
+- 照合:
+  1. `claude/settings.json:427` `.model` — `claude-sonnet-5` を使用中。判定:判断
+     (ユーザー明示指示)。
+  2. `omp/config.yml:36` `modelRoles.default` — 同上、Claude Code側と揃える運用
+     慣行のため追随。判定:判断。
+  3. `omp/config.yml:40-41` `retry.fallbackChains` の `anthropic/claude-sonnet-5`
+     専用チェーン(`→ openai-codex/gpt-5.6-terra`)— default切替後どのロールにも
+     マッチせず孤立する。判定:判断(要選択、機械的に自動移行できない)。
+  4. `claude/settings.json` トップレベル `effortLevel` — settings-reference.md
+     917行目「Opus 5.5 and models released after it ignore it and start at
+     their own default until you save a level for them, which `/effort` writes
+     under `modelSettings`」。dotfilesの`claude/settings.json`はユーザー設定
+     ファイル扱いのため該当。現状 `medium` 指定はOpus5.5には効かず、Opus5.5自身の
+     既定(medium)にたまたま一致しているだけ。判定:機械的な仕様上の事実、対応は
+     判断。
+  5. 旧モデル(Sonnet5)固有の回避策棚卸し: `agents/global-instructions.md`、
+     `agents/measured-notes.md` を grep、Sonnet5/Fable5.1固有のワークアラウンド
+     記述なし。唯一の近傍規範「mid-sessionの`/model`/`/effort`切替禁止」は
+     キャッシュ衛生の一般則でOpus5.5にも引き続き有効、削除候補なし。
+- 提案と承認: 上記3・4についてユーザーに選択肢を提示(`ask`)。
+  - fallbackChains: 「キーごと削除しwildcard `anthropic/*`(astra→sol)に委ねる」
+    を選択(Opus5.5は長時間エージェント作業向けの重量級モデルであり、既存の
+    軽量退避(terra)より重量級wildcardの方が品質面で自然という判断)。
+  - effortLevel: 「`modelSettings.claude-opus-5-5.effortLevel: medium` を明示
+    追加」を選択(将来Opus既定effortが変わっても意図(medium)を維持するため)。
+  - 1・2は指示自体が承認。
+- 適用:
+  - `claude/settings.json`: `.model` を `claude-opus-5-5` に変更、
+    `modelSettings.claude-opus-5-5.effortLevel: "medium"` を新規追加。
+  - `omp/config.yml`: `modelRoles.default` を `anthropic/claude-opus-5-5` に変更、
+    `retry.fallbackChains` の `anthropic/claude-sonnet-5` キーを削除
+    (`openai-codex/*` チェーン内の退避先としての `anthropic/claude-sonnet-5`
+    は変更なし、無関係のため維持)。
+- 検証: 新規プロセスで実測。`claude -p "reply with exactly OK" --output-format
+  json` の `modelUsage` が `claude-opus-5-5`(contextWindow 1000000、
+  maxOutputTokens 128000)を返した。`omp -p --no-session --mode json "reply
+  with exactly OK"` の `message.model` が `claude-opus-5-5`
+  (`provider: anthropic`)を返した。検証後 `scripts/model-pins ack` を実行、
+  直後の `scripts/model-pins check` は差分なし(exit 0)。
+- 1週間後: 2026-09-29 予定。`agent-usage-weekly` でコスト($4/$20への上昇分)・
+  品質・応答速度の変化を確認し、`effortLevel: medium` の妥当性(Opus5.5の
+  effort再スイープ、migration guide推奨)を再検討する。
+
 ## 2026-09-20 plan ロールをフルエフォート Astra に統一
 
 - 契機: ユーザーが会話中で「計画とレビューのときはフロンティアモデルを使いたい」と

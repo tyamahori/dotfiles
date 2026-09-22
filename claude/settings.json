@@ -424,7 +424,12 @@
       }
     ]
   },
-  "model": "claude-sonnet-5",
+  "model": "claude-opus-5-5",
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "effortLevel": "medium"
+    }
+  },
   "permissions": {
     "allow": [
       "Bash(herdr *)",

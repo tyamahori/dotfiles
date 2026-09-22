@@ -33,12 +33,10 @@ modelRoles:
   plan: openai-codex/gpt-6-astra # full effort: planning quality prioritized over cost
   slow: openai-codex/gpt-6-astra
   advisor: openai-codex/gpt-5.6-terra
-  default: anthropic/claude-sonnet-5
+  default: anthropic/claude-opus-5-5
 retry:
   fallbackChains:
     # Model-specific chains take precedence over provider-wide defaults.
-    anthropic/claude-sonnet-5:
-      - openai-codex/gpt-5.6-terra
     openai-codex/gpt-6-astra:
       - anthropic/claude-fable-5-1
     anthropic/*:
