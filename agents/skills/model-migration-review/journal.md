@@ -59,6 +59,14 @@
 - 1週間後: 2026-09-29 予定。`agent-usage-weekly` でコスト($4/$20への上昇分)・
   品質・応答速度の変化を確認し、`effortLevel: medium` の妥当性(Opus5.5の
   effort再スイープ、migration guide推奨)を再検討する。
+- 09-23 追記(適用): OMP の `defaultThinkingLevel` を `auto` から `medium` に固定。
+  契機は Claude blog「what a task costs on Opus 5.5」(effort 変更でキャッシュが
+  消える)。session jsonl 557 件(08-18〜09-23、Anthropic 18,334 ターン)で、
+  `auto` の解決 effort が変わった直後の 161 ターンは cache hit 中央値 29%
+  (無変化 17,283 ターンは 99%)、104 回がほぼ全損(1 回約 87K トークン再書込)、
+  全 cache write の 8.1%。09-09 の「cache hit は問題なし」は全体平均で見た判断
+  だった。Opus 5.5 自体の変化サンプルは 1 件のみ。09-29 の再検討で固定前後の
+  cache hit と出力トークンを比較する。
 
 ## 2026-09-20 plan ロールをフルエフォート Astra に統一
 
