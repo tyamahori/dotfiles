@@ -1,4 +1,4 @@
-import { afterAll, expect, test } from "bun:test";
+import { afterAll, expect, mock, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,6 +8,13 @@ import { join } from "node:path";
 // tests below would append real rows into this repo's shadow log. Dynamic
 // import is required here (not a static-import exception, an actual load
 // timing boundary): the module body must not run until cwd is redirected.
+// @oh-my-pi/pi-ai is bundled inside the omp binary, not installed here, so the
+// fallback model call is stubbed at the module boundary before import.
+let completeSimpleImpl: (model: { id: string }) => Promise<unknown> = async () => {
+	throw new Error("completeSimple not stubbed");
+};
+mock.module("@oh-my-pi/pi-ai", () => ({ completeSimple: (model: { id: string }) => completeSimpleImpl(model) }));
+
 const scratchDir = mkdtempSync(join(tmpdir(), "omp-jev-skill-hint-"));
 const originalCwd = process.cwd();
 process.chdir(scratchDir);
@@ -176,6 +183,46 @@ test("opens the circuit breaker and logs circuitOpen on the next turn after a fa
 		expect(firstRow.circuitOpen).toBe(false);
 		expect(secondRow.jevError).toBe(false);
 		expect(secondRow.circuitOpen).toBe(true);
+	} finally {
+		global.fetch = originalFetch;
+		delete process.env.JEV_API_KEY;
+	}
+});
+
+test("falls back to the next lower model when Jev fails and skips failed models afterwards", async () => {
+	process.env.JEV_API_KEY = "test-key";
+	const originalFetch = global.fetch;
+	global.fetch = (async () => new Response("unauthorized", { status: 401 })) as typeof fetch;
+	const calls: string[] = [];
+	completeSimpleImpl = async (model) => {
+		calls.push(model.id);
+		if (model.id === "haiku") throw new Error("overloaded");
+		// unknown names and duplicates are dropped; the order is kept
+		return { stopReason: "stop", content: [{ type: "text", text: 'Sure: ["gamma", "nope", "gamma", "alpha"]' }] };
+	};
+	const models: Record<string, { provider: string; id: string }> = {
+		"anthropic/claude-haiku-4-5": { provider: "anthropic", id: "haiku" },
+		"@smol": { provider: "openai-codex", id: "luna" },
+	};
+	const ctx = {
+		...ctxWithSystemPrompt(THREE_SKILL_PROMPT),
+		models: { resolve: async (spec: string) => models[spec] },
+		modelRegistry: { getApiKey: async () => "k" },
+	};
+
+	try {
+		const { beforeAgentStart, turnEnd } = skillHintHarness();
+		const first = await beforeAgentStart({ prompt: "investigate the bug" }, ctx);
+		turnEnd();
+		expect(first?.message.content).toContain("luna候補(参考、必須ではない): gamma、alpha。");
+
+		await beforeAgentStart({ prompt: "second turn" }, ctx);
+		turnEnd();
+		expect(calls).toEqual(["haiku", "luna", "luna"]);
+
+		const [firstRow, secondRow] = readLogLines().slice(-2);
+		expect(firstRow).toMatchObject({ selector: "openai-codex/luna", accepted: ["gamma", "alpha"], jevError: true, fallbackError: true });
+		expect(secondRow).toMatchObject({ selector: "openai-codex/luna", circuitOpen: true, jevError: false, fallbackError: false });
 	} finally {
 		global.fetch = originalFetch;
 		delete process.env.JEV_API_KEY;

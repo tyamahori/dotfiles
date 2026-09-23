@@ -63,17 +63,36 @@ Skill を読むかはこれまで通りエージェントの判断に委ねま�
 
 ### Jev が使えないとき・無効化する
 
-`JEV_API_KEY` が未設定の場合、この extension はヒント登録そのものを行わない完全な
-no-op になります。設定済みでも API 呼び出しが失敗（ネットワーク断、認証エラー、
-タイムアウトなど）した場合は、そのセッション内では以降 Jev を呼ばずヒント無しの
-挙動へフォールバックします。どちらの場合もエラーは表示されず、既存の Skill 選択の
-動きを妨げません。
+`JEV_API_KEY` が未設定のときと、API 呼び出しが失敗した（ネットワーク断、認証エラー、
+タイムアウトなど）ときは、Claude/Codex の下位モデルが代わりに候補を選びます。
+Jev が失敗した場合、そのセッションでは以後 Jev を呼びません。
+
+代替モデルは `anthropic/claude-haiku-4-5`、`@smol`（`omp/config.yml` の `modelRoles.smol`、
+現在は `openai-codex/gpt-5.6-luna`）の順に試します。どちらも OMP 本体の認証をそのまま
+使うため、追加の鍵は要りません。失敗したモデルはそのセッションの候補から外します。
+すべて使えなければヒントを出さず、エラーも表示しません。既存の Skill 選択の動きは
+妨げません。
+
+Jev は確率付きの判定を返しますが、代替モデルには「必要な Skill を最大3件、JSON 配列で
+挙げて」と頼むだけです。依頼文が「まず〜だけ答えて」のような進め方の指示だと、
+Skill 不要と判断して候補を出さないことがあります。
+
+ヒントを完全に止めたい場合は、「API キーと適用範囲」の `disabledExtensions` で
+extension ごと無効化します（鍵を外すだけでは代替モデルが動きます）。
 
 ### 動作を確認する
 
-複数の Skill が絡む依頼を投げ、応答の直前に
-`Jev候補(参考、必須ではない): ...` が挿入されるかを見ます。`JEV_API_KEY` を
-一時的に外した新しいセッションでは、ヒントが出ず、エラーも出ないことを確認します。
+複数の Skill が絡む依頼を投げ、応答の直前に `Jev候補(参考、必須ではない): ...` が
+挿入されるかを見ます。代替モデルが選んだ場合は `claude-haiku-4-5候補` のように
+モデル ID が入ります。Jev 不可の経路は、無効な鍵を渡した単発実行で確かめられます。
+
+```bash
+JEV_API_KEY=invalid omp -p --no-session --no-extensions \
+  -e ~/dotfiles/omp/extensions/jev-skill-hint.ts "GitHub の PR をレビューしたい"
+```
+
+実行後、次節の実測ログに `jevError: true` と `selector: "anthropic/claude-haiku-4-5"` の
+行が増えていれば、代替モデルでの選定が動いています。
 
 ### 実測ログで効果を測る
 
@@ -85,10 +104,12 @@ no-op になります。設定済みでも API 呼び出しが失敗（ネット
 | フィールド | 意味 |
 |---|---|
 | `promptChars` / `rosterSize` | 依頼文の長さ・Skill 一覧の件数 |
-| `hintLatencyMs` | Jev 呼び出し(Call1+Call2)のレイテンシ。`circuitOpen`/`jevError` 時は `null` |
-| `accepted` | Jev が採用した候補 Skill 名 |
-| `circuitOpen` | セッション内で既に失敗済みで、今回は呼び出し自体をスキップした |
-| `jevError` | 今回の呼び出しが失敗し、以後 `circuitOpen` になった |
+| `hintLatencyMs` | 選定（Jev の Call1+Call2 と代替モデル呼び出し）全体のレイテンシ。何も呼ばなかったターンは `null` |
+| `accepted` | 採用された候補 Skill 名 |
+| `selector` | 候補を選んだもの。`jev` または代替モデルの `provider/id`。すべて失敗したら `null` |
+| `circuitOpen` | セッション内で Jev が既に失敗済みで、今回は Jev の呼び出しを省いた |
+| `jevError` | 今回の Jev 呼び出しが失敗し、以後 `circuitOpen` になった |
+| `fallbackError` | 今回、代替モデルのどれかが失敗した（そのモデルは以後そのセッションで使わない） |
 | `actualSkillReads` | そのターン中に実際に `read skill://...` された Skill 名(重複除去) |
 | `hits` | `accepted` と `actualSkillReads` の重なり件数(ヒントが実際に使われた数) |
 | `extraReads` | ヒント候補になかったが読まれた Skill 数(見落とし方向の指標) |

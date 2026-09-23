@@ -16,14 +16,20 @@
 //   複数 Skill が必要なケースで足切りを誘発することが検証で確認できた。
 // - ヒントは常に非拘束・複数形: 「参考、必須ではない。依頼内容全体を読んで
 //   自分の判断で全部選ぶこと。候補にない Skill が必要ならそちらを使ってよい」。
-//   採用候補が0件、または Jev 呼び出しが失敗した場合は何も注入しない
-//   (ヒント無しの素の挙動にそのままフォールバックする)。
+//   採用候補が0件なら何も注入しない。
+//
+// Jev が使えないとき(JEV_API_KEY 未設定、またはセッション内で一度失敗して
+// circuit が開いた後)は、FALLBACK_MODELS の Claude/Codex 下位モデルに同じ
+// 依頼文と Skill 一覧を渡し、JSON 配列で候補を選ばせる。OMP 本体の認証
+// (ctx.modelRegistry)と host 同梱の @oh-my-pi/pi-ai を使うので鍵の追加設定は
+// 要らない。失敗したモデルはそのセッション内で外し次のモデルへ進む。全て
+// 使えなければヒント無しの素の挙動に戻る(セッションを止めない・エラーを出さない)。
+// Jev の確率(Choice+Noul の閾値)は LLM では得られないので、フォールバックは
+// 「必要な Skill を最大 SHORTLIST 件挙げさせる」単発の選定にしている。
 //
 // 有効化・無効化の手順は docs/jev.md の「Jev skill hint」節を参照。
 // 要約: 環境変数 JEV_API_KEY があれば最優先、無ければこのマシンの
-// `~/dotfiles/.env` を読む。どちらも無ければ完全な no-op になる。
-// 実行時に呼び出しが失敗した場合も、そのセッション内では以後リトライせず
-// 静かに no-op へ切り替える(セッションを止めない・エラーを出さない)。
+// `~/dotfiles/.env` を読む。
 //
 // スコープ: machine-global extension(`~/.omp/agent/extensions` へ配置)なので
 // 起動 cwd に関わらず全リポジトリのメインセッションの通常ターンで発火する。
@@ -33,6 +39,7 @@
 
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { completeSimple } from "@oh-my-pi/pi-ai";
 import {
 	type ChoiceAnswer,
 	type JevResponse,
@@ -45,6 +52,10 @@ import {
 const SHORTLIST = 3;
 const FITS_THRESHOLD = 0.3;
 const MAX_PROMPT_CHARS = 4_000;
+// Jev 不可時の選定モデル(順に試す)。Claude は実測で速い haiku を先に置く。
+// Codex 側は modelRoles.smol を参照し、モデル pin の移行に追従させる。
+const FALLBACK_MODELS = ["anthropic/claude-haiku-4-5", "@smol"];
+const FALLBACK_TIMEOUT_MS = 8_000;
 // JEV_API_KEY は環境変数優先、無ければこのマシンの dotfiles リポジトリの
 // `.env` にフォールバックする(loadJevApiKey 参照)。cwd は呼び出し元
 // リポジトリごとに変わるため、フォールバック先は固定パスで解決する。
@@ -111,23 +122,98 @@ async function getHint(apiKey: string, requestText: string, roster: Record<strin
 		.map(([name]) => name);
 }
 
+type Model = { provider: string; id: string };
+type ModelCtx = {
+	models?: { resolve(spec: string): Promise<Model | undefined> };
+	modelRegistry?: { getApiKey(model: Model): Promise<string | undefined> };
+};
+
+const FALLBACK_SYSTEM_PROMPT =
+	"You pick which agent skills an AI coding agent must load before handling a user request. " +
+	`Reply with only a JSON array of at most ${SHORTLIST} skill names copied exactly from the list, ` +
+	"most necessary first. Reply [] when no skill is needed.";
+
+/** 1モデルで選定する。呼び出し失敗は例外で返す(呼び出し元が次のモデルへ進む)。
+ * 応答が JSON 配列として読めない・一覧にない名前は捨てる(失敗扱いにしない)。 */
+async function llmHint(ctx: ModelCtx, model: Model, requestText: string, roster: Record<string, string>): Promise<string[]> {
+	const skills = Object.entries(roster)
+		.map(([name, description]) => `- ${name}: ${description}`)
+		.join("\n");
+	const res = await completeSimple(
+		model as Parameters<typeof completeSimple>[0],
+		{
+			systemPrompt: FALLBACK_SYSTEM_PROMPT,
+			messages: [{ role: "user", content: `Skills:\n${skills}\n\nRequest:\n${requestText}`, timestamp: Date.now() }],
+		},
+		{
+			apiKey: await ctx.modelRegistry?.getApiKey(model),
+			maxTokens: 1024,
+			signal: AbortSignal.timeout(FALLBACK_TIMEOUT_MS),
+		},
+	);
+	if (res.stopReason === "error" || res.stopReason === "aborted") throw new Error(res.errorMessage ?? res.stopReason);
+	const text = res.content.map((block: { type: string; text?: string }) => (block.type === "text" ? block.text : "")).join("");
+	// 最初の [ から最後の ] までを配列とみなす(```json 囲みや前置きの文を許容)。
+	let names: unknown;
+	try {
+		names = JSON.parse(text.slice(text.indexOf("["), text.lastIndexOf("]") + 1));
+	} catch {
+		return [];
+	}
+	if (!Array.isArray(names)) return [];
+	return [...new Set(names.filter((name): name is string => typeof name === "string" && name in roster))].slice(0, SHORTLIST);
+}
+
+type FallbackResult = { accepted: string[]; selector: string | null; attempted: boolean; failed: boolean };
+
+/** FALLBACK_MODELS を順に試し、最初に応答したモデルの選定を返す。解決できない・
+ * 呼び出しに失敗したモデルは failedSpecs に入れ、以後のターンでは飛ばす。 */
+async function fallbackHint(
+	ctx: ModelCtx,
+	failedSpecs: Set<string>,
+	requestText: string,
+	roster: Record<string, string>,
+): Promise<FallbackResult> {
+	const result: FallbackResult = { accepted: [], selector: null, attempted: false, failed: false };
+	for (const spec of ctx.models ? FALLBACK_MODELS : []) {
+		if (failedSpecs.has(spec)) continue;
+		const model = await ctx.models?.resolve(spec);
+		if (!model) {
+			failedSpecs.add(spec); // 未認証・カタログに無いモデル
+			continue;
+		}
+		result.attempted = true;
+		try {
+			result.accepted = await llmHint(ctx, model, requestText, roster);
+			result.selector = `${model.provider}/${model.id}`;
+			return result;
+		} catch {
+			failedSpecs.add(spec);
+			result.failed = true;
+		}
+	}
+	return result;
+}
+
 type TurnMetrics = {
 	ts: number;
 	promptChars: number;
 	rosterSize: number;
 	hintLatencyMs: number | null;
 	accepted: string[];
+	selector: string | null;
 	circuitOpen: boolean;
 	jevError: boolean;
+	fallbackError: boolean;
 };
 
 export default function jevSkillHint(pi: ExtensionHandlerApi): void {
 	const apiKey = loadJevApiKey(DOTFILES_ROOT);
-	if (!apiKey) return; // JEV_API_KEY 未設定 = 完全な no-op(ヒントを一切登録しない)。
 
 	// ponytail: セッション内で一度失敗したら以降は試行しない(プロセス単位のcircuit
-	// breaker)。再開は新しいセッション起動時。クールダウン付き再試行は今のところ不要。
+	// breaker)。Jev・各フォールバックモデルとも同じ扱い。再開は新しいセッション起動時。
 	let jevDisabled = false;
+	const failedFallbacks = new Set<string>();
 
 	// 実測ログ用のターン単位バッファ。before_agent_start で開始し、turn_end で
 	// 実際に読まれた skill:// read と突き合わせて1行 flush する(スキーマは
@@ -139,10 +225,6 @@ export default function jevSkillHint(pi: ExtensionHandlerApi): void {
 		pending = null;
 		skillReads = [];
 
-		if (jevDisabled) {
-			pending = { ts: Date.now(), promptChars: 0, rosterSize: 0, hintLatencyMs: null, accepted: [], circuitOpen: true, jevError: false };
-			return;
-		}
 		const promptValue = (event as { prompt?: unknown } | undefined)?.prompt;
 		const prompt = (typeof promptValue === "string" ? promptValue : "").trim();
 		if (!prompt) return;
@@ -155,49 +237,63 @@ export default function jevSkillHint(pi: ExtensionHandlerApi): void {
 
 		const truncated = prompt.length > MAX_PROMPT_CHARS ? prompt.slice(0, MAX_PROMPT_CHARS) : prompt;
 		const startedAt = Date.now();
-		try {
-			const accepted = await getHint(apiKey, truncated, roster);
-			pending = {
-				ts: startedAt,
-				promptChars: truncated.length,
-				rosterSize: Object.keys(roster).length,
-				hintLatencyMs: Date.now() - startedAt,
-				accepted,
-				circuitOpen: false,
-				jevError: false,
-			};
-			if (accepted.length === 0) return;
+		const circuitOpen = jevDisabled; // jevDisabled は鍵があるときだけ立つ
+		let accepted: string[] = [];
+		let selector: string | null = null;
+		let attempted = false;
+		let jevError = false;
+		let fallbackError = false;
 
-			return {
-				message: {
-					customType: "dotfiles.jev-skill-hint",
-					content:
-						`<skill_relevance>\nJev候補(参考、必須ではない): ${accepted.join("、")}。` +
-						"依頼内容全体を読んで、必要なSkillは自分の判断で全部選ぶこと。" +
-						"候補にないSkillが必要ならそちらを使ってよい。\n</skill_relevance>",
-					display: true,
-					attribution: "agent",
-				},
-			};
-		} catch {
-			// Jev API 障害・タイムアウト・不正な応答形式など。ヒント無しの
-			// 素の挙動へフォールバックし、以後このセッションでは再試行しない。
-			jevDisabled = true;
-			pending = {
-				ts: startedAt,
-				promptChars: truncated.length,
-				rosterSize: Object.keys(roster).length,
-				hintLatencyMs: Date.now() - startedAt,
-				accepted: [],
-				circuitOpen: false,
-				jevError: true,
-			};
-			return;
+		if (apiKey && !jevDisabled) {
+			attempted = true;
+			try {
+				accepted = await getHint(apiKey, truncated, roster);
+				selector = "jev";
+			} catch {
+				// Jev API 障害・タイムアウト・不正な応答形式など。以後このセッションでは
+				// Jev を呼ばず、このターンからフォールバックモデルで選定する。
+				jevDisabled = true;
+				jevError = true;
+			}
 		}
+
+		if (selector === null) {
+			const fallback = await fallbackHint((ctx as ModelCtx | undefined) ?? {}, failedFallbacks, truncated, roster);
+			({ accepted, selector } = fallback);
+			attempted ||= fallback.attempted;
+			fallbackError = fallback.failed;
+		}
+
+		if (!attempted && !circuitOpen) return;
+		pending = {
+			ts: startedAt,
+			promptChars: truncated.length,
+			rosterSize: Object.keys(roster).length,
+			hintLatencyMs: attempted ? Date.now() - startedAt : null,
+			accepted,
+			selector,
+			circuitOpen,
+			jevError,
+			fallbackError,
+		};
+		if (accepted.length === 0) return;
+
+		const label = selector === "jev" ? "Jev" : selector?.split("/").pop();
+		return {
+			message: {
+				customType: "dotfiles.jev-skill-hint",
+				content:
+					`<skill_relevance>\n${label}候補(参考、必須ではない): ${accepted.join("、")}。` +
+					"依頼内容全体を読んで、必要なSkillは自分の判断で全部選ぶこと。" +
+					"候補にないSkillが必要ならそちらを使ってよい。\n</skill_relevance>",
+				display: true,
+				attribution: "agent",
+			},
+		};
 	});
 
-	// 実際に読まれた Skill を突き合わせ用に記録する。accepted(Jevの推薦)との
-	// 重なり具合で、ヒントがどれだけ「無駄読み・見落とし」を減らせているかを測る。
+	// 実際に読まれた Skill を突き合わせ用に記録する。accepted(Jev/代替モデルの推薦)
+	// との重なり具合で、ヒントがどれだけ「無駄読み・見落とし」を減らせているかを測る。
 	pi.on("tool_call", (event) => {
 		if (pending === null) return;
 		const e = event as { toolName?: string; input?: Record<string, unknown> };
