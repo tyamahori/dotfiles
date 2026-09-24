@@ -206,6 +206,8 @@ export TERMINAL_BROWSER_FPS=30
 export TERMINAL_BROWSER_RENDER_SCALE=1
 alias ll='ls -la'
 alias reload='source ~/.zshrc'
+alias claude-team='CLAUDE_CONFIG_DIR=~/.claude-team claude'
+alias claude-personal='CLAUDE_CONFIG_DIR=~/.claude-personal claude'
 
 # JetBrains Context CLI
 export PATH="$PATH:${HOME}/.jbcontext/bin"
