@@ -513,5 +513,7 @@
     "padding": 0,
     "type": "command"
   },
-  "switchModelsOnFlag": false
+  "switchModelsOnFlag": false,
+  "theme": "auto",
+  "tui": "fullscreen"
 }
