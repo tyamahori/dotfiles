@@ -43,21 +43,25 @@ ln -snfv "${REPO_ROOT}/starship/starship.toml" "$HOME/.config/starship.toml"
 # agent-driven and manual commits.
 git -C "$REPO_ROOT" config core.hooksPath "${REPO_ROOT}/git/hooks"
 
-# claude code global settings (machine-local overrides go to <profile>/settings.local.json, gitignored).
+# claude code global settings (machine-local overrides go to ~/.claude/settings.local.json, gitignored).
 # ~/.claude-team and ~/.claude-personal are CLAUDE_CONFIG_DIR profiles (.zshrc aliases)
-# sharing the repository-managed settings and instructions. Their skills dir is a
-# link to ~/.claude/skills so installer-managed skills (npx skills, plannotator, ...) are shared too.
+# sharing the repository-managed settings and instructions. Machine-local customizations
+# are linked to their ~/.claude originals so only credentials, history, and plugins
+# stay per profile; skills is linked as a whole so installer-managed skills are shared too.
+mkdir -p "$HOME/.claude/skills"
 claude_homes=("$HOME/.claude" "$HOME/.claude-team" "$HOME/.claude-personal")
 for claude_home in "${claude_homes[@]}"; do
 	mkdir -p "$claude_home"
 	ln -snfv "${CLAUDE_DIR}/settings.json" "$claude_home/settings.json"
 	[[ $claude_home == "$HOME/.claude" ]] && continue
-	if [[ -d $claude_home/skills && ! -L $claude_home/skills ]]; then
-		echo "link: $claude_home/skills is a directory; remove it to share $HOME/.claude/skills" >&2
-	else
-		mkdir -p "$HOME/.claude/skills"
-		ln -snfv "$HOME/.claude/skills" "$claude_home/skills"
-	fi
+	for shared in settings.local.json agents commands skills; do
+		[[ -e $HOME/.claude/$shared ]] || continue
+		if [[ -e $claude_home/$shared && ! -L $claude_home/$shared ]]; then
+			echo "link: $claude_home/$shared exists; remove it to share $HOME/.claude/$shared" >&2
+		else
+			ln -snfv "$HOME/.claude/$shared" "$claude_home/$shared"
+		fi
+	done
 done
 
 link_into_dirs() {
