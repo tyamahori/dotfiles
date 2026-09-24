@@ -159,6 +159,7 @@ sleepwatcher本体はBrewfileで入るが、サービスの起動は手動：`br
 | リンク | `ls -l ~/dotfiles ~/.claude/CLAUDE.md` | 本リポジトリを指すsymlink |
 | SSH | `ssh -T git@github.com` | 1Password承認の後に認証成功 |
 | skills | `ls ~/.claude/skills` | authored skillsのsymlinkと `archify` / `plannotator-*` が見える |
+| Claudeプロファイル | `ls -l ~/.claude-team ~/.claude-personal` | `settings.json`・`CLAUDE.md` が本リポジトリを、`skills` が `~/.claude/skills` を指す（`claude-team` / `claude-personal` aliasの `CLAUDE_CONFIG_DIR`） |
 | plannotator | `plannotator --version` | バージョンが表示される |
 | archify | `node ~/.agents/skills/archify/bin/archify.mjs doctor` | `Archify is ready.` |
 | Claude plugin | `claude plugin list` | `plannotator@plannotator` が enabled |
