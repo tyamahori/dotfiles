@@ -1,10 +1,6 @@
-
 # Kiro CLI pre block. Keep at the top of this file.
 [[ -f "${HOME}/Library/Application Support/kiro-cli/shell/zprofile.pre.zsh" ]] && builtin source "${HOME}/Library/Application Support/kiro-cli/shell/zprofile.pre.zsh"
 
-# The following lines were added by Docker Desktop to add commands to your PATH.
-export PATH="$PATH:$HOME/.docker/bin"
-# End of Docker Desktop section.
 
 
 
