@@ -228,9 +228,3 @@ add-zsh-hook precmd _agent_usage_precmd
   source "${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 # Kiro CLI post block. Keep at the bottom of this file.
 [[ -f "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh" ]] && builtin source "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh"
-
-# >>> omp profile alias: omp-team >>>
-omp-team() {
-    command omp --profile=team "$@"
-}
-# <<< omp profile alias: omp-team <<<

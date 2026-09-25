@@ -14,6 +14,7 @@ const db = new Database(fixtureDb);
 db.run(`
   CREATE TABLE usage_history (
     provider TEXT NOT NULL,
+    account_key TEXT,
     limit_id TEXT NOT NULL,
     used_fraction REAL NOT NULL,
     resets_at INTEGER,
@@ -27,6 +28,7 @@ const { default: installUsageGuard } = await import("../extensions/anthropic-usa
 
 type UsageRow = {
   provider: string;
+  account?: string;
   limitId: string;
   pct: number;
 };
@@ -57,10 +59,10 @@ function seedUsage(rows: UsageRow[]): void {
   try {
     fixture.run("DELETE FROM usage_history");
     const insert = fixture.query(
-      "INSERT INTO usage_history (provider, limit_id, used_fraction, resets_at, recorded_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+      "INSERT INTO usage_history (provider, account_key, limit_id, used_fraction, resets_at, recorded_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
     );
     for (const row of rows) {
-      insert.run(row.provider, row.limitId, row.pct / 100, Date.now() + 60 * 60 * 1000, ++recordedAt);
+      insert.run(row.provider, row.account ?? null, row.limitId, row.pct / 100, Date.now() + 60 * 60 * 1000, ++recordedAt);
     }
   } finally {
     fixture.close();
@@ -132,6 +134,33 @@ test("uses the configured model-specific chain before the provider chain at the 
 
   expect(guard.selected).toEqual([fallback]);
   expect(guard.notifications).toHaveLength(1);
+});
+
+test("stays on Anthropic while any logged-in account has headroom", async () => {
+  const fallback = { provider: "openai-codex", id: "gpt-6-astra" };
+  const guard = usageHarness(
+    () => ({ provider: "anthropic", id: "claude-opus-5-5" }),
+    (spec) => (spec === "openai-codex/gpt-6-astra" ? fallback : undefined),
+  );
+  blockNetwork();
+
+  // The exhausted team account is recorded last, so a latest-row-wins reading would switch.
+  seedUsage([
+    { provider: "anthropic", account: "personal", limitId: "anthropic:7d", pct: 10 },
+    { provider: "anthropic", account: "personal", limitId: "anthropic:7d:fable", pct: 79 },
+    { provider: "anthropic", account: "team", limitId: "anthropic:7d", pct: 95 },
+  ]);
+  await guard.sessionStart();
+  expect(guard.selected).toEqual([]);
+  expect(guard.widgets.at(-1)?.[0]).toContain("7d 10%");
+
+  seedUsage([
+    { provider: "anthropic", account: "personal", limitId: "anthropic:7d", pct: 10 },
+    { provider: "anthropic", account: "personal", limitId: "anthropic:7d:fable", pct: 80 },
+    { provider: "anthropic", account: "team", limitId: "anthropic:7d", pct: 95 },
+  ]);
+  await guard.sessionStart();
+  expect(guard.selected).toEqual([fallback]);
 });
 
 test("uses the local rescue only when both pools are depleted and ollama serves qwen", async () => {

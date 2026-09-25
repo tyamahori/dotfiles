@@ -1,7 +1,9 @@
 // subscription pool の残量ガード。
 //
-// 1. Anthropic 7日枠（モデル別枠を含む）の残量が20%以下になったら、
-//    セッションのモデルを Codex へ自動で切り替える。
+// 1. Anthropic 7日枠（モデル別枠を含む）の残量が、ログイン済みの全アカウントで
+//    20%以下になったら、セッションのモデルを Codex へ自動で切り替える。
+//    同じ agent.db に複数アカウント（例: Team と個人）があると、omp 本体が
+//    残量で選び分けるので、1 アカウントでも余裕があれば切り替えない。
 //    omp 本体の usage-aware fallback は provider 全体の枠を判定する一方、
 //    anthropic:7d:fable などのモデル別枠では reserve 到達時に発火しない。
 //    agent.db の最新 usage snapshot を直接読み、この穴だけを補う。
@@ -9,7 +11,8 @@
 //    切替はしない: provider 全体枠なので omp 本体の usage-aware fallback が
 //    retry.fallbackChains（openai-codex/* → anthropic）で退避する。
 // 3. 両 pool の使用率を editor 下の widget に常時表示する（Claude 5h / 7d /
-//    モデル別 7d と Codex 週次枠）。データ源は同じ usage snapshot なので、
+//    モデル別 7d と Codex 週次枠）。複数アカウントでは枠ごとに最も余裕のある
+//    アカウントの値を出す。データ源は同じ usage snapshot なので、
 //    更新は session_start とチェック周期（5分毎）に揃う。
 //
 // 動作:
@@ -73,12 +76,13 @@ type ExtensionHandlerApi = {
 
 type UsageRow = {
 	provider: string;
+	accountKey: string;
 	limitId: string;
 	pct: number;
 	resetsAt: number | null;
 };
 
-/** limit 毎の最新行一覧（provider 単位、期限切れ除外）。
+/** account・limit 毎の最新行一覧（期限切れ除外）。
  *  Anthropic は使用量 0 の枠を utilization 0 / resets_at null で返すので、
  *  NULL を期限切れ扱いにすると枠リセット直後に Claude 表示が丸ごと消える。 */
 function latestUsageRows(): UsageRow[] {
@@ -88,6 +92,7 @@ function latestUsageRows(): UsageRow[] {
 			return db
 				.query(
 					`SELECT lower(u.provider) AS provider,
+					        coalesce(u.account_key, '') AS accountKey,
 					        u.limit_id AS limitId,
 					        CAST(u.used_fraction * 100 + 0.5 AS INTEGER) AS pct,
 					        u.resets_at AS resetsAt
@@ -97,6 +102,7 @@ function latestUsageRows(): UsageRow[] {
 					     SELECT MAX(x.recorded_at)
 					     FROM usage_history x
 					     WHERE lower(x.provider) = lower(u.provider)
+					       AND coalesce(x.account_key, '') = coalesce(u.account_key, '')
 					       AND lower(x.limit_id) = lower(u.limit_id)
 					   )
 					 ORDER BY u.limit_id`,
@@ -110,7 +116,8 @@ function latestUsageRows(): UsageRow[] {
 	}
 }
 
-/** 指定 provider の limit 毎の最新有効行から、filter に合う最大使用率（整数%）。 */
+/** filter に合う枠の使用率（整数%）。アカウント毎に最大を取り、
+ *  アカウント間では最小（omp 本体が選べる最も余裕のあるアカウント）を返す。 */
 function latestUsedPct(
 	rows: UsageRow[],
 	provider: string,
@@ -118,7 +125,7 @@ function latestUsedPct(
 ): number | null {
 	const filter = limitFilter.toLowerCase();
 	const prefix = filter.endsWith("%") ? filter.slice(0, -1) : undefined;
-	let pct: number | null = null;
+	const perAccount = new Map<string, number>();
 	for (const row of rows) {
 		if (
 			row.provider !== provider ||
@@ -128,9 +135,9 @@ function latestUsedPct(
 		) {
 			continue;
 		}
-		pct = pct === null ? row.pct : Math.max(pct, row.pct);
+		perAccount.set(row.accountKey, Math.max(perAccount.get(row.accountKey) ?? 0, row.pct));
 	}
-	return pct;
+	return perAccount.size === 0 ? null : Math.min(...perAccount.values());
 }
 
 function formatReset(resetsAt: number | null): string {
@@ -153,8 +160,14 @@ function poolParts(
 	provider: string,
 	label: (limitId: string) => string | null,
 ): string[] {
-	return rows.flatMap((row) => {
-		if (row.provider !== provider) return [];
+	// 枠ごとに最も余裕のあるアカウントの行を残す（rows は limit_id 順なので表示順も保たれる）。
+	const best = new Map<string, UsageRow>();
+	for (const row of rows) {
+		if (row.provider !== provider) continue;
+		const seen = best.get(row.limitId);
+		if (!seen || row.pct < seen.pct) best.set(row.limitId, row);
+	}
+	return [...best.values()].flatMap((row) => {
 		const name = label(row.limitId);
 		if (name === null) return [];
 		return [
