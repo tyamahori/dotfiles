@@ -405,6 +405,18 @@ modelRoles:
 
 マシン固有設定を作成または変更した後は、新しいシェルと新しい OMP プロセスを起動してください。
 
+### Claude のチーム用と個人用のアカウントを使い分ける
+
+同じ `agent.db` に Anthropic のアカウントが 2 つあると、OMP はそれらを自動でローテーションします。
+そのため、チーム用のアカウントは `team` プロファイルの `~/.omp/profiles/team/agent/agent.db` に分けて保存し、既定プロファイルには個人用のアカウントだけを置きます。
+`scripts/link` は、上の表の共通設定を team プロファイルにも symlink します。
+使用量ガードは起動中のプロファイルの `agent.db` を読むので、team では team の枠を監視します。
+
+```bash
+omp --profile team --alias omp-team   # シェルのショートカットを作る（初回だけ）
+omp-team                              # 起動後に /login → Anthropic で、チームの組織を選ぶ
+```
+
 有効値の確認には `omp config get` を使います。
 
 ```bash

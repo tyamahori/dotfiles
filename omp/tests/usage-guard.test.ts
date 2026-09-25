@@ -1,13 +1,14 @@
-import { afterAll, afterEach, expect, spyOn, test } from "bun:test";
+import { afterAll, afterEach, expect, mock, spyOn, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const previousUsageDb = process.env.OMP_AGENT_DB;
 const fixtureDir = mkdtempSync(join(tmpdir(), "omp-usage-guard-"));
 const fixtureDb = join(fixtureDir, "agent.db");
-process.env.OMP_AGENT_DB = fixtureDb;
+// @oh-my-pi/pi-utils is bundled inside the omp binary, not installed here, so
+// the active profile's agent dir is stubbed at the module boundary.
+mock.module("@oh-my-pi/pi-utils", () => ({ getAgentDir: () => fixtureDir }));
 
 const db = new Database(fixtureDb);
 db.run(`
@@ -21,7 +22,7 @@ db.run(`
 `);
 db.close();
 
-// OMP_AGENT_DB is read while the extension module initializes.
+// The agent dir is resolved while the extension module initializes.
 const { default: installUsageGuard } = await import("../extensions/anthropic-usage-guard.ts");
 
 type UsageRow = {
@@ -41,8 +42,6 @@ afterEach(() => {
 });
 
 afterAll(() => {
-  if (previousUsageDb === undefined) delete process.env.OMP_AGENT_DB;
-  else process.env.OMP_AGENT_DB = previousUsageDb;
   rmSync(fixtureDir, { force: true, recursive: true });
 });
 

@@ -23,11 +23,12 @@
 // - 切替先は実効 retry.fallbackChains を参照する（設定ファイルの再読込は本体に任せる）。
 
 import { Database } from "bun:sqlite";
-import { homedir } from "node:os";
 import { join } from "node:path";
+import { getAgentDir } from "@oh-my-pi/pi-utils";
 
-const USAGE_DB =
-	process.env.OMP_AGENT_DB ?? join(homedir(), ".omp/agent/agent.db");
+// getAgentDir() は --profile / OMP_PROFILE / XDG を解決済みの agent dir を返す。
+// ~/.omp/agent 固定だと team プロファイルでも既定プロファイルの枠を監視してしまう。
+const USAGE_DB = join(getAgentDir(), "agent.db");
 const USAGE_RESERVE_PCT = 20;
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 // 両pool枯渇時の最終退避先。ローカルollamaが「起動していてモデルが居る」
