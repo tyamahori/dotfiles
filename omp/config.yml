@@ -1,42 +1,18 @@
-providers: 
-  tinyModel: lfm2-350m
+providers:
   autoThinkingMaxEffort: high
-  webSearchOrder: 
-    - google
-    - gemini
-    - anthropic
-    - codex
-    - xai
-    - zai
-    - exa
-    - tinyfish
-    - jina
-    - kagi
-    - tavily
-    - firecrawl
-    - brave
-    - kimi
-    - parallel
-    - synthetic
-    - searxng
-    - startpage
-    - duckduckgo
-    - ecosia
-    - mojeek
-    - public
-# Model routing: edit roles and fallback chains together here.
-modelRoles: 
+modelRoles:
   vision: openai-codex/gpt-5.6-terra
   smol: openai-codex/gpt-5.6-luna
   task: openai-codex/gpt-5.6-terra
   commit: openai-codex/gpt-5.6-luna
-  plan: openai-codex/gpt-6-astra # full effort: planning quality prioritized over cost
+  plan: openai-codex/gpt-6-astra
   slow: openai-codex/gpt-6-astra
   advisor: openai-codex/gpt-5.6-terra
   default: anthropic/claude-opus-5-5
+  web: web/google
+  tiny: local/lfm2.5-350m
 retry:
   fallbackChains:
-    # Model-specific chains take precedence over provider-wide defaults.
     openai-codex/gpt-6-astra:
       - anthropic/claude-fable-5-1
     anthropic/*:
@@ -45,59 +21,81 @@ retry:
     openai-codex/*:
       - anthropic/claude-sonnet-5
       - anthropic/claude-haiku-4-5
+    web:
+      - google/gemini-2.5-flash
+      - anthropic/claude-haiku-4-5
+      - openai-codex/gpt-5.6-luna
+      - xai/grok-4.5
+      - web/zai
+      - web/exa
+      - web/tinyfish
+      - web/jina
+      - web/kagi
+      - web/tavily
+      - web/firecrawl
+      - web/brave
+      - web/kimi
+      - web/parallel
+      - web/synthetic
+      - web/searxng
+      - web/startpage
+      - web/duckduckgo
+      - web/ecosia
+      - web/mojeek
+      - web/public
+      - web/perplexity
+      - google-antigravity/gemini-2.5-flash
+      - openai-codex/gpt-5.6
+      - openai-codex/gpt-5.5
+      - xai-oauth/grok-4.5
+      - web/ollama
   usageAwareFallback: true
   usageReservePct: 20
   usageReservePolicy: auto
   modelFallback: true
   maxRetries: 4
   maxDelayMs: 60000
-task: 
+task:
   showResolvedModelBadge: true
   maxRecursionDepth: 1
   softRequestBudget: 60
-  agentModelOverrides: 
+  agentModelOverrides:
     scout: "@smol"
     reviewer: "@slow"
     security-reviewer: "@slow"
     librarian: "@smol"
-compaction: 
+compaction:
   thresholdTokens: 160000
-display: 
+display:
   showTokenUsage: true
   cacheMissMarker: true
   collapseCompacted: false
-memory: 
+memory:
   backend: local
-autolearn: 
+autolearn:
   enabled: true
   autoContinue: false
   minToolCalls: 5
-skills: 
-  ignoredSkills: 
+skills:
+  ignoredSkills:
     - php-code-review
     - php-project-guide
     - upgrade-php
     - freee-api-skill
     - mcp-builder
-# omp 18.1.5+ gates user-level foreign sources behind enabledProviders. PR #10666
-# (18.1.7) reopened the plugin-root filter for ~/.omp/plugins marketplace installs,
-# but extensibility/skills.ts still drops every user-level `claude-plugins` skill
-# (ponytail, superwhisper, reviewable-html-workbench) unless the source is opted
-# in. `claude` also covers `claude-plugins` and ~/.claude/skills (context-search).
 enabledProviders:
   - claude
+  - codex
 symbolPreset: unicode
-# Not `auto`: its per-prompt effort changes bust the Anthropic prompt cache
-# (measured 2026-09-23: median hit 29% vs 99% on the turn after a change).
 defaultThinkingLevel: medium
-magicKeywords: 
+magicKeywords:
   enabled: false
 colorBlindMode: true
 setupVersion: 2
-dev: 
+dev:
   autoqaConsent: granted
-composer: 
+composer:
   shape: pi
 hideThinkingBlock: false
-browser: 
+browser:
   screenshotDir: .agent-msgs/screenshots
