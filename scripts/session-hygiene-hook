@@ -1,6 +1,7 @@
 #!/bin/bash
-# SessionStart hook: mechanize the session-hygiene rules from
-# agents/global-instructions.md. Two triggers:
+# SessionStart hook: the session-hygiene rules live here, not in the
+# always-loaded agents/global-instructions.md, because the hook speaks exactly
+# when they apply. Two triggers:
 #   - source=compact: from the second compaction of a session onward, tell the
 #     agent to write a handoff note and wind down (every further turn rewrites
 #     the whole context as cache writes).
@@ -30,7 +31,7 @@ compact)
 	count=$(($(cat "$count_file" 2>/dev/null || echo 0) + 1))
 	printf '%s' "$count" >"$count_file"
 	if [ "$count" -ge 2 ]; then
-		warn "[session-hygiene] This session has now compacted $count times. Per the session-hygiene rules, repeated compaction means stop now: write a durable handoff note (repository-defined location, else .agent-msgs/handoff/YYYY-MM-DD-<topic>.md), then tell the user to /quit and start a fresh session. Do not continue long work here."
+		warn "[session-hygiene] This session has now compacted $count times. Repeated compaction means stop now: every further turn rewrites the whole context as cache writes. Write a durable handoff note (repository-defined location, else .agent-msgs/handoff/YYYY-MM-DD-<topic>.md), then tell the user to /quit and start a fresh session. Do not continue long work here."
 	fi
 	;;
 resume)
@@ -43,10 +44,10 @@ resume)
 	last_day=$(date -r "$mtime" +%Y-%m-%d 2>/dev/null || date -d "@$mtime" +%Y-%m-%d)
 	today=$(date +%Y-%m-%d)
 	if [ "$last_day" != "$today" ]; then
-		warn "[session-hygiene] This resume crosses a day boundary (last activity $last_day). Per the session-hygiene rules, sessions are not resumed across days: write a durable handoff note, then recommend the user quit and start a fresh session with that note instead of continuing here."
+		warn "[session-hygiene] This resume crosses a day boundary (last activity $last_day). Sessions are not resumed across days: write a durable handoff note, then recommend the user quit and start a fresh session with that note instead of continuing here."
 	fi
-	# Transcript size is a proxy for context size; 5MB JSONL roughly marks the
-	# large-context sessions the >200k rule targets.
+	# Transcript size is a proxy for context size; 5MB JSONL roughly marks a
+	# >200k-token context.
 	if [ "$idle" -gt 3600 ] && [ "$size" -gt 5000000 ]; then
 		warn "[session-hygiene] Resuming a large transcript (~$((size / 1000000))MB) after more than an hour idle re-reads the whole context. Recommend writing a handoff note and starting fresh unless the remaining work here is short."
 	fi

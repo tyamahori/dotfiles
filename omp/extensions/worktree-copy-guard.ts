@@ -1,6 +1,6 @@
 // bash ツールで raw `git worktree add` が実行された直後に、共有フック
 // scripts/worktree-copy-hook を経由して worktree-include-copy を回す。
-// global instructions の「raw worktree add の直後は必ず worktree-include-copy」
+// 常時読み込みの指示から外した「raw worktree add の直後は必ず worktree-include-copy」
 // の機械化。helper は冪等(上書きなし・symlink スキップ)なので誤発火しても
 // 無害。OMP のタスク分離は checkout 全体を clone するため、この拡張が効くのは
 // セッション内で raw に worktree を切った場合だけ。

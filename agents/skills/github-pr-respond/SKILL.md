@@ -102,4 +102,4 @@ mutation($threadId: ID!) {
 - `isOutdated` のスレッドも中身は生きていることがある。指摘が後続コミットで
   解消済みなら、その旨を返信して resolve する。
 - push が `communication with agent failed` で失敗したら 1Password のロック
-  （global-instructions の Git & SSH 節）。リモート設定をいじらない。
+  （`scripts/push-agent-hint` フックが同じヒントを出す）。リモート設定をいじらない。

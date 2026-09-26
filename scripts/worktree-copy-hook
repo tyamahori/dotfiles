@@ -1,7 +1,7 @@
 #!/bin/bash
 # Shared PostToolUse hook (Bash matcher): after a raw `git worktree add`, run
 # worktree-include-copy from the main checkout into every linked worktree.
-# Mechanizes the global-instructions rule that raw worktree adds must be
+# Replaces an always-loaded instruction that raw worktree adds must be
 # followed by the helper. The helper is idempotent (skips symlinks, never
 # overwrites), so sweeping all worktrees after each match is safe; a false
 # regex match costs one no-op sweep. Consumers: Claude Code and Codex (Bash

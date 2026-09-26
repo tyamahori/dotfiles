@@ -29,7 +29,7 @@ efficient-python スキルの四半期レビューを実行する。ファイル
    スキルの記述に影響する変更（フラグの追加・改名・非推奨、PEP 723 まわり、
    推奨ワークフローの変化）を拾う。uv 以外は追わない。
 4. ~/dotfiles/agents/skills/efficient-python/SKILL.md と
-   ~/dotfiles/agents/global-instructions.md の Python セクションを読み、
+   ~/dotfiles/agents/global-instructions.md の Machine facts 節の uv 項目を読み、
    2〜3 の結果と突き合わせる。
 
 レポート構成（日本語 Markdown）:
