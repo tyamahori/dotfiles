@@ -38,6 +38,20 @@ if ((${#failures[@]} > 0)); then
 	exit 1
 fi
 
+# A model pin change needs a model-migration-review cycle recorded in its
+# journal. Warn-only: a revert or a journal-first commit is legitimate.
+# ponytail: line regexes on the -U0 diff, not a config parser. The omp pattern
+# is any two-space-indented `key: provider/model` line (modelRoles today).
+pins=$(git diff --cached --unified=0 --no-color -- claude/settings.json codex/config.toml omp/config.yml |
+	grep -E '^[+-](\s*"model"\s*:|model\s*=|  [a-z]+: [a-z][a-z0-9-]*/\S+$)' || true)
+if [[ -n $pins ]] && ! git diff --cached --quiet -- agents/skills/model-migration-review/journal.md 2>/dev/null; then
+	pins=
+fi
+if [[ -n $pins ]]; then
+	printf 'pre-commit: model pin changed without a journal entry:\n%s\n' "$pins" >&2
+	printf 'Run the model-migration-review skill and record the result in agents/skills/model-migration-review/journal.md.\n' >&2
+fi
+
 # This repo sets a local core.hooksPath, which bypasses the machine-global
 # dispatcher — run the same global pre-commit checks here explicitly (same
 # pattern as the commit-msg symlink).
