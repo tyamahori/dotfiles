@@ -29,7 +29,7 @@ Mechanized: no — epistemic judgment call; no structural signal distinguishes a
 three sessions burned ~20 identical no-op turns on blocked delivery, with
 the correct diagnosis already made on the first attempt.
 
-Mechanized: scripts/fail-fast-hook (Claude Code PostToolUse/PostToolUseFailure Bash matcher, Codex PostToolUse Bash matcher).
+Mechanized: scripts/fail-fast-hook (Claude Code PostToolUse/PostToolUseFailure Bash matcher, Codex PostToolUse Bash matcher) and omp/extensions/fail-fast.ts (OMP).
 
 ## Session hygiene — quota goes to context re-reads
 
