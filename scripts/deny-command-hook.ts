@@ -1,4 +1,5 @@
 import { denyCommand } from "./command-policy.ts";
+import { missingTemplateHeadings, templateReason } from "./pr-template-check.ts";
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return (
@@ -27,7 +28,11 @@ export function denyCommandHook(client: "claude" | "codex", payload: string) {
   }
 
   if (typeof command !== "string") return;
-  const reason = denyCommand(command, client);
+  let reason = denyCommand(command, client);
+  if (!reason) {
+    const missing = missingTemplateHeadings(command, typeof input.cwd === "string" ? input.cwd : process.cwd());
+    if (missing.length > 0) reason = templateReason(missing);
+  }
   if (!reason) return;
   return {
     hookSpecificOutput: {

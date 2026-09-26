@@ -69,6 +69,25 @@
         "codex": "Shell reads of `.env`-style credential files are blocked. These files hold plaintext secrets — don't load one into context unless the user explicitly asked you to inspect that exact file.",
         "omp": "Shell and `read`/`grep` reads of `.env`-style credential files are blocked. These files hold plaintext secrets — don't load one into context unless the user explicitly asked you to inspect that exact file."
       }
+    },
+    {
+      "id": "gh-pr-draft",
+      "matcher": "command",
+      "commands": [
+        {
+          "executables": ["gh"],
+          "subcommand": "pr",
+          "anyArgPattern": "^create$",
+          "noArgPattern": "^(?:--draft|-d)(?:=true)?$"
+        }
+      ],
+      "clients": ["claude", "codex", "omp"],
+      "replacement": { "type": "command", "value": "gh" },
+      "reasons": {
+        "claude": "PRs are created as drafts on this machine. Re-run `gh pr create` with `--draft`; mark it ready only when the user asks.",
+        "codex": "PRs are created as drafts on this machine. Re-run `gh pr create` with `--draft`; mark it ready only when the user asks.",
+        "omp": "PRs are created as drafts on this machine. Re-run `gh pr create` with `--draft`; mark it ready only when the user asks."
+      }
     }
   ]
 }

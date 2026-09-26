@@ -7,6 +7,7 @@ type CommandMatch = {
   subcommand?: string;
   nextArgPattern?: string;
   anyArgPattern?: string;
+  noArgPattern?: string;
   requireNoRedirection?: boolean;
 };
 
@@ -24,10 +25,11 @@ type RuleTable = { rules: Rule[] };
 
 const rules = (ruleTable as RuleTable).rules.map((rule) => ({
   ...rule,
-  commands: rule.commands.map(({ nextArgPattern, anyArgPattern, ...match }) => ({
+  commands: rule.commands.map(({ nextArgPattern, anyArgPattern, noArgPattern, ...match }) => ({
     ...match,
     nextArgPattern: nextArgPattern ? new RegExp(nextArgPattern) : undefined,
     anyArgPattern: anyArgPattern ? new RegExp(anyArgPattern) : undefined,
+    noArgPattern: noArgPattern ? new RegExp(noArgPattern) : undefined,
   })),
 }));
 const repoRoot = resolve(import.meta.dir, "..");
@@ -246,6 +248,7 @@ export function denyCommand(command: string, client: Client): string | undefined
         (!match.subcommand || words[index + 1] === match.subcommand) &&
         (!match.nextArgPattern || match.nextArgPattern.test(words[index + 1] ?? "")) &&
         (!match.anyArgPattern || words.slice(index + 1).some((word) => match.anyArgPattern!.test(word))) &&
+        (!match.noArgPattern || !words.slice(index + 1).some((word) => match.noArgPattern!.test(word))) &&
         (!match.requireNoRedirection || !parsed.hasRedirection) &&
         (rule.matcher !== "curl-web-fetch" || (!parsed.hasRedirection && isSimpleWebFetch(words.slice(index + 1))))
       );

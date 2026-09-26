@@ -81,6 +81,15 @@ test("brew matches the exact upgrade subcommand, not argument text", () => {
   }
 });
 
+test("gh pr create is denied unless it opens a draft", () => {
+  which.mockReturnValue("/available/gh");
+  expect(denyCommand("gh pr create --title t --body b", "claude")).toContain("--draft");
+  expect(denyCommand("git push -u origin x && gh pr create --fill", "omp")).toBeDefined();
+  for (const command of ["gh pr create --draft --fill", "gh pr create -d --title t", "gh pr view 3", "gh pr ready 3", "echo 'gh pr create'"]) {
+    expect(denyCommand(command, "codex")).toBeUndefined();
+  }
+});
+
 test(".env-style credential files are blocked across cat/head/tail/tee, not near-miss names", () => {
   which.mockReturnValue("/available/replacement");
   expect(denyCommand("cat ~/.config/jev/credentials.env", "claude")).toBeDefined();

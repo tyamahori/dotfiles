@@ -555,6 +555,10 @@ Claude Code と Codex のフック実行には、`scripts/devbox` で導入す�
 | 単純な `curl` の Web 取得 | `ax`（最初に `~/.agents/skills/ax/SKILL.md` を読む） | 三 CLI |
 | `brew upgrade` | `scripts/brewUpdate` | 三 CLI |
 | `.env` 系資格情報ファイルの shell 経由の閲覧 | 読ませない（代替なし） | 三 CLI |
+| `--draft` なしの `gh pr create` | `--draft` を付けて再実行 | 三 CLI |
+
+ルール表とは別に、同じフック経路で `scripts/pr-template-check.ts` が `gh pr create --body` / `--body-file` を検査します。
+リポジトリに PR テンプレートがあり、本文にその見出しが欠けていれば拒否します。本文を `"$VAR"` で渡すと見出しを確認できず拒否されるので、インラインか `--body-file` で渡します。
 
 uv、ax、brewUpdate への誘導は、代替コマンドが実行可能な場合だけ発動します。
 専用の閲覧・検索ツールの有無は、適用する CLI で区別します。
@@ -564,7 +568,7 @@ uv、ax、brewUpdate への誘導は、代替コマンドが実行可能な場�
 新しいツールを入れただけではルールは増えません。代替できる用途を確認してから登録します。
 
 追加するときは既存の `rules` 要素にならい、`id`、対象の `clients`、代替手段の `replacement`、CLI 別の `reasons` を設定します。
-通常は `matcher: "command"` を使い、`commands` にコマンド名（`executables`）と必要ならサブコマンド（`subcommand`）を指定します。対象語が実行ファイル直後に来ない場合（`grep pattern file` のファイル名など）は、直後の一語だけを見る `nextArgPattern` ではなく、実行ファイル以降の全語を見る `anyArgPattern` を使います。
+通常は `matcher: "command"` を使い、`commands` にコマンド名（`executables`）と必要ならサブコマンド（`subcommand`）を指定します。対象語が実行ファイル直後に来ない場合（`grep pattern file` のファイル名など）は、直後の一語だけを見る `nextArgPattern` ではなく、実行ファイル以降の全語を見る `anyArgPattern` を使います。特定の引数が無いときだけ拒否するなら `noArgPattern` を使います。
 実行可能な代替コマンドは `replacement.type: "command"` と `value`、専用ツールは `type: "native-tool"` で指定します。
 条件を満たす最初のルールで拒否するため、理由文には次に使うツールと呼び出し方を明記してください。
 単純なコマンド置換は JSON の追加だけで済みますが、`curl` のような用途判定を増やす場合は判定コードの変更も必要です。
