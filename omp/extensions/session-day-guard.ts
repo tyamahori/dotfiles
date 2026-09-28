@@ -9,7 +9,7 @@
 // 動作:
 // - session_start: 過去日開始のセッションを再開していたら警告を通知。
 // - input: 日付を跨いで最初のユーザー入力が来たら、日誌を書いて新セッションへ
-//   移る手仕舞い指示を followUp として1回だけ注入する(1日1回)。
+//   移る手仕舞い指示を aside として1回だけ注入する(1日1回)。
 // - 強制終了はしない(omp にセッションを閉じる拡張 API がないため、
 //   エージェント自身に手仕舞いさせるのが到達可能な最大限)。
 // - hasUI のないセッション(サブエージェント・ヘッドレス one-shot)では
@@ -30,7 +30,7 @@ type ExtensionHandlerApi = {
   ): void;
   sendUserMessage?: (
     content: string,
-    options?: { deliverAs?: "steer" | "followUp" },
+    options?: { deliverAs?: "steer" | "followUp" | "aside" },
   ) => unknown;
 };
 
@@ -98,7 +98,9 @@ export default function (pi: ExtensionHandlerApi): void {
           `置き場はリポジトリが明示的に定義していればそこ、なければ gitignore 済みの .agent-msgs/handoff/。` +
           `(2) handoff_switch ツールに日誌のパスを渡して呼ぶ。応答完了後に自動で新セッションへ切り替わり、日誌が読み込まれる。` +
           `resume で持ち越さないこと。`,
-        { deliverAs: "followUp" },
+        // followUp は run 終了後に届くため、同じ run で handoff_switch 済みだと
+        // 余分な 1 ターンと重複 switch を生む (measured 2026-09-28: 4 件中 2 件)。
+        { deliverAs: "aside" },
       );
     } catch {
       // 注入に失敗しても通知は出ているので続行
