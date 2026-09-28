@@ -20,7 +20,7 @@
 | 依頼の枠組み（背景・課題・ゴール・スコープ・成果物） | `task-briefing`、前提を問い直すなら `grill-me` | 着手前、依頼が曖昧なとき |
 | 複雑タスクの工程（調査 → 計画 → 独立レビュー → 証拠つき納品） | `sureforge` | 複数ファイル・複数段階の実装 |
 | バグ診断（仮説と再現、根本原因の証拠） | `diagnosing-bugs`、共有指示の「Root-cause claims need reproduction」 | 障害・不具合・性能劣化 |
-| レビュー（変更種別ごとの必須質問、fresh context での反証、Copilot 事前確認、過剰設計の摘出） | `github-pr-review`、`adversarial-verification`、`copilot-preflight`、`ponytail-review` / `ponytail-audit`、OMP の `reviewer` / `security-reviewer` | PR の前後 |
+| レビュー（変更種別ごとの必須質問、fresh context での反証、Copilot 事前確認、過剰設計の摘出、ローカル差分の証拠つきレビュー） | `github-pr-review`、`evidence-code-review`、`adversarial-verification`、`copilot-preflight`、`ponytail-review` / `ponytail-audit`、OMP の `reviewer` / `security-reviewer` | PR の前後 |
 | 構造的な編集（rename、参照列挙、codemod） | 共有指示の「Structural edits」、`structural-edit`、OMP `lsp` / `ast_edit` | 複数箇所に及ぶ書き換え |
 | 言語別のスクリプト作法 | `efficient-python`、`efficient-ts-js` | スクリプトを書く・実行する前 |
 | 品質ゲート（semgrep、SonarQube、ruff、commit-msg の Why 検査） | `docs/semgrep.md`、`docs/sonarqube.md`、`ruff/ruff.toml`、`git/global-hooks/` | commit 時、完了報告前 |

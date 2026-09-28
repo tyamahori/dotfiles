@@ -134,6 +134,12 @@ fi
 if [[ ! -e $HOME/.agents/skills/sureforge/SKILL.md ]]; then
 	npx -y skills add Da7-Tech/SureForge -g --yes
 fi
+# akkie76/code-review-skills: local diff/commit/branch review engine; PR
+# delivery stays with github-pr-review. The package lives under dist/, which the
+# skills CLI only finds via the tree URL; claude-code and codex copies match.
+if [[ ! -e $HOME/.agents/skills/evidence-code-review/SKILL.md ]]; then
+	npx -y skills add https://github.com/akkie76/code-review-skills/tree/main/dist/claude-code -g --yes
+fi
 
 
 # OpenSkills-installed vendor skills (Cloudflare et al.) are deliberately NOT
