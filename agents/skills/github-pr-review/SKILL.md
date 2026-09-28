@@ -16,7 +16,9 @@ GitHub の PR に対するレビューの実施と配送は、このスキルが
 CI 失敗の調査や通常コメントの投稿だけでは、このレビュー手順を起動しない。
 投稿にはユーザーの承認範囲を確認し、このスキルの読込だけを投稿の許可と扱わない。
 
-- 作業中 diff・ブランチのレビュー → 組み込みの /code-review
+- 作業中 diff・コミット・ブランチのレビュー → evidence-code-review（`MUST(Functionality):` 等の
+  ラベルで返す。PR に配送するときは MUST→`blocking:`、SHOULD→`should:`、NITS→`nit:` に
+  読み替え、任意改善の BETTER はインラインにせずサマリへ回す）
 - 成果物の深掘り・反証 → adversarial-verification（コードは反例・エッジケース観点）
 - 別モデルの目が欲しい → omp-herdr-collab のクロスレビュー（omp から実行）
 
