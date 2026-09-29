@@ -2,6 +2,55 @@
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
 
+## 2026-09-29 未 ack 差分の再照合と Opus 5.5 の 1 週間後確認
+
+- 契機: commit 時の post-commit hook が5件の差分を報告
+  (`claude.model` / `omp.modelRoles.default` を sonnet-5 → opus-5-5、
+  `omp.modelRoles.plan` の `:low` が外れる、`omp.modelRoles.web` と
+  `omp.modelRoles.tiny` が (none) → 値あり)。
+- 照合: `~/.local/state/model-migration/last-reviewed.tsv` の mtime は
+  2026-09-15 のままで、中身は 09-20 と 09-22 のエントリより前の値だった。
+  両エントリには「ack 実行、直後の check は差分なし」とあるが、マーカーには
+  反映されていない。09-18 の巻き戻りと同じ症状で、原因は今回も特定できず保留。
+  - default/plan/claude.model: 09-20・09-22 のエントリで承認・適用済み。新規判断なし。
+  - web/tiny: 9e02a1f(09-25)で廃止キー `providers.webSearchOrder` /
+    `providers.tinyModel` を `modelRoles.web` / `modelRoles.tiny` へ移した
+    設定移行(omp://settings.md の自動移行対象)。web の先頭は従来の `google`
+    のまま。tiny は `lfm2-350m` → `lfm2.5-350m` で、`omp tiny-models list` の
+    同梱キーは lfm2.5 系だけ。判定: 機械的。セッションタイトル生成専用で、
+    指示文への影響なし。
+  - 公式資料の新規収集: 対象外。モデル自体の新規切替がないため。
+- 提案: 変更提案なし。
+- 検証: 新規プロセスで実測。`claude -p` の `modelUsage` は `claude-opus-5-5`
+  のみ。`omp -p --no-session` の default は `claude-opus-5-5`、`--model @plan`
+  は `gpt-6-astra`。`omp config get modelRoles` の web/tiny は pin と一致。
+  その後 `scripts/model-pins ack` を実行し、mtime の更新と check の exit 0 を確認した。
+- 09-22 エントリの 1 週間後(OMP main、`agent-usage-weekly` の 09-15..21 と
+  09-22..28 を比較):
+  数値の実体は machine-local の週次レポートにあり、ここには比だけを残す。
+  | 指標 | Opus 5.5 週 ÷ Sonnet 5 週 |
+  | --- | --- |
+  | calls | 0.42 |
+  | sessions | 0.85 |
+  | 費用合計 | 0.58 |
+  | 費用 / call | 1.37 |
+  | 費用 / session | 0.69 |
+  | cache_read_share | 96.0% → 95.7% |
+  | output / call | 0.82 |
+  | cache_write / call | 0.96 |
+  | cacheWrite >50k の比率(churn) | 52% → 37% |
+  | compaction 回数 | 0.29 |
+  判断: 1 回あたりの単価は単価表どおり約 1.4 倍に上がったが、セッションあたりの
+  費用は下がった。ただし週の作業量(calls が 0.42 倍)と内容が違うため、効果の量は
+  不明とする。cache hit は据え置き。thinking `medium` 固定(09-23)の後、
+  churn は 52% → 37% に下がり、固定の狙いと矛盾しない。品質・再作業は計測がなく
+  判定できない。悪化の根拠がないため、戻す提案はしない。Claude Code 本体の
+  利用は当週ゼロで比較対象がない。
+- 付随の発見: 09-28 のスナップショットの「local tiny model」節が「取得不能」に
+  なっている。原因は `agents/skills/agent-usage-review/scripts/snapshot.sh:614`
+  が廃止キー `tinyModel:` を grep していることで、`modelRoles.tiny` を読むよう
+  直す必要がある。今回は修正しない(agent-usage-review 側の候補)。
+
 ## 2026-09-22 デフォルトモデルを Opus 5.5 に変更
 
 - 契機: ユーザーが「Opus5.5がリリースされた。デフォルトモデルをOpus5.5に変えて
