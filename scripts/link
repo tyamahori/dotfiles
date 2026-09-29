@@ -140,6 +140,12 @@ fi
 if [[ ! -e $HOME/.agents/skills/evidence-code-review/SKILL.md ]]; then
 	npx -y skills add https://github.com/akkie76/code-review-skills/tree/main/dist/claude-code -g --yes
 fi
+# typesafe-ai/skills: TypeSafe (Jev) API guidance, used by the machine-global
+# Jev helpers (docs/jev.md). One global copy serves Claude Code, Codex, and OMP;
+# the Claude plugin form is not used so the skill is not listed twice.
+if [[ ! -e $HOME/.agents/skills/typesafe-ai/SKILL.md ]]; then
+	npx -y skills add typesafe-ai/skills -g --skill typesafe-ai --yes
+fi
 
 
 # OpenSkills-installed vendor skills (Cloudflare et al.) are deliberately NOT
