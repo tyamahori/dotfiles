@@ -62,7 +62,9 @@ that outlive a commit, not design docs that duplicate the implementation.
 
 ## Skills to load first
 
-Read the skill before starting the matching work:
+Read the skill before starting the matching work. In read-only review sessions
+(`codex exec -s read-only`), skip these skill loads; the review prompt defines
+the criteria.
 
 - Module boundary, interface, error policy, data model, refactor beyond a
   rename, or an ADR: `software-design`. Writing, changing, or deleting tests:
