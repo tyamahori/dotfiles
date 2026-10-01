@@ -2,6 +2,36 @@
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
 
+## 2026-10-02 plan ロールを Fable 5.1 へ、OpenAI 系を GPT-6 後継へ
+
+- 契機: ユーザーが Fable の使いどころを模索したいとして、`omp.modelRoles.plan`
+  を `openai-codex/gpt-6-astra` → `anthropic/claude-fable-5-1` に変更する判断をした。
+- 照合: plan/slow 両方を Fable にする案は保留。`task.agentModelOverrides` の
+  reviewer / security-reviewer が `@slow` を参照しており、slow まで Claude にすると
+  Opus 5.5 の成果物を Claude 系がレビューする形になり、Codex 系クロスレビューの
+  規範に反するため。plan だけなら reviewer 経路は変わらない。
+  `omp models anthropic` に `claude-fable-5-1`(low〜max)があることを確認。
+- 追加(同日、ユーザー承認): OpenAI 系で同じ格の後継があるものを置換。判定: 機械的。
+  - `smol` / `commit` と web 退避の `gpt-5.6-luna` → `gpt-6-luna`
+  - `anthropic/*` 退避の2番目 `gpt-5.6-sol` と、web 退避の `gpt-5.6`(公式に
+    `gpt-5.6-sol` の alias と明記)→ `gpt-6.1-sol`
+  - 据え置き: `gpt-5.6-terra`(task/vision/advisor。GPT-6 に Terra 枠がなく、Sol は格上)、
+    web 退避の `gpt-5.5`(後継の格が資料で未確認)、`codex/config.toml` の
+    `gpt-6-astra`(最新の Astra)。`docs/jev.md` の smol 記述を同期。
+  公式資料(取得日 2026-10-02):
+  https://developers.openai.com/api/docs/models/gpt-6.1-sol.md 、
+  https://developers.openai.com/api/docs/models/gpt-6-luna.md
+- 退避: plan は `anthropic/*` wildcard(→ gpt-6-astra → gpt-6.1-sol)に乗る。
+  `openai-codex/gpt-6-astra: [claude-fable-5-1]` は slow 用に引き続き有効。
+- 検証: `omp config get modelRoles` の plan が新値。新規プロセスの
+  `omp -p --no-session --mode json` で `--model @plan` が `claude-fable-5-1`、
+  `@smol` が `gpt-6-luna`、`openai-codex/gpt-6.1-sol` が `gpt-6.1-sol` で応答。
+  退避チェーンの解決値も新 ID。その後 `scripts/model-pins ack`。
+  稼働中の OMP セッションは再起動が必要。
+- 1週間後: plan ロール経由の Fable 呼出回数と費用、Anthropic 枠の退避発生有無を
+  `agent-usage-weekly` で確認し、slow まで広げるか判断する。smol/commit の
+  Luna 置換後に失敗・再試行が増えていないかも見る。
+
 ## 2026-09-29 未 ack 差分の再照合と Opus 5.5 の 1 週間後確認
 
 - 契機: commit 時の post-commit hook が5件の差分を報告

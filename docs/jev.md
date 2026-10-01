@@ -68,7 +68,7 @@ Skill を読むかはこれまで通りエージェントの判断に委ねま�
 Jev が失敗した場合、そのセッションでは以後 Jev を呼びません。
 
 代替モデルは `anthropic/claude-haiku-4-5`、`@smol`（`omp/config.yml` の `modelRoles.smol`、
-現在は `openai-codex/gpt-5.6-luna`）の順に試します。どちらも OMP 本体の認証をそのまま
+現在は `openai-codex/gpt-6-luna`）の順に試します。どちらも OMP 本体の認証をそのまま
 使うため、追加の鍵は要りません。失敗したモデルはそのセッションの候補から外します。
 すべて使えなければヒントを出さず、エラーも表示しません。既存の Skill 選択の動きは
 妨げません。
