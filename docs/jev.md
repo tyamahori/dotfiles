@@ -151,8 +151,8 @@ machine-global（起動 cwd に関わらず全リポジトリのメインセッ�
 （circuit breaker）。Jev 呼び出しは `ctx.setTimeout(..., 0)` で本処理から切り離して実行する
 ため、`tool_call` ハンドラ自体は同期的に即 return し、実タスク発行にレイテンシを一切
 追加しません（バックグラウンド実行の一般的な仕組みは
-[upstream extensions doc](https://github.com/can1357/oh-my-pi/blob/v18.2.6/docs/extensions.md)
-の managed background work 節を参照）。ハンドラの同期部分も全体を try/catch で囲んでおり、
+[upstream extensions doc](https://github.com/can1357/oh-my-pi/blob/main/docs/extensions.md)
+の Background work 節を参照）。ハンドラの同期部分も全体を try/catch で囲んでおり、
 roster 抽出などで何が起きても実タスク発行をブロックしません。
 
 ### 動作を確認する
