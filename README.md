@@ -609,9 +609,9 @@ git, curl, build-essential, and passwordless sudo for the Nix and Devbox install
 
 Some parts stay macOS-only by design, and Linux skips them: the Brewfile
 (apps, Keychain/GUI tools), the launchd jobs (`scripts/link` has no systemd
-equivalent, so the weekly/quarterly reviews do not run), and the automatic
-token bootstrap in `scripts/sonar-quality-gate` (macOS Keychain; on Linux set
-`SONAR_TOKEN`). On Linux, `scripts/link` writes the Ghostty desktop entry and
+equivalent, so the weekly/quarterly reviews do not run), and
+`scripts/sonar-quality-gate` (it requires macOS `dscacheutil` and bootstraps its
+token from the Keychain, so it exits early on Linux). On Linux, `scripts/link` writes the Ghostty desktop entry and
 icon when devbox provides Ghostty; refreshing the desktop and icon caches is best-effort and silently
 skipped when `update-desktop-database` / `gtk-update-icon-cache` are absent.
 
