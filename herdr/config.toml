@@ -48,7 +48,7 @@ command = "hunk diff --watch"
 description = "Hunk で working tree の差分を開く"
 
 [experimental]
-# herdr-browser（Chromiumをペインに描画）が要求。Kitty graphics対応ターミナル前提。
+# terminal-browser（Chromiumをペインに描画）が要求。Kitty graphics対応ターミナル前提。
 kitty_graphics = true
 pane_history = true
 switch_ascii_input_source_in_prefix = true
