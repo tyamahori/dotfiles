@@ -27,3 +27,19 @@ if ! command -v omp >/dev/null 2>&1; then
 	curl -fsSL https://omp.sh/install -o "$installer"
 	sh "$installer" --binary
 fi
+
+# ax (web fetch CLI the shared agent instructions call) is a Homebrew tap on
+# macOS and absent from nixpkgs, so Linux takes the upstream release binary.
+if ! command -v ax >/dev/null 2>&1; then
+	case "$(uname -m)" in
+	x86_64) ax_arch=x64 ;;
+	aarch64 | arm64) ax_arch=arm64 ;;
+	*)
+		echo "apps: no ax binary for $(uname -m)" >&2
+		exit 1
+		;;
+	esac
+	mkdir -p ~/.local/bin
+	curl -fsSL "https://github.com/yusukebe/ax/releases/latest/download/ax-linux-${ax_arch}" -o ~/.local/bin/ax
+	chmod +x ~/.local/bin/ax
+fi
