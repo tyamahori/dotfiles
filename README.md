@@ -28,10 +28,10 @@ cd ~/project/dotfiles
 Spotlight indexing is no longer disabled by setup; run `scripts/disable-spotlight`
 to opt in (undo with `sudo mdutil -a -i on`).
 
-Versions: devbox packages are pinned by `devbox/devbox.lock`, and OMP plugins
-by the versions declared in `scripts/omp-plugins` (it reinstalls the declared
+Versions: devbox packages are pinned by `devbox/devbox.lock`, and npm OMP
+plugins by the versions in `scripts/omp-plugins`' `plugins` array (it reinstalls the declared
 version on drift, so it can downgrade). Everything else setup installs
-(Homebrew formulae and casks, the npm agent CLIs on Linux, OMP and other
+(Homebrew formulae and casks, the npm agent CLIs on Linux, OMP marketplace plugins, OMP and other
 upstream installers, `skills@latest`) tracks latest by design, so a rerun
 months apart can produce newer tools than the last machine. Pin one only after
 a release breaks it, and record why next to the pin.
