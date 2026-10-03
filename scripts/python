@@ -1,12 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-# Global Python is provided by uv. uv itself is installed via scripts/devbox
-# (devbox global add uv). In a fresh setup run this script's PATH doesn't yet
-# include the devbox global profile, so pull it in before calling uv.
-if ! command -v uv >/dev/null 2>&1 && command -v devbox >/dev/null 2>&1; then
-	eval "$(devbox global shellenv)"
-fi
+# Global Python is provided by uv from scripts/devbox; scripts/setup puts the
+# devbox profile on PATH before calling this.
 
 if ! command -v uv >/dev/null 2>&1; then
 	echo "uv not found. Run scripts/devbox first (devbox global add uv)." >&2
