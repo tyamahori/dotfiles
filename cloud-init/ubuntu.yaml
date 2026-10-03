@@ -59,21 +59,24 @@ write_files:
         [ -d ~/project/dotfiles ] || git clone https://github.com/tyamahori/dotfiles.git ~/project/dotfiles
       '
       su - "$USER_NAME" -c "$USER_PATH ~/project/dotfiles/scripts/devbox"
+      # Each su - starts a fresh login shell, so later steps load the devbox global
+      # profile (node/npm, bun, uv) themselves.
+      USER_ENV="$USER_PATH"' eval "$(devbox global shellenv)";'
 
       # AI CLIs (Claude Code, OpenAI Codex, GitHub Copilot CLI) via npm.
       # devbox's nodejs lives in a read-only nix store, so global installs go to ~/.npm-global
       # (added to PATH by .zprofile).
-      su - "$USER_NAME" -c '
+      su - "$USER_NAME" -c "$USER_ENV"'
         mkdir -p ~/.npm-global
         npm config set prefix ~/.npm-global
         npm install -g @anthropic-ai/claude-code @openai/codex @github/copilot
       '
 
       # Global Python via uv plus debugpy, shared with macOS setup.
-      su - "$USER_NAME" -c "$USER_PATH ~/project/dotfiles/scripts/python"
+      su - "$USER_NAME" -c "$USER_ENV ~/project/dotfiles/scripts/python"
 
       # Link and install agent tools only after the agent CLIs exist so runtime feature gates can be enabled.
-      su - "$USER_NAME" -c "$USER_PATH ~/project/dotfiles/scripts/link && ~/project/dotfiles/scripts/agent-tools"
+      su - "$USER_NAME" -c "$USER_ENV ~/project/dotfiles/scripts/link && ~/project/dotfiles/scripts/agent-tools"
 
       touch "$DONE"
 
