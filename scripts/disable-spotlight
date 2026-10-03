@@ -1,0 +1,7 @@
+#!/bin/bash
+# Opt-in, not part of scripts/setup: stop Spotlight indexing on every volume.
+# Undo with `sudo mdutil -a -i on`. The old `chmod 0` on Search.bundle is gone:
+# /System is a sealed read-only volume, so it always failed and aborted setup.
+set -euo pipefail
+
+sudo mdutil -a -i off

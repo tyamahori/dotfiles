@@ -11,9 +11,11 @@ Darwin | Linux) ;;
 esac
 
 if [ "$OS" = Darwin ]; then
-	# Disable spotlight
-	sudo mdutil -a -i off
-	sudo chmod 0 /System/Library/CoreServices/Search.bundle/Contents/MacOS/Search
+	# Apple Silicon only: the Homebrew prefix below and .zprofile assume /opt/homebrew.
+	if [ "$(uname -m)" != arm64 ]; then
+		echo "Unsupported Mac: $(uname -m) (Apple Silicon only)" >&2
+		exit 1
+	fi
 
 	# Homebrew
 	if ! command -v brew >/dev/null 2>&1; then
