@@ -96,6 +96,5 @@ dev:
   autoqaConsent: granted
 composer:
   shape: pi
-hideThinkingBlock: false
 browser:
   screenshotDir: .agent-msgs/screenshots
