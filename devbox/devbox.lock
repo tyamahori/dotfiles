@@ -1233,6 +1233,44 @@
         }
       }
     },
+    "node-gyp@latest": {
+      "last_modified": "2026-08-27T07:16:00Z",
+      "resolved": "github:NixOS/nixpkgs/c27cdad491a991b11ed731760aa2ef8db0cb0410#node-gyp",
+      "source": "devbox-search",
+      "version": "13.0.1",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/dg030b8krknql1rmqvdd6x39r7a94b5k-node-gyp-13.0.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/dg030b8krknql1rmqvdd6x39r7a94b5k-node-gyp-13.0.1"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/sinv5w79q2z5z38cqh82w91dii8iblgc-node-gyp-13.0.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/sinv5w79q2z5z38cqh82w91dii8iblgc-node-gyp-13.0.1"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/ziq8gs60w811nvyrbzx2szpyw7ninavk-node-gyp-13.0.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/ziq8gs60w811nvyrbzx2szpyw7ninavk-node-gyp-13.0.1"
+        }
+      }
+    },
     "nodejs@latest": {
       "last_modified": "2026-08-27T23:47:58Z",
       "plugin_version": "0.0.4",
