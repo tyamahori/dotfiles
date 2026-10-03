@@ -33,6 +33,8 @@ hooks = true
 # PermissionRequest hooks already deliver approval banners via codex-notify.
 notifications = false
 
+# Same arguments as omp/mcp.json (the source; scripts/playwright-setup derives
+# the Claude registration from it). Keep this copy in step.
 [mcp_servers.playwright]
 command = "playwright-mcp"
 args = ["--browser", "chrome", "--headless", "--isolated", "--output-dir", ".agent-msgs/screenshots/playwright-mcp"]

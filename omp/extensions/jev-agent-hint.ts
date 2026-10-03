@@ -20,7 +20,7 @@
 //   静かに no-op へ切り替える(circuit breaker)。ログには jevError:true を
 //   残すが、タスク発行自体は常に成功する。
 // - Jev 呼び出しは `ctx.setTimeout(..., 0)` で本処理から切り離して実行する
-//   (upstream の managed background work: https://github.com/can1357/oh-my-pi/blob/v18.2.6/docs/extensions.md
+//   (upstream docs/extensions.md の Background work 節: https://github.com/can1357/oh-my-pi/blob/main/docs/extensions.md
 //   参照。隔離された例外処理下で動き、万一失敗してもセッションを落とさない)。
 //   tool_call ハンドラ自体は同期的に即 return するため、実タスク発行に
 //   レイテンシを一切追加しない。

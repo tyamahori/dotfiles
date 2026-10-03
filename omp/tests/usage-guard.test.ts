@@ -72,16 +72,12 @@ function seedUsage(rows: UsageRow[]): void {
 function usageHarness(
   current: () => Model,
   resolve: (spec: string) => Model | undefined,
-  chains: Record<string, string[]> = {
-    "anthropic/*": ["openai-codex/gpt-6-astra", "openai-codex/gpt-5.6-sol"],
-  },
 ) {
   const selected: Model[] = [];
   const notifications: string[] = [];
   const widgets: string[][] = [];
   let sessionStart: SessionStart | undefined;
   const api = {
-    pi: { settings: { get: (_key: "retry.fallbackChains") => chains } },
     setLabel() {},
     on(event: string, handler: SessionStart) {
       if (event === "session_start") sessionStart = handler;
@@ -114,53 +110,20 @@ function usageHarness(
   };
 }
 
-test("uses the configured model-specific chain before the provider chain at the reserve threshold", async () => {
-  seedUsage([
-    { provider: "anthropic", limitId: "anthropic:7d:fable", pct: 80 },
-    { provider: "openai-codex", limitId: "openai-codex:primary", pct: 30 },
-  ]);
-  const fallback = { provider: "openai-codex", id: "configured-fallback" };
-  const guard = usageHarness(
-    () => ({ provider: "anthropic", id: "claude-sonnet-5" }),
-    (spec) => ({ provider: "openai-codex", id: spec.split("/")[1] }),
-    {
-      "anthropic/*": ["openai-codex/provider-fallback"],
-      "anthropic/claude-sonnet-5": ["openai-codex/configured-fallback"],
-    },
-  );
-  blockNetwork();
-
-  await guard.sessionStart();
-
-  expect(guard.selected).toEqual([fallback]);
-  expect(guard.notifications).toHaveLength(1);
-});
-
-test("stays on Anthropic while any logged-in account has headroom", async () => {
-  const fallback = { provider: "openai-codex", id: "gpt-6-astra" };
+test("shows the account with the most headroom per limit in the widget", async () => {
   const guard = usageHarness(
     () => ({ provider: "anthropic", id: "claude-opus-5-5" }),
-    (spec) => (spec === "openai-codex/gpt-6-astra" ? fallback : undefined),
+    () => undefined,
   );
   blockNetwork();
 
-  // The exhausted team account is recorded last, so a latest-row-wins reading would switch.
+  // The exhausted team account is recorded last, so a latest-row-wins reading would show 95%.
   seedUsage([
     { provider: "anthropic", account: "personal", limitId: "anthropic:7d", pct: 10 },
-    { provider: "anthropic", account: "personal", limitId: "anthropic:7d:fable", pct: 79 },
     { provider: "anthropic", account: "team", limitId: "anthropic:7d", pct: 95 },
   ]);
   await guard.sessionStart();
-  expect(guard.selected).toEqual([]);
   expect(guard.widgets.at(-1)?.[0]).toContain("7d 10%");
-
-  seedUsage([
-    { provider: "anthropic", account: "personal", limitId: "anthropic:7d", pct: 10 },
-    { provider: "anthropic", account: "personal", limitId: "anthropic:7d:fable", pct: 80 },
-    { provider: "anthropic", account: "team", limitId: "anthropic:7d", pct: 95 },
-  ]);
-  await guard.sessionStart();
-  expect(guard.selected).toEqual([fallback]);
 });
 
 test("uses the local rescue only when both pools are depleted and ollama serves qwen", async () => {
@@ -200,56 +163,3 @@ test("leaves the model unchanged when the local rescue is unavailable", async ()
   expect(fetch).toHaveBeenCalledTimes(1);
 });
 
-test("keeps a manual choice latched until usage recovers, then rearms the fallback", async () => {
-  let current: Model = { provider: "anthropic", id: "claude-sonnet-5" };
-  const fallback = { provider: "openai-codex", id: "gpt-6-astra" };
-  const guard = usageHarness(
-    () => current,
-    (spec) => (spec === "openai-codex/gpt-6-astra" ? fallback : undefined),
-  );
-  blockNetwork();
-
-  seedUsage([{ provider: "anthropic", limitId: "anthropic:7d:fable", pct: 80 }]);
-  await guard.sessionStart();
-  current = { provider: "anthropic", id: "manual-choice" };
-  await guard.sessionStart();
-  seedUsage([{ provider: "anthropic", limitId: "anthropic:7d:fable", pct: 79 }]);
-  await guard.sessionStart();
-  seedUsage([{ provider: "anthropic", limitId: "anthropic:7d:fable", pct: 80 }]);
-  await guard.sessionStart();
-
-  expect(guard.selected).toEqual([fallback, fallback]);
-});
-
-test("an empty model chain disables the provider fallback", async () => {
-  seedUsage([{ provider: "anthropic", limitId: "anthropic:7d:fable", pct: 80 }]);
-  const guard = usageHarness(
-    () => ({ provider: "anthropic", id: "claude-sonnet-5" }),
-    () => ({ provider: "openai-codex", id: "provider-fallback" }),
-    {
-      "anthropic/*": ["openai-codex/provider-fallback"],
-      "anthropic/claude-sonnet-5": [],
-    },
-  );
-  blockNetwork();
-
-  await guard.sessionStart();
-
-  expect(guard.selected).toEqual([]);
-});
-
-test("preserves the Codex reserve even when a configured fallback resolves", async () => {
-  seedUsage([
-    { provider: "anthropic", limitId: "anthropic:7d:fable", pct: 80 },
-    { provider: "openai-codex", limitId: "openai-codex:primary", pct: 80 },
-  ]);
-  const guard = usageHarness(
-    () => ({ provider: "anthropic", id: "claude-sonnet-5" }),
-    () => ({ provider: "openai-codex", id: "configured-fallback" }),
-  );
-  blockNetwork();
-
-  await guard.sessionStart();
-
-  expect(guard.selected).toEqual([]);
-});

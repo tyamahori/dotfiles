@@ -241,12 +241,10 @@ omp config get retry.fallbackChains --json
 モデル別のキー `provider/model-id` は、共通の `provider/*` より優先されます。
 共通設定を残したまま、特定のモデルだけ退避先を変更できます。
 
-この dotfiles では、使用量監視と同じ経路を使うため、退避元のキーは思考強度を付けない `provider/model-id` または `provider/*` に揃えます。
 退避先は `provider/model-id` の配列で、上から順に試します。空配列は、そのモデルの退避候補をなくす指定です。
 通常モデルの ID を変えた場合は、対応する退避元のキーも変更してください。`@role` は退避先には使えません。
 
-`anthropic-usage-guard` は OMP の実効設定から同じ配列を読み、Codex の候補を使います。モデル名を拡張のコードへ追加する必要はありません。
-プロジェクト設定や `--config` による上書きも反映されます。ロール別・思考強度別など、別の形式を導入する場合は、拡張側も OMP 本体の resolver に合わせて変更します。
+`anthropic-usage-guard` はこの配列を読みません。退避は OMP 本体の usage-aware fallback が処理します。
 変更後は `scripts/link` を実行し、OMP を再起動してください。稼働中のセッションへは設定ファイルの変更が自動反映されません。
 
 ### 使用量の監視
@@ -255,8 +253,10 @@ Anthropic と OpenAI Codex は別の subscription pool として使い分けま�
 メインセッションは判断を担当し、実装、探索、機械的処理は OpenAI 側の subagent へ寄せる構成です。
 
 利用枠の退避は双方向です。
-Anthropic の残りが 20% に達すると `retry.fallbackChains` に従って OpenAI Codex へ、Codex 週次枠の残りが 20% に達すると Anthropic へ退避します。
-`anthropic-usage-guard` extension は、omp 本体が判定しないモデル別枠（`anthropic:7d:fable` など）の切替と、Codex 週次枠 80% 到達の通知を担当します。
+Anthropic の残りが 20% に達すると `retry.fallbackChains` に従って OpenAI Codex へ、Codex 週次枠の残りが 20% に達すると Anthropic へ、どちらも OMP 本体が退避します。
+Anthropic 側はモデル別枠（`anthropic:7d:fable` など）も本体が判定し、現在のモデルに対応する枠の残量で切り替えます。
+両方の pool が同時に 20% を切っていても、本体は `retry.fallbackChains` のとおりに切り替えます。メインを Anthropic に留めて Codex の残りを subagent 用に温存する処理はありません。
+`anthropic-usage-guard` extension は、Codex 週次枠 80% 到達の通知を担当します。
 同 extension は両 pool の使用率（Claude 5h / 7d / モデル別 7d、Codex 週次枠）を editor 下の widget に常時表示します。
 表示は Claude Code / Codex の GUI にある Usage 表示と同じ窓で、session_start と5分毎のチェックのたびに更新されます。
 両方の pool が実質枯渇（98% 以上）した場合は、ローカル ollama を probe して応答があるときだけ qwen へ退避します。
@@ -414,7 +414,7 @@ modelRoles:
 
 既定プロファイルで `/login` → Anthropic を 2 回実行し、ブラウザの同意画面でそれぞれチームの組織と個人の組織を選びます。
 同じメールアドレスでも組織ごとに別アカウントとして `~/.omp/agent/agent.db` に保存され、OMP が枠の残量を見て自動で選び分けます。
-使用量ガードはアカウントごとの残量を見て、全アカウントで 7 日枠の残りが 20% 以下になったときだけ Codex へ切り替えます。
+Anthropic から Codex への退避も、OMP 本体がアカウントごとの残量を見て判定します。
 使用量の widget には、枠ごとに最も余裕のあるアカウントの値が表示されます。
 
 有効値の確認には `omp config get` を使います。

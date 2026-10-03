@@ -1,29 +1,21 @@
 // subscription pool の残量ガード。
 //
-// 1. Anthropic 7日枠（モデル別枠を含む）の残量が、ログイン済みの全アカウントで
-//    20%以下になったら、セッションのモデルを Codex へ自動で切り替える。
-//    同じ agent.db に複数アカウント（例: Team と個人）があると、omp 本体が
-//    残量で選び分けるので、1 アカウントでも余裕があれば切り替えない。
-//    omp 本体の usage-aware fallback は provider 全体の枠を判定する一方、
-//    anthropic:7d:fable などのモデル別枠では reserve 到達時に発火しない。
-//    agent.db の最新 usage snapshot を直接読み、この穴だけを補う。
-// 2. Codex 週次枠（openai-codex:primary）の残量が20%以下になったら通知する。
-//    切替はしない: provider 全体枠なので omp 本体の usage-aware fallback が
-//    retry.fallbackChains（openai-codex/* → anthropic）で退避する。
-// 3. 両 pool の使用率を editor 下の widget に常時表示する（Claude 5h / 7d /
-//    モデル別 7d と Codex 週次枠）。複数アカウントでは枠ごとに最も余裕のある
-//    アカウントの値を出す。データ源は同じ usage snapshot なので、
-//    更新は session_start とチェック周期（5分毎）に揃う。
+// Anthropic 7日枠（モデル別枠 anthropic:7d:fable などを含む）の reserve 到達時の
+// Codex 切替は、omp 本体の usage-aware fallback が担う（Claude の
+// scopeLimitsForReserve が共通枠と現在モデルの family/tier 枠を見る）。
+// この extension は本体に無い部分だけを補う。
 //
-// 動作:
-// - session_start で即チェックし、5分毎に再チェックする。
-// - Anthropic 切替は現在モデルが Anthropic のときだけ行う。
-// - 両 pool が同時に閾値超えの場合は切替を見送り、メインを Anthropic に留める
-//   （subagent 用の Codex reserve を温存する）。
-// - 一度切り替え/通知した後は、その枠が閾値を下回るまで再発火しない。
-// - 両 pool が 98% 以上（実質枯渇）のときだけ、ローカル ollama を probe して
-//   応答があればメインを qwen へ退避する。ollama 不在なら何もしない。
-// - 切替先は実効 retry.fallbackChains を参照する（設定ファイルの再読込は本体に任せる）。
+// 1. Codex 週次枠（openai-codex:primary）の残量が20%以下になったら通知する。
+//    切替はしない: omp 本体の usage-aware fallback が
+//    retry.fallbackChains（openai-codex/* → anthropic）で退避する。
+// 2. 両 pool の使用率を editor 下の widget に常時表示する（Claude 5h / 7d /
+//    モデル別 7d と Codex 週次枠）。複数アカウントでは枠ごとに最も余裕のある
+//    アカウントの値を出す。データ源は agent.db の最新 usage snapshot で、
+//    更新は session_start とチェック周期（5分毎）に揃う。
+// 3. 両 pool が 98% 以上（実質枯渇）のときだけ、ローカル ollama を probe して
+//    応答があればメインを qwen へ退避する。ollama 不在なら何もしない。
+//
+// 一度通知/退避した後は、その枠が閾値を下回るまで再発火しない。
 
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
@@ -67,11 +59,6 @@ type ExtensionHandlerApi = {
 		handler: (event: unknown, ctx: Ctx | undefined) => void | Promise<void>,
 	): void;
 	setModel(model: Model): Promise<boolean>;
-	pi: {
-		settings: {
-			get(key: "retry.fallbackChains"): Record<string, string[]>;
-		};
-	};
 };
 
 type UsageRow = {
@@ -220,47 +207,8 @@ export default function (pi: ExtensionHandlerApi): void {
 	pi.setLabel?.("Usage Guard");
 
 	let inflight = false;
-	let switchedThisWindow = false;
 	let codexNotifiedThisWindow = false;
 	let rescuedThisWindow = false;
-
-	async function checkAnthropic(ctx: Ctx, rows: UsageRow[]): Promise<void> {
-		const pct = latestUsedPct(rows, "anthropic", "anthropic:7d%");
-		if (pct === null || pct < 100 - USAGE_RESERVE_PCT) {
-			switchedThisWindow = false;
-			return;
-		}
-		const current = ctx.models?.current();
-		if (switchedThisWindow || current?.provider !== "anthropic") return;
-
-		// 両pool枯渇時はsubagent用のCodex reserveをメインで食わないよう切替を見送る。
-		// 通知はcheckCodex側のCodex 80%通知が担う。
-		const codexPct = latestUsedPct(rows, "openai-codex", "openai-codex:primary");
-		if (codexPct !== null && codexPct >= 100 - USAGE_RESERVE_PCT) return;
-
-		const chains = pi.pi.settings.get("retry.fallbackChains");
-		// ponytail: suffixless model keys and provider/* cover this config; use the
-		// native retry matcher if role/effort/prefix-specific chains are introduced.
-		const fallbacks =
-			chains[`${current.provider}/${current.id}`] ??
-			chains[`${current.provider}/*`] ??
-			[];
-		for (const spec of fallbacks) {
-			const target = await ctx.models?.resolve(spec);
-			if (target?.provider === "openai-codex" && (await pi.setModel(target))) {
-				switchedThisWindow = true;
-				notify(
-					ctx,
-					`usage-guard: Anthropic 7日枠 ${pct}% 使用（残り${100 - pct}% ≤ ${USAGE_RESERVE_PCT}%）→ ${spec} へ切替`,
-				);
-				return;
-			}
-		}
-		notify(
-			ctx,
-			`usage-guard: Anthropic 7日枠 ${pct}% 使用だがCodex切替先を解決できません`,
-		);
-	}
 
 	function checkCodex(ctx: Ctx, rows: UsageRow[]): void {
 		const pct = latestUsedPct(rows, "openai-codex", "openai-codex:primary");
@@ -322,7 +270,6 @@ export default function (pi: ExtensionHandlerApi): void {
 		if (inflight || !ctx.models) return;
 		inflight = true;
 		try {
-			await checkAnthropic(ctx, rows);
 			checkCodex(ctx, rows);
 			await checkLocalRescue(ctx, rows);
 		} finally {

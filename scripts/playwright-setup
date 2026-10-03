@@ -4,7 +4,9 @@ set -euo pipefail
 REPO_ROOT="$(cd -P "$(dirname "$0")/.." && pwd)"
 TOOLS_DIR="$REPO_ROOT/tools/playwright"
 SKILL_SOURCE="$TOOLS_DIR/node_modules/@playwright/cli/skills/playwright-cli"
-MCP_JSON='{"type":"stdio","command":"playwright-mcp","args":["--browser","chrome","--headless","--isolated","--output-dir",".agent-msgs/screenshots/playwright-mcp"]}'
+# omp/mcp.json is the source for the server arguments; codex/config.toml
+# carries a static TOML copy because the Codex system layer cannot include it.
+MCP_JSON="$(jq -c '.mcpServers.playwright + {type: "stdio"}' "$REPO_ROOT/omp/mcp.json")"
 
 bun install --frozen-lockfile --cwd "$TOOLS_DIR"
 
