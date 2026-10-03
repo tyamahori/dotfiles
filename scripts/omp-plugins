@@ -39,13 +39,13 @@ retired=(
 
 
 if ! command -v omp >/dev/null 2>&1; then
-	# scripts/apps installs omp from the Brewfile only on macOS, so a missing omp
-	# there is a broken setup; Linux has no declared omp install to point at.
+	# macOS gets omp from the Brewfile (scripts/apps), so a missing omp there is a
+	# broken setup. Linux only has it where cloud-init ran the upstream installer.
 	if [ "$(uname)" = Darwin ]; then
 		echo "omp-plugins: omp not found; run scripts/apps first (brew: can1357/tap/omp)" >&2
 		exit 1
 	fi
-	echo "omp-plugins: omp not found; skipped (no declared omp install on Linux)" >&2
+	echo "omp-plugins: omp not found; skipped (install: curl -fsSL https://omp.sh/install | sh -s -- --binary)" >&2
 	exit 0
 fi
 

@@ -8,6 +8,7 @@
 #   - zsh + linked dotfiles from tyamahori/dotfiles
 #   - Nix (Determinate Systems) + Devbox with the global packages pinned in devbox/devbox.lock
 #     (gh and direnv come from there, not apt)
+#   - Claude Code / Codex / Copilot CLI (npm) and OMP (upstream installer) + its plugins
 # macOS-only items (Homebrew casks, mas) are intentionally skipped.
 #
 # OrbStack deletes the cloud image's default `ubuntu` user (uid 1000) and creates a
@@ -72,11 +73,15 @@ write_files:
         npm install -g @anthropic-ai/claude-code @openai/codex @github/copilot
       '
 
+      # OMP from the upstream installer into ~/.local/bin. --binary: the bun
+      # route needs a newer bun than the devbox pin.
+      su - "$USER_NAME" -c 'curl -fsSL https://omp.sh/install | sh -s -- --binary'
+
       # Global Python via uv plus debugpy, shared with macOS setup.
       su - "$USER_NAME" -c "$USER_ENV ~/project/dotfiles/scripts/python"
 
       # Link and install agent tools only after the agent CLIs exist so runtime feature gates can be enabled.
-      su - "$USER_NAME" -c "$USER_ENV ~/project/dotfiles/scripts/link && ~/project/dotfiles/scripts/agent-tools"
+      su - "$USER_NAME" -c "$USER_ENV ~/project/dotfiles/scripts/link && ~/project/dotfiles/scripts/agent-tools && ~/project/dotfiles/scripts/omp-plugins"
 
       touch "$DONE"
 

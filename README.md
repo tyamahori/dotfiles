@@ -589,8 +589,9 @@ orb shell dev   # default user inherits from the macOS host
 ```
 
 What it installs: zsh, Nix (Determinate Systems), Devbox + the global packages
-pinned in `devbox/devbox.lock`, the latest CPython via `uv` as the global
-`python` / `python3`, `gh`,
+pinned in `devbox/devbox.lock` (including `gh` and `direnv`), the latest CPython
+via `uv` as the global `python` / `python3`, Claude Code / Codex / Copilot CLI
+(npm), OMP (upstream installer) with the declared plugins,
 Docker CE (with the default user added to the `docker` group), and links
 dotfiles from this repo. macOS-only items (Homebrew casks, `mas`) are skipped.
 
