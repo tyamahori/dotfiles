@@ -688,3 +688,6 @@ duplicate silently shadows the brew copy and forks behavior.
   the repo copies change); restrict OS-specific packages with `--platform`.
 - **`~/.Brewfile`** (`scripts/apps`) — macOS-integrated tools and casks:
   anything touching Keychain, launchd, notifications, or a GUI.
+  `homebrew/brew.env` lists the devbox-owned CLIs in
+  `HOMEBREW_FORBIDDEN_FORMULAE`, so brew refuses to install a duplicate; keep
+  it in sync when adding a devbox package that also exists as a formula.

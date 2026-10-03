@@ -159,7 +159,6 @@ if [[ "$OSTYPE" == linux* || -n "$SSH_CONNECTION" ]] || (( EUID == 0 )); then
   export STARSHIP_HOST="${(%):-%n@%m }"
 fi
 
-export HOMEBREW_NO_ASK=1
 alias brewup='"$HOME/dotfiles/scripts/brewUpdate"'
 # omp: ~ で起動しても temp ディレクトリへ自動退避せずカレントで開く。
 # quota退避はOMP本体のusage-aware fallbackが全起動経路で処理する。
