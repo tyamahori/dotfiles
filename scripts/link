@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+# Local placement only, safe to rerun after any pull: symlinks plus files
+# generated from already-installed binaries. Network installs belong in
+# scripts/agent-tools.
+
 REPO_ROOT="$(cd -P "$(dirname "$0")/.." && pwd)"
 DOTFILES_DIR="${REPO_ROOT}/dotfiles"
 GIT_DIR="${REPO_ROOT}/git"

@@ -17,7 +17,7 @@ cd ~/project/dotfiles
 2. `scripts/devbox` — link `devbox/devbox.json` and `devbox/devbox.lock` into devbox global, install the pinned packages (including `gh` and the Copilot CLI), and install lockfile-pinned dependencies for local hooks
 3. `scripts/apps` — macOS: install the repository Brewfile; Linux: install Claude Code and Codex with npm and OMP with its upstream installer
 4. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`
-5. `scripts/link` — create the stable `~/dotfiles` alias, symlink shared instructions and runtime adapters, enable Codex hooks, generate the herdr agent-state hook scripts that the Claude Code/Codex hooks call, link OMP configuration, and load launchd jobs; it never touches the network, so it is safe to rerun after any pull
+5. `scripts/link` — local placement only: create the stable `~/dotfiles` alias, symlink dotfiles, shared instructions, runtime adapters, and OMP configuration, set this repo's `core.hooksPath`, and load launchd jobs (macOS). It also writes files derived from what is installed: the herdr skill and agent-state hook scripts (from the `herdr` binary), the Codex `skills.config` entry, and on Linux the Ghostty GL wrapper and desktop entry. It never touches the network, so it is safe to rerun after any pull
 6. `scripts/agent-tools` — install what is missing from the network: Playwright tooling, Plannotator, the `global_skills` set, and the Codex ponytail plugin
 7. `scripts/omp-plugins` — install the declared OMP plugin set (`omp plugin install`)
 
