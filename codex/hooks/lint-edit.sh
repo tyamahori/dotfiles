@@ -12,12 +12,10 @@ command=$(jq -r '.tool_input.command // empty' <<<"$payload")
 
 [ "$event" = "PostToolUse" ] && [ "$tool_name" = "apply_patch" ] || exit 0
 
+# shellcheck disable=SC1091 # patch-paths.sh is linted on its own
+. "$(dirname "$0")/patch-paths.sh"
+
 while IFS= read -r file; do
-	[ -n "$file" ] || continue
-	case "$file" in
-	\"*\") file=${file#\"}; file=${file%\"} ;;
-	\'*\') file=${file#\'}; file=${file%\'} ;;
-	esac
 	case "$file" in
 	/*) ;;
 	*) file="$cwd/$file" ;;
@@ -28,9 +26,5 @@ while IFS= read -r file; do
 		printf '%s\n' "$result"
 		exit 0
 	fi
-done < <(
-	printf '%s\n' "$command" |
-		sed -nE 's/^\*\*\* (Update File|Add File|Move to): (.*)$/\2/p' |
-		sort -u
-)
+done < <(patch_paths "$command" 'Update File|Add File|Move to')
 exit 0

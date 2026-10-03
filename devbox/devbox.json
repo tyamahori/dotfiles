@@ -36,6 +36,7 @@
     "bat":                  "latest",
     "starship":             "latest",
     "hadolint":             "latest",
+    "shellcheck":           "latest",
     "carapace":             "latest",
     "mas": {
       "version":   "latest",

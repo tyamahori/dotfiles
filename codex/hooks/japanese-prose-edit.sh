@@ -15,22 +15,15 @@ case "$event" in
   *) exit 0 ;;
 esac
 
-while IFS= read -r file; do
-  [ -n "$file" ] || continue
-  case "$file" in
-    \"*\") file=${file#\"}; file=${file%\"} ;;
-    \'*\') file=${file#\'}; file=${file%\'} ;;
-  esac
+# shellcheck disable=SC1091 # patch-paths.sh is linted on its own
+. "$(dirname "$0")/patch-paths.sh"
 
-  jq -n \
-    --arg event "$event" \
-    --arg session_id "$session_id" \
-    --arg cwd "$cwd" \
-    --arg file "$file" \
-    '{hook_event_name: $event, session_id: $session_id, cwd: $cwd, tool_input: {file_path: $file}}' |
-    JAPANESE_PROSE_RUNTIME=codex "$HOME/dotfiles/scripts/japanese-prose-hook-edit"
-done < <(
-  printf '%s\n' "$command" |
-    sed -nE 's/^\*\*\* (Update File|Add File|Delete File|Move to): (.*)$/\2/p' |
-    sort -u
-)
+while IFS= read -r file; do
+	jq -n \
+		--arg event "$event" \
+		--arg session_id "$session_id" \
+		--arg cwd "$cwd" \
+		--arg file "$file" \
+		'{hook_event_name: $event, session_id: $session_id, cwd: $cwd, tool_input: {file_path: $file}}' |
+		JAPANESE_PROSE_RUNTIME=codex "$HOME/dotfiles/scripts/japanese-prose-hook-edit"
+done < <(patch_paths "$command" 'Update File|Add File|Delete File|Move to')
