@@ -360,6 +360,9 @@ if [ "$(uname)" = Darwin ]; then
 		sed -e "s|@HOME@|$HOME|g" -e "s|@REPO_ROOT@|$REPO_ROOT|g" "$plist" >"$target"
 		echo "rendered $target from $plist"
 		label="$(plutil -extract Label raw -o - "$target")"
+		# launchd does not create the log directory; a missing one fails the job.
+		log_path="$(plutil -extract StandardOutPath raw -o - "$target" 2>/dev/null || true)"
+		[[ -n $log_path ]] && mkdir -p "$(dirname "$log_path")"
 		launchctl bootout "$launchd_domain" "$target" 2>/dev/null || true
 		if [[ $disabled_services == *"\"$label\" => disabled"* ]]; then
 			echo "skipped loading $label (disabled in launchd)"
