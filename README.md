@@ -12,7 +12,7 @@ cd ~/project/dotfiles
 
 `scripts/setup` runs the following in order:
 
-1. `scripts/init` — install Homebrew, Nix, Devbox, and — only when `gh` is already installed — its extensions (`gh` itself is not managed by setup)
+1. `scripts/init` — install Homebrew (macOS), Nix, and Devbox; `gh` comes from the devbox global profile in step 3
 2. `scripts/apps` — install the repository Brewfile on macOS
 3. `scripts/devbox` — link `devbox/devbox.json` and `devbox/devbox.lock` into devbox global, install the pinned packages, and install lockfile-pinned dependencies for local hooks
 4. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`
