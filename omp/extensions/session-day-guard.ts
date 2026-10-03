@@ -8,6 +8,9 @@
 //
 // 動作:
 // - session_start: 過去日開始のセッションを再開していたら警告を通知。
+// - session_start と session_switch(resume): 1時間超放置した 5MB 超の
+//   transcript を再開したら警告を通知(scripts/session-hygiene-hook と同じ閾値。
+//   2026-08-19 実測: 2h17m 後の同日 resume が 10 ターンで 3.07M トークンを再処理)。
 // - input: 日付を跨いで最初のユーザー入力が来たら、日誌を書いて新セッションへ
 //   移る手仕舞い指示を aside として1回だけ注入する(1日1回)。
 // - 強制終了はしない(omp にセッションを閉じる拡張 API がないため、
@@ -15,12 +18,17 @@
 // - hasUI のないセッション(サブエージェント・ヘッドレス one-shot)では
 //   何もしない。「有人セッション」だけが対象。
 
+import { statSync } from "node:fs";
+
 type Rec = Record<string, unknown>;
 
 type Ctx = {
   hasUI?: boolean;
   ui?: { notify?: (message: string, level?: string) => void };
-  sessionManager?: { getBranch?: () => unknown[] };
+  sessionManager?: {
+    getBranch?: () => unknown[];
+    getSessionFile?: () => string | undefined;
+  };
 };
 
 type ExtensionHandlerApi = {
@@ -55,16 +63,54 @@ function entryTimestamp(entry: unknown): number | undefined {
   return undefined;
 }
 
-/** ブランチ内の最古エントリのローカル日付 = セッション開始日。 */
-function sessionStartDate(ctx: Ctx | undefined): string | undefined {
+const IDLE_MS = 60 * 60 * 1000;
+// JSONL 5MB は概ね 200k トークン超の文脈(session-hygiene-hook と同じ目安)。
+const LARGE_BYTES = 5_000_000;
+
+/** ブランチ内エントリの最古・最新時刻。 */
+function branchRange(
+  ctx: Ctx | undefined,
+): { first: number; last: number } | undefined {
   const branch = ctx?.sessionManager?.getBranch?.();
   if (!Array.isArray(branch)) return undefined;
-  let min: number | undefined;
+  let range: { first: number; last: number } | undefined;
   for (const entry of branch) {
     const ts = entryTimestamp(entry);
-    if (ts !== undefined && (min === undefined || ts < min)) min = ts;
+    if (ts === undefined) continue;
+    if (range === undefined) range = { first: ts, last: ts };
+    else {
+      if (ts < range.first) range.first = ts;
+      if (ts > range.last) range.last = ts;
+    }
   }
-  return min === undefined ? undefined : localDate(new Date(min));
+  return range;
+}
+
+/** ブランチ内の最古エントリのローカル日付 = セッション開始日。 */
+function sessionStartDate(ctx: Ctx | undefined): string | undefined {
+  const range = branchRange(ctx);
+  return range && localDate(new Date(range.first));
+}
+
+function warnIdleLargeResume(ctx: Ctx | undefined): void {
+  if (!ctx?.hasUI) return;
+  const range = branchRange(ctx);
+  if (range === undefined) return;
+  const idleMs = Date.now() - range.last;
+  if (idleMs <= IDLE_MS) return;
+  const file = ctx.sessionManager?.getSessionFile?.();
+  if (typeof file !== "string") return;
+  let size: number;
+  try {
+    size = statSync(file).size;
+  } catch {
+    return;
+  }
+  if (size <= LARGE_BYTES) return;
+  ctx.ui?.notify?.(
+    `session-day-guard: ${Math.round(idleMs / 3_600_000)}時間放置した大きな transcript(約${Math.round(size / 1_000_000)}MB)を再開した。` +
+      "再開すると文脈全体を読み直す。残りの作業が短くなければ、日誌を書いて新セッションへ移ることを推奨",
+  );
 }
 
 export default function (pi: ExtensionHandlerApi): void {
@@ -79,6 +125,11 @@ export default function (pi: ExtensionHandlerApi): void {
         `session-day-guard: ${start} 開始のセッションを日跨ぎで再開している。日誌を書いて新セッションへ移ることを推奨(日次使い捨て規範)`,
       );
     }
+    warnIdleLargeResume(ctx);
+  });
+
+  pi.on("session_switch", (event, ctx) => {
+    if ((event as Rec | undefined)?.reason === "resume") warnIdleLargeResume(ctx);
   });
 
   pi.on("input", (_event, ctx) => {
