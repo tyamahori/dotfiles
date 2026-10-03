@@ -21,7 +21,7 @@ type ExtensionHandlerApi = {
 
 const AWAIT_SCRIPT = /(^|[\s/;&|(])await-[\w-]+\.sh(\s|$|[;&|)])/;
 
-export default function (pi: ExtensionHandlerApi): void {
+export default function awaitScriptTimeout(pi: ExtensionHandlerApi): void {
   pi.on("tool_call", (event) => {
     if (event.toolName !== "bash") return;
     if (event.input === null || typeof event.input !== "object") return;
