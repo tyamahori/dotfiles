@@ -6,8 +6,6 @@ TypeSafe（Jev）の systemone API を使う machine-global な補助機能を�
 | 機能 | 種類 | 実装 |
 | --- | --- | --- |
 | Jev skill hint | 非拘束のヒント注入 | `omp/extensions/jev-skill-hint.ts` |
-| Jev agent hint | shadow-only（ログのみ、委任には影響しない） | `omp/extensions/jev-agent-hint.ts` |
-| Jev model hint | shadow-only（ログのみ、モデル切替には影響しない） | `omp/extensions/jev-model-hint.ts` |
 | Jev PR-review lens shadow | 任意で呼ぶ CLI（`github-pr-review` Skill から利用） | `scripts/jev-pr-lens-shadow.ts` |
 
 ## API キーと適用範囲
@@ -22,7 +20,7 @@ TypeSafe（Jev）の systemone API を使う machine-global な補助機能を�
 そちらが優先されるため、完全に無効化するには `.env` を削除・コメントアウトするだけでなく、
 シェルやセッションに `JEV_API_KEY` 環境変数が設定されていないことも確認してください。
 
-`skill hint`・`plan gate`・`agent hint`・`model hint` はいずれも machine-global extension で、
+`skill hint` は machine-global extension で、
 cwd に関係なく上記の読み取り順で解決します（呼び出し元リポジトリごとに個別の鍵を置く必要はありません）。
 `PR-review lens shadow` は `.omp/extensions/` の project-local pilot extension とは別物で、
 `import.meta.dir` 基準でリポジトリ root を解決するため、dotfiles リポジトリ外からの呼び出しでも動きます。
@@ -127,108 +125,6 @@ jaq -s 'def sum(f): reduce .[] as $x (0; . + ($x|f));
   .agent-msgs/scratch/jev-skill-hint-metrics.jsonl
 ```
 
-## Jev agent hint（machine-global extension）
-
-`omp/extensions/jev-agent-hint.ts` は `jev-skill-hint.ts` の姉妹 extension です。
-machine-global（起動 cwd に関わらず全リポジトリのメインセッションで効く）で、
-`JEV_API_KEY` の読み取り順は上記「API キーと適用範囲」のとおりです。ヒント注入はまだ行わず、shadow
-ログ収集のみです。ログは呼び出し元リポジトリの `.agent-msgs/scratch/` に書きます
-（cwd 相対のまま — 効果測定は使われたプロジェクトごとに見ます）。
-
-`task` ツール呼び出しのたびに、依頼文と agent roster（`task` ツール自身の description
-から都度抽出。ハードコードしない）を Jev の Choice 質問へ渡し、どの agent 種別
-（`scout`/`reviewer`/`security-reviewer`/`task`/`sonic` 等）が最適かを予測してログするだけの
-**shadow mode** です。実際の委任先には一切影響しません — `tool_call` の `input` は
-書き換えず、予測値を stdout・会話に出すこともありません。実データが溜まってから、
-`jev-skill-hint` と同じ手順（合成評価→閾値較正→Go/No-Go）でヒント注入に進むかどうかを
-判断します。
-
-### Jev が使えないとき
-
-`JEV_API_KEY` 未設定なら extension は何も登録しません（完全な no-op）。設定済みでも
-呼び出しが失敗した場合は、そのセッション内では以降呼び出さず静かに no-op へ切り替えます
-（circuit breaker）。Jev 呼び出しは `ctx.setTimeout(..., 0)` で本処理から切り離して実行する
-ため、`tool_call` ハンドラ自体は同期的に即 return し、実タスク発行にレイテンシを一切
-追加しません（バックグラウンド実行の一般的な仕組みは
-[upstream extensions doc](https://github.com/can1357/oh-my-pi/blob/main/docs/extensions.md)
-の Background work 節を参照）。ハンドラの同期部分も全体を try/catch で囲んでおり、
-roster 抽出などで何が起きても実タスク発行をブロックしません。
-
-### 動作を確認する
-
-`.agent-msgs/scratch/jev-agent-hint-metrics.jsonl`（gitignore 対象）に `task` ツール呼び出しの
-item ごと1行で追記されます。`JEV_API_KEY` を一時的に外した新しいセッションでは、このファイルが
-増えないことを確認します。
-
-| フィールド | 意味 |
-|---|---|
-| `taskTextChars` / `rosterSize` | 依頼文の長さ・agent roster の件数 |
-| `explicitAgent` | `tasks[]` の `agent` に明示指定された値。省略時は `null`（default agent を推測しない） |
-| `predictedAgent` / `predictedProb` | Jev が最も確率が高いと予測した agent とその確率 |
-| `probabilities` | 全 agent 候補の確率分布 |
-| `latencyMs` | Jev 呼び出しのレイテンシ。`circuitOpen`/`jevError` 時は失敗までの経過時間 |
-| `circuitOpen` | 今回の呼び出しが失敗し、以後セッション内で no-op になった |
-| `jevError` | 今回の呼び出しが失敗した |
-| `rosterParseFailed` | `task` ツールの説明から agent を1件も抽出できなかった。この行だけを書き、そのセッションでは以後の計測を止める。omp の版が上がって説明の形式が変わったときに出る |
-
-`explicitAgent` と `predictedAgent` の一致率は次で集計できます。
-
-```bash
-jaq -s 'def sum(f): reduce .[] as $x (0; . + ($x|f));
-  map(select(.explicitAgent != null and .jevError == false)) as $labeled |
-  {items: length,
-   labeled: ($labeled | length),
-   avgLatencyMs: (sum(.latencyMs) / length),
-   agreementRate: (($labeled | map(select(.explicitAgent == .predictedAgent)) | length) /
-     (if ($labeled | length) == 0 then 1 else ($labeled | length) end))}' \
-  .agent-msgs/scratch/jev-agent-hint-metrics.jsonl
-```
-
-## Jev model hint（machine-global extension）
-
-`omp/extensions/jev-model-hint.ts` は `jev-agent-hint.ts` の姉妹 extension です。同じく
-machine-global で、`JEV_API_KEY` の読み取り順は上記「API キーと適用範囲」のとおりです。
-ヒント注入・実際のモデル切替はまだ行わず、shadow ログ収集のみです。ログは呼び出し元
-リポジトリの `.agent-msgs/scratch/` に書きます（cwd 相対のまま）。
-
-ユーザー入力（ターン開始）のたびに、依頼文だけを Jev の Choice 質問へ渡し、`smol`/`default`/`slow`
-の3階層のうちどれが最適かを予測して、そのターンで実際に使われているモデル
-（`ctx.models.current()`）と突き合わせてログするだけの **shadow mode** です。`setModel` は
-一切呼びません。対象を3階層に絞るのは、`omp/config.yml` の `modelRoles` にある
-`vision`/`commit`/`plan`/`advisor` が用途固定のロールで「この依頼はどれくらい重いか」という
-一般判断の対象ではないためです。`anthropic-usage-guard.ts`（使用量枠ベースの決定的な切替）とは
-独立に動きます。実データが溜まってから、`jev-skill-hint` と同じ手順（合成評価→閾値較正→
-Go/No-Go）でヒント注入/自動切替に進むかどうかを判断します。
-
-### Jev が使えないとき
-
-`JEV_API_KEY` 未設定なら extension は何も登録しません（完全な no-op）。設定済みでも
-呼び出しが失敗した場合は、そのセッション内では以降呼び出さず静かに no-op へ切り替えます
-（circuit breaker）。Jev 呼び出しは `ctx.setTimeout(..., 0)` で本処理から切り離して実行する
-ため、`input` ハンドラ自体は同期的に即 return し、実際のターン処理にレイテンシを一切
-追加しません。ハンドラの同期部分も全体を try/catch で囲んでおり、何が起きてもターン処理を
-ブロックしません。
-
-### 動作を確認する
-
-`.agent-msgs/scratch/jev-model-hint-metrics.jsonl`（gitignore 対象）にユーザー入力ごと1行で
-追記されます。`JEV_API_KEY` を一時的に外した新しいセッションでは、このファイルが増えないことを
-確認します。
-
-| フィールド | 意味 |
-|---|---|
-| `requestChars` | 依頼文の長さ |
-| `explicitModel` | そのターンで実際に使われているモデル（`provider/id`）。取得できなければ `null` |
-| `predictedTier` / `predictedProb` | Jev が最も確率が高いと予測した階層（`smol`/`default`/`slow`）とその確率 |
-| `probabilities` | 全階層の確率分布 |
-| `latencyMs` | Jev 呼び出しのレイテンシ。`circuitOpen`/`jevError` 時は失敗までの経過時間 |
-| `circuitOpen` | 今回の呼び出しが失敗し、以後セッション内で no-op になった |
-| `jevError` | 今回の呼び出しが失敗した |
-
-`explicitModel` は具体的なモデル ID なので、`predictedTier` と直接は一致比較できません。
-`omp/config.yml` の `modelRoles` で `explicitModel` がどの階層に対応するかを引いてから、
-`jev-agent-hint` と同じ形の集計を行ってください。
-
 ## Jev PR-review lens shadow
 
 `scripts/jev-pr-lens-shadow.ts` は `github-pr-review` Skill から任意で呼ばれる CLI で、
@@ -305,6 +201,4 @@ jaq -s '
 契約を検証するだけで、実際のヒントの有用性は集計コマンドの実測値で判断します。
 
 - `omp/tests/jev-skill-hint.test.ts`
-- `omp/tests/jev-agent-hint.test.ts`
-- `omp/tests/jev-model-hint.test.ts`
 - `scripts/jev-pr-lens-shadow.test.ts`

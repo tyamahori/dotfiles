@@ -433,9 +433,6 @@ TypeSafe（Jev）の systemone API を使う machine-global な補助機能で�
 | 機能 | 種類 |
 | --- | --- |
 | Jev skill hint | 非拘束のヒント注入 |
-| Jev plan gate | 非拘束のヒント注入 |
-| Jev agent hint | shadow-only（ログのみ、委任には影響しない） |
-| Jev model hint | shadow-only（ログのみ、モデル切替には影響しない） |
 | Jev PR-review lens shadow | 任意で呼ぶ CLI（`github-pr-review` Skill から利用） |
 
 [詳細と効果測定](jev.md)
@@ -617,8 +614,6 @@ omp-review --help
 | OMP にだけ追加する常設指示 | `omp/APPEND_SYSTEM.md` |
 | OMP extension | `omp/extensions/` |
 | machine-global の Jev skill hint | `omp/extensions/jev-skill-hint.ts` |
-| machine-global の Jev agent hint | `omp/extensions/jev-agent-hint.ts` |
-| machine-global の Jev model hint | `omp/extensions/jev-model-hint.ts` |
 | 三 CLI の代替ツール誘導ルール | `agents/command-rules.json` |
 | plugin と version | `scripts/omp-plugins` |
 | authored skill | `agents/skills/<name>/SKILL.md` |
