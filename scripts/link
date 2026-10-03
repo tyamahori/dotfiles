@@ -104,6 +104,22 @@ if command -v herdr >/dev/null 2>&1 && herdr --skill >/dev/null 2>&1; then
 	link_into_dirs "$HOME/.agents/skills/herdr" herdr "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills"
 fi
 
+# herdr agent-state hook scripts referenced by claude/settings.json and
+# codex/hooks.json. `herdr integration install` would also append its own
+# absolute-path hook entries to those repo-managed configs (they are symlinks),
+# so generate into a throwaway HOME and copy only the HOME-independent scripts.
+if command -v herdr >/dev/null 2>&1; then
+	herdr_home="$(mktemp -d)"
+	mkdir -p "$herdr_home/.claude" "$herdr_home/.codex" "$HOME/.claude/hooks" "$HOME/.codex"
+	if HOME="$herdr_home" herdr integration install claude >/dev/null &&
+		HOME="$herdr_home" herdr integration install codex >/dev/null; then
+		cp "$herdr_home/.claude/hooks/herdr-agent-state.sh" "$HOME/.claude/hooks/herdr-agent-state.sh"
+		cp "$herdr_home/.codex/herdr-agent-state.sh" "$HOME/.codex/herdr-agent-state.sh"
+		echo "Generated herdr agent-state hooks for claude and codex" >&2
+	fi
+	rm -rf "$herdr_home"
+fi
+
 # hunk's bundled hunk-review skill (live diff session control): symlink the
 # unversioned brew opt path so links survive upgrades. Machine-level tool
 # like herdr, so it IS linked globally.
