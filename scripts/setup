@@ -8,6 +8,7 @@ SCRIPT_DIR="$(cd -P "$(dirname "$0")" && pwd)"
 "${SCRIPT_DIR}/devbox"
 "${SCRIPT_DIR}/python"
 "${SCRIPT_DIR}/link"
+"${SCRIPT_DIR}/agent-tools"
 "${SCRIPT_DIR}/omp-plugins"
 
 echo "Setup completed. Open a new shell to load environment changes."

@@ -1,6 +1,6 @@
 # dotfiles
 
-tyamahori's macOS setup.
+tyamahori's macOS setup (Apple Silicon only; `scripts/init` refuses other Macs).
 
 ## Setup
 
@@ -16,8 +16,12 @@ cd ~/project/dotfiles
 2. `scripts/apps` — install the repository Brewfile on macOS
 3. `scripts/devbox` — install global devbox packages and lockfile-pinned dependencies for local hooks
 4. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`
-5. `scripts/link` — create the stable `~/dotfiles` alias, symlink shared instructions and runtime adapters, enable Codex hooks, and link OMP configuration
-6. `scripts/omp-plugins` — install the declared OMP plugin set (`omp plugin install`)
+5. `scripts/link` — create the stable `~/dotfiles` alias, symlink shared instructions and runtime adapters, enable Codex hooks, link OMP configuration, and load launchd jobs; it never touches the network, so it is safe to rerun after any pull
+6. `scripts/agent-tools` — install what is missing from the network: Playwright tooling, Plannotator, the `global_skills` set, and the Codex ponytail plugin
+7. `scripts/omp-plugins` — install the declared OMP plugin set (`omp plugin install`)
+
+Spotlight indexing is no longer disabled by setup; run `scripts/disable-spotlight`
+to opt in (undo with `sudo mdutil -a -i on`).
 
 The repository can be cloned anywhere. `scripts/link` maintains
 `~/dotfiles` as the stable path used by hooks and shared skills.
@@ -187,7 +191,7 @@ Homebrew, or nix interpreters.
 
 ### Playwright CLI and MCP
 
-`scripts/link` calls `scripts/playwright-setup`. The setup owns a Bun project in
+`scripts/agent-tools` calls `scripts/playwright-setup`. The setup owns a Bun project in
 `tools/playwright`, where `@playwright/cli@0.1.19` and
 `@playwright/mcp@0.0.80` are exact, lockfile-pinned dependencies. It installs
 from that frozen lockfile, links the executables and the official Playwright CLI
@@ -310,7 +314,7 @@ YAGNI ladder every turn (default level: full). Daily usage, per-host wiring,
 reinstall steps, and uninstall order are in
 [`docs/ponytail.md`](docs/ponytail.md). Installs are reproduced automatically:
 Claude Code declaratively via `claude/settings.json`, OMP by
-`scripts/omp-plugins`, Codex by `scripts/link` (its hook trust stays a one-time
+`scripts/omp-plugins`, Codex by `scripts/agent-tools` (its hook trust stays a one-time
 manual `/hooks` step).
 
 ### diagram / artifact workflow
@@ -340,7 +344,7 @@ in Codex and trust the updated definition before relying on it.
 
 Most third-party skills are installed with `npx -y skills@latest add <owner/repo> -g`
 into `~/.agents/skills/` and tracked by `~/.agents/.skill-lock.json`;
-the machine-wide ones are declared in `global_skills` in `scripts/link`, and
+the machine-wide ones are declared in `global_skills` in `scripts/agent-tools`, and
 `npx -y skills@latest update -g` keeps them current (`@latest` stops npx from
 running any other `skills` binary on PATH). A skill is
 vendored into `agents/skills/<name>/` instead when the repo depends on its

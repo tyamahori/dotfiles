@@ -71,7 +71,7 @@ OMP では `/skill:prototype` に対象と比較したい点を添えて明示�
 比較中も元の事実・数値は固定し、架空のデータを補わず、静止画や PDF でも意味が伝わる構成を保ちます。
 図の生成は archify、日本語組版は ja-html-typography、構成の監査は nondesigner-design に従います。固定レンダラーの見た目は変更しません。
 
-`scripts/link` の `global_skills` 配列で宣言しており、未導入なら global に追加します。更新は他の global skill とまとめて `npx -y skills@latest update -g` で行います。
+`scripts/agent-tools` の `global_skills` 配列で宣言しており、未導入なら global に追加します。更新は他の global skill とまとめて `npx -y skills@latest update -g` で行います。
 
 上流の `disable-model-invocation: true` は維持しています。導入後は新しいセッションを開いてください。
 
@@ -192,7 +192,7 @@ Plannotator で「この語が硬い」「この境界名が抽象的すぎる�
 
 ### 管理するもの
 
-- `scripts/link`
+- `scripts/link`、`scripts/agent-tools`
 - `scripts/omp-plugins`
 - `claude/settings.json`
 - `codex/hooks.json`
@@ -233,7 +233,7 @@ trust 前でも skill 自体は見えますが、plan review の自動起動は�
 ## 更新と再構築
 
 - **Plannotator を更新する**: `curl -fsSL https://plannotator.ai/install.sh | bash -s -- --non-interactive`
-- **archify・frontend-design・prototype を更新する**: `npx -y skills@latest update -g`（追加・削除は `scripts/link` の `global_skills` を編集する。frontend-design に `--agent '*'` は付けない。50 個近い他ツールの dot ディレクトリに symlink を撒く）
+- **archify・frontend-design・prototype を更新する**: `npx -y skills@latest update -g`（追加・削除は `scripts/agent-tools` の `global_skills` を編集する。frontend-design に `--agent '*'` は付けない。50 個近い他ツールの dot ディレクトリに symlink を撒く）
 - **OMP の plannotator extension を揃える**: `scripts/omp-plugins`
 - **dotfiles の宣言を再配置する**: `scripts/link`
 

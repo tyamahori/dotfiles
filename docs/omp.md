@@ -378,7 +378,7 @@ compaction 回数・churn 率を macOS 通知で知らせます。気になる�
 | `agents/skills/` | 各 CLI の Skill directory | Claude、Codex、Copilot、OMP で共有する authored skill |
 
 authored skill 以外のサードパーティ skill は原則として dotfiles 管理外です。
-例外は、機械共通のワークフローとして global に維持する skill です。宣言の正本は `scripts/link` の `global_skills` 配列で、新しいマシンでは `scripts/link` が未導入のものを入れます。
+例外は、機械共通のワークフローとして global に維持する skill です。宣言の正本は `scripts/agent-tools` の `global_skills` 配列で、新しいマシンでは `scripts/agent-tools` が未導入のものを入れます。
 現在の対象は **archify**、**frontend-design** と **mcp-builder**（anthropics/skills）、**prototype**（emilkowalski/skills）、**sureforge**（Da7-Tech/SureForge）、**evidence-code-review**（akkie76/code-review-skills）、**typesafe-ai**（typesafe-ai/skills）、**find-skills**（vercel-labs/skills）、**diagnosing-bugs**（mattpocock/skills）です。**plannotator の core skills** は Plannotator のインストーラーが入れます。
 更新はまとめて `npx -y skills@latest update -g` で行います。`@latest` を外すと、PATH 上の同名の別コマンドが実行されることがあります。
 sureforge は「Use SureForge for this task」（高リスクなら「in full mode」）と指示したときだけ使います。
