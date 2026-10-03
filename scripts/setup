@@ -4,10 +4,18 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -P "$(dirname "$0")" && pwd)"
 
 "${SCRIPT_DIR}/init"
+# Each step runs as a child, so PATH set inside init/devbox never reaches the
+# later steps on a fresh machine; load it here (brew for apps and omp-plugins,
+# the devbox profile for bun/uv in python, agent-tools, and omp-plugins).
+if [ -x /opt/homebrew/bin/brew ]; then
+	eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
 "${SCRIPT_DIR}/apps"
 "${SCRIPT_DIR}/devbox"
+eval "$(devbox global shellenv)"
 "${SCRIPT_DIR}/python"
 "${SCRIPT_DIR}/link"
+"${SCRIPT_DIR}/agent-tools"
 "${SCRIPT_DIR}/omp-plugins"
 
 echo "Setup completed. Open a new shell to load environment changes."

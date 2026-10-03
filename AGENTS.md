@@ -7,6 +7,7 @@
 - リモートの取り込みは作業前後に `git status --short --branch` を確認し、
   `git pull --ff-only` だけを使う。
 - pull 差分に `agents/` または `omp/` が含まれたら `scripts/link` を実行する。
+  `scripts/agent-tools` が含まれたら、それも実行する。
 - `omp/config.yml`・`omp/extensions/` を変えたら、設定と extension は起動時に
   読み込まれる（`docs/omp.md`）ので、稼働中の OMP セッションに再起動が必要だと伝える。
 - SonarQube の前に、`docs/sonarqube.md`「このdotfilesでは、先にBunのカバレッジを

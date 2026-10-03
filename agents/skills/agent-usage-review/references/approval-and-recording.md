@@ -21,12 +21,12 @@
 | trigger が明確な手順、例外、詳細な判断基準 | 既存 skill |
 | 機械的な強制（deny 等） | `claude/hooks/`、settings.json の PreToolUse |
 | モデルルーティング、OMP 挙動 | `omp/config.yml`、`omp/APPEND_SYSTEM.md`、extensions |
-| plugin の版、patch、導入経路 | `./scripts/omp-plugins` と `omp/patches/` |
+| plugin の版、導入経路 | `./scripts/omp-plugins` |
 | プロジェクト固有の原因 | 当該リポジトリの AGENTS.md、CLAUDE.md、`.claude/skills/`、`.claude/settings.json` |
 
-plugin を更新する提案は、固定版と対応 patch の整合を確認し、両方を満たせる場合だけ出す。
+plugin を更新する提案は、固定版で動作を確認できる場合だけ出す。
 
-更新後の plugin や patch が新しい OMP session にだけ反映されることも明記する。
+更新後の plugin が新しい OMP session にだけ反映されることも明記する。
 
 原因がプロジェクト固有なら、修正もそのリポジトリに落とす。
 

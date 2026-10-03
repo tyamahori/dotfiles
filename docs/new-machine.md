@@ -31,9 +31,10 @@ cd ~/project/dotfiles
 ```
 
 - SSH鍵はまだ使えないのでHTTPSでクローンする（公開リポジトリなので認証も不要）。
-- 実行中にsudoパスワードを何度か求められる（Spotlight無効化、Homebrew、Nixインストーラ）。
+- 実行中にsudoパスワードを何度か求められる（Homebrew、Nixインストーラ）。
 - 各スクリプトは冪等なので、途中で失敗しても原因を直して `./scripts/setup` を再実行すればよい。
-- 実行内容と順序はREADMEの「Setup」節のとおり（init → apps → devbox → python → link → omp-plugins）。
+- 実行内容と順序はREADMEの「Setup」節のとおり（init → apps → devbox → python → link → agent-tools → omp-plugins）。
+- 対象はApple Silicon Macのみ。Spotlightの索引を止めたい場合は、setup後に `./scripts/disable-spotlight` を別途実行する（戻すときは `sudo mdutil -a -i on`）。
 
 ## 4. 認証を復元する
 
@@ -61,7 +62,6 @@ gh auth login
 ```
 
 `.gitconfig` のcredential helperはgh経由なので、HTTPSリモートはこれで通るようになる。
-`gh` 本体は `scripts/devbox` で導入される。`scripts/init` はその前に実行されるため、初回の `./scripts/setup` では `gh-copilot` 拡張の自動導入に間に合わない。`gh` がある状態で `scripts/init` を再実行すると拡張が入る。
 
 ### エージェントCLI
 
@@ -69,7 +69,7 @@ gh auth login
 - Codex：`codex` を起動してログインし、`/hooks` を開いてリンク済みフック定義と ponytail / plannotator のライフサイクルフックを trust する（README の「Japanese prose review」節、`docs/ponytail.md`、`docs/diagram-workflow.md`）。
 - OMP：`omp` を起動して各プロバイダにログインする。資格情報は `~/.omp/agent/agent.db` に入る（機械ローカル）。
 
-ponytail は 6節までのスクリプトで自動導入される（OMP は `scripts/omp-plugins`、Codex は `scripts/link`、Claude Code は `claude/settings.json` の宣言）。図表/レビュー系では、plannotator も `scripts/link` でバイナリと共通 skills、Claude Code は `claude/settings.json` で plugin、OMP は `scripts/omp-plugins` で pi-extension を再現する。archify は `scripts/link` が global skill として補完する。Codex の hook trust だけ手動。詳細は `docs/ponytail.md` と `docs/diagram-workflow.md`。
+ponytail は 6節までのスクリプトで自動導入される（OMP は `scripts/omp-plugins`、Codex は `scripts/agent-tools`、Claude Code は `claude/settings.json` の宣言）。図表/レビュー系では、plannotator も `scripts/agent-tools` でバイナリと共通 skills、Claude Code は `claude/settings.json` で plugin、OMP は `scripts/omp-plugins` で pi-extension を再現する。archify は `scripts/agent-tools` が global skill として補完する。Codex の hook trust だけ手動。詳細は `docs/ponytail.md` と `docs/diagram-workflow.md`。
 
 Playwright CLI/MCP の導入、再起動後の検出、ブラウザ操作の使い分けは README の
 「Playwright CLI and MCP」節に従う。ここでは個別の導入手順を重複して管理しない。

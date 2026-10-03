@@ -1,7 +1,8 @@
 # Kiro CLI pre block. Keep at the top of this file.
 [[ -f "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.pre.zsh" ]] && builtin source "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.pre.zsh"
-# devbox
-eval "$(devbox global shellenv)"
+# devbox: .zprofile already loads it in login shells (~0.3s per run); only
+# non-login interactive shells without an inherited environment need it here.
+[[ -z $DEVBOX_PACKAGES_DIR ]] && command -v devbox >/dev/null 2>&1 && eval "$(devbox global shellenv)"
 
 
 

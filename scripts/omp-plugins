@@ -7,9 +7,6 @@ set -euo pipefail
 # and npm-generated, so it is not symlinked like omp/config.yml; this script
 # reproduces it instead. Idempotent; safe to re-run.
 #
-# After installing, applies omp/patches/<package>.patch to each package for
-# local fixes that upstream/omp haven't shipped yet (see patch headers).
-#
 # Selection is voidwarriorchan's pi extension list (2026-08), filtered
 # against omp built-ins. Deliberately NOT installed because omp already
 # bundles the feature:
@@ -42,8 +39,14 @@ retired=(
 
 
 if ! command -v omp >/dev/null 2>&1; then
-	echo "omp-plugins: omp not found; run scripts/apps first (brew: can1357/tap/omp)" >&2
-	exit 1
+	# macOS gets omp from the Brewfile (scripts/apps), so a missing omp there is a
+	# broken setup. Linux only has it where cloud-init ran the upstream installer.
+	if [ "$(uname)" = Darwin ]; then
+		echo "omp-plugins: omp not found; run scripts/apps first (brew: can1357/tap/omp)" >&2
+		exit 1
+	fi
+	echo "omp-plugins: omp not found; skipped (install: curl -fsSL https://omp.sh/install | sh -s -- --binary)" >&2
+	exit 0
 fi
 
 # `omp`'s worker daemon leaves a stray background process after it runs,
@@ -95,29 +98,6 @@ for plugin in "${marketplace_plugins[@]}"; do
 	fi
 	rm -f "$omp_marketplace_list"
 	omp plugin install "$id"
-done
-
-# Apply local compatibility patches (omp/patches/<package>.patch) on top of the
-# installed packages. Idempotent: skips when already applied; fails if an
-# unapplied patch is incompatible with its installed package.
-patch_dir="$(cd "$(dirname "$0")/.." && pwd)/omp/patches"
-for patch_file in "$patch_dir"/*.patch; do
-	[ -e "$patch_file" ] || continue
-	package="$(basename "$patch_file" .patch)"
-	package_dir="$HOME/.omp/plugins/node_modules/$package"
-	if [ ! -d "$package_dir" ]; then
-		echo "omp-plugins: ERROR: $package is not installed but required by $patch_file" >&2
-		exit 1
-	fi
-	if patch -R -p1 -s -f --dry-run -d "$package_dir" <"$patch_file" >/dev/null 2>&1; then
-		echo "omp-plugins: $package patch already applied" >&2
-	elif patch -p1 -s -f --dry-run -d "$package_dir" <"$patch_file" >/dev/null 2>&1; then
-		patch -p1 -s -d "$package_dir" <"$patch_file"
-		echo "omp-plugins: patched $package" >&2
-	else
-		echo "omp-plugins: ERROR: $patch_file does not apply to installed $package; regenerate it for the installed version" >&2
-		exit 1
-	fi
 done
 
 for plugin in "${retired[@]}"; do

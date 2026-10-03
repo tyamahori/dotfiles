@@ -1,6 +1,6 @@
 # dotfiles
 
-tyamahori's macOS setup.
+tyamahori's macOS setup (Apple Silicon only; `scripts/init` refuses other Macs).
 
 ## Setup
 
@@ -12,12 +12,16 @@ cd ~/project/dotfiles
 
 `scripts/setup` runs the following in order:
 
-1. `scripts/init` — install Homebrew, Nix, Devbox, and — only when `gh` is already installed — its extensions (`gh` itself is not managed by setup)
+1. `scripts/init` — install Homebrew (macOS), Nix, and Devbox; `gh` comes from the devbox global profile in step 3
 2. `scripts/apps` — install the repository Brewfile on macOS
-3. `scripts/devbox` — install global devbox packages and lockfile-pinned dependencies for local hooks
+3. `scripts/devbox` — link `devbox/devbox.json` and `devbox/devbox.lock` into devbox global, install the pinned packages, and install lockfile-pinned dependencies for local hooks
 4. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`
-5. `scripts/link` — create the stable `~/dotfiles` alias, symlink shared instructions and runtime adapters, enable Codex hooks, and link OMP configuration
-6. `scripts/omp-plugins` — install the declared OMP plugin set (`omp plugin install`)
+5. `scripts/link` — create the stable `~/dotfiles` alias, symlink shared instructions and runtime adapters, enable Codex hooks, generate the herdr agent-state hook scripts that the Claude Code/Codex hooks call, link OMP configuration, and load launchd jobs; it never touches the network, so it is safe to rerun after any pull
+6. `scripts/agent-tools` — install what is missing from the network: Playwright tooling, Plannotator, the `global_skills` set, and the Codex ponytail plugin
+7. `scripts/omp-plugins` — install the declared OMP plugin set (`omp plugin install`)
+
+Spotlight indexing is no longer disabled by setup; run `scripts/disable-spotlight`
+to opt in (undo with `sudo mdutil -a -i on`).
 
 The repository can be cloned anywhere. `scripts/link` maintains
 `~/dotfiles` as the stable path used by hooks and shared skills.
@@ -54,10 +58,6 @@ Use `bat` for human-readable output, not as a required step in scripts or agent
 pipelines. `xh` replaces HTTPie, not the OS curl or ax web-reading workflow.
 Before using xh with corporate endpoints, verify its certificate/proxy behavior
 in that environment.
-
-On an existing installation, run `./scripts/devbox` first, then
-`devbox global rm httpie` if HTTPie is still installed. HTTPie plugins and
-configuration are not automatically migrated; use the `xh` command explicitly.
 
 #### Searchable Tab completion (macOS)
 
@@ -187,7 +187,7 @@ Homebrew, or nix interpreters.
 
 ### Playwright CLI and MCP
 
-`scripts/link` calls `scripts/playwright-setup`. The setup owns a Bun project in
+`scripts/agent-tools` calls `scripts/playwright-setup`. The setup owns a Bun project in
 `tools/playwright`, where `@playwright/cli@0.1.19` and
 `@playwright/mcp@0.0.80` are exact, lockfile-pinned dependencies. It installs
 from that frozen lockfile, links the executables and the official Playwright CLI
@@ -310,7 +310,7 @@ YAGNI ladder every turn (default level: full). Daily usage, per-host wiring,
 reinstall steps, and uninstall order are in
 [`docs/ponytail.md`](docs/ponytail.md). Installs are reproduced automatically:
 Claude Code declaratively via `claude/settings.json`, OMP by
-`scripts/omp-plugins`, Codex by `scripts/link` (its hook trust stays a one-time
+`scripts/omp-plugins`, Codex by `scripts/agent-tools` (its hook trust stays a one-time
 manual `/hooks` step).
 
 ### diagram / artifact workflow
@@ -340,7 +340,7 @@ in Codex and trust the updated definition before relying on it.
 
 Most third-party skills are installed with `npx -y skills@latest add <owner/repo> -g`
 into `~/.agents/skills/` and tracked by `~/.agents/.skill-lock.json`;
-the machine-wide ones are declared in `global_skills` in `scripts/link`, and
+the machine-wide ones are declared in `global_skills` in `scripts/agent-tools`, and
 `npx -y skills@latest update -g` keeps them current (`@latest` stops npx from
 running any other `skills` binary on PATH). A skill is
 vendored into `agents/skills/<name>/` instead when the repo depends on its
@@ -589,8 +589,9 @@ orb shell dev   # default user inherits from the macOS host
 ```
 
 What it installs: zsh, Nix (Determinate Systems), Devbox + the global packages
-declared in `scripts/devbox`, the latest CPython via `uv` as the global
-`python` / `python3`, `gh` + `gh-copilot` extension,
+pinned in `devbox/devbox.lock` (including `gh` and `direnv`), the latest CPython
+via `uv` as the global `python` / `python3`, Claude Code / Codex / Copilot CLI
+(npm), OMP (upstream installer) with the declared plugins,
 Docker CE (with the default user added to the `docker` group), and links
 dotfiles from this repo. macOS-only items (Homebrew casks, `mas`) are skipped.
 
@@ -609,6 +610,9 @@ git add -- <files you chose>
 
 # Update brew formulae and casks
 ./scripts/brewUpdate
+
+# Bump devbox global packages; commit devbox/devbox.lock afterwards
+devbox global update
 
 # Reapply OMP plugins and managed links after `omp update`
 omp-apply
@@ -652,8 +656,11 @@ duplicate silently shadows the brew copy and forks behavior.
   Apple's curl is a SecureTransport build that reads the Keychain trust
   store; nix/brew curls carry their own CA bundles and behave differently
   behind corporate/MITM CAs.
-- **`scripts/devbox`** — cross-platform language toolchains and reproducible
-  CLIs via `devbox global`. Default for anything a project or CI also pins.
+- **`devbox/devbox.json`** (`scripts/devbox`) — cross-platform language
+  toolchains and reproducible CLIs via `devbox global`, pinned for every
+  platform in `devbox/devbox.lock`. Default for anything a project or CI also
+  pins. Add or remove with `devbox global add/rm` (the files are symlinked, so
+  the repo copies change); restrict OS-specific packages with `--platform`.
 - **`~/.Brewfile`** (`scripts/apps`) — macOS-integrated tools and casks:
   anything touching Keychain, launchd, notifications, or a GUI.
 - **`scripts/nix-extras`** — raw `nix profile add`, only for what devbox
@@ -663,9 +670,3 @@ duplicate silently shadows the brew copy and forks behavior.
   ```bash
   ./scripts/nix-extras
   ```
-
-### gh extensions
-
-```bash
-gh extension install github/gh-copilot
-```

@@ -1,0 +1,65 @@
+#!/bin/bash
+# Network installs for agent tooling: Playwright, Plannotator, global
+# third-party skills, and the Codex ponytail plugin. Each step skips what is
+# already installed. Symlinks and local generated files stay in scripts/link,
+# which never touches the network.
+set -euo pipefail
+
+REPO_ROOT="$(cd -P "$(dirname "$0")/.." && pwd)"
+
+"${REPO_ROOT}/scripts/playwright-setup"
+
+# Machine-wide diagram/review toolchain. Unlike ordinary third-party skills,
+# these are explicit cross-host integrations used from any repository, so keep
+# them global and bootstrap them here when missing.
+if ! command -v plannotator >/dev/null 2>&1 || [[ ! -e $HOME/.agents/skills/plannotator-review/SKILL.md ]]; then
+	curl -fsSL https://plannotator.ai/install.sh | bash -s -- --non-interactive
+fi
+
+# Global third-party skills, one per entry: "<skill> <source> [extra add args]".
+# This list is the declaration for new machines; `npx -y skills@latest update -g`
+# keeps installed copies current. The explicit @latest stops npx from running
+# any other `skills` binary on PATH (a stray skills-cli once shadowed it and
+# silently skipped every install).
+# - sureforge: gated workflow for complex tasks in any repository.
+# - evidence-code-review: local diff review; PR delivery stays with
+#   github-pr-review. The package lives under dist/, which the CLI only finds
+#   via the tree URL.
+# - typesafe-ai: TypeSafe (Jev) API guidance for the machine-global Jev helpers
+#   (docs/jev.md); the Claude plugin form is not used so it is not listed twice.
+global_skills=(
+	"archify tt-a1i/archify"
+	"frontend-design anthropics/skills"
+	"mcp-builder anthropics/skills"
+	"prototype emilkowalski/skills --agent claude-code codex"
+	"sureforge Da7-Tech/SureForge"
+	"evidence-code-review https://github.com/akkie76/code-review-skills/tree/main/dist/claude-code"
+	"typesafe-ai typesafe-ai/skills"
+	"find-skills vercel-labs/skills"
+	"diagnosing-bugs mattpocock/skills"
+)
+for entry in "${global_skills[@]}"; do
+	read -r -a skill <<<"$entry"
+	if [[ ! -e $HOME/.agents/skills/${skill[0]}/SKILL.md ]]; then
+		npx -y skills@latest add "${skill[1]}" -g --skill "${skill[0]}" "${skill[@]:2}" --yes
+	fi
+done
+
+if command -v codex >/dev/null 2>&1; then
+	# ponytail plugin (docs/ponytail.md). Claude Code gets it declaratively via
+	# claude/settings.json; omp via scripts/omp-plugins. Codex has no config-file
+	# equivalent, so reproduce the install here. Lifecycle hooks still need a
+	# one-time interactive trust (/hooks) before the always-on injection works.
+	# Capture list output before grep -q: under pipefail, grep's early exit
+	# SIGPIPEs the long `codex plugin list` output and fails the pipeline.
+	codex_plugins="$(codex plugin list 2>/dev/null || true)"
+	if ! grep -Eq '^ponytail@ponytail +installed' <<<"$codex_plugins"; then
+		codex_marketplaces="$(codex plugin marketplace list 2>/dev/null || true)"
+		grep -q '^ponytail ' <<<"$codex_marketplaces" ||
+			codex plugin marketplace add DietrichGebert/ponytail
+		codex plugin add ponytail@ponytail
+		echo "agent-tools: ponytail installed for codex; open /hooks in codex once to trust its lifecycle hooks" >&2
+	fi
+else
+	echo "agent-tools: codex not found; the ponytail plugin was not installed" >&2
+fi

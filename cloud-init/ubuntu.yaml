@@ -6,8 +6,9 @@
 #
 # Reproduces the macOS dev environment as closely as possible on Linux:
 #   - zsh + linked dotfiles from tyamahori/dotfiles
-#   - Nix (Determinate Systems) + Devbox with the same global packages as scripts/devbox
-#   - gh CLI (apt) + gh-copilot extension
+#   - Nix (Determinate Systems) + Devbox with the global packages pinned in devbox/devbox.lock
+#     (gh and direnv come from there, not apt)
+#   - Claude Code / Codex / Copilot CLI (npm) and OMP (upstream installer) + its plugins
 # macOS-only items (Homebrew casks, mas) are intentionally skipped.
 #
 # OrbStack deletes the cloud image's default `ubuntu` user (uid 1000) and creates a
@@ -25,7 +26,6 @@ packages:
   - ca-certificates
   - xz-utils
   - build-essential
-  - direnv
 
 write_files:
 
@@ -51,30 +51,39 @@ write_files:
       chsh -s /usr/bin/zsh "$USER_NAME"
       usermod -aG docker "$USER_NAME"
 
+      # Login shells for the new user lack the devbox/nix/npm bins until .zprofile is linked.
+      USER_PATH='export PATH=$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH;'
+
       su - "$USER_NAME" -c 'curl -fsSL https://get.jetify.com/devbox | bash -s -- -f'
       su - "$USER_NAME" -c '
         mkdir -p ~/project
         [ -d ~/project/dotfiles ] || git clone https://github.com/tyamahori/dotfiles.git ~/project/dotfiles
       '
-      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:/nix/var/nix/profiles/default/bin:$PATH ~/project/dotfiles/scripts/devbox'
-      su - "$USER_NAME" -c 'gh extension install github/gh-copilot || true'
+      su - "$USER_NAME" -c "$USER_PATH ~/project/dotfiles/scripts/devbox"
+      # Each su - starts a fresh login shell, so later steps load the devbox global
+      # profile (node/npm, bun, uv) themselves.
+      USER_ENV="$USER_PATH"' eval "$(devbox global shellenv)";'
 
       # AI CLIs (Claude Code, OpenAI Codex, GitHub Copilot CLI) via npm.
       # devbox's nodejs lives in a read-only nix store, so global installs go to ~/.npm-global
       # (added to PATH by .zprofile).
-      su - "$USER_NAME" -c '
+      su - "$USER_NAME" -c "$USER_ENV"'
         mkdir -p ~/.npm-global
         npm config set prefix ~/.npm-global
         npm install -g @anthropic-ai/claude-code @openai/codex @github/copilot
       '
 
-      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH devbox global update'
+      # OMP from the upstream installer into ~/.local/bin. --binary: the bun
+      # route needs a newer bun than the devbox pin. Download first: in the login
+      # zsh a failed `curl | sh` exits 0, and omp-plugins skips a missing omp on
+      # Linux, so the bootstrap would finish without OMP.
+      su - "$USER_NAME" -c 'f=$(mktemp) && curl -fsSL https://omp.sh/install -o "$f" && sh "$f" --binary; rc=$?; rm -f "$f"; exit $rc'
 
-      # Global Python via uv: latest CPython, registered as python/python3 in ~/.local/bin.
-      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH uv python install --default --preview-features python-install-default'
+      # Global Python via uv plus debugpy, shared with macOS setup.
+      su - "$USER_NAME" -c "$USER_ENV ~/project/dotfiles/scripts/python"
 
-      # Link only after the agent CLIs exist so runtime feature gates can be enabled.
-      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH ~/project/dotfiles/scripts/link'
+      # Link and install agent tools only after the agent CLIs exist so runtime feature gates can be enabled.
+      su - "$USER_NAME" -c "$USER_ENV ~/project/dotfiles/scripts/link && ~/project/dotfiles/scripts/agent-tools && ~/project/dotfiles/scripts/omp-plugins"
 
       touch "$DONE"
 
@@ -82,14 +91,11 @@ runcmd:
   # Nix (Determinate Systems, multi-user with systemd). Root-only — safe to run synchronously.
   - bash -c 'curl --proto "=https" --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install linux --no-confirm'
 
-  # gh CLI from official apt repo.
-  - bash -c 'install -dm 0755 /etc/apt/keyrings && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /etc/apt/keyrings/githubcli-archive-keyring.gpg && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list && apt-get update && apt-get install -y gh'
-
   # Docker CE from official apt repo.
   - bash -c 'install -dm 0755 /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && chmod a+r /etc/apt/keyrings/docker.asc && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list && apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin'
   - systemctl enable --now docker
 
-  # User-specific setup (chsh, usermod, devbox, dotfiles, gh-copilot) is fired in the
+  # User-specific setup (chsh, usermod, devbox, dotfiles) is fired in the
   # background — it polls for the OrbStack user rename before touching the new user.
   - systemd-run --no-block --unit=dev-bootstrap --description="Dev environment bootstrap" /usr/local/sbin/dev-bootstrap.sh
 
