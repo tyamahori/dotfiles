@@ -1,4 +1,4 @@
-import { afterAll, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, expect, mock, spyOn, test } from "bun:test";
 import { mkdtempSync, rmSync, truncateSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,6 +8,12 @@ type Handler = (event: unknown, ctx: unknown) => void;
 
 const dir = mkdtempSync(join(tmpdir(), "session-day-guard-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+// 1時間ちょうどの境界を測るため、ハーネスとガードが同じ時刻を見るよう固定する。
+beforeEach(() => {
+  spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-03T12:00:00"));
+});
+afterEach(() => mock.restore());
 
 function transcript(bytes: number): string {
   const file = join(dir, `${bytes}.jsonl`);
@@ -51,12 +57,16 @@ test("warns when a transcript over 5MB is resumed after more than an hour idle",
   expect(h.notices[0]).toContain("約6MB");
 });
 
-test("stays silent when idle for under an hour or the transcript is 5MB or less", () => {
-  const recent = harness({ idleMs: 30 * 60 * 1000, bytes: 6_000_000 });
-  recent.start();
+test("stays silent at exactly one hour idle or at 5MB, warns just past the hour", () => {
+  const hour = harness({ idleMs: HOUR, bytes: 6_000_000 });
+  hour.start();
   const small = harness({ idleMs: 2 * HOUR, bytes: 5_000_000 });
   small.start();
-  expect([...recent.notices, ...small.notices]).toEqual([]);
+  expect([...hour.notices, ...small.notices]).toEqual([]);
+
+  const past = harness({ idleMs: HOUR + 1, bytes: 6_000_000 });
+  past.start();
+  expect(past.notices).toHaveLength(1);
 });
 
 test("checks /resume switches but not new or fork switches", () => {
