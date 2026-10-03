@@ -80,6 +80,11 @@ skills:
     - upgrade-php
     - freee-api-skill
     - mcp-builder
+    # Namespaced duplicates from the claude/codex providers. codex/terminal-browser
+    # is the Codex flavor (escalated-permission advice wrong for OMP); the bare
+    # default flavor stays. claude/plannotator duplicates ~/.agents/skills.
+    - codex/terminal-browser
+    - claude/plannotator
 enabledProviders:
   - claude
   - codex
