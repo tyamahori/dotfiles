@@ -11,7 +11,7 @@ type ExtensionHandlerApi = {
   sendUserMessage?: (content: string, options?: { deliverAs?: "steer" }) => unknown;
 };
 
-export default function (pi: ExtensionHandlerApi): void {
+export default function failFast(pi: ExtensionHandlerApi): void {
   const failures = new Map<string, number>();
   const reset = () => failures.clear();
   pi.on("session_start", reset);

@@ -20,7 +20,7 @@ const TEMPLATES = [
 function bodyText(command: string, cwd: string): string | undefined {
   // gh fills the body from the template itself with these flags.
   if (/\s(?:--fill\S*|--template|-T|--web|-w)(?:[\s=]|$)/.test(command)) return undefined;
-  const file = command.match(/\s(?:--body-file|-F)(?:\s+|=)(['"]?)([^'"\s]+)\1/);
+  const file = /\s(?:--body-file|-F)(?:\s+|=)(['"]?)([^'"\s]+)\1/.exec(command);
   if (file) {
     if (file[2] === "-") return undefined;
     const path = isAbsolute(file[2]) ? file[2] : join(cwd, file[2]);
