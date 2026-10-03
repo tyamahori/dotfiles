@@ -442,9 +442,14 @@ extensions in `omp/extensions/`:
 - **session hygiene** — `scripts/session-hygiene-hook` (Claude Code and
   Codex `SessionStart`) warns on day-crossing resumes, hour-idle
   large-transcript resumes, and from the second compaction of a session
-  onward. OMP covers the same rules with its `session-day-guard` and
-  `session-compaction-guard` extensions, and its `handoff-switch` extension
-  closes the loop: once the agent saves the handoff note and calls the
+  onward. OMP covers the same three cases with extensions:
+  `session-day-guard` warns on day-crossing resumes at startup and on
+  hour-idle large-transcript resumes at startup or `/resume`, and
+  `session-compaction-guard` handles repeated compaction. One difference:
+  the OMP day check compares today with the session's first entry, while
+  the shared hook compares it with the transcript's last write. OMP's
+  `handoff-switch` extension closes
+  the loop: once the agent saves the handoff note and calls the
   `handoff_switch` tool, the extension opens a fresh session after the
   current response and feeds it the note.
 

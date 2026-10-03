@@ -3,8 +3,10 @@
 # SSH-backed git/ssh command fails with the locked-1Password signature, feed
 # the one correct fix back instead of letting the agent misdiagnose it as a
 # network or auth-config problem (measured misdiagnoses started rewriting
-# remotes and SSH config; this hook replaced the always-loaded rule). Consumers: Claude
-# Code and Codex (Bash matcher), OMP (omp/extensions/ssh-agent-hint.ts).
+# remotes and SSH config; this hook replaced the always-loaded rule). Wired
+# for Claude Code and Codex (Bash matcher). OMP does not call this script:
+# omp/extensions/ssh-agent-hint.ts reimplements the same match in-process, so
+# change the signature or the advice in both places.
 set -euo pipefail
 
 payload=$(cat)

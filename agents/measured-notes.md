@@ -43,7 +43,7 @@ Mechanized: partially — scripts/session-hygiene-hook's resume case catches the
 2026-08-19: a 2h17m same-day resume rewrote 239k cache tokens, then
 reprocessed 3.07M context tokens over 10 turns.
 
-Mechanized: scripts/session-hygiene-hook (resume case).
+Mechanized: scripts/session-hygiene-hook (resume case) and omp/extensions/session-day-guard.ts (OMP, same thresholds).
 
 ## Session hygiene — settings.json vs update-config skill
 
