@@ -18,7 +18,10 @@ type Rule = {
   excludeAfterPipe?: boolean;
   clients: Client[];
   replacement: { type: "command"; value: string } | { type: "native-tool" };
-  reasons: Record<Client, string>;
+  // One shared `reason`, or per-client `reasons` when the wording must name
+  // that client's tools.
+  reason?: string;
+  reasons?: Partial<Record<Client, string>>;
 };
 
 type RuleTable = { rules: Rule[] };
@@ -254,6 +257,6 @@ export function denyCommand(command: string, client: Client): string | undefined
       );
     });
     if (!matched || !replacementAvailable(rule)) continue;
-    return rule.reasons[client];
+    return rule.reasons?.[client] ?? rule.reason;
   }
 }

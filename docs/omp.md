@@ -572,7 +572,7 @@ uv、ax、brewUpdate への誘導は、代替コマンドが実行可能な場�
 既存スクリプト内のコマンドまでは検査せず、拒否したコマンドを自動で書き換えたり実行したりもしません。
 新しいツールを入れただけではルールは増えません。代替できる用途を確認してから登録します。
 
-追加するときは既存の `rules` 要素にならい、`id`、対象の `clients`、代替手段の `replacement`、CLI 別の `reasons` を設定します。
+追加するときは既存の `rules` 要素にならい、`id`、対象の `clients`、代替手段の `replacement`、拒否理由を設定します。理由文が全 CLI で同じなら `reason` に一つだけ書き、CLI ごとにツール名を変える必要があるときだけ `reasons` に CLI 別の文を書きます（`reasons` が優先されます）。
 通常は `matcher: "command"` を使い、`commands` にコマンド名（`executables`）と必要ならサブコマンド（`subcommand`）を指定します。対象語が実行ファイル直後に来ない場合（`grep pattern file` のファイル名など）は、直後の一語だけを見る `nextArgPattern` ではなく、実行ファイル以降の全語を見る `anyArgPattern` を使います。特定の引数が無いときだけ拒否するなら `noArgPattern` を使います。
 実行可能な代替コマンドは `replacement.type: "command"` と `value`、専用ツールは `type: "native-tool"` で指定します。
 条件を満たす最初のルールで拒否するため、理由文には次に使うツールと呼び出し方を明記してください。
