@@ -663,10 +663,3 @@ duplicate silently shadows the brew copy and forks behavior.
   the repo copies change); restrict OS-specific packages with `--platform`.
 - **`~/.Brewfile`** (`scripts/apps`) — macOS-integrated tools and casks:
   anything touching Keychain, launchd, notifications, or a GUI.
-- **`scripts/nix-extras`** — raw `nix profile add`, only for what devbox
-  can't carry well (unfree packages, custom flake refs). Edit the script to
-  add packages, then run it:
-
-  ```bash
-  ./scripts/nix-extras
-  ```
