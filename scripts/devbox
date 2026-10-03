@@ -24,6 +24,14 @@ fi
 
 devbox global add "${packages[@]}"
 
+# Packages added by hand or dropped from the list above stay installed here
+# but never reach a fresh machine; name them so the list stays the source.
+undeclared=$(comm -13 <(printf '%s\n' "${packages[@]}" | sort) \
+	<(devbox global list | sed -n 's/^\* \([^@:]*\)@.*/\1/p' | sort))
+if [[ -n $undeclared ]]; then
+	echo "devbox: installed but not declared in scripts/devbox (add it to the list or run devbox global rm): ${undeclared//$'\n'/ }" >&2
+fi
+
 # Hook-local Node dependencies are locked with the dotfiles and installed only
 # after bun is available from the global toolchain above.
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
