@@ -617,7 +617,6 @@ omp-review --help
 | OMP にだけ追加する常設指示 | `omp/APPEND_SYSTEM.md` |
 | OMP extension | `omp/extensions/` |
 | machine-global の Jev skill hint | `omp/extensions/jev-skill-hint.ts` |
-| machine-global の Jev plan gate | `omp/extensions/jev-plan-gate.ts` |
 | machine-global の Jev agent hint | `omp/extensions/jev-agent-hint.ts` |
 | machine-global の Jev model hint | `omp/extensions/jev-model-hint.ts` |
 | 三 CLI の代替ツール誘導ルール | `agents/command-rules.json` |

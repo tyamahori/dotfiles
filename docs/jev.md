@@ -6,7 +6,6 @@ TypeSafe（Jev）の systemone API を使う machine-global な補助機能を�
 | 機能 | 種類 | 実装 |
 | --- | --- | --- |
 | Jev skill hint | 非拘束のヒント注入 | `omp/extensions/jev-skill-hint.ts` |
-| Jev plan gate | 非拘束のヒント注入 | `omp/extensions/jev-plan-gate.ts` |
 | Jev agent hint | shadow-only（ログのみ、委任には影響しない） | `omp/extensions/jev-agent-hint.ts` |
 | Jev model hint | shadow-only（ログのみ、モデル切替には影響しない） | `omp/extensions/jev-model-hint.ts` |
 | Jev PR-review lens shadow | 任意で呼ぶ CLI（`github-pr-review` Skill から利用） | `scripts/jev-pr-lens-shadow.ts` |
@@ -230,35 +229,6 @@ Go/No-Go）でヒント注入/自動切替に進むかどうかを判断しま�
 `omp/config.yml` の `modelRoles` で `explicitModel` がどの階層に対応するかを引いてから、
 `jev-agent-hint` と同じ形の集計を行ってください。
 
-## Jev plan gate（machine-global extension）
-
-`omp/extensions/jev-plan-gate.ts` は Plan Mode の `<proposed_plan>` を機械的に検査する
-extension です。以前は `agents/skills/jev-plan-gate`（agent-internal skill、エージェントが
-計画提示の直前に自分で気づいて使う設計）として試作しましたが、確実性がなく
-「忘れる」問題を解決できなかったため、この turn_end 駆動の extension に置き換えました
-（旧 skill は削除済み）。
-
-`turn_end` イベントで直前のアシスタントメッセージを見て、`<proposed_plan>...
-</proposed_plan>` を含む場合だけ動きます。ブロック内の箇条書き/番号付き行を候補として
-正規表現抽出し、件数が2〜8件の範囲内なら、候補ごとに独立した Noul 質問
-（「この項目は目標達成に必要か」）を1回の Jev 呼び出しにまとめて投げます。必要性確率が
-0.5未満の候補を「不要かもしれない」候補として集め、1件以上あれば `<plan_relevance>`
-ヒントを非拘束の参考情報として注入します。深いトレードオフ・リスクレビューはこの
-仕組みの対象外で、それは `adversarial-verification` skill が担います。この説明は現在の
-`<proposed_plan>` を対象とする実装の説明であり、Plan Mode の全経路で実証済みという意味では
-ありません。
-
-計画はすでに表示済み（ターンが終わっている）ため、`jev-skill-hint` のように
-`before_agent_start` の戻り値でヒントを差し込むことはできません。代わりに
-`pi.sendMessage` を `deliverAs: "nextTurn"`（`triggerTurn` なし）で呼び、ユーザーが計画に
-対して次に発言するタイミングでその発言と一緒に配信・表示します。新規ターンを強制
-起動しないため、計画提示のたびに追加の推論コストは発生しません。
-
-有効化・無効化の手順とキーの読み取り順は上記「API キーと適用範囲」と同じです。実行時に失敗した
-場合はそのセッション内で以後 no-op に切り替わり、失敗ログを
-`.agent-msgs/scratch/jev-plan-gate-metrics.jsonl`（呼び出し元リポジトリの cwd 相対、gitignore
-対象）に1計画1行の JSONL で残します。
-
 ## Jev PR-review lens shadow
 
 `scripts/jev-pr-lens-shadow.ts` は `github-pr-review` Skill から任意で呼ばれる CLI で、
@@ -337,5 +307,4 @@ jaq -s '
 - `omp/tests/jev-skill-hint.test.ts`
 - `omp/tests/jev-agent-hint.test.ts`
 - `omp/tests/jev-model-hint.test.ts`
-- `omp/tests/jev-plan-gate.test.ts`
 - `scripts/jev-pr-lens-shadow.test.ts`
