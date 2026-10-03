@@ -51,12 +51,15 @@ write_files:
       chsh -s /usr/bin/zsh "$USER_NAME"
       usermod -aG docker "$USER_NAME"
 
+      # Login shells for the new user lack the devbox/nix/npm bins until .zprofile is linked.
+      USER_PATH='export PATH=$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH;'
+
       su - "$USER_NAME" -c 'curl -fsSL https://get.jetify.com/devbox | bash -s -- -f'
       su - "$USER_NAME" -c '
         mkdir -p ~/project
         [ -d ~/project/dotfiles ] || git clone https://github.com/tyamahori/dotfiles.git ~/project/dotfiles
       '
-      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:/nix/var/nix/profiles/default/bin:$PATH ~/project/dotfiles/scripts/devbox'
+      su - "$USER_NAME" -c "$USER_PATH ~/project/dotfiles/scripts/devbox"
       su - "$USER_NAME" -c 'gh extension install github/gh-copilot || true'
 
       # AI CLIs (Claude Code, OpenAI Codex, GitHub Copilot CLI) via npm.
@@ -68,13 +71,13 @@ write_files:
         npm install -g @anthropic-ai/claude-code @openai/codex @github/copilot
       '
 
-      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH devbox global update'
+      su - "$USER_NAME" -c "$USER_PATH devbox global update"
 
-      # Global Python via uv: latest CPython, registered as python/python3 in ~/.local/bin.
-      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH uv python install --default --preview-features python-install-default'
+      # Global Python via uv plus debugpy, shared with macOS setup.
+      su - "$USER_NAME" -c "$USER_PATH ~/project/dotfiles/scripts/python"
 
       # Link and install agent tools only after the agent CLIs exist so runtime feature gates can be enabled.
-      su - "$USER_NAME" -c 'PATH=$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH ~/project/dotfiles/scripts/link && ~/project/dotfiles/scripts/agent-tools'
+      su - "$USER_NAME" -c "$USER_PATH ~/project/dotfiles/scripts/link && ~/project/dotfiles/scripts/agent-tools"
 
       touch "$DONE"
 
