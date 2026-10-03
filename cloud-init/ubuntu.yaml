@@ -7,7 +7,7 @@
 # Reproduces the macOS dev environment as closely as possible on Linux:
 #   - zsh + linked dotfiles from tyamahori/dotfiles
 #   - Nix (Determinate Systems) + Devbox with the global packages pinned in devbox/devbox.lock
-#   - gh CLI (apt)
+#     (gh and direnv come from there, not apt)
 # macOS-only items (Homebrew casks, mas) are intentionally skipped.
 #
 # OrbStack deletes the cloud image's default `ubuntu` user (uid 1000) and creates a
@@ -25,7 +25,6 @@ packages:
   - ca-certificates
   - xz-utils
   - build-essential
-  - direnv
 
 write_files:
 
@@ -81,9 +80,6 @@ write_files:
 runcmd:
   # Nix (Determinate Systems, multi-user with systemd). Root-only — safe to run synchronously.
   - bash -c 'curl --proto "=https" --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install linux --no-confirm'
-
-  # gh CLI from official apt repo.
-  - bash -c 'install -dm 0755 /etc/apt/keyrings && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /etc/apt/keyrings/githubcli-archive-keyring.gpg && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list && apt-get update && apt-get install -y gh'
 
   # Docker CE from official apt repo.
   - bash -c 'install -dm 0755 /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && chmod a+r /etc/apt/keyrings/docker.asc && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list && apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin'
