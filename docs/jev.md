@@ -170,6 +170,7 @@ item ごと1行で追記されます。`JEV_API_KEY` を一時的に外した新
 | `latencyMs` | Jev 呼び出しのレイテンシ。`circuitOpen`/`jevError` 時は失敗までの経過時間 |
 | `circuitOpen` | 今回の呼び出しが失敗し、以後セッション内で no-op になった |
 | `jevError` | 今回の呼び出しが失敗した |
+| `rosterParseFailed` | `task` ツールの説明から agent を1件も抽出できなかった。この行だけを書き、そのセッションでは以後の計測を止める。omp の版が上がって説明の形式が変わったときに出る |
 
 `explicitAgent` と `predictedAgent` の一致率は次で集計できます。
 

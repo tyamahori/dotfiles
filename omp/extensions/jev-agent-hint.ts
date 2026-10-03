@@ -59,27 +59,20 @@ type ExtensionHandlerApi = {
 	getAllTools(): ToolDefinitionLike[];
 };
 
-/** `task` ツールの description 内、`### name (補足)\n説明...` の見出し列から
- * agent roster をその場で抽出する。ハードコードしない。 */
+/** `task` ツールの description 内、`# Available Agents` 節の
+ * `` - `name` (補足): 説明 `` 行から agent roster をその場で抽出する。ハードコードしない。 */
 export function extractAgentRoster(taskToolDescription: string): Record<string, string> {
 	const roster: Record<string, string> = {};
-	const entryStart = /^### ([a-zA-Z][a-zA-Z0-9_-]*)(?:\s*\([^)]*\))?\s*$/;
-	let currentName: string | null = null;
-	let parts: string[] = [];
-	const flush = () => {
-		if (currentName) roster[currentName] = parts.join(" ").trim().replace(/\s+/g, " ").slice(0, 500);
-	};
+	const entry = /^- `([a-zA-Z][a-zA-Z0-9_-]*)`(?: \([^)]*\))?: (.*)$/;
+	let inSection = false;
 	for (const line of taskToolDescription.split("\n")) {
-		const m = entryStart.exec(line);
-		if (m) {
-			flush();
-			currentName = m[1];
-			parts = [];
-		} else if (currentName) {
-			parts.push(line);
+		if (/^#+\s/.test(line)) {
+			inSection = /^#+\s+Available Agents\s*$/.test(line);
+			continue;
 		}
+		const m = inSection ? entry.exec(line) : null;
+		if (m) roster[m[1]] = m[2].trim().slice(0, 500);
 	}
-	flush();
 	return roster;
 }
 
@@ -176,7 +169,13 @@ export default function jevAgentHint(pi: ExtensionHandlerApi): void {
 			const taskTool = pi.getAllTools().find((t) => t.name === "task");
 			const roster = taskTool?.description ? extractAgentRoster(taskTool.description) : {};
 			const rosterSize = Object.keys(roster).length;
-			if (rosterSize === 0) return; // roster 抽出できなければ静かに諦める
+			if (rosterSize === 0) {
+				// task 説明の形式が omp の版で変わると抽出が 0 件になる。黙って諦めると
+				// 計測が止まったことに気づけないので、セッションに1回だけ記録して止める。
+				jevDisabled = true;
+				appendJsonlLog(LOG_PATH, { ts: Date.now(), rosterSize: 0, rosterParseFailed: true });
+				return;
+			}
 
 			for (const item of tasks) {
 				scheduleAgentPrediction(item, apiKey, roster, rosterSize, ctx, () => {
