@@ -1,0 +1,80 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.16.0/.schema/devbox.schema.json",
+  "packages": {
+    "go":                   "latest",
+    "bun":                  "latest",
+    "cmake":                "latest",
+    "go-task":              "latest",
+    "pnpm":                 "latest",
+    "direnv":               "latest",
+    "git-lfs":              "latest",
+    "nodejs":               "latest",
+    "uv":                   "latest",
+    "jujutsu":              "latest",
+    "ccusage":              "latest",
+    "google-cloud-sdk":     "latest",
+    "gopls":                "latest",
+    "pyright":              "latest",
+    "terraform-ls":         "latest",
+    "gh":                   "latest",
+    "awscli2":              "latest",
+    "github-copilot-cli":   "latest",
+    "semgrep":              "latest",
+    "ruff":                 "latest",
+    "actionlint":           "latest",
+    "gitleaks":             "latest",
+    "oxlint":               "latest",
+    "delve":                "latest",
+    "git-absorb":           "latest",
+    "hyperfine":            "latest",
+    "bash-language-server": "latest",
+    "yaml-language-server": "latest",
+    "typos":                "latest",
+    "xh":                   "latest",
+    "fzf":                  "latest",
+    "zoxide":               "latest",
+    "bat":                  "latest",
+    "starship":             "latest",
+    "hadolint":             "latest",
+    "carapace":             "latest",
+    "mas": {
+      "version":   "latest",
+      "platforms": ["aarch64-darwin"]
+    },
+    "zsh": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "herdr": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "ghostty": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "jq": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "sqlite": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "php": {
+      "version":        "latest",
+      "disable_plugin": true
+    },
+    "github:NixOS/nixpkgs/nixpkgs-unstable#php85Packages.composer": ""
+  },
+  "shell": {
+    "init_hook": [
+      "echo 'Welcome to devbox!' > /dev/null"
+    ],
+    "scripts": {
+      "test": [
+        "echo \"Error: no test specified\" && exit 1"
+      ]
+    }
+  }
+}

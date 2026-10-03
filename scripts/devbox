@@ -10,30 +10,25 @@ set -euo pipefail
 # precedes /opt/homebrew/bin in PATH, so anything added here silently
 # shadows the brew copy: never carry a tool in both layers.
 #
-# Per-OS split: mas is the Mac App Store CLI with no Linux build at all —
-# requesting it in the shared list would fail the whole batch. zsh, herdr
-# and ghostty come from brew/casks on macOS but have no Linux counterpart
-# there; jq and sqlite live in .Brewfile on macOS. git/curl on Linux come
-# from apt (cloud-init/ubuntu.yaml).
-packages=(php go direnv bun pnpm ccusage git-lfs jujutsu nodejs xh fzf zoxide bat starship cmake go-task uv google-cloud-sdk gopls pyright terraform-ls gh awscli2 github-copilot-cli semgrep ruff oxlint actionlint hadolint gitleaks delve git-absorb hyperfine bash-language-server yaml-language-server typos carapace)
-if [ "$(uname)" = Darwin ]; then
-	packages+=(mas)
-else
-	packages+=(zsh herdr ghostty jq sqlite)
-fi
+# devbox/devbox.json declares the packages and devbox/devbox.lock pins them
+# for every platform, so a new machine gets the same versions as this one.
+# Both are symlinked into the global project; devbox writes through the
+# links, so `devbox global add/rm/update` edits the repo copies directly.
+# Per-OS packages use "platforms": mas has no Linux build, and zsh, herdr,
+# ghostty, jq and sqlite come from brew/casks on macOS. git/curl on Linux
+# come from apt (cloud-init/ubuntu.yaml).
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+repo_root=$(cd -- "$script_dir/.." && pwd)
+global_dir=$(devbox global path)
+mkdir -p "$global_dir"
+for file in devbox.json devbox.lock; do
+	ln -sfn "$repo_root/devbox/$file" "$global_dir/$file"
+done
 
-devbox global add "${packages[@]}"
-
-# Packages added by hand or dropped from the list above stay installed here
-# but never reach a fresh machine; name them so the list stays the source.
-undeclared=$(comm -13 <(printf '%s\n' "${packages[@]}" | sort) \
-	<(devbox global list | sed -n 's/^\* \([^@:]*\)@.*/\1/p' | sort))
-if [[ -n $undeclared ]]; then
-	echo "devbox: installed but not declared in scripts/devbox (add it to the list or run devbox global rm): ${undeclared//$'\n'/ }" >&2
-fi
+devbox global install
+eval "$(devbox global shellenv)"
 
 # Hook-local Node dependencies are locked with the dotfiles and installed only
 # after bun is available from the global toolchain above.
-script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 bun install --frozen-lockfile --cwd "$script_dir/../tools/japanese-prose-lint"
 bun install --frozen-lockfile --cwd "$script_dir/../tools/dclint"

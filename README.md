@@ -14,7 +14,7 @@ cd ~/project/dotfiles
 
 1. `scripts/init` — install Homebrew, Nix, Devbox, and — only when `gh` is already installed — its extensions (`gh` itself is not managed by setup)
 2. `scripts/apps` — install the repository Brewfile on macOS
-3. `scripts/devbox` — install global devbox packages and lockfile-pinned dependencies for local hooks
+3. `scripts/devbox` — link `devbox/devbox.json` and `devbox/devbox.lock` into devbox global, install the pinned packages, and install lockfile-pinned dependencies for local hooks
 4. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`
 5. `scripts/link` — create the stable `~/dotfiles` alias, symlink shared instructions and runtime adapters, enable Codex hooks, link OMP configuration, and load launchd jobs; it never touches the network, so it is safe to rerun after any pull
 6. `scripts/agent-tools` — install what is missing from the network: Playwright tooling, Plannotator, the `global_skills` set, and the Codex ponytail plugin
@@ -58,10 +58,6 @@ Use `bat` for human-readable output, not as a required step in scripts or agent
 pipelines. `xh` replaces HTTPie, not the OS curl or ax web-reading workflow.
 Before using xh with corporate endpoints, verify its certificate/proxy behavior
 in that environment.
-
-On an existing installation, run `./scripts/devbox` first, then
-`devbox global rm httpie` if HTTPie is still installed. HTTPie plugins and
-configuration are not automatically migrated; use the `xh` command explicitly.
 
 #### Searchable Tab completion (macOS)
 
@@ -593,7 +589,7 @@ orb shell dev   # default user inherits from the macOS host
 ```
 
 What it installs: zsh, Nix (Determinate Systems), Devbox + the global packages
-declared in `scripts/devbox`, the latest CPython via `uv` as the global
+pinned in `devbox/devbox.lock`, the latest CPython via `uv` as the global
 `python` / `python3`, `gh` + `gh-copilot` extension,
 Docker CE (with the default user added to the `docker` group), and links
 dotfiles from this repo. macOS-only items (Homebrew casks, `mas`) are skipped.
@@ -613,6 +609,9 @@ git add -- <files you chose>
 
 # Update brew formulae and casks
 ./scripts/brewUpdate
+
+# Bump devbox global packages; commit devbox/devbox.lock afterwards
+devbox global update
 
 # Reapply OMP plugins and managed links after `omp update`
 omp-apply
@@ -656,8 +655,11 @@ duplicate silently shadows the brew copy and forks behavior.
   Apple's curl is a SecureTransport build that reads the Keychain trust
   store; nix/brew curls carry their own CA bundles and behave differently
   behind corporate/MITM CAs.
-- **`scripts/devbox`** — cross-platform language toolchains and reproducible
-  CLIs via `devbox global`. Default for anything a project or CI also pins.
+- **`devbox/devbox.json`** (`scripts/devbox`) — cross-platform language
+  toolchains and reproducible CLIs via `devbox global`, pinned for every
+  platform in `devbox/devbox.lock`. Default for anything a project or CI also
+  pins. Add or remove with `devbox global add/rm` (the files are symlinked, so
+  the repo copies change); restrict OS-specific packages with `--platform`.
 - **`~/.Brewfile`** (`scripts/apps`) — macOS-integrated tools and casks:
   anything touching Keychain, launchd, notifications, or a GUI.
 - **`scripts/nix-extras`** — raw `nix profile add`, only for what devbox

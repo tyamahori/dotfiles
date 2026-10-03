@@ -6,7 +6,7 @@
 #
 # Reproduces the macOS dev environment as closely as possible on Linux:
 #   - zsh + linked dotfiles from tyamahori/dotfiles
-#   - Nix (Determinate Systems) + Devbox with the same global packages as scripts/devbox
+#   - Nix (Determinate Systems) + Devbox with the global packages pinned in devbox/devbox.lock
 #   - gh CLI (apt) + gh-copilot extension
 # macOS-only items (Homebrew casks, mas) are intentionally skipped.
 #
@@ -70,8 +70,6 @@ write_files:
         npm config set prefix ~/.npm-global
         npm install -g @anthropic-ai/claude-code @openai/codex @github/copilot
       '
-
-      su - "$USER_NAME" -c "$USER_PATH devbox global update"
 
       # Global Python via uv plus debugpy, shared with macOS setup.
       su - "$USER_NAME" -c "$USER_PATH ~/project/dotfiles/scripts/python"
