@@ -378,11 +378,13 @@ compaction 回数・churn 率を macOS 通知で知らせます。気になる�
 | `agents/skills/` | 各 CLI の Skill directory | Claude、Codex、Copilot、OMP で共有する authored skill |
 
 authored skill 以外のサードパーティ skill は原則として dotfiles 管理外です。
-ただし **archify**、**frontend-design**（anthropics/skills）、**prototype**（emilkowalski/skills）、**plannotator の core skills**、**sureforge**（Da7-Tech/SureForge）、**evidence-code-review**（akkie76/code-review-skills）、**typesafe-ai**（typesafe-ai/skills）は例外で、図表生成・HTML の見た目設計・構成案の比較・レビュー・Artifact共有・複雑タスクのゲート付き作業手順・ローカル差分のコードレビュー・TypeSafe（Jev）API を使う実装という機械共通ワークフローとして global に維持します。
-sureforge は「Use SureForge for this task」（高リスクなら「in full mode」）と指示したときだけ使うもので、更新は `npx -y skills add Da7-Tech/SureForge -g --yes` です。
-evidence-code-review は SKILL.md が `dist/` 配下にあるため、更新は `npx -y skills add https://github.com/akkie76/code-review-skills/tree/main/dist/claude-code -g --yes` です。PR への投稿は `github-pr-review` が担い、ラベルは同スキルの読み替えに従います。
-typesafe-ai は Claude Code plugin ではなくこの global skill として一本化し、Claude Code・Codex・OMP の三つから同じコピーを使います。更新は `npx -y skills add typesafe-ai/skills -g --skill typesafe-ai --yes` です。
-それ以外のサードパーティ skill は、対象プロジェクトのルートで `npx skills add <owner/repo>` を実行し、project scope に必要な skill だけ導入します。
+例外は、機械共通のワークフローとして global に維持する skill です。宣言の正本は `scripts/link` の `global_skills` 配列で、新しいマシンでは `scripts/link` が未導入のものを入れます。
+現在の対象は **archify**、**frontend-design** と **mcp-builder**（anthropics/skills）、**prototype**（emilkowalski/skills）、**sureforge**（Da7-Tech/SureForge）、**evidence-code-review**（akkie76/code-review-skills）、**typesafe-ai**（typesafe-ai/skills）、**find-skills**（vercel-labs/skills）、**diagnosing-bugs**（mattpocock/skills）です。**plannotator の core skills** は Plannotator のインストーラーが入れます。
+更新はまとめて `npx -y skills@latest update -g` で行います。`@latest` を外すと、PATH 上の同名の別コマンドが実行されることがあります。
+sureforge は「Use SureForge for this task」（高リスクなら「in full mode」）と指示したときだけ使います。
+evidence-code-review の PR への投稿は `github-pr-review` が担い、ラベルは同スキルの読み替えに従います。
+typesafe-ai は Claude Code plugin ではなくこの global skill として一本化し、Claude Code・Codex・OMP の三つから同じコピーを使います。
+それ以外のサードパーティ skill は、対象プロジェクトのルートで `npx -y skills@latest add <owner/repo>` を実行し、project scope に必要な skill だけ導入します。
 図表まわりの使い分けと更新手順は `docs/diagram-workflow.md` を参照してください。
 
 永続的な共通設定は、このリポジトリの正本を編集します。

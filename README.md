@@ -338,9 +338,11 @@ in Codex and trust the updated definition before relying on it.
 
 ### Vendored third-party skills
 
-Most third-party skills are installed with `npx skills add <owner/repo> -g`
+Most third-party skills are installed with `npx -y skills@latest add <owner/repo> -g`
 into `~/.agents/skills/` and tracked by `~/.agents/.skill-lock.json`;
-`npx skills check` / `npx skills update` keep them current. A skill is
+the machine-wide ones are declared in `global_skills` in `scripts/link`, and
+`npx -y skills@latest update -g` keeps them current (`@latest` stops npx from
+running any other `skills` binary on PATH). A skill is
 vendored into `agents/skills/<name>/` instead when the repo depends on its
 files (the prose lint above calls `natural-japanese/scripts/lint.py`), it
 carries deliberate local edits, or it isn't in the `npx skills add`
