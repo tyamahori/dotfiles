@@ -92,7 +92,7 @@
             "type": "command"
           },
           {
-            "command": "\"$HOME/dotfiles/scripts/fail-fast-hook\" claude",
+            "command": "\"$HOME/dotfiles/scripts/fail-fast-hook\"",
             "timeout": 10,
             "type": "command"
           }
@@ -109,7 +109,7 @@
             "type": "command"
           },
           {
-            "command": "\"$HOME/dotfiles/scripts/fail-fast-hook\" claude",
+            "command": "\"$HOME/dotfiles/scripts/fail-fast-hook\"",
             "timeout": 10,
             "type": "command"
           }
