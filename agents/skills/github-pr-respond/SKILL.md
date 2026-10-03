@@ -1,6 +1,6 @@
 ---
 name: github-pr-respond
-description: 「PR のコメントに対応して」「PR をウォッチして」と言われたとき、自分の PR のレビュー指摘に対応するときに読む。未解決スレッドを仕訳して提示し、承認後に修正 → commit → push → 返信 → resolve、または理由を返信して resolve する手順の正本。
+description: 「PR のコメントに対応して」「PR をウォッチして」と言われたとき、自分の PR のレビュー指摘や CI 失敗に対応するときに読む。CI と Copilot レビューの完了を待ち、未解決スレッドと CI 失敗を仕訳して提示し、承認後に修正 → commit → push → 返信 → resolve、または理由を返信して resolve する手順の正本。
 ---
 
 # github-pr-respond
@@ -10,24 +10,31 @@ description: 「PR のコメントに対応して」「PR をウォッチして�
 
 ## 全体フロー
 
-ウォッチ → 未解決スレッド収集 → 仕訳を提示 → **ユーザー承認** → 実行
-（修正か理由返信 → resolve）→ ウォッチに戻る。PR が merged / closed になるか、
-ユーザーが止めたら終了する。
+ウォッチ → 未解決スレッド・会話コメント・CI 失敗の収集 → 仕訳を提示 →
+**ユーザー承認** → 実行（修正か理由返信 → resolve）→ ウォッチに戻る。
+PR が merged / closed になるか、ユーザーが止めたら終了する。
+
+CI が SUCCESS、依頼したレビュー（Copilot を含む）が届いている、未解決スレッドが
+ゼロ、の3つがそろったら「レビュー待ち完了」としてユーザーに報告し、ウォッチを
+続けるか尋ねる。
 
 仕訳の提示と承認は毎回必須のゲート。修正・push・resolve は外向きの操作であり、
 承認前に実行しない。
 
 ## 1. ウォッチと収集
 
-初回はまず既存の未解決スレッドを全部処理してからウォッチに入る。
+初回はまず既存の未解決スレッドと CI 失敗を全部処理してからウォッチに入る。
 
 ウォッチは `sleep` と `gh` をターンごとに繰り返さない。変化がなくても毎回
 context 全体を読み直すターンになるためである。代わりに
 `scripts/await-pr-change.sh <owner> <repo> <N> [間隔秒=300]` をバックグラウンドで
 1 本張る（OMP は `bash` の `async: true`。`await-*.sh` は拡張
 `await-script-timeout.ts` がタイムアウトを外す。Claude Code は `run_in_background`）。
-スクリプトは指定間隔で状態と未解決スレッドを照合し、変化したとき、または PR が
-OPEN でないときだけ終了する。終了で起きたら下の収集に進み、処理後に張り直す。
+スクリプトは指定間隔で PR の状態・最新コミットの CI 結論（SUCCESS / FAILURE /
+ERROR、実行中は `-`）・レビュー数・会話コメント数・未解決スレッドを照合し、
+変化したとき、または PR が OPEN でないときだけ終了する。終了時の出力が変化後の
+状態なので、`ci=FAILURE` なら下の CI 節、レビューやスレッドの変化なら収集に
+進む。処理後に張り直す。
 
 未解決スレッドと PR の状態は GraphQL でまとめて取る:
 
@@ -56,6 +63,17 @@ query($owner: String!, $name: String!, $number: Int!) {
 `state` が MERGED / CLOSED ならウォッチを終了。`isResolved: false` のスレッド
 だけが対応対象。並行セッションが処理済みのことがあるので、前回見たスレッドも
 resolved になっていないか毎回確認する。
+
+Copilot レビューは指摘ゼロだとスレッドが増えず、レビュー本体だけが届く。
+到着と未到着は `gh pr view <N> --json reviews,reviewRequests` で確かめる
+（`reviewRequests` に残っていればまだ実行中）。
+
+### CI が落ちたとき
+
+`gh pr checks <N>` で落ちたジョブを特定し、`gh run view <run-id> --log-failed`
+で原因を読む。原因と修正方針を仕訳一覧に「CI」として載せ、スレッドと同じく
+承認を待つ。flaky の疑いで再実行（`gh run rerun <run-id> --failed`）するときも、
+根拠を添えて承認をもらう。修正後は push してウォッチに戻る。
 
 ## 2. 仕訳
 
