@@ -74,8 +74,10 @@ write_files:
       '
 
       # OMP from the upstream installer into ~/.local/bin. --binary: the bun
-      # route needs a newer bun than the devbox pin.
-      su - "$USER_NAME" -c 'curl -fsSL https://omp.sh/install | sh -s -- --binary'
+      # route needs a newer bun than the devbox pin. Download first: in the login
+      # zsh a failed `curl | sh` exits 0, and omp-plugins skips a missing omp on
+      # Linux, so the bootstrap would finish without OMP.
+      su - "$USER_NAME" -c 'f=$(mktemp) && curl -fsSL https://omp.sh/install -o "$f" && sh "$f" --binary; rc=$?; rm -f "$f"; exit $rc'
 
       # Global Python via uv plus debugpy, shared with macOS setup.
       su - "$USER_NAME" -c "$USER_ENV ~/project/dotfiles/scripts/python"
