@@ -162,7 +162,7 @@ fi
 export HOMEBREW_NO_ASK=1
 alias brewup='"$HOME/dotfiles/scripts/brewUpdate"'
 # omp: ~ で起動しても temp ディレクトリへ自動退避せずカレントで開く。
-# quota退避はglobal extensionのanthropic-usage-guardが全起動経路で処理する。
+# quota退避はOMP本体のusage-aware fallbackが全起動経路で処理する。
 omp() {
   command omp --allow-home "$@"
 }
