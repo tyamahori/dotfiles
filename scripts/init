@@ -38,8 +38,3 @@ fi
 if ! command -v devbox >/dev/null 2>&1; then
 	curl -fsSL https://get.jetify.com/devbox | bash
 fi
-
-# gh extensions (requires gh installed via devbox or brew)
-if command -v gh >/dev/null 2>&1; then
-	gh extension install github/gh-copilot || true
-fi

@@ -590,7 +590,7 @@ orb shell dev   # default user inherits from the macOS host
 
 What it installs: zsh, Nix (Determinate Systems), Devbox + the global packages
 pinned in `devbox/devbox.lock`, the latest CPython via `uv` as the global
-`python` / `python3`, `gh` + `gh-copilot` extension,
+`python` / `python3`, `gh`,
 Docker CE (with the default user added to the `docker` group), and links
 dotfiles from this repo. macOS-only items (Homebrew casks, `mas`) are skipped.
 
@@ -669,9 +669,3 @@ duplicate silently shadows the brew copy and forks behavior.
   ```bash
   ./scripts/nix-extras
   ```
-
-### gh extensions
-
-```bash
-gh extension install github/gh-copilot
-```

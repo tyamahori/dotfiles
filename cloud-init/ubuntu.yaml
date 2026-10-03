@@ -7,7 +7,7 @@
 # Reproduces the macOS dev environment as closely as possible on Linux:
 #   - zsh + linked dotfiles from tyamahori/dotfiles
 #   - Nix (Determinate Systems) + Devbox with the global packages pinned in devbox/devbox.lock
-#   - gh CLI (apt) + gh-copilot extension
+#   - gh CLI (apt)
 # macOS-only items (Homebrew casks, mas) are intentionally skipped.
 #
 # OrbStack deletes the cloud image's default `ubuntu` user (uid 1000) and creates a
@@ -60,7 +60,6 @@ write_files:
         [ -d ~/project/dotfiles ] || git clone https://github.com/tyamahori/dotfiles.git ~/project/dotfiles
       '
       su - "$USER_NAME" -c "$USER_PATH ~/project/dotfiles/scripts/devbox"
-      su - "$USER_NAME" -c 'gh extension install github/gh-copilot || true'
 
       # AI CLIs (Claude Code, OpenAI Codex, GitHub Copilot CLI) via npm.
       # devbox's nodejs lives in a read-only nix store, so global installs go to ~/.npm-global
@@ -90,7 +89,7 @@ runcmd:
   - bash -c 'install -dm 0755 /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && chmod a+r /etc/apt/keyrings/docker.asc && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list && apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin'
   - systemctl enable --now docker
 
-  # User-specific setup (chsh, usermod, devbox, dotfiles, gh-copilot) is fired in the
+  # User-specific setup (chsh, usermod, devbox, dotfiles) is fired in the
   # background — it polls for the OrbStack user rename before touching the new user.
   - systemd-run --no-block --unit=dev-bootstrap --description="Dev environment bootstrap" /usr/local/sbin/dev-bootstrap.sh
 
