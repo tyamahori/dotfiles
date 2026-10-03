@@ -53,6 +53,9 @@ if [ "$(uname)" = Darwin ]; then
 			;;
 		esac
 	fi
+	# upgrade never reconciles against the Brewfile; surface drift here.
+	brew bundle check --file "$HOME/.Brewfile" >/dev/null ||
+		echo "brewUpdate: ~/.Brewfile is not satisfied; see brew bundle check --verbose" >&2
 else
 	echo "brewUpdate: skipping brew (macOS only)" >&2
 fi

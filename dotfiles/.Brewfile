@@ -84,6 +84,8 @@ cask "microsoft-powerpoint"
 cask "microsoft-word"
 cask "grok-build"
 cask "adrafinil"
+cask "siketyan/mozc/mozc@pre"
+cask "tabularis"
 mas "AudioSwitcher", id: 561712678
 mas "GarageBand", id: 682658836
 mas "iMovie", id: 408981434
