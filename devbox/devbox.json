@@ -71,15 +71,5 @@
       "version":   "latest",
       "platforms": ["x86_64-linux", "aarch64-linux"]
     }
-  },
-  "shell": {
-    "init_hook": [
-      "echo 'Welcome to devbox!' > /dev/null"
-    ],
-    "scripts": {
-      "test": [
-        "echo \"Error: no test specified\" && exit 1"
-      ]
-    }
   }
 }
