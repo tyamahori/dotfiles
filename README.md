@@ -607,6 +607,14 @@ user, so the VM gets the same steps as macOS minus the Brewfile. Running
 `./scripts/setup` by hand on another Ubuntu host works the same way, given zsh,
 git, curl, build-essential, and passwordless sudo for the Nix and Devbox installers.
 
+Some parts stay macOS-only by design, and Linux skips them: the Brewfile
+(apps, Keychain/GUI tools), the launchd jobs (`scripts/link` has no systemd
+equivalent, so the weekly/quarterly reviews do not run), and the automatic
+token bootstrap in `scripts/sonar-quality-gate` (macOS Keychain; on Linux set
+`SONAR_TOKEN`). On Linux, `scripts/link` writes the Ghostty desktop entry and
+icon when devbox provides Ghostty; refreshing the desktop and icon caches is best-effort and silently
+skipped when `update-desktop-database` / `gtk-update-icon-cache` are absent.
+
 > Note: the docker group membership only takes effect after the next login —
 > reconnect with `orb shell dev` or run `newgrp docker` once.
 
