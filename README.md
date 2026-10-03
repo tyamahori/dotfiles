@@ -1,6 +1,11 @@
 # dotfiles
 
-tyamahori's macOS setup (Apple Silicon only; `scripts/init` refuses other Macs).
+tyamahori's setup for Apple Silicon macOS (`scripts/init` refuses other Macs)
+and, through the same `scripts/setup`, Ubuntu VMs (see [OrbStack VM](#orbstack-vm-ubuntu-2404)).
+
+On a fresh Mac, sign in to the App Store (the Brewfile's `mas` entries fail
+otherwise) and run `xcode-select --install` before cloning; the clone needs
+the Command Line Tools' `git`.
 
 ## Setup
 
@@ -12,16 +17,24 @@ cd ~/project/dotfiles
 
 `scripts/setup` runs the following in order:
 
-1. `scripts/init` — install Homebrew (macOS), Nix, and Devbox; `gh` comes from the devbox global profile in step 3
-2. `scripts/apps` — install the repository Brewfile on macOS
-3. `scripts/devbox` — link `devbox/devbox.json` and `devbox/devbox.lock` into devbox global, install the pinned packages, and install lockfile-pinned dependencies for local hooks
+1. `scripts/init` — install Homebrew (macOS), Nix, and Devbox
+2. `scripts/devbox` — link `devbox/devbox.json` and `devbox/devbox.lock` into devbox global, install the pinned packages (including `gh` and the Copilot CLI), and install lockfile-pinned dependencies for local hooks
+3. `scripts/apps` — macOS: install the repository Brewfile; Linux: install Claude Code and Codex with npm and OMP with its upstream installer
 4. `scripts/python` — install the latest CPython via `uv` and register it as the global `python` / `python3`
-5. `scripts/link` — create the stable `~/dotfiles` alias, symlink shared instructions and runtime adapters, enable Codex hooks, generate the herdr agent-state hook scripts that the Claude Code/Codex hooks call, link OMP configuration, and load launchd jobs; it never touches the network, so it is safe to rerun after any pull
+5. `scripts/link` — local placement only: create the stable `~/dotfiles` alias, symlink dotfiles, shared instructions, runtime adapters, and OMP configuration, set this repo's `core.hooksPath`, and load launchd jobs (macOS). It also writes files derived from what is installed: the herdr skill and agent-state hook scripts (from the `herdr` binary), the Codex `skills.config` entry, and on Linux the Ghostty GL wrapper and desktop entry. It never touches the network, so it is safe to rerun after any pull
 6. `scripts/agent-tools` — install what is missing from the network: Playwright tooling, Plannotator, the `global_skills` set, and the Codex ponytail plugin
 7. `scripts/omp-plugins` — install the declared OMP plugin set (`omp plugin install`)
 
 Spotlight indexing is no longer disabled by setup; run `scripts/disable-spotlight`
 to opt in (undo with `sudo mdutil -a -i on`).
+
+Versions: devbox packages are pinned by `devbox/devbox.lock`, and npm OMP
+plugins by the versions in `scripts/omp-plugins`' `plugins` array (it reinstalls the declared
+version on drift, so it can downgrade). Everything else setup installs
+(Homebrew formulae and casks, the npm agent CLIs on Linux, OMP marketplace plugins, OMP and other
+upstream installers, `skills@latest`) tracks latest by design, so a rerun
+months apart can produce newer tools than the last machine. Pin one only after
+a release breaks it, and record why next to the pin.
 
 The repository can be cloned anywhere. `scripts/link` maintains
 `~/dotfiles` as the stable path used by hooks and shared skills.
@@ -588,12 +601,11 @@ orb create --isolated --forward-ssh-agent -c cloud-init/ubuntu.yaml ubuntu:24.04
 orb shell dev   # default user inherits from the macOS host
 ```
 
-What it installs: zsh, Nix (Determinate Systems), Devbox + the global packages
-pinned in `devbox/devbox.lock` (including `gh` and `direnv`), the latest CPython
-via `uv` as the global `python` / `python3`, Claude Code / Codex / Copilot CLI
-(npm), OMP (upstream installer) with the declared plugins,
-Docker CE (with the default user added to the `docker` group), and links
-dotfiles from this repo. macOS-only items (Homebrew casks, `mas`) are skipped.
+cloud-init installs zsh, build tools, and Docker CE (with the default user added
+to the `docker` group), clones this repo, and runs `./scripts/setup` as that
+user, so the VM gets the same steps as macOS minus the Brewfile. Running
+`./scripts/setup` by hand on another Ubuntu host works the same way, given zsh,
+git, curl, build-essential, and passwordless sudo for the Nix and Devbox installers.
 
 > Note: the docker group membership only takes effect after the next login —
 > reconnect with `orb shell dev` or run `newgrp docker` once.
@@ -663,10 +675,3 @@ duplicate silently shadows the brew copy and forks behavior.
   the repo copies change); restrict OS-specific packages with `--platform`.
 - **`~/.Brewfile`** (`scripts/apps`) — macOS-integrated tools and casks:
   anything touching Keychain, launchd, notifications, or a GUI.
-- **`scripts/nix-extras`** — raw `nix profile add`, only for what devbox
-  can't carry well (unfree packages, custom flake refs). Edit the script to
-  add packages, then run it:
-
-  ```bash
-  ./scripts/nix-extras
-  ```

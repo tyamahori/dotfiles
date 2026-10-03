@@ -35,11 +35,7 @@
       "clients": ["claude", "codex", "omp"],
       "commands": [{ "executables": ["curl"] }],
       "replacement": { "type": "command", "value": "ax" },
-      "reasons": {
-        "claude": "Simple curl webpage fetches are blocked. Prefer the host's dedicated read/browser tools; when using ax, read ~/.agents/skills/ax/SKILL.md before the first fetch, then use ax to read or extract the page. Authenticated, API, download, diagnostic, and unsupported curl options remain allowed.",
-        "codex": "Simple curl webpage fetches are blocked. Prefer the host's dedicated read/browser tools; when using ax, read ~/.agents/skills/ax/SKILL.md before the first fetch, then use ax to read or extract the page. Authenticated, API, download, diagnostic, and unsupported curl options remain allowed.",
-        "omp": "Simple curl webpage fetches are blocked. Prefer the host's dedicated read/browser tools; when using ax, read ~/.agents/skills/ax/SKILL.md before the first fetch, then use ax to read or extract the page. Authenticated, API, download, diagnostic, and unsupported curl options remain allowed."
-      }
+      "reason": "Simple curl webpage fetches are blocked. Prefer the host's dedicated read/browser tools; when using ax, read ~/.agents/skills/ax/SKILL.md before the first fetch, then use ax to read or extract the page. Authenticated, API, download, diagnostic, and unsupported curl options remain allowed."
     },
     {
       "id": "brew-upgrade",
@@ -47,11 +43,7 @@
       "commands": [{ "executables": ["brew"], "subcommand": "upgrade" }],
       "clients": ["claude", "codex", "omp"],
       "replacement": { "type": "command", "value": "scripts/brewUpdate" },
-      "reasons": {
-        "claude": "`brew upgrade` is blocked because it may remove running OMP kegs. Use `~/dotfiles/scripts/brewUpdate` instead.",
-        "codex": "`brew upgrade` is blocked because it may remove running OMP kegs. Use `~/dotfiles/scripts/brewUpdate` instead.",
-        "omp": "`brew upgrade` is blocked because it may remove running OMP kegs. Use `~/dotfiles/scripts/brewUpdate` instead."
-      }
+      "reason": "`brew upgrade` is blocked because it may remove running OMP kegs. Use `~/dotfiles/scripts/brewUpdate` instead."
     },
     {
       "id": "env-file-read",
@@ -83,11 +75,7 @@
       ],
       "clients": ["claude", "codex", "omp"],
       "replacement": { "type": "command", "value": "gh" },
-      "reasons": {
-        "claude": "PRs are created as drafts on this machine. Re-run `gh pr create` with `--draft`; mark it ready only when the user asks.",
-        "codex": "PRs are created as drafts on this machine. Re-run `gh pr create` with `--draft`; mark it ready only when the user asks.",
-        "omp": "PRs are created as drafts on this machine. Re-run `gh pr create` with `--draft`; mark it ready only when the user asks."
-      }
+      "reason": "PRs are created as drafts on this machine. Re-run `gh pr create` with `--draft`; mark it ready only when the user asks."
     }
   ]
 }

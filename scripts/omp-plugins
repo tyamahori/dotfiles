@@ -37,16 +37,9 @@ retired=(
 	@ff-labs/pi-fff
 )
 
-
 if ! command -v omp >/dev/null 2>&1; then
-	# macOS gets omp from the Brewfile (scripts/apps), so a missing omp there is a
-	# broken setup. Linux only has it where cloud-init ran the upstream installer.
-	if [ "$(uname)" = Darwin ]; then
-		echo "omp-plugins: omp not found; run scripts/apps first (brew: can1357/tap/omp)" >&2
-		exit 1
-	fi
-	echo "omp-plugins: omp not found; skipped (install: curl -fsSL https://omp.sh/install | sh -s -- --binary)" >&2
-	exit 0
+	echo "omp-plugins: omp not found; run scripts/apps first" >&2
+	exit 1
 fi
 
 # `omp`'s worker daemon leaves a stray background process after it runs,

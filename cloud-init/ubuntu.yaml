@@ -4,12 +4,9 @@
 # Usage:
 #   orb create -c cloud-init/ubuntu.yaml ubuntu:24.04 dev
 #
-# Reproduces the macOS dev environment as closely as possible on Linux:
-#   - zsh + linked dotfiles from tyamahori/dotfiles
-#   - Nix (Determinate Systems) + Devbox with the global packages pinned in devbox/devbox.lock
-#     (gh and direnv come from there, not apt)
-#   - Claude Code / Codex / Copilot CLI (npm) and OMP (upstream installer) + its plugins
-# macOS-only items (Homebrew casks, mas) are intentionally skipped.
+# System packages and Docker come from here; everything per user runs the same
+# ./scripts/setup as macOS (Nix, Devbox, Claude Code / Codex, OMP + plugins,
+# links). macOS-only items (Homebrew casks, mas) are skipped by scripts/apps.
 #
 # OrbStack deletes the cloud image's default `ubuntu` user (uid 1000) and creates a
 # user matching the macOS account. cloud-init's runcmd races with that step, so all
@@ -51,51 +48,23 @@ write_files:
       chsh -s /usr/bin/zsh "$USER_NAME"
       usermod -aG docker "$USER_NAME"
 
-      # Login shells for the new user lack the devbox/nix/npm bins until .zprofile is linked.
-      USER_PATH='export PATH=$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH;'
-
-      su - "$USER_NAME" -c 'curl -fsSL https://get.jetify.com/devbox | bash -s -- -f'
+      # Everything per user (Nix, Devbox, agent CLIs, OMP, links) is the same
+      # entry point as macOS. It needs passwordless sudo for the Nix and Devbox
+      # installers, which OrbStack's default user has.
       su - "$USER_NAME" -c '
         mkdir -p ~/project
         [ -d ~/project/dotfiles ] || git clone https://github.com/tyamahori/dotfiles.git ~/project/dotfiles
+        ~/project/dotfiles/scripts/setup
       '
-      su - "$USER_NAME" -c "$USER_PATH ~/project/dotfiles/scripts/devbox"
-      # Each su - starts a fresh login shell, so later steps load the devbox global
-      # profile (node/npm, bun, uv) themselves.
-      USER_ENV="$USER_PATH"' eval "$(devbox global shellenv)";'
-
-      # AI CLIs (Claude Code, OpenAI Codex, GitHub Copilot CLI) via npm.
-      # devbox's nodejs lives in a read-only nix store, so global installs go to ~/.npm-global
-      # (added to PATH by .zprofile).
-      su - "$USER_NAME" -c "$USER_ENV"'
-        mkdir -p ~/.npm-global
-        npm config set prefix ~/.npm-global
-        npm install -g @anthropic-ai/claude-code @openai/codex @github/copilot
-      '
-
-      # OMP from the upstream installer into ~/.local/bin. --binary: the bun
-      # route needs a newer bun than the devbox pin. Download first: in the login
-      # zsh a failed `curl | sh` exits 0, and omp-plugins skips a missing omp on
-      # Linux, so the bootstrap would finish without OMP.
-      su - "$USER_NAME" -c 'f=$(mktemp) && curl -fsSL https://omp.sh/install -o "$f" && sh "$f" --binary; rc=$?; rm -f "$f"; exit $rc'
-
-      # Global Python via uv plus debugpy, shared with macOS setup.
-      su - "$USER_NAME" -c "$USER_ENV ~/project/dotfiles/scripts/python"
-
-      # Link and install agent tools only after the agent CLIs exist so runtime feature gates can be enabled.
-      su - "$USER_NAME" -c "$USER_ENV ~/project/dotfiles/scripts/link && ~/project/dotfiles/scripts/agent-tools && ~/project/dotfiles/scripts/omp-plugins"
 
       touch "$DONE"
 
 runcmd:
-  # Nix (Determinate Systems, multi-user with systemd). Root-only — safe to run synchronously.
-  - bash -c 'curl --proto "=https" --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install linux --no-confirm'
-
   # Docker CE from official apt repo.
   - bash -c 'install -dm 0755 /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && chmod a+r /etc/apt/keyrings/docker.asc && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list && apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin'
   - systemctl enable --now docker
 
-  # User-specific setup (chsh, usermod, devbox, dotfiles) is fired in the
+  # User-specific setup (chsh, usermod, scripts/setup) is fired in the
   # background — it polls for the OrbStack user rename before touching the new user.
   - systemd-run --no-block --unit=dev-bootstrap --description="Dev environment bootstrap" /usr/local/sbin/dev-bootstrap.sh
 

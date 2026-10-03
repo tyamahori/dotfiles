@@ -34,7 +34,7 @@ if ! command -v nix >/dev/null 2>&1; then
 	fi
 fi
 
-# Devbox
+# Devbox. -f skips the confirmation prompt so unattended runs (cloud-init) work.
 if ! command -v devbox >/dev/null 2>&1; then
-	curl -fsSL https://get.jetify.com/devbox | bash
+	curl -fsSL https://get.jetify.com/devbox | bash -s -- -f
 fi
