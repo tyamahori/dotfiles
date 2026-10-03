@@ -1273,7 +1273,7 @@
     },
     "nodejs@latest": {
       "last_modified": "2026-08-27T23:47:58Z",
-      "plugin_version": "0.0.4",
+      "plugin_version": "0.0.5",
       "resolved": "github:NixOS/nixpkgs/7d1a7c21a4c00ea653fc7ed5c083d261340f185f#nodejs_26",
       "source": "devbox-search",
       "version": "26.8.1",
