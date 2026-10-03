@@ -1,12 +1,29 @@
 #!/bin/bash
 set -euo pipefail
 
-# Homebrew bundle. macOS-only: the Brewfile is casks and mas apps, none of
-# which exist on Linux. Skipped (not an error) so scripts/setup runs through.
-if [ "$(uname)" != "Darwin" ]; then
-	echo "apps: skipping brew bundle (macOS only)"
+# OS application layer, after scripts/devbox (Linux needs its node).
+# macOS: the Brewfile (casks, mas, and the claude-code / codex / omp CLIs).
+# Linux: those CLIs have no Brewfile, so install them per user; Copilot CLI
+# comes from devbox on both OSes. Versions follow upstream latest.
+SCRIPT_DIR="$(cd -P "$(dirname "$0")" && pwd)"
+
+if [ "$(uname)" = Darwin ]; then
+	brew bundle --file "${SCRIPT_DIR}/../dotfiles/.Brewfile"
 	exit 0
 fi
 
-SCRIPT_DIR="$(cd -P "$(dirname "$0")" && pwd)"
-brew bundle --file "${SCRIPT_DIR}/../dotfiles/.Brewfile"
+# devbox's nodejs lives in the read-only nix store, so global installs go to
+# ~/.npm-global (on PATH via .zprofile and scripts/setup).
+mkdir -p ~/.npm-global
+npm config set prefix ~/.npm-global
+npm install -g @anthropic-ai/claude-code @openai/codex
+
+# OMP into ~/.local/bin. --binary: the installer's bun route needs a newer bun
+# than the devbox pin. Download first so a failed fetch fails this step instead
+# of piping nothing into sh.
+if ! command -v omp >/dev/null 2>&1; then
+	installer="$(mktemp)"
+	trap 'rm -f "$installer"' EXIT
+	curl -fsSL https://omp.sh/install -o "$installer"
+	sh "$installer" --binary
+fi

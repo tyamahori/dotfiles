@@ -33,7 +33,7 @@ cd ~/project/dotfiles
 - SSH鍵はまだ使えないのでHTTPSでクローンする（公開リポジトリなので認証も不要）。
 - 実行中にsudoパスワードを何度か求められる（Homebrew、Nixインストーラ）。
 - 各スクリプトは冪等なので、途中で失敗しても原因を直して `./scripts/setup` を再実行すればよい。
-- 実行内容と順序はREADMEの「Setup」節のとおり（init → apps → devbox → python → link → agent-tools → omp-plugins）。
+- 実行内容と順序はREADMEの「Setup」節のとおり（init → devbox → apps → python → link → agent-tools → omp-plugins）。
 - 対象はApple Silicon Macのみ。Spotlightの索引を止めたい場合は、setup後に `./scripts/disable-spotlight` を別途実行する（戻すときは `sudo mdutil -a -i on`）。
 
 ## 4. 認証を復元する
