@@ -2,6 +2,23 @@
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
 
+## 2026-10-05 codex/config.toml を gpt-6.1-sol へ
+
+- 契機: 週次 usage review で、user 層 `~/.codex/config.toml` の
+  `gpt-6.1-sol` / `low` が system 層の `gpt-6-astra` を 10-02 から上書きして
+  いたと判明。ユーザーが canonical を実効値へ揃える判断をした。判定: 判断。
+- 変更: `codex/config.toml` の `model` を `gpt-6-astra` → `gpt-6.1-sol`。
+  `model_reasoning_effort` は `low` 据え置き(公式既定は medium)。
+  公式資料(取得日 2026-10-05):
+  https://developers.openai.com/api/docs/models/gpt-6.1-sol.md
+  (「near-Astra performance at a lower cost」、自分のタスクで Astra と比較せよ、
+  effort は low〜max)。同種タスクでの品質比較はまだない。
+- 検証: `/etc/codex/config.toml` が canonical への symlink。新規
+  `codex exec` が `model: gpt-6.1-sol` / `reasoning effort: low` で応答。
+  その後 `scripts/model-pins ack`、`check` は差分なし。
+- 1週間後: レビュー round 数と見落とし(後段の Copilot / CI で見つかった指摘)
+  を Astra 期間と比べる。悪化なら `gpt-6-astra` へ戻す提案を出す。
+
 ## 2026-10-02 plan ロールを Fable 5.1 へ、OpenAI 系を GPT-6 後継へ
 
 - 契機: ユーザーが Fable の使いどころを模索したいとして、`omp.modelRoles.plan`
