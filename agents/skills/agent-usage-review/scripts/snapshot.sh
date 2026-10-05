@@ -611,7 +611,7 @@ fi
 	echo
 	echo "### prewalk とローカル tiny model"
 	echo
-	TINY_MODEL="$(sed -n 's/^[[:space:]]*tinyModel:[[:space:]]*//p' "$OMP_CONFIG" 2>/dev/null | sed -n '1p')"
+	TINY_MODEL="$(sed -n 's/^[[:space:]]*tiny:[[:space:]]*//p' "$OMP_CONFIG" 2>/dev/null | sed -n '1p')"
 	OMP_LOCAL_CALLS="$(
 		sqlite3 -noheader "$OMP_STATS" "
 			SELECT COUNT(*)
@@ -777,6 +777,23 @@ if [ -f "$OMP_CONFIG" ] && [ -f "$CANONICAL_CONFIG" ]; then
 	fi
 else
 	echo "- config.yml: 取得不能（local または canonical file がない）"
+fi
+
+# Codex's user layer overrides the system layer (codex/config.toml); /model and
+# hand edits land there silently, so surface the keys that change cost.
+CODEX_USER_CONFIG="$HOME/.codex/config.toml"
+if [ -f "$CODEX_USER_CONFIG" ] && [ -f "$REPO_ROOT/codex/config.toml" ]; then
+	for key in model model_reasoning_effort; do
+		user_val="$(sed -n "s/^${key}[[:space:]]*=[[:space:]]*//p" "$CODEX_USER_CONFIG" | sed -n '1p')"
+		canon_val="$(sed -n "s/^${key}[[:space:]]*=[[:space:]]*//p" "$REPO_ROOT/codex/config.toml" | sed -n '1p')"
+		if [ -z "$user_val" ] || [ "$user_val" = "$canon_val" ]; then
+			echo "- codex ${key}: canonical と一致（${canon_val}）"
+		else
+			echo "- codex ${key}: **drift**（user 層 ${user_val} が canonical ${canon_val} を上書き）"
+		fi
+	done
+else
+	echo "- codex config: 取得不能（user または canonical file がない）"
 fi
 
 if command -v omp >/dev/null 2>&1 && [ -f "$REPO_ROOT/scripts/omp-plugins" ]; then
