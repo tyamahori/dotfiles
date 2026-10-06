@@ -17,6 +17,10 @@
   (ID `claude-sonnet-5-5`、Sonnet 5 より高速・低価格)。
 - 副次効果: Claude 担当とされた実装の一部を terra subagent が書き、Codex reviewer が
   それをレビューする同系統レビューが解消する。
+- 追加(同日、クロスレビュー指摘を受けたユーザー判断): `retry.fallbackChains` の
+  `openai-codex/gpt-6-astra` の退避先を `anthropic/claude-fable-5-1` →
+  `openai-codex/gpt-6.1-sol`。Codex 枠枯渇時に Claude が Claude 作業をレビューする
+  経路を断つ。代償として枯渇中はレビューが止まる。判定: 判断。
 - 検証: `omp config get modelRoles` が新値。新規プロセスの `omp -p --no-session`
   で `@task` / `@vision` が `claude-sonnet-5-5`、`@smol` / `@commit` が
   `claude-haiku-4-5`、`@slow` が `gpt-6-astra` で応答。jev テスト 5 pass。

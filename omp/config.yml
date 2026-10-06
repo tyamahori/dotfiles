@@ -14,7 +14,7 @@ modelRoles:
 retry:
   fallbackChains:
     openai-codex/gpt-6-astra:
-      - anthropic/claude-fable-5-1
+      - openai-codex/gpt-6.1-sol
     anthropic/*:
       - openai-codex/gpt-6-astra
       - openai-codex/gpt-6.1-sol

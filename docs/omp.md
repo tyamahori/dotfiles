@@ -256,6 +256,7 @@ Anthropic と OpenAI Codex は別の subscription pool として使い分けま�
 
 利用枠の退避は双方向です。
 Anthropic の残りが 20% に達すると `retry.fallbackChains` に従って OpenAI Codex へ、Codex 週次枠の残りが 20% に達すると Anthropic へ、どちらも OMP 本体が退避します。
+例外として `openai-codex/gpt-6-astra`（`slow` と reviewer 系）の退避先は Codex 内の `gpt-6.1-sol` だけです。Claude の作業を Claude がレビューしないためで、Codex 枠が尽きるとレビューは止まります。
 Anthropic 側はモデル別枠（`anthropic:7d:fable` など）も本体が判定し、現在のモデルに対応する枠の残量で切り替えます。
 両方の pool が同時に 20% を切っていても、本体は `retry.fallbackChains` のとおりに切り替えます。メインを Anthropic に留めて Codex の残りを subagent 用に温存する処理はありません。
 `anthropic-usage-guard` extension は、Codex 週次枠 80% 到達の通知を担当します。
