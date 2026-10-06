@@ -109,3 +109,13 @@ test("grep/awk on .env stay outside this rule; the pattern argument would false-
   expect(denyCommand("grep KEY .env", "codex")).toBeUndefined();
   expect(denyCommand("awk '{print}' .env", "codex")).toBeUndefined();
 });
+
+test("sleeps of 10s or more are denied as polling; short readiness sleeps stay allowed", () => {
+  for (const command of ["sleep 60; gh pr checks 612", "unset GH_TOKEN; sleep 45 && gh run list", "sleep 10", "sleep 1m", "sleep 12.5s"]) {
+    expect(denyCommand(command, "omp")).toBeDefined();
+  }
+  expect(denyCommand("sleep 30", "codex")).toContain("--watch");
+  for (const command of ["sleep 2 && curl -sf http://localhost:3000/health", "sleep 9", "sleep 0.5", "echo 'sleep 60'"]) {
+    expect(denyCommand(command, "claude")).toBeUndefined();
+  }
+});

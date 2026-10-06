@@ -399,7 +399,9 @@ extensions in `omp/extensions/`:
   `omp/extensions/deny-commands.ts`. The guard redirects bare Python to uv,
   simple curl web fetches to ax, and `brew upgrade` to `scripts/brewUpdate`
   only when the replacement executable is available. Shell read/search
-  commands redirect to dedicated tools in Claude/OMP, not Codex.
+  commands redirect to dedicated tools in Claude/OMP, not Codex. `sleep` of
+  10 s or more is rejected as polling; agents wait on the event instead
+  (`gh pr checks --watch` in a background command).
   Authentication, mutations, downloads, and diagnostic curl options remain
   available. This checks agent shell calls, not commands inside existing
   scripts, and never rewrites or runs the rejected command.

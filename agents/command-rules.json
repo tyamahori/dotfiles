@@ -76,6 +76,18 @@
       "clients": ["claude", "codex", "omp"],
       "replacement": { "type": "command", "value": "gh" },
       "reason": "PRs are created as drafts on this machine. Re-run `gh pr create` with `--draft`; mark it ready only when the user asks."
+    },
+    {
+      "id": "sleep-polling",
+      "matcher": "command",
+      "commands": [{ "executables": ["sleep"], "nextArgPattern": "^(?:[1-9]\\d+(?:\\.\\d+)?s?|\\d+(?:\\.\\d+)?[mhd])$" }],
+      "clients": ["claude", "codex", "omp"],
+      "replacement": { "type": "native-tool" },
+      "reasons": {
+        "claude": "Sleeps of 10s or more are blocked: don't poll. Wait on the event itself in one background command (`run_in_background`): `gh pr checks <PR> --watch --fail-fast`, `gh run watch <id> --exit-status`, or a readiness loop with a short sleep.",
+        "codex": "Sleeps of 10s or more are blocked: don't poll. Wait on the event itself in one command: `gh pr checks <PR> --watch --fail-fast`, `gh run watch <id> --exit-status`, or a readiness loop with a short sleep.",
+        "omp": "Sleeps of 10s or more are blocked: don't poll. Run one async bash that waits on the event itself (`gh pr checks <PR> --watch --fail-fast`, `gh run watch <id> --exit-status`); its result is delivered automatically. For servers use a named bash service with `ready`."
+      }
     }
   ]
 }
