@@ -754,6 +754,10 @@
       "last_modified": "2026-09-18T09:35:58Z",
       "resolved": "github:NixOS/nixpkgs/0a3468a402c449992505b6a9fc5b06580141b750?lastModified=1789724158#php85Packages.composer"
     },
+    "github:NixOS/nixpkgs/nixpkgs-unstable#typescript": {
+      "last_modified": "2026-10-03T07:08:11Z",
+      "resolved": "github:NixOS/nixpkgs/73e728ddb6b7a12d18808f510813a13ee1fe4cce?lastModified=1791011291#typescript"
+    },
     "gitleaks@latest": {
       "last_modified": "2026-08-27T07:16:00Z",
       "resolved": "github:NixOS/nixpkgs/c27cdad491a991b11ed731760aa2ef8db0cb0410#gitleaks",
@@ -1273,7 +1277,7 @@
     },
     "nodejs@latest": {
       "last_modified": "2026-08-27T23:47:58Z",
-      "plugin_version": "0.0.5",
+      "plugin_version": "0.0.4",
       "resolved": "github:NixOS/nixpkgs/7d1a7c21a4c00ea653fc7ed5c083d261340f185f#nodejs_26",
       "source": "devbox-search",
       "version": "26.8.1",

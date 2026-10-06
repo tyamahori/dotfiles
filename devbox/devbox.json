@@ -67,6 +67,7 @@
       "disable_plugin": true
     },
     "github:NixOS/nixpkgs/nixpkgs-unstable#php85Packages.composer": "",
+    "github:NixOS/nixpkgs/nixpkgs-unstable#typescript": "",
     "node-gyp": {
       "version":   "latest",
       "platforms": ["x86_64-linux", "aarch64-linux"]
