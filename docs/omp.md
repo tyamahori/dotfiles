@@ -80,7 +80,7 @@ omp @README.md "セットアップ手順の不足を指摘して"
 Python、Go、TypeScript の language server は `omp/lsp.json` で user-wide に設定しています。
 Git リポジトリのルートから起動すれば、設定ファイルのないリポジトリでも Pyright、gopls、`typescript-native` を利用できます。
 Go module では `go.work` または `go.mod` もプロジェクトルートの検出に使います。
-TypeScript は `typescript-native`（`tsc --lsp --stdio`）です。手元の `tsc` は 7 系のネイティブ版で `tsserver.js` を持たないため、`typescript-language-server` は起動できません。`tsconfig.json` のないリポジトリ（この dotfiles など）では開いたファイル単位の推論プロジェクトになるので、ファイルをまたぐ参照検索は取りこぼします。
+TypeScript は `~/.Brewfile` の `typescript`（7 系のネイティブ版）が持つ `tsc --lsp --stdio` を、built-in の `typescript-native` 定義で使います。7 系は `tsserver.js` を同梱しないので、それを fork する `typescript-language-server` は入れていません。`tsconfig.json` のないリポジトリ（この dotfiles など）では開いたファイル単位の推論プロジェクトになるので、ファイルをまたぐ参照検索は取りこぼします。
 Bash と YAML は built-in 定義（root marker は `.git`）のまま、`scripts/devbox` が入れる `bash-language-server` と `yaml-language-server` で自動検出されます。
 `omp/config.yml` の `lsp.diagnosticsOnEdit: true` で、`edit` のたびに型・lint 診断を返します。
 
