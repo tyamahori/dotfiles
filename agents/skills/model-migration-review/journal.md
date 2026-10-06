@@ -124,6 +124,28 @@
   なっている。原因は `agents/skills/agent-usage-review/scripts/snapshot.sh:614`
   が廃止キー `tinyModel:` を grep していることで、`modelRoles.tiny` を読むよう
   直す必要がある。今回は修正しない(agent-usage-review 側の候補)。
+  → 10-05 の 0077129 で修正済み。10-06 の snapshot で `configured tiny model:
+  local/lfm2.5-350m` が出ることを確認した(10-05 09:30 のレポートは修正前の実行)。
+- 2 週目追記(10-06、OMP main、`agent-usage-weekly` の 09-15..21 と 09-29..10-05):
+  main の calls が Sonnet 週とほぼ同量になり、1 週目より比較条件が揃った。
+  | 指標 | Opus 5.5 2週目 ÷ Sonnet 5 週 | (参考)1週目 |
+  | --- | --- | --- |
+  | calls | 0.97 | 0.42 |
+  | sessions | 1.19 | 0.85 |
+  | 費用合計 | 1.11 | 0.58 |
+  | 費用 / call | 1.14 | 1.37 |
+  | 費用 / session | 0.93 | 0.69 |
+  | output / call | 0.86 | 0.82 |
+  | cache_write / call | 0.66 | 0.96 |
+  | cache_read_share | 96.0% → 96.8% | 95.7% |
+  | cacheWrite >50k の比率(OMP 全体) | 52% → 17% | 37% |
+  判断: 同量の作業で main 費用は約 1.1 倍に収まった。単価差より小さいのは、
+  output / call と cache_write / call が下がったため。churn は 3 週連続で下がり、
+  thinking `medium` 固定の狙いと矛盾しない。ただし当週は業務リポジトリの Issue 群を
+  terra / sonnet subagent へ大量委譲していて(subagent calls が Sonnet 週の約 6 倍)、
+  main の 1 call あたりの負荷が軽かった可能性がある。churn と compaction
+  (約 1.4 倍)は subagent を含む OMP 全体の値。品質・再作業は今回も計測なし。
+  悪化の根拠がないため、Opus 5.5 と `medium` を維持し、戻す提案はしない。
 
 ## 2026-09-22 デフォルトモデルを Opus 5.5 に変更
 
