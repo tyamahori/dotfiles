@@ -78,9 +78,9 @@ omp @README.md "セットアップ手順の不足を指摘して"
 新しいターミナルで見つからない場合は `source ~/.zshrc` を実行してください。
 
 Python、Go、TypeScript の language server は `omp/lsp.json` で user-wide に設定しています。
-Git リポジトリのルートから起動すれば、設定ファイルのないリポジトリでも Pyright、gopls、`typescript-native` を利用できます。
+Git リポジトリのルートから起動すれば、設定ファイルのないリポジトリでも Pyright、gopls、`tsc-lsp` を利用できます。
 Go module では `go.work` または `go.mod` もプロジェクトルートの検出に使います。
-TypeScript は `~/.Brewfile` の `typescript`（7 系のネイティブ版）が持つ `tsc --lsp --stdio` を、built-in の `typescript-native` 定義で使います。7 系は `tsserver.js` を同梱しないので、それを fork する `typescript-language-server` は入れていません。`tsconfig.json` のないリポジトリ（この dotfiles など）では開いたファイル単位の推論プロジェクトになるので、ファイルをまたぐ参照検索は取りこぼします。
+TypeScript は `scripts/devbox` が入れる `typescript`（7 系のネイティブ版、nixpkgs-unstable を直接指定）の `tsc --lsp --stdio` を、`omp/lsp.json` の `tsc-lsp` で起動します。built-in の `typescript-native` は、`tsc` の隣に npm 形式の `package.json` がないと 7 系と判定せず外されるため、nix の配置（`bin/tsc -> ../lib/typescript/tsc`）では起動しません。そこで無効化し、同じ内容を別名で定義しています。7 系は `tsserver.js` を同梱しないので、それを fork する `typescript-language-server` は入れていません。`tsconfig.json` のないリポジトリ（この dotfiles など）では開いたファイル単位の推論プロジェクトになるので、ファイルをまたぐ参照検索は取りこぼします。
 Bash と YAML は built-in 定義（root marker は `.git`）のまま、`scripts/devbox` が入れる `bash-language-server` と `yaml-language-server` で自動検出されます。
 `omp/config.yml` の `lsp.diagnosticsOnEdit: true` で、`edit` のたびに型・lint 診断を返します。
 

@@ -18,13 +18,29 @@
         "Pipfile"
       ]
     },
-    "typescript-native": {
+    "tsc-lsp": {
+      "args": [
+        "--lsp",
+        "--stdio"
+      ],
+      "command": "tsc",
+      "fileTypes": [
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx",
+        ".mjs",
+        ".cjs"
+      ],
       "rootMarkers": [
         ".git",
         "jsconfig.json",
         "package.json",
         "tsconfig.json"
       ]
+    },
+    "typescript-native": {
+      "disabled": true
     }
   }
 }
