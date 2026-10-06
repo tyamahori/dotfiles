@@ -567,6 +567,7 @@ Claude Code と Codex のフック実行には、`scripts/devbox` で導入す�
 
 ルール表とは別に、同じフック経路で `scripts/pr-template-check.ts` が `gh pr create --body` / `--body-file` を検査します。
 リポジトリに PR テンプレートがあり、本文にその見出しが欠けていれば拒否します。本文を `"$VAR"` で渡すと見出しを確認できず拒否されるので、インラインか `--body-file` で渡します。
+同じ経路で `scripts/slack-notice.ts` が Slack MCP の投稿系ツール（send / schedule / update。下書きは対象外）を検査し、本文が `[自動投稿です。玉堀の秘書システムによるものです。]` で終わらなければ拒否します。
 
 uv、ax、brewUpdate への誘導は、代替コマンドが実行可能な場合だけ発動します。
 専用の閲覧・検索ツールの有無は、適用する CLI で区別します。

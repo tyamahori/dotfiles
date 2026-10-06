@@ -1,5 +1,6 @@
 import { denyCommand } from "../../scripts/command-policy.ts";
 import { missingTemplateHeadings, templateReason } from "../../scripts/pr-template-check.ts";
+import { slackNoticeViolation } from "../../scripts/slack-notice.ts";
 
 interface ToolCallEvent {
   toolName: string;
@@ -17,7 +18,10 @@ interface ExtensionApi {
 
 export default function denyCommands(pi: ExtensionApi) {
   pi.on("tool_call", async (event, ctx) => {
-    if (event.toolName !== "bash") return;
+    if (event.toolName !== "bash") {
+      const reason = slackNoticeViolation(event.toolName, event.input);
+      return reason ? { block: true, reason } : undefined;
+    }
     const command = event.input?.command;
     if (typeof command !== "string") return;
     const reason = denyCommand(command, "omp");

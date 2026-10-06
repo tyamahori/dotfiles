@@ -37,3 +37,14 @@ test("malformed hook envelopes fail instead of becoming silent approvals", () =>
     expect(() => denyCommandHook("codex", input)).toThrow();
   }
 });
+
+test("Slack MCP posts must end with the notice; drafts and reads pass", () => {
+  const notice = "[自動投稿です。玉堀の秘書システムによるものです。]";
+  const slack = (tool_name: string, tool_input: object) => denyCommandHook("claude", JSON.stringify({ tool_name, tool_input }));
+  expect(slack("mcp__claude_ai_Slack__slack_send_message", { channel_id: "C1", message: "deploy done" })?.hookSpecificOutput.permissionDecision).toBe("deny");
+  expect(slack("mcp__slack__slack_send_message", { message: `deploy done\n${notice}\n` })).toBeDefined();
+  expect(slack("mcp__slack__slack_schedule_message", { channel_id: "C1" })).toBeDefined();
+  expect(slack("mcp__slack__slack_send_message", { message: `deploy done\n\n${notice}` })).toBeUndefined();
+  expect(slack("mcp__slack__slack_send_message_draft", { message: "draft" })).toBeUndefined();
+  expect(slack("mcp__slack__slack_read_channel", { channel_id: "C1" })).toBeUndefined();
+});

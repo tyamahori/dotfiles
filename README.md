@@ -407,7 +407,9 @@ extensions in `omp/extensions/`:
   `devbox/devbox.json`, `scripts/python`, `scripts/apps`). Sweeping stages
   (`git add -A/./-u`, `git commit -a`) and agent-launched `hunk diff --watch`
   are rejected; Claude/OMP also reject `sed -i` / `perl -pi` in favor of the
-  edit tools.
+  edit tools. Slack MCP posting tools (send/schedule/update, not drafts) are
+  rejected unless the body ends with the required automated-post notice
+  (`scripts/slack-notice.ts`; Claude matches `mcp__.*[Ss]lack.*`).
   Authentication, mutations, downloads, and diagnostic curl options remain
   available. This checks agent shell calls, not commands inside existing
   scripts, and never rewrites or runs the rejected command.

@@ -1,5 +1,6 @@
 import { denyCommand } from "./command-policy.ts";
 import { missingTemplateHeadings, templateReason } from "./pr-template-check.ts";
+import { slackNoticeViolation } from "./slack-notice.ts";
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return (
@@ -27,11 +28,15 @@ export function denyCommandHook(client: "claude" | "codex", payload: string) {
     throw new Error("hook input tool_input.command must be a string");
   }
 
-  if (typeof command !== "string") return;
-  let reason = denyCommand(command, client);
-  if (!reason) {
-    const missing = missingTemplateHeadings(command, typeof input.cwd === "string" ? input.cwd : process.cwd());
-    if (missing.length > 0) reason = templateReason(missing);
+  let reason: string | undefined;
+  if (typeof command === "string") {
+    reason = denyCommand(command, client);
+    if (!reason) {
+      const missing = missingTemplateHeadings(command, typeof input.cwd === "string" ? input.cwd : process.cwd());
+      if (missing.length > 0) reason = templateReason(missing);
+    }
+  } else if (typeof input.tool_name === "string") {
+    reason = slackNoticeViolation(input.tool_name, toolInput);
   }
   if (!reason) return;
   return {
