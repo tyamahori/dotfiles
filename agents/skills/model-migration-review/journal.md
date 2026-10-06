@@ -2,6 +2,29 @@
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
 
+## 2026-10-06 OMP の task / vision / smol / commit を Claude へ
+
+- 契機: 週次 usage review で Codex 週次枠が逼迫し Anthropic 側に余裕があったため、
+  ユーザーが「Claude に移せるものは移す、クロスレビューは維持」と判断した。判定: 判断。
+- 変更: `omp/config.yml` の `task` / `vision` を `openai-codex/gpt-5.6-terra` →
+  `anthropic/claude-sonnet-5-5`、`smol` / `commit` を `openai-codex/gpt-6-luna` →
+  `anthropic/claude-haiku-4-5`。`slow`(reviewer / security-reviewer の override)と
+  `advisor` は Claude 作業への別系統レビュー・助言として Codex に据え置き。
+  付随して `omp/extensions/jev-skill-hint.ts` の代替モデル `@smol` を
+  `openai-codex/gpt-6-luna` 固定に変更(`@smol` が haiku と重複し、Anthropic 障害時の
+  別系統退避が消えるため)。`docs/jev.md` とテストを同期。
+  公式資料(取得日 2026-10-06): https://www.anthropic.com/claude-sonnet-5-5
+  (ID `claude-sonnet-5-5`、Sonnet 5 より高速・低価格)。
+- 副次効果: Claude 担当とされた実装の一部を terra subagent が書き、Codex reviewer が
+  それをレビューする同系統レビューが解消する。
+- 検証: `omp config get modelRoles` が新値。新規プロセスの `omp -p --no-session`
+  で `@task` / `@vision` が `claude-sonnet-5-5`、`@smol` / `@commit` が
+  `claude-haiku-4-5`、`@slow` が `gpt-6-astra` で応答。jev テスト 5 pass。
+  その後 `scripts/model-pins ack`。稼働中の OMP セッションは再起動が必要。
+- 1週間後: Anthropic 5h / 7d 枠の退避発生有無、Codex 週次枠の推移、subagent の
+  失敗・再試行の増減を `agent-usage-weekly` で確認する。プロジェクト側の役割既定値を
+  Claude へ寄せるかはこの結果を見てから判断する。
+
 ## 2026-10-05 codex/config.toml を gpt-6.1-sol へ
 
 - 契機: 週次 usage review で、user 層 `~/.codex/config.toml` の

@@ -1,8 +1,10 @@
+# slow (reviewer overrides) and advisor stay on Codex: cross-family review
+# and second opinions for Claude-authored work.
 modelRoles:
-  vision: openai-codex/gpt-5.6-terra
-  smol: openai-codex/gpt-6-luna
-  task: openai-codex/gpt-5.6-terra
-  commit: openai-codex/gpt-6-luna
+  vision: anthropic/claude-sonnet-5-5
+  smol: anthropic/claude-haiku-4-5
+  task: anthropic/claude-sonnet-5-5
+  commit: anthropic/claude-haiku-4-5
   plan: anthropic/claude-fable-5-1
   slow: openai-codex/gpt-6-astra
   advisor: openai-codex/gpt-5.6-terra

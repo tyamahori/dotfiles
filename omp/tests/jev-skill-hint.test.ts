@@ -202,7 +202,7 @@ test("falls back to the next lower model when Jev fails and skips failed models 
 	};
 	const models: Record<string, { provider: string; id: string }> = {
 		"anthropic/claude-haiku-4-5": { provider: "anthropic", id: "haiku" },
-		"@smol": { provider: "openai-codex", id: "luna" },
+		"openai-codex/gpt-6-luna": { provider: "openai-codex", id: "luna" },
 	};
 	const ctx = {
 		...ctxWithSystemPrompt(THREE_SKILL_PROMPT),

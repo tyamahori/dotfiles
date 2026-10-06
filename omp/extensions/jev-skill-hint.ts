@@ -53,8 +53,9 @@ const SHORTLIST = 3;
 const FITS_THRESHOLD = 0.3;
 const MAX_PROMPT_CHARS = 4_000;
 // Jev 不可時の選定モデル(順に試す)。Claude は実測で速い haiku を先に置く。
-// Codex 側は modelRoles.smol を参照し、モデル pin の移行に追従させる。
-const FALLBACK_MODELS = ["anthropic/claude-haiku-4-5", "@smol"];
+// Codex 側は固定 pin。@smol が Claude になったため、Anthropic 障害時の退避先として
+// 別系統を明示する(モデル移行時は model-migration-review で追従)。
+const FALLBACK_MODELS = ["anthropic/claude-haiku-4-5", "openai-codex/gpt-6-luna"];
 const FALLBACK_TIMEOUT_MS = 8_000;
 // JEV_API_KEY は環境変数優先、無ければこのマシンの dotfiles リポジトリの
 // `.env` にフォールバックする(loadJevApiKey 参照)。cwd は呼び出し元
