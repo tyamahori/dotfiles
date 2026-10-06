@@ -64,6 +64,11 @@ task:
     librarian: "@smol"
 compaction:
   thresholdTokens: 160000
+  # snapcompact omitted: with the fixed 160k trigger it kept ~88% of tokens
+  # (median, 185 runs) and re-fired within minutes; LLM methods halve context.
+  methodOrder: [remote, handoff, shake, soft]
+lsp:
+  diagnosticsOnEdit: true
 display:
   showTokenUsage: true
   cacheMissMarker: true
