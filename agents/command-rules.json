@@ -88,6 +88,53 @@
         "codex": "Sleeps of 10s or more are blocked: don't poll. Wait on the event itself in one command: `gh pr checks <PR> --watch --fail-fast`, `gh run watch <id> --exit-status`, or a readiness loop with a short sleep.",
         "omp": "Sleeps of 10s or more are blocked: don't poll. Run one async bash that waits on the event itself (`gh pr checks <PR> --watch --fail-fast`, `gh run watch <id> --exit-status`); its result is delivered automatically. For servers use a named bash service with `ready`."
       }
+    },
+    {
+      "id": "ad-hoc-install",
+      "matcher": "command",
+      "commands": [
+        { "executables": ["brew"], "nextArgPattern": "^(?:install|reinstall)$" },
+        { "executables": ["npm", "pnpm", "bun"], "nextArgPattern": "^(?:install|i|add)$", "anyArgPattern": "^(?:-g|--global)$" },
+        { "executables": ["yarn"], "subcommand": "global" },
+        { "executables": ["pip", "pip3", "pipx", "gem", "cargo", "go"], "subcommand": "install" },
+        { "executables": ["uv"], "subcommand": "tool", "anyArgPattern": "^install$" }
+      ],
+      "clients": ["claude", "codex", "omp"],
+      "replacement": { "type": "native-tool" },
+      "reason": "Ad hoc global installs are blocked: every tool has an owning file. Ask the user first, then declare it there and run the owner — macOS tools: `~/.Brewfile` + `brew bundle --file ~/.Brewfile`; cross-platform toolchains: `~/dotfiles/devbox/devbox.json` + `~/dotfiles/scripts/devbox`; uv tools: `~/dotfiles/scripts/python`; npm CLIs: `~/dotfiles/scripts/apps`. Project-local installs (`npm install`, `uv add`, `go get`) stay allowed."
+    },
+    {
+      "id": "git-add-all",
+      "matcher": "command",
+      "commands": [
+        { "executables": ["git"], "subcommand": "add", "anyArgPattern": "^(?:-A|--all|-u|--update|\\.|\\./|:/|\\*)$" },
+        { "executables": ["git"], "subcommand": "commit", "anyArgPattern": "^(?:-[A-Za-z]*a[A-Za-z]*|--all)$" }
+      ],
+      "clients": ["claude", "codex", "omp"],
+      "replacement": { "type": "native-tool" },
+      "reason": "Sweeping stages (`git add -A/./-u`, `git commit -a`) are blocked: they pick up the user's unrelated edits. Stage the paths you changed explicitly: `git add path/a path/b`, then check `git diff --cached --stat`."
+    },
+    {
+      "id": "shell-in-place-edit",
+      "matcher": "command",
+      "commands": [
+        { "executables": ["sed", "gsed"], "anyArgPattern": "^(?:-[Enrsuz]*i|--in-place(?:=|$))" },
+        { "executables": ["perl"], "anyArgPattern": "^-[pnlaw0-9]*i" }
+      ],
+      "clients": ["claude", "omp"],
+      "replacement": { "type": "native-tool" },
+      "reasons": {
+        "claude": "In-place shell edits (`sed -i`, `perl -pi`) are blocked. Use Edit/Write; for the same rewrite across many files use ast-grep (`structural-edit` skill).",
+        "omp": "In-place shell edits (`sed -i`, `perl -pi`) are blocked. Use `edit`/`write`; for the same rewrite across many files use `xd://ast_edit`."
+      }
+    },
+    {
+      "id": "hunk-watch",
+      "matcher": "command",
+      "commands": [{ "executables": ["hunk"], "subcommand": "diff", "anyArgPattern": "^--watch$" }],
+      "clients": ["claude", "codex", "omp"],
+      "replacement": { "type": "native-tool" },
+      "reason": "`hunk diff --watch` is the human's review surface; agents never launch it. Ask the user to open it, then use the `hunk-review` skill against the live session."
     }
   ]
 }

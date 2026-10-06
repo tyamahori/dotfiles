@@ -560,6 +560,10 @@ Claude Code と Codex のフック実行には、`scripts/devbox` で導入す�
 | `brew upgrade` | `scripts/brewUpdate` | 三 CLI |
 | `.env` 系資格情報ファイルの shell 経由の閲覧 | 読ませない（代替なし） | 三 CLI |
 | `--draft` なしの `gh pr create` | `--draft` を付けて再実行 | 三 CLI |
+| `brew install` / `npm i -g` / `pip install` / `go install` / `cargo install` などの場当たり導入 | 所有ファイル（`~/.Brewfile`、`devbox/devbox.json`、`scripts/python`、`scripts/apps`）へ追記して所有スクリプトを実行 | 三 CLI |
+| `git add -A` / `.` / `-u`、`git commit -a` | 変更したパスを明示して `git add` | 三 CLI |
+| `sed -i` / `perl -pi` | `edit` / `write`、一括なら `ast_edit` | Claude Code、OMP |
+| `hunk diff --watch` | ユーザーに起動を頼み、`hunk-review` で操作 | 三 CLI |
 
 ルール表とは別に、同じフック経路で `scripts/pr-template-check.ts` が `gh pr create --body` / `--body-file` を検査します。
 リポジトリに PR テンプレートがあり、本文にその見出しが欠けていれば拒否します。本文を `"$VAR"` で渡すと見出しを確認できず拒否されるので、インラインか `--body-file` で渡します。

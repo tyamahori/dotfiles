@@ -32,7 +32,6 @@ test("Python pipelines are denied while read filters and write-mode cat stay all
   expect(denyCommand("cat > out", "omp")).toBeUndefined();
   expect(denyCommand("cat file", "omp")).toBeDefined();
   expect(denyCommand("sed -n '1,5p' file", "claude")).toBeDefined();
-  expect(denyCommand("sed -i '' 's/old/new/' file", "omp")).toBeUndefined();
   expect(denyCommand("grep value file", "codex")).toBeUndefined();
   expect(denyCommand("grep value file", "claude")).toContain("Grep");
   expect(denyCommand("grep value file", "omp")).toContain("glob");
@@ -76,7 +75,7 @@ test("brew matches the exact upgrade subcommand, not argument text", () => {
   which.mockReturnValue("/available/brewUpdate");
   expect(denyCommand("brew upgrade --cask", "codex")).toBeDefined();
   expect(denyCommand("command brew upgrade omp", "claude")).toBeDefined();
-  for (const command of ["brew update", "brew install upgrade", "brew upgrades", "brew info upgrade", "echo 'brew upgrade'"]) {
+  for (const command of ["brew update", "brew uses upgrade", "brew upgrades", "brew info upgrade", "echo 'brew upgrade'"]) {
     expect(denyCommand(command, "omp")).toBeUndefined();
   }
 });
@@ -118,4 +117,37 @@ test("sleeps of 10s or more are denied as polling; short readiness sleeps stay a
   for (const command of ["sleep 2 && curl -sf http://localhost:3000/health", "sleep 9", "sleep 0.5", "echo 'sleep 60'"]) {
     expect(denyCommand(command, "claude")).toBeUndefined();
   }
+});
+
+test("global installs are denied; project-local installs and owner scripts stay allowed", () => {
+  for (const command of ["brew install pict", "npm i -g typescript", "pnpm add --global x", "pip install requests", "go install golang.org/x/tools/gopls@latest", "uv tool install ruff", "cargo install ripgrep"]) {
+    expect(denyCommand(command, "codex")).toBeDefined();
+  }
+  for (const command of ["npm install", "pnpm add zod", "uv add httpx", "go get ./...", "brew bundle --file ~/.Brewfile", "uv pip install -e .", "brew info pict"]) {
+    expect(denyCommand(command, "omp")).toBeUndefined();
+  }
+});
+
+test("sweeping git stages are denied; explicit paths are not", () => {
+  for (const command of ["git add -A", "git add .", "git add -u", "git commit -am 'msg'", "git commit --all -m x"]) {
+    expect(denyCommand(command, "claude")).toBeDefined();
+  }
+  for (const command of ["git add src/a.ts docs/b.md", "git add -p src/a.ts", "git commit -m 'add -A flag docs'", "git commit --amend --no-edit"]) {
+    expect(denyCommand(command, "claude")).toBeUndefined();
+  }
+});
+
+test("in-place shell edits are denied for clients with an edit tool", () => {
+  for (const command of ["sed -i '' 's/a/b/' f", "sed -Ei 's/a/b/' f", "gsed --in-place 's/a/b/' f", "perl -pi -e 's/a/b/' f", "perl -i.bak -pe 1 f"]) {
+    expect(denyCommand(command, "omp")).toBeDefined();
+  }
+  for (const command of ["sed 's/a/b/' f > g", "printf x | sed 's/-i/x/'", "perl -Ilib script.pl"]) {
+    expect(denyCommand(command, "omp")).toBeUndefined();
+  }
+  expect(denyCommand("sed -i 's/a/b/' f", "codex")).toBeUndefined();
+});
+
+test("agents may not launch hunk's watch session", () => {
+  expect(denyCommand("hunk diff --watch", "omp")).toBeDefined();
+  expect(denyCommand("hunk session list", "omp")).toBeUndefined();
 });

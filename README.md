@@ -401,7 +401,13 @@ extensions in `omp/extensions/`:
   only when the replacement executable is available. Shell read/search
   commands redirect to dedicated tools in Claude/OMP, not Codex. `sleep` of
   10 s or more is rejected as polling; agents wait on the event instead
-  (`gh pr checks --watch` in a background command).
+  (`gh pr checks --watch` in a background command). Ad hoc global installs
+  (`brew install`, `npm i -g`, `pip install`, `go install`, `cargo install`,
+  `uv tool install`) point to the owning file (`~/.Brewfile`,
+  `devbox/devbox.json`, `scripts/python`, `scripts/apps`). Sweeping stages
+  (`git add -A/./-u`, `git commit -a`) and agent-launched `hunk diff --watch`
+  are rejected; Claude/OMP also reject `sed -i` / `perl -pi` in favor of the
+  edit tools.
   Authentication, mutations, downloads, and diagnostic curl options remain
   available. This checks agent shell calls, not commands inside existing
   scripts, and never rewrites or runs the rejected command.
