@@ -1,0 +1,22 @@
+#!/bin/bash
+# After `git pull` in dotfiles, run the follow-up steps AGENTS.md lists instead
+# of relying on the agent or human to remember them: relink when agents/ or
+# omp/ changed, rerun agent-tools when it changed, and say when running OMP
+# sessions need a restart. Never blocks: post-merge cannot undo the merge.
+set -uo pipefail
+
+repo_root=$(git rev-parse --show-toplevel)
+changed=$(git diff --name-only ORIG_HEAD HEAD 2>/dev/null) || exit 0
+
+if grep -qE '^(agents|omp)/' <<<"$changed"; then
+	echo "post-merge: agents/ or omp/ changed; running scripts/link" >&2
+	"$repo_root/scripts/link" || echo "post-merge: scripts/link failed (exit $?)" >&2
+fi
+if grep -qx 'scripts/agent-tools' <<<"$changed"; then
+	echo "post-merge: scripts/agent-tools changed; running it" >&2
+	"$repo_root/scripts/agent-tools" || echo "post-merge: scripts/agent-tools failed (exit $?)" >&2
+fi
+if grep -qE '^omp/(config\.yml|extensions/)' <<<"$changed"; then
+	echo "post-merge: omp/config.yml or omp/extensions/ changed; restart running OMP sessions to load it" >&2
+fi
+exit 0

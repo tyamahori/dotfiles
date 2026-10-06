@@ -13,6 +13,8 @@
 	colorMoved = zebra
 [fetch]
 	prune = true
+[pull]
+	ff = only
 [push]
 	autoSetupRemote = true
 [filter "lfs"]

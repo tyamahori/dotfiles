@@ -43,15 +43,18 @@ For a full new-machine migration — including the manual steps `scripts/setup`
 does not cover (sign-ins, 1Password SSH agent, jbcontext, launchd choices,
 machine-local state) — follow [`docs/new-machine.md`](docs/new-machine.md).
 
-`scripts/link` also enables this repository's pre-commit guard. It blocks staged
-UUIDs and dollar-denominated measurements. Add machine-specific project or
-customer names to the gitignored `git/sensitive-patterns.local`, one literal
-string per line. Intentional public content can bypass the guard with
-`git commit --no-verify`.
+`scripts/link` also enables this repository's local hooks. The pre-commit guard
+blocks staged UUIDs, dollar-denominated measurements, and absolute `$HOME/`
+paths. Add machine-specific project or customer names to the gitignored
+`git/sensitive-patterns.local`, one literal string per line. Intentional public
+content can bypass the guard with `git commit --no-verify`. The post-merge hook
+runs `scripts/link` when a pull changes `agents/` or `omp/`, reruns
+`scripts/agent-tools` when it changes, and says when running OMP sessions need
+a restart.
 
 `.gitconfig` also standardizes `main` as the initial branch, readable non-ASCII
-paths, histogram/moved-line diffs, stale remote pruning, and first-push upstream
-setup.
+paths, histogram/moved-line diffs, stale remote pruning, fast-forward-only
+pulls, and first-push upstream setup.
 
 ### Interactive CLI tools
 
