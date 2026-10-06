@@ -77,10 +77,12 @@ omp @README.md "セットアップ手順の不足を指摘して"
 `omp`、`omp-repo`、`omp-build` は `.zshrc` で定義した関数です。
 新しいターミナルで見つからない場合は `source ~/.zshrc` を実行してください。
 
-Python と Go の language server は `omp/lsp.json` で user-wide に設定しています。
-Git リポジトリのルートから起動すれば、設定ファイルのないリポジトリでも Pyright と gopls を利用できます。
+Python、Go、TypeScript の language server は `omp/lsp.json` で user-wide に設定しています。
+Git リポジトリのルートから起動すれば、設定ファイルのないリポジトリでも Pyright、gopls、`typescript-native` を利用できます。
 Go module では `go.work` または `go.mod` もプロジェクトルートの検出に使います。
+TypeScript は `typescript-native`（`tsc --lsp --stdio`）です。手元の `tsc` は 7 系のネイティブ版で `tsserver.js` を持たないため、`typescript-language-server` は起動できません。`tsconfig.json` のないリポジトリ（この dotfiles など）では開いたファイル単位の推論プロジェクトになるので、ファイルをまたぐ参照検索は取りこぼします。
 Bash と YAML は built-in 定義（root marker は `.git`）のまま、`scripts/devbox` が入れる `bash-language-server` と `yaml-language-server` で自動検出されます。
+`omp/config.yml` の `lsp.diagnosticsOnEdit: true` で、`edit` のたびに型・lint 診断を返します。
 
 `debug` ツールのアダプタは Go が `delve`（`scripts/devbox`）、Python が `debugpy`（`scripts/python` の `uv tool install`）です。
 built-in の debugpy 定義は `python -m debugpy.adapter` を起動しますが、uv tool は隔離 venv なので `omp/dap.json` で `debugpy-adapter` 実行ファイルへ差し替えています。

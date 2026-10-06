@@ -17,6 +17,14 @@
         "requirements.txt",
         "Pipfile"
       ]
+    },
+    "typescript-native": {
+      "rootMarkers": [
+        ".git",
+        "jsconfig.json",
+        "package.json",
+        "tsconfig.json"
+      ]
     }
   }
 }
