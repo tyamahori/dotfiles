@@ -1,0 +1,12 @@
+#!/bin/bash
+# Opt-in, not part of scripts/setup: let sudo (e.g. cask installs during
+# scripts/brewUpdate) accept Touch ID. sudo_local survives macOS updates, unlike
+# edits to /etc/pam.d/sudo. pam_reattach (from ~/.Brewfile) makes the prompt
+# appear inside tmux/herdr; it is `optional`, so sudo still works without it.
+# Undo with `sudo rm /etc/pam.d/sudo_local`.
+set -euo pipefail
+
+sudo tee /etc/pam.d/sudo_local >/dev/null <<'EOF'
+auth       optional       /opt/homebrew/lib/pam/pam_reattach.so ignore_ssh
+auth       sufficient     pam_tid.so
+EOF

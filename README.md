@@ -27,6 +27,8 @@ cd ~/project/dotfiles
 
 Spotlight indexing is no longer disabled by setup; run `scripts/disable-spotlight`
 to opt in (undo with `sudo mdutil -a -i on`).
+`scripts/touchid-sudo` (also opt-in) lets sudo accept Touch ID, including inside
+tmux/herdr; undo with `sudo rm /etc/pam.d/sudo_local`.
 
 Versions: devbox packages are pinned by `devbox/devbox.lock`, and npm OMP
 plugins by the versions in `scripts/omp-plugins`' `plugins` array (it reinstalls the declared

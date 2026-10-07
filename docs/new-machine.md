@@ -36,6 +36,7 @@ cd ~/project/dotfiles
 - 版はdevboxのパッケージ（`devbox/devbox.lock`）と、`scripts/omp-plugins` の `plugins` 配列に版を書いたnpm版OMP pluginだけを固定する。marketplace plugin（ponytail）・Brewfile・npm・各インストーラは最新を入れる（READMEの「Versions」）。
 - 実行内容と順序はREADMEの「Setup」節のとおり（init → devbox → apps → python → link → agent-tools → omp-plugins）。
 - 対象はApple Silicon Macのみ。Spotlightの索引を止めたい場合は、setup後に `./scripts/disable-spotlight` を別途実行する（戻すときは `sudo mdutil -a -i on`）。
+- sudo（brewUpdate 中の cask インストールなど）を指紋認証にしたい場合は `./scripts/touchid-sudo` を実行する（戻すときは `sudo rm /etc/pam.d/sudo_local`）。
 
 ## 4. 認証を復元する
 
