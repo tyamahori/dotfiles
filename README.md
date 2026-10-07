@@ -3,9 +3,9 @@
 tyamahori's setup for Apple Silicon macOS (`scripts/init` refuses other Macs)
 and, through the same `scripts/setup`, Ubuntu VMs (see [OrbStack VM](#orbstack-vm-ubuntu-2404)).
 
-On a fresh Mac, sign in to the App Store (the Brewfile's `mas` entries fail
-otherwise) and run `xcode-select --install` before cloning; the clone needs
-the Command Line Tools' `git`.
+On a fresh Mac, run `xcode-select --install` before cloning; the clone needs
+the Command Line Tools' `git`. The Brewfile's `mas` entries are commented out;
+uncomment them after signing in to the App Store to install those apps.
 
 ## Setup
 

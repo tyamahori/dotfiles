@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # OS application layer, after scripts/devbox (Linux needs its node).
-# macOS: the Brewfile (casks, mas, and the claude-code / codex / omp CLIs).
+# macOS: the Brewfile (casks and the claude-code / codex / omp CLIs; mas lines are commented out).
 # Linux: those CLIs have no Brewfile, so install them per user; Copilot CLI
 # comes from devbox on both OSes. Versions follow upstream latest.
 SCRIPT_DIR="$(cd -P "$(dirname "$0")" && pwd)"

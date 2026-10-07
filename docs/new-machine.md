@@ -17,8 +17,7 @@
 
 ## 2. 新マシンで最初にやる2つ
 
-- App Storeにサインインする。
-  `scripts/apps`（brew bundle）の `mas` 行は、サインインしていないとインストールに失敗する。
+- `.Brewfile` の `mas` 行はコメントアウトしてある。App Storeのアプリも入れたい場合は、App Storeにサインインしてからコメントを外す。
 - コマンドラインツールを入れる：`xcode-select --install`。
   クローンに使うgitがこれで動くようになる。
 
