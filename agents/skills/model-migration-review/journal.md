@@ -1,6 +1,38 @@
 # model migration journal
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
+## 2026-10-09 Haiku 4.5 → Haiku 5.5
+
+- 契機: ユーザー承認により、軽量ロールと退避先を全置換。判定: 判断。
+- 収集した公式資料(取得日 2026-10-09):
+  `https://www.anthropic.com/claude-haiku-5-5`、
+  `https://platform.claude.com/docs/en/models/overview`、
+  `https://platform.claude.com/docs/en/models/haiku-5-5/migration-guide`。
+  Haiku 5.5 は `claude-haiku-5-5`、高速・低価格の高頻度用途向け、
+  デフォルト effort は `medium`。Haiku 4.5 より同一テキストのトークン数が
+  約30%増える。移行ガイドは API 直接利用時の adaptive thinking、
+  サンプリングパラメータ、prefill、tool 呼び出しの変更を列挙している。
+  このリポジトリにはそれらを直接構成する Haiku API 呼び出しはなく、OMP の
+  モデル指定だけを変更した。
+- 提案と承認:
+  `omp/config.yml` の `smol` / `commit`、OpenAI 系および web の退避先、
+  JEV の代替モデル、対応ドキュメントとテストをすべて
+  `anthropic/claude-haiku-5-5` へ置換する案を提示し、ユーザーが承認。
+- 適用:
+  `omp/config.yml`、`omp/extensions/jev-skill-hint.ts`、
+  `omp/tests/jev-skill-hint.test.ts`、`docs/jev.md` を更新。
+  `claude/settings.json` の Opus、Sonnet 5.5 以上のロール、
+  `defaultThinkingLevel: medium` は変更なし。
+- 検証:
+  `bun test omp/tests/jev-skill-hint.test.ts` は 5 pass / 0 fail。
+  `omp config get modelRoles` は `smol` / `commit` と退避先の新 ID を返した。
+  `omp` の新規プロセスによる実モデル呼び出しは、Anthropic API key 未設定
+  (`No API key found for anthropic`) のため未完了。旧 Haiku 4.5 の運用参照は
+  `omp` / `docs` から消去済み。`scripts/model-pins ack` は再起動不要の
+  設定反映確認後に実行する。
+- 1週間後: Haiku 5.5 化前後で、smol / commit の失敗・再試行、遅延、
+  Anthropic 5h / 7d 枠、出力トークン増加の影響を `agent-usage-weekly` で比較する。
+
 
 ## 2026-10-06 OMP の task / vision / smol / commit を Claude へ
 

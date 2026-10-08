@@ -64,7 +64,7 @@ Skill を読むかはこれまで通りエージェントの判断に委ねま�
 タイムアウトなど）ときは、Claude/Codex の下位モデルが代わりに候補を選びます。
 Jev が失敗した場合、そのセッションでは以後 Jev を呼びません。
 
-代替モデルは `anthropic/claude-haiku-4-5`、`openai-codex/gpt-6-luna` の順に試します。
+代替モデルは `anthropic/claude-haiku-5-5`、`openai-codex/gpt-6-luna` の順に試します。
 Anthropic 側の障害でも選定が止まらないよう、2つ目は別系統に固定しています。どちらも OMP 本体の認証をそのまま
 使うため、追加の鍵は要りません。失敗したモデルはそのセッションの候補から外します。
 すべて使えなければヒントを出さず、エラーも表示しません。既存の Skill 選択の動きは
@@ -80,7 +80,7 @@ extension ごと無効化します（鍵を外すだけでは代替モデルが�
 ### 動作を確認する
 
 複数の Skill が絡む依頼を投げ、応答の直前に `Jev候補(参考、必須ではない): ...` が
-挿入されるかを見ます。代替モデルが選んだ場合は `claude-haiku-4-5候補` のように
+挿入されるかを見ます。代替モデルが選んだ場合は `claude-haiku-5-5候補` のように
 モデル ID が入ります。Jev 不可の経路は、無効な鍵を渡した単発実行で確かめられます。
 
 ```bash
@@ -88,8 +88,9 @@ JEV_API_KEY=invalid omp -p --no-session --no-extensions \
   -e ~/dotfiles/omp/extensions/jev-skill-hint.ts "GitHub の PR をレビューしたい"
 ```
 
-実行後、次節の実測ログに `jevError: true` と `selector: "anthropic/claude-haiku-4-5"` の
+実行後、次節の実測ログに `jevError: true` と `selector: "anthropic/claude-haiku-5-5"` の
 行が増えていれば、代替モデルでの選定が動いています。
+
 
 ### 実測ログで効果を測る
 

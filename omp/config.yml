@@ -2,9 +2,9 @@
 # and second opinions for Claude-authored work.
 modelRoles:
   vision: anthropic/claude-sonnet-5-5
-  smol: anthropic/claude-haiku-4-5
+  smol: anthropic/claude-haiku-5-5
   task: anthropic/claude-sonnet-5-5
-  commit: anthropic/claude-haiku-4-5
+  commit: anthropic/claude-haiku-5-5
   plan: anthropic/claude-fable-5-1
   slow: openai-codex/gpt-6-astra
   advisor: openai-codex/gpt-5.6-terra
@@ -20,10 +20,10 @@ retry:
       - openai-codex/gpt-6.1-sol
     openai-codex/*:
       - anthropic/claude-sonnet-5
-      - anthropic/claude-haiku-4-5
+      - anthropic/claude-haiku-5-5
     web:
       - google/gemini-2.5-flash
-      - anthropic/claude-haiku-4-5
+      - anthropic/claude-haiku-5-5
       - openai-codex/gpt-6-luna
       - xai/grok-4.5
       - web/zai

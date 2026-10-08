@@ -201,7 +201,7 @@ test("falls back to the next lower model when Jev fails and skips failed models 
 		return { stopReason: "stop", content: [{ type: "text", text: 'Sure: ["gamma", "nope", "gamma", "alpha"]' }] };
 	};
 	const models: Record<string, { provider: string; id: string }> = {
-		"anthropic/claude-haiku-4-5": { provider: "anthropic", id: "haiku" },
+		"anthropic/claude-haiku-5-5": { provider: "anthropic", id: "haiku" },
 		"openai-codex/gpt-6-luna": { provider: "openai-codex", id: "luna" },
 	};
 	const ctx = {
