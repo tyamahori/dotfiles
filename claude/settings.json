@@ -388,6 +388,7 @@
     "update-config": "user-invocable-only"
   },
   "skipAutoPermissionPrompt": true,
+  "skipWorkflowUsageWarning": true,
   "statusLine": {
     "command": "\"$HOME/.local/share/devbox/global/default/.devbox/nix/profile/default/bin/ccusage\" statusline",
     "padding": 0,
