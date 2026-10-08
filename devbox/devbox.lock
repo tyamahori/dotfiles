@@ -747,16 +747,16 @@
       }
     },
     "github:NixOS/nixpkgs/nixpkgs-unstable": {
-      "last_modified": "2026-10-05T09:07:57Z",
-      "resolved": "github:NixOS/nixpkgs/aa48d347080940b8a2b8d2f48228674e280a3514?lastModified=1791191277"
+      "last_modified": "2026-10-07T01:26:01Z",
+      "resolved": "github:NixOS/nixpkgs/7dd199b0e2993e37b4775ed66b1c291699608c9f?lastModified=1791336361"
     },
     "github:NixOS/nixpkgs/nixpkgs-unstable#php85Packages.composer": {
-      "last_modified": "2026-10-05T09:07:57Z",
-      "resolved": "github:NixOS/nixpkgs/aa48d347080940b8a2b8d2f48228674e280a3514?lastModified=1791191277#php85Packages.composer"
+      "last_modified": "2026-10-07T01:26:01Z",
+      "resolved": "github:NixOS/nixpkgs/7dd199b0e2993e37b4775ed66b1c291699608c9f?lastModified=1791336361#php85Packages.composer"
     },
     "github:NixOS/nixpkgs/nixpkgs-unstable#typescript": {
-      "last_modified": "2026-10-05T09:07:57Z",
-      "resolved": "github:NixOS/nixpkgs/aa48d347080940b8a2b8d2f48228674e280a3514?lastModified=1791191277#typescript"
+      "last_modified": "2026-10-07T01:26:01Z",
+      "resolved": "github:NixOS/nixpkgs/7dd199b0e2993e37b4775ed66b1c291699608c9f?lastModified=1791336361#typescript"
     },
     "gitleaks@latest": {
       "last_modified": "2026-08-27T07:16:00Z",
