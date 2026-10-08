@@ -86,12 +86,15 @@ cask "grok-build"
 cask "adrafinil"
 cask "siketyan/mozc/mozc@pre"
 cask "tabularis"
-mas "AudioSwitcher", id: 561712678
-mas "GarageBand", id: 682658836
-mas "iMovie", id: 408981434
-mas "Keynote", id: 409183694
-mas "LINE", id: 539883307
-mas "MARKETSPEED", id: 946680495
-mas "Numbers", id: 409203825
-mas "Pages", id: 409201541
-mas "Xcode", id: 497799835
+# mas entries disabled: the signed-in Apple Account does not own these apps
+# (redownload refused), and with Spotlight indexing off mas cannot see installed
+# ones. Uncomment once the App Store account owns them.
+# mas "AudioSwitcher", id: 561712678
+# mas "GarageBand", id: 682658836
+# mas "iMovie", id: 408981434
+# mas "Keynote", id: 409183694
+# mas "LINE", id: 539883307
+# mas "MARKETSPEED", id: 946680495
+# mas "Numbers", id: 409203825
+# mas "Pages", id: 409201541
+# mas "Xcode", id: 497799835
