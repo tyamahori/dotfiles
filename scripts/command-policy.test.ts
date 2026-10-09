@@ -137,6 +137,27 @@ test("sweeping git stages are denied; explicit paths are not", () => {
   }
 });
 
+test("raw git worktree add is denied for OMP only inside Herdr", () => {
+  which.mockReturnValue("/available/herdr");
+  const saved = process.env.HERDR_ENV;
+  try {
+    process.env.HERDR_ENV = "1";
+    expect(denyCommand("git worktree add ../repo-pr1 -b feat/x origin/main", "omp")).toContain("herdr worktree create");
+    for (const command of ["git worktree list", "git worktree remove ../repo-pr1", "git add src/worktree.ts"]) {
+      expect(denyCommand(command, "omp")).toBeUndefined();
+    }
+    expect(denyCommand("git worktree add ../x", "claude")).toBeUndefined();
+    which.mockReturnValue(null);
+    expect(denyCommand("git worktree add ../x", "omp")).toBeUndefined();
+    which.mockReturnValue("/available/herdr");
+    delete process.env.HERDR_ENV;
+    expect(denyCommand("git worktree add ../x", "omp")).toBeUndefined();
+  } finally {
+    if (saved === undefined) delete process.env.HERDR_ENV;
+    else process.env.HERDR_ENV = saved;
+  }
+});
+
 test("in-place shell edits are denied for clients with an edit tool", () => {
   for (const command of ["sed -i '' 's/a/b/' f", "sed -Ei 's/a/b/' f", "gsed --in-place 's/a/b/' f", "perl -pi -e 's/a/b/' f", "perl -i.bak -pe 1 f"]) {
     expect(denyCommand(command, "omp")).toBeDefined();

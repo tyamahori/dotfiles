@@ -115,6 +115,15 @@
       "reason": "Sweeping stages (`git add -A/./-u`, `git commit -a`) are blocked: they pick up the user's unrelated edits. Stage the paths you changed explicitly: `git add path/a path/b`, then check `git diff --cached --stat`."
     },
     {
+      "id": "raw-git-worktree-add",
+      "matcher": "command",
+      "commands": [{ "executables": ["git"], "subcommand": "worktree", "anyArgPattern": "^add$" }],
+      "clients": ["omp"],
+      "requireEnv": { "HERDR_ENV": "1" },
+      "replacement": { "type": "command", "value": "herdr" },
+      "reason": "Raw `git worktree add` is blocked inside Herdr: use Herdr-managed worktrees. New branch: `herdr worktree create --cwd <repo> --branch <name> --base <ref> --no-focus`; existing branch: `herdr worktree open --cwd <repo> --branch <name> --no-focus`. Read skill://herdr first."
+    },
+    {
       "id": "shell-in-place-edit",
       "matcher": "command",
       "commands": [

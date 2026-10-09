@@ -412,7 +412,9 @@ extensions in `omp/extensions/`:
   `devbox/devbox.json`, `scripts/python`, `scripts/apps`). Sweeping stages
   (`git add -A/./-u`, `git commit -a`) and agent-launched `hunk diff --watch`
   are rejected; Claude/OMP also reject `sed -i` / `perl -pi` in favor of the
-  edit tools. Slack MCP posting tools (send/schedule/update, not drafts) are
+  edit tools. Inside a Herdr pane (`HERDR_ENV=1`, rule field `requireEnv`),
+  OMP rejects raw `git worktree add` in favor of `herdr worktree create` /
+  `open`. Slack MCP posting tools (send/schedule/update, not drafts) are
   rejected unless the body ends with the required automated-post notice
   (`scripts/slack-notice.ts`; Claude matches `mcp__.*[Ss]lack.*`).
   Authentication, mutations, downloads, and diagnostic curl options remain
@@ -475,8 +477,9 @@ worktrees process the file natively. Herdr runs the same copy behavior from its
 `worktree.created` plugin. OMP task isolation clones the full checkout, so the
 same files are already present there.
 
-When an agent creates a worktree with raw `git worktree add`, the shared
-instructions require it to run:
+When an agent creates a worktree with raw `git worktree add` (outside Herdr;
+OMP inside Herdr must use `herdr worktree create`), the shared instructions
+require it to run:
 
 ```bash
 worktree-include-copy <source-repository> <new-worktree>

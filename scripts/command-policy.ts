@@ -17,6 +17,9 @@ type Rule = {
   commands: CommandMatch[];
   excludeAfterPipe?: boolean;
   clients: Client[];
+  // Applies only when every listed variable has exactly this value (e.g. a
+  // rule that only makes sense inside a Herdr pane).
+  requireEnv?: Record<string, string>;
   replacement: { type: "command"; value: string } | { type: "native-tool" };
   // One shared `reason`, or per-client `reasons` when the wording must name
   // that client's tools.
@@ -243,6 +246,7 @@ export function denyCommand(command: string, client: Client): string | undefined
   const parsed = segments(command);
   for (const rule of rules) {
     if (!rule.clients.includes(client)) continue;
+    if (rule.requireEnv && Object.entries(rule.requireEnv).some(([name, value]) => process.env[name] !== value)) continue;
     const matched = parsed.segments.some(({ words, followsPipe }) => {
       if (rule.excludeAfterPipe && followsPipe) return false;
       const index = commandIndex(words);
