@@ -78,6 +78,34 @@
       "reason": "PRs are created as drafts on this machine. Re-run `gh pr create` with `--draft`; mark it ready only when the user asks."
     },
     {
+      "id": "git-pull-conflicting-ff",
+      "matcher": "command",
+      "commands": [
+        {
+          "executables": ["git"],
+          "subcommand": "pull",
+          "anyArgPattern": "^(?:--no-ff|--ff|--ff=false)$"
+        }
+      ],
+      "clients": ["claude", "codex", "omp"],
+      "replacement": { "type": "command", "value": "git" },
+      "reason": "`git pull` cannot override fast-forward-only with `--no-ff` or `--ff=false`. Remove the conflicting option and use `git pull --ff-only`."
+    },
+    {
+      "id": "git-pull-ff-only",
+      "matcher": "command",
+      "commands": [
+        {
+          "executables": ["git"],
+          "subcommand": "pull",
+          "noArgPattern": "^(?:--ff-only|--ff-only=.+)$"
+        }
+      ],
+      "clients": ["claude", "codex", "omp"],
+      "replacement": { "type": "command", "value": "git" },
+      "reason": "Remote pulls must be fast-forward-only. Re-run `git pull --ff-only` so an agent cannot create an implicit merge."
+    },
+    {
       "id": "sleep-polling",
       "matcher": "command",
       "commands": [{ "executables": ["sleep"], "nextArgPattern": "^(?:[1-9]\\d+(?:\\.\\d+)?s?|\\d+(?:\\.\\d+)?[mhd])$" }],

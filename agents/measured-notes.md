@@ -16,6 +16,15 @@ branch cut from an unmerged branch dragged in 17 unrelated commits.
 
 Mechanized: git/global-hooks/checks/pre-push-base-freshness (wired via git/global-hooks/dispatch, 2026-09-17).
 
+## Remote pulls stay fast-forward-only
+
+The repository rule is `git pull --ff-only`; an implicit merge can import
+unrelated remote history without an explicit decision.
+
+Mechanized: `dotfiles/.gitconfig` sets `pull.ff = only`, and
+`agents/command-rules.json` blocks agent-issued `git pull` commands that omit
+`--ff-only`.
+
 ## Root-cause claims need reproduction
 
 2026-08-24: two investigations blamed an external API's plan and an

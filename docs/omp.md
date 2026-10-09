@@ -563,6 +563,7 @@ Claude Code と Codex のフック実行には、`scripts/devbox` で導入す�
 | `--draft` なしの `gh pr create` | `--draft` を付けて再実行 | 三 CLI |
 | `brew install` / `npm i -g` / `pip install` / `go install` / `cargo install` などの場当たり導入 | 所有ファイル（`~/.Brewfile`、`devbox/devbox.json`、`scripts/python`、`scripts/apps`）へ追記して所有スクリプトを実行 | 三 CLI |
 | `git add -A` / `.` / `-u`、`git commit -a` | 変更したパスを明示して `git add` | 三 CLI |
+| `--ff-only` なしの `git pull` | `git pull --ff-only` | 三 CLI |
 | `sed -i` / `perl -pi` | `edit` / `write`、一括なら `ast_edit` | Claude Code、OMP |
 | `hunk diff --watch` | ユーザーに起動を頼み、`hunk-review` で操作 | 三 CLI |
 | Herdr の pane 内（`HERDR_ENV=1`）での素の `git worktree add` | `herdr worktree create` / `herdr worktree open` | OMP |

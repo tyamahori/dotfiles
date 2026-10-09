@@ -202,6 +202,25 @@ function commandIndex(words: string[]): number {
   return index;
 }
 
+function subcommandMatches(words: string[], index: number, subcommand: string): boolean {
+  if (words[index] !== "git") return words[index + 1] === subcommand;
+  let cursor = index + 1;
+  while (cursor < words.length) {
+    const option = words[cursor];
+    if (option === "--") return words[cursor + 1] === subcommand;
+    if (option === "-C" || option === "-c" || option === "--exec-path") {
+      cursor += 2;
+      continue;
+    }
+    if (/^--(?:git-dir|work-tree|namespace|exec-path)=/.test(option) || /^-[Cc].+/.test(option)) {
+      cursor += 1;
+      continue;
+    }
+    return option === subcommand;
+  }
+  return false;
+}
+
 function isSimpleWebFetch(args: string[]): boolean {
   // Unknown options stay with curl: ax cannot preserve their semantics.
   const urls: string[] = [];
@@ -252,7 +271,7 @@ export function denyCommand(command: string, client: Client): string | undefined
       const index = commandIndex(words);
       return rule.commands.some((match) =>
         match.executables.includes(words[index]) &&
-        (!match.subcommand || words[index + 1] === match.subcommand) &&
+        (!match.subcommand || subcommandMatches(words, index, match.subcommand)) &&
         (!match.nextArgPattern || match.nextArgPattern.test(words[index + 1] ?? "")) &&
         (!match.anyArgPattern || words.slice(index + 1).some((word) => match.anyArgPattern!.test(word))) &&
         (!match.noArgPattern || !words.slice(index + 1).some((word) => match.noArgPattern!.test(word))) &&

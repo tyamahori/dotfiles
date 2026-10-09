@@ -12,13 +12,14 @@
 # HEAD forked from that base's current tip, so an intentional, fresh stack
 # passes and an accidental stale/wrong branch-off is flagged either way.
 #
-# Warn-only by design (semgrep/default.yaml's own bar: only near-zero
-# false-positive checks block). gh/network failures degrade to silent skip.
+# A stale fork is a concrete delivery risk, so this check blocks that push.
+# Network or GitHub failures still degrade to a silent skip because the hook
+# cannot prove the intended base in that case.
 set -euo pipefail
 
 command -v gh >/dev/null || exit 0
 remote=$1
-
+stale=0
 while read -r local_ref local_sha _remote_ref _remote_sha; do
 	[[ $local_ref == refs/heads/* ]] || continue
 	[[ $local_sha =~ ^0+$ ]] && continue # branch deletion
@@ -31,7 +32,9 @@ while read -r local_ref local_sha _remote_ref _remote_sha; do
 	default_branch=${default_branch:-main}
 	[[ $branch == "$default_branch" ]] && continue # pushing the default branch itself
 
-	base=$(gh pr view "$branch" --json baseRefName -q .baseRefName 2>/dev/null) || true
+	base=$(
+		gh pr list --head "$branch" --state open --json baseRefName -q '.[0].baseRefName // empty' 2>/dev/null
+	) || continue
 	base=${base:-$default_branch}
 
 	git fetch -q "$remote" "$base" 2>/dev/null || continue
@@ -39,6 +42,7 @@ while read -r local_ref local_sha _remote_ref _remote_sha; do
 	merge_base=$(git merge-base "$local_sha" "$base_tip" 2>/dev/null) || continue
 
 	if [[ $merge_base != "$base_tip" ]]; then
+		stale=1
 		cat >&2 <<EOF
 pre-push: '$branch' forked from '$base' before its current tip ($remote/$base).
 This is how an unmerged branch's unrelated commits end up dragged into a PR.
@@ -50,4 +54,4 @@ EOF
 	fi
 done
 
-exit 0
+exit "$stale"

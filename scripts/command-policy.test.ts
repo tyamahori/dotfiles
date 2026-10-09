@@ -137,6 +137,18 @@ test("sweeping git stages are denied; explicit paths are not", () => {
   }
 });
 
+test("remote pulls require effective fast-forward-only", () => {
+  for (const command of ["git pull", "git pull --rebase", "git pull origin main", "git -C repo pull", "git -c pull.ff=false pull"]) {
+    expect(denyCommand(command, "claude")).toBeDefined();
+  }
+  for (const command of ["git pull --ff-only", "git pull origin main --ff-only", "git -C repo pull --ff-only", "git -c pull.ff=only pull --ff-only"]) {
+    expect(denyCommand(command, "claude")).toBeUndefined();
+  }
+  for (const command of ["git pull --ff-only --no-ff", "git pull --no-ff --ff-only", "git pull --ff-only --ff", "git -C repo pull --ff=false --ff-only"]) {
+    expect(denyCommand(command, "claude")).toBeDefined();
+  }
+});
+
 test("raw git worktree add is denied for OMP only inside Herdr", () => {
   which.mockReturnValue("/available/herdr");
   const saved = process.env.HERDR_ENV;

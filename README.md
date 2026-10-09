@@ -176,6 +176,10 @@ Current checks:
   `claude/settings.json`, `codex/hooks.json`, `omp/lsp.json`, `omp/dap.json`,
   and `omp/mcp.json`. JSONC dialects (`*.jsonc`, `tsconfig`/`jsconfig`, `.vscode`,
   devcontainer) are skipped.
+- **pre-push base freshness** (`checks/pre-push-base-freshness`) — blocks a
+  branch whose intended base has advanced since it forked, preventing stale
+  unrelated commits from entering a PR. Network or GitHub failures skip the
+  check because the intended base cannot be established.
 
 Genuinely exceptional commits bypass all checks with `git commit --no-verify`.
 This repository sets a local `core.hooksPath`, so it wires the same checks
