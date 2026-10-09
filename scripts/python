@@ -18,3 +18,5 @@ uv python install --default --preview-features python-install-default
 # Debug adapter for OMP's debug tool (Python targets). Go uses delve from
 # scripts/devbox; there is no uv-managed equivalent, so debugpy lives here.
 uv tool install --upgrade debugpy
+
+uv tool install --upgrade strix-agent

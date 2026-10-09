@@ -37,6 +37,15 @@ global_skills=(
 	"typesafe-ai typesafe-ai/skills"
 	"find-skills vercel-labs/skills"
 	"diagnosing-bugs mattpocock/skills"
+	"api-security-testing usestrix/strix"
+	"application-security-testing usestrix/strix"
+	"ci-security-scanning-with-strix usestrix/strix"
+	"find-security-vulnerabilities-in-code usestrix/strix"
+	"fix-security-vulnerabilities-with-strix usestrix/strix"
+	"managed-pentesting-with-strix usestrix/strix"
+	"owasp-top-10-testing usestrix/strix"
+	"penetration-testing-with-strix usestrix/strix"
+	"web-app-penetration-testing usestrix/strix"
 )
 for entry in "${global_skills[@]}"; do
 	read -r -a skill <<<"$entry"

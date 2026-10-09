@@ -71,3 +71,5 @@ fi
 # covered by `npx skills check`; report upstream drift here so it surfaces
 # during the routine update pass. Applying is deliberate: scripts/skill-sync --apply.
 "$(dirname "$0")/skill-sync" --check || true
+
+"$(dirname "$0")/python"
