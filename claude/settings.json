@@ -382,7 +382,7 @@
       "Read(//**/.env.*)"
     ]
   },
-  "skillListingBudgetFraction": 0.03,
+  "skillListingBudgetFraction": 0.03125,
   "skillOverrides": {
     "freee-api-skill": "off",
     "update-config": "user-invocable-only"
