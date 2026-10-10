@@ -171,6 +171,11 @@ Current checks:
   Compose files with all default rules, including style warnings
   (`--max-warnings 0`). A repo's own `.dclintrc` wins;
   `# dclint disable-line <rule>` opts out a line.
+- **pre-commit compose config** (`checks/pre-commit-compose-config`) — runs
+  `docker compose config --quiet` on the project of each staged Compose file,
+  catching schema errors, unknown keys, and missing `env_file`/`extends`
+  targets. A variant such as `compose.prod.yaml` is layered on the
+  directory's base file. No daemon needed; skipped without the Docker CLI.
 - **pre-commit hadolint** (`checks/pre-commit-hadolint`) — lints staged
   `Dockerfile`, `Dockerfile.*`, and `*.Dockerfile` files, including shell
   commands in `RUN`. All severities fail (`--failure-threshold style`).

@@ -1,0 +1,55 @@
+#!/bin/bash
+# Machine-global pre-commit check: validate staged Docker Compose files with
+# `docker compose config`, which loads, merges, interpolates and
+# schema-checks the project exactly as `up` would, so unknown keys, wrong
+# types, and missing env_file/extends targets fail at commit instead of at
+# `up`. No daemon needed. A default-named file or its override is validated
+# as its directory's project (default discovery merges both); a variant such
+# as compose.prod.yaml is layered on that directory's base file, the usual
+# `-f base -f variant` pairing, or validated alone when there is no base.
+# One commit escapes with --no-verify.
+# ponytail: validates the working tree, not the index (see pre-commit-semgrep).
+set -euo pipefail
+
+command -v docker >/dev/null || exit 0
+docker compose version >/dev/null 2>&1 || exit 0
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+seen=$'\n'
+failed=0
+while IFS= read -r -d '' file; do
+	[[ -f $file ]] || continue
+	name=${file##*/}
+	dir=$(dirname "$file")
+	case $name in
+	compose.yaml | compose.yml | docker-compose.yaml | docker-compose.yml | \
+		compose.override.yaml | compose.override.yml | \
+		docker-compose.override.yaml | docker-compose.override.yml)
+		key=$dir
+		args=()
+		;;
+	compose*.yml | compose*.yaml | docker-compose*.yml | docker-compose*.yaml)
+		key=$file
+		args=()
+		for base in compose.yaml compose.yml docker-compose.yaml docker-compose.yml; do
+			[[ -f $dir/$base ]] && args=(-f "$base") && break
+		done
+		args+=(-f "$name")
+		;;
+	*) continue ;;
+	esac
+	[[ $seen == *$'\n'"$key"$'\n'* ]] && continue
+	seen+="$key"$'\n'
+	# ${args[@]+...}: bash 3.2 (macOS /bin/bash) treats an empty array as unset.
+	if ! log=$(cd "$dir" && docker compose ${args[@]+"${args[@]}"} config --quiet 2>&1); then
+		printf '%s: %s\n' "$key" "$log" >&2
+		failed=1
+	fi
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+if ((failed)); then
+	echo "pre-commit: docker compose config rejected staged Compose files." >&2
+	echo "Fix them, or commit with --no-verify." >&2
+	exit 1
+fi
