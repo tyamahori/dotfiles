@@ -3,8 +3,9 @@
 # semgrep-quality-gate uses, but only on the files staged in this commit, so
 # the gate holds structurally — for manual commits and for agent sessions
 # that forget the completion gate. Repo-local .semgrep.yaml wins; otherwise
-# the machine-global default ruleset applies. A repo opts out with a
-# committed `rules: []` config; one commit escapes with --no-verify.
+# the machine-global default ruleset applies. The Compose security rules run
+# in addition either way. A repo opts out of the default with a committed
+# `rules: []` config; one commit escapes with --no-verify.
 # ponytail: scans the working-tree version of staged files, not the index —
 # fine for a lint gate; switch to a temp-index checkout if it ever matters.
 set -euo pipefail
@@ -33,9 +34,9 @@ done < <(git diff --cached --name-only --diff-filter=ACMR -z)
 # (exit 7 with zero output), which would fail every commit undiagnosably.
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
-if ! semgrep scan --config "$config" --metrics=off --error "${targets[@]}" >"$log" 2>&1; then
+if ! semgrep scan --config "$config" --config "$DOTFILES_ROOT/semgrep/security-compose.yaml" --metrics=off --error "${targets[@]}" >"$log" 2>&1; then
 	cat "$log" >&2
-	echo "pre-commit: semgrep failed for staged files (rules: $config)." >&2
+	echo "pre-commit: semgrep failed for staged files (rules: $config + semgrep/security-compose.yaml)." >&2
 	echo "Fix findings, add '# nosemgrep: <rule id>' with a reason, or commit with --no-verify." >&2
 	exit 1
 fi

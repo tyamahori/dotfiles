@@ -24,7 +24,7 @@ rootの`.semgrep.yaml`で検査ruleを定義する。
 
 | 管理場所 | 対象 |
 | --- | --- |
-| dotfiles | devbox globalの`semgrep`、`semgrep-quality-gate`、`semgrep/default.yaml`、global agent instructions |
+| dotfiles | devbox globalの`semgrep`、`semgrep-quality-gate`、`semgrep/default.yaml`、`semgrep/security-compose.yaml`、global agent instructions |
 | 検査対象リポジトリ | rootの`.semgrep.yaml`（任意） |
 
 ## リポジトリを検査対象にする
@@ -55,6 +55,11 @@ rootに`.semgrep.yaml`がないリポジトリでは、`semgrep-quality-gate`は
 default rulesetは全repositoryの完了をblockするため、誤検知がほぼ出ない普遍的なruleに限定する。
 repository固有の事情（directory構成、拡張子なしscript）を検査したいときは、rootの`.semgrep.yaml`で置き換える。
 default rulesetも不要なrepositoryは、`rules: []`だけを書いた`.semgrep.yaml`を置いてopt-outする。
+
+Docker Compose fileには、上記のrule解決とは別に`semgrep/security-compose.yaml`が常に追加で適用される。
+privileged、Docker socketのmount、host namespaceの共有、`cap_add`のALL/SYS_ADMIN、seccompなどを無効にする`security_opt`を検出する。
+repoの`.semgrep.yaml`や`rules: []`のopt-outでは外れない。意図的な設定は該当行の`# nosemgrep: <rule id>`で通す。
+trivyはCompose fileの設定検査に対応していないため、Semgrepで担う。
 
 ## registry rulesetを取り込む
 
@@ -111,4 +116,4 @@ dotfilesを`~/dotfiles`へ配置済みなら通常は発生しない。
 `semgrep scan`はrule fileをparseできないと失敗する。
 指摘との区別は、出力末尾のScan Summaryとexit statusで判断する。
 
-最終更新日：2026-09-05
+最終更新日：2026-10-10

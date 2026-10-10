@@ -12,7 +12,8 @@ project_root=$(git rev-parse --show-toplevel 2>/dev/null) ||
 # Repo-local rules take precedence; without them the machine-global default
 # ruleset (dotfiles semgrep/default.yaml) still runs, so every repository
 # gets the universal checks with zero per-repo setup. A repo opts out of
-# even those by committing a .semgrep.yaml with `rules: []`.
+# even those by committing a .semgrep.yaml with `rules: []`. The Compose
+# security rules (semgrep/security-compose.yaml) run in addition either way.
 DOTFILES_ROOT=${DOTFILES_ROOT:-"$HOME/dotfiles"}
 config="$project_root/.semgrep.yaml"
 if [[ ! -f $config ]]; then
@@ -39,6 +40,7 @@ log=$(mktemp)
 trap 'rm -f "$log"' EXIT
 if semgrep scan \
 	--config "$config" \
+	--config "$DOTFILES_ROOT/semgrep/security-compose.yaml" \
 	--exclude .semgrep.yaml \
 	--metrics=off \
 	--error >"$log" 2>&1; then

@@ -1,0 +1,73 @@
+rules:
+  # Machine-global Docker Compose security rules. Unlike default.yaml these
+  # run alongside a repo's own .semgrep.yaml (scripts/semgrep-quality-gate,
+  # git/global-hooks/checks/pre-commit-semgrep), because trivy, the usual IaC
+  # scanner, has no Compose support. Each rule flags a setting that removes a
+  # container/host isolation boundary; a deliberate use stays with
+  # `# nosemgrep: <rule id>` and a reason on that line.
+  # Filename note: must not itself match (docker-)compose*.ya?ml.
+
+  - id: compose-privileged
+    languages: [yaml]
+    severity: ERROR
+    message: >-
+      privileged: true gives the container every capability and all host
+      devices — effectively root on the host. Grant only the needed cap_add
+      or devices entries instead.
+    pattern: "privileged: true"
+    paths: &compose
+      include:
+        - "compose*.yml"
+        - "compose*.yaml"
+        - "docker-compose*.yml"
+        - "docker-compose*.yaml"
+
+  - id: compose-docker-socket-mount
+    languages: [yaml]
+    severity: ERROR
+    message: >-
+      Mounting the Docker socket lets the container start privileged
+      containers, i.e. take over the host. Use a socket proxy with a narrow
+      API allowlist, or justify it with nosemgrep.
+    patterns:
+      - pattern-inside: "volumes: [...]"
+      - pattern-regex: /(var/)?run/docker\.sock
+    paths: *compose
+
+  - id: compose-host-namespace
+    languages: [yaml]
+    severity: ERROR
+    message: >-
+      Sharing a host namespace (network/pid/ipc/uts/userns) removes that
+      isolation layer: host network exposes every port and loopback service,
+      host pid allows signalling and inspecting host processes. Use published
+      ports or a user-defined network instead.
+    patterns:
+      - pattern: "$KEY: host"
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: ^(network_mode|pid|ipc|uts|userns_mode)$
+    paths: *compose
+
+  - id: compose-dangerous-capability
+    languages: [yaml]
+    severity: ERROR
+    message: >-
+      cap_add ALL or SYS_ADMIN is near-equivalent to privileged: true. Add
+      only the specific capability the process needs.
+    patterns:
+      - pattern-inside: "cap_add: [...]"
+      - pattern-regex: \b(CAP_)?(ALL|SYS_ADMIN)\b
+    paths: *compose
+
+  - id: compose-unconfined-security-opt
+    languages: [yaml]
+    severity: ERROR
+    message: >-
+      Disabling seccomp, AppArmor, SELinux labelling, or masked system paths
+      removes kernel-level confinement. Supply a custom profile allowing only
+      the needed syscalls instead.
+    patterns:
+      - pattern-inside: "security_opt: [...]"
+      - pattern-regex: (seccomp|apparmor|systempaths)[:=]unconfined|label[:=]disable
+    paths: *compose
