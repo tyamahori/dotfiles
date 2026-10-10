@@ -10,6 +10,18 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   );
 }
 
+function toolCommand(toolInput: unknown): string | undefined {
+  if (toolInput === undefined) return undefined;
+  if (!isPlainObject(toolInput)) {
+    throw new Error("hook input tool_input must be a JSON object");
+  }
+  const command = toolInput.command;
+  if (command !== undefined && typeof command !== "string") {
+    throw new Error("hook input tool_input.command must be a string");
+  }
+  return command;
+}
+
 export function denyCommandHook(client: "claude" | "codex", payload: string) {
   const input: unknown = JSON.parse(payload);
   if (!isPlainObject(input)) {
@@ -17,16 +29,7 @@ export function denyCommandHook(client: "claude" | "codex", payload: string) {
   }
 
   const toolInput = input.tool_input;
-  let command: unknown;
-  if (toolInput !== undefined) {
-    if (!isPlainObject(toolInput)) {
-      throw new Error("hook input tool_input must be a JSON object");
-    }
-    command = toolInput.command;
-  }
-  if (command !== undefined && typeof command !== "string") {
-    throw new Error("hook input tool_input.command must be a string");
-  }
+  const command = toolCommand(toolInput);
 
   let reason: string | undefined;
   if (typeof command === "string") {
