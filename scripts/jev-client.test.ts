@@ -1,5 +1,8 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
-import { jevCall, parseEnvKeyLine } from "./jev-client.ts";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { appendJsonlLog, jevCall, loadJevApiKey, parseEnvKeyLine } from "./jev-client.ts";
 
 afterEach(() => {
 	// biome-ignore lint/suspicious/noExplicitAny: restoring a spied global
@@ -28,4 +31,27 @@ test("jevCall posts state+questions and returns the parsed answers", async () =>
 test("jevCall throws on a non-2xx response instead of returning a partial result", async () => {
 	spyOn(globalThis, "fetch").mockResolvedValue(new Response("nope", { status: 500 }));
 	await expect(jevCall("key", "state", {})).rejects.toThrow("Jev API 500");
+});
+
+test("loadJevApiKey prefers the environment, then .env, else undefined", () => {
+	const saved = process.env.JEV_API_KEY;
+	const root = mkdtempSync(join(tmpdir(), "jev-"));
+	try {
+		delete process.env.JEV_API_KEY;
+		expect(loadJevApiKey(root)).toBeUndefined();
+		writeFileSync(join(root, ".env"), 'JEV_API_KEY="from-file"\n');
+		expect(loadJevApiKey(root)).toBe("from-file");
+		process.env.JEV_API_KEY = "from-env";
+		expect(loadJevApiKey(root)).toBe("from-env");
+	} finally {
+		if (saved === undefined) delete process.env.JEV_API_KEY;
+		else process.env.JEV_API_KEY = saved;
+	}
+});
+
+test("appendJsonlLog creates missing directories and appends one line per record", () => {
+	const path = join(mkdtempSync(join(tmpdir(), "jev-")), "a/b/log.jsonl");
+	appendJsonlLog(path, { n: 1 });
+	appendJsonlLog(path, { n: 2 });
+	expect(readFileSync(path, "utf-8")).toBe('{"n":1}\n{"n":2}\n');
 });
