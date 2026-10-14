@@ -22,6 +22,22 @@ for (const fixture of [
     bad: "FROM alpine:3.21\nRUN echo hello | cat\n",
     rule: "DL4006",
   },
+  {
+    name: "SQL lint warnings",
+    file: "query.sql",
+    hook: "pre-commit-sqruff",
+    clean: "select a, b from t;\n",
+    bad: "SELECT a,b FROM t WHERE x = 1\n",
+    rule: "LT01",
+  },
+  {
+    name: "Compose short-form syntax",
+    file: "compose.yaml",
+    hook: "pre-commit-compose-canonical",
+    clean: "name: lint-check2\nservices:\n  app:\n    image: alpine:3.21\n    volumes:\n      - type: bind\n        source: ./data\n        target: /var/lib/data\n",
+    bad: "name: lint-check2\nservices:\n  app:\n    image: alpine:3.21\n    volumes:\n      - ./data:/var/lib/data\n",
+    rule: "short-form volumes",
+  },
 ]) {
   test(`${fixture.name} block edits and commits; clean files pass`, () => {
     const scratch = resolve(root, ".agent-msgs/scratch");
