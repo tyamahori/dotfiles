@@ -1,0 +1,30 @@
+#!/bin/bash
+# Machine-global pre-commit check: enforce this repo's long-form-only
+# Compose Specification policy on staged Compose files, matching the
+# edit-time check (scripts/compose-canonical-check). Runs alongside, not
+# instead of, pre-commit-dclint (style) and pre-commit-compose-config
+# (schema/merge validation).
+set -euo pipefail
+
+checker="$HOME/dotfiles/scripts/compose-canonical-check"
+[[ -x $checker ]] || exit 0
+command -v yq >/dev/null || exit 0
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+targets=()
+while IFS= read -r -d '' file; do
+	[[ -f $file ]] || continue
+	case "${file##*/}" in
+	compose*.yml | compose*.yaml | docker-compose*.yml | docker-compose*.yaml)
+		targets+=("$file")
+		;;
+	esac
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+((${#targets[@]})) || exit 0
+
+if ! log=$("$checker" "${targets[@]}" 2>&1); then
+	printf '%s\n' "$log" >&2
+	echo "pre-commit: short-form Compose syntax in staged files. Use the Compose Specification long (mapping) form, or commit with --no-verify." >&2
+	exit 1
+fi

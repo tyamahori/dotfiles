@@ -20,9 +20,11 @@ pre-commit)
 	"$hook_dir/checks/pre-commit-semgrep" "$@"
 	"$hook_dir/checks/pre-commit-gitleaks" "$@"
 	"$hook_dir/checks/pre-commit-dclint" "$@"
+	"$hook_dir/checks/pre-commit-compose-canonical" "$@"
 	"$hook_dir/checks/pre-commit-compose-config" "$@"
 	"$hook_dir/checks/pre-commit-hadolint" "$@"
 	"$hook_dir/checks/pre-commit-json" "$@"
+	"$hook_dir/checks/pre-commit-sqruff" "$@"
 	;;
 pre-push)
 	"$hook_dir/checks/pre-push-base-freshness" "$@"
