@@ -60,7 +60,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 	return { sub: argv[0], ref: flags.ref, diffFile: flags["diff-file"], rows: flags.rows };
 }
 
-async function runPredict(ref: string, diffFile: string | undefined): Promise<void> {
+export async function runPredict(ref: string, diffFile: string | undefined, logPath = LOG_PATH): Promise<void> {
 	const apiKey = loadJevApiKey(DOTFILES_ROOT);
 	if (!apiKey) return; // JEV_API_KEY 未設定 = 完全な no-op。
 
@@ -99,7 +99,7 @@ async function runPredict(ref: string, diffFile: string | undefined): Promise<vo
 		keys.forEach((key, i) => {
 			probabilities[key] = (resp.answers[`row_${i}`] as NoulAnswer).noul;
 		});
-		appendJsonlLog(LOG_PATH, {
+		appendJsonlLog(logPath, {
 			ts: Date.now(),
 			kind: "predict",
 			ref,
@@ -110,7 +110,7 @@ async function runPredict(ref: string, diffFile: string | undefined): Promise<vo
 			jevError: false,
 		});
 	} catch {
-		appendJsonlLog(LOG_PATH, {
+		appendJsonlLog(logPath, {
 			ts: Date.now(),
 			kind: "predict",
 			ref,
@@ -123,12 +123,12 @@ async function runPredict(ref: string, diffFile: string | undefined): Promise<vo
 	}
 }
 
-function runActual(ref: string, rowsArg: string | undefined): void {
+export function runActual(ref: string, rowsArg: string | undefined, logPath = LOG_PATH): void {
 	const rowKeys = (rowsArg ?? "")
 		.split(",")
 		.map((s) => s.trim())
 		.filter(Boolean);
-	appendJsonlLog(LOG_PATH, { ts: Date.now(), kind: "actual", ref, rows: rowKeys });
+	appendJsonlLog(logPath, { ts: Date.now(), kind: "actual", ref, rows: rowKeys });
 }
 
 if (import.meta.main) {

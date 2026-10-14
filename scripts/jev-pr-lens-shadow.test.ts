@@ -1,7 +1,24 @@
-import { readFileSync } from "node:fs";
+import { afterEach, expect, mock, spyOn, test } from "bun:test";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test } from "bun:test";
-import { extractRowCategories } from "./jev-pr-lens-shadow.ts";
+import { extractRowCategories, runActual, runPredict } from "./jev-pr-lens-shadow.ts";
+
+const savedKey = process.env.JEV_API_KEY;
+afterEach(() => {
+	mock.restore();
+	if (savedKey === undefined) delete process.env.JEV_API_KEY;
+	else process.env.JEV_API_KEY = savedKey;
+});
+
+function scratch(): { dir: string; log: string } {
+	const dir = mkdtempSync(join(tmpdir(), "lens-"));
+	return { dir, log: join(dir, "log.jsonl") };
+}
+
+function readLog(path: string): Record<string, unknown>[] {
+	return readFileSync(path, "utf-8").trim().split("\n").map((line) => JSON.parse(line));
+}
 
 const SAMPLE_SKILL_MD = `### 観点
 
@@ -35,4 +52,49 @@ test("extractRowCategories matches the real SKILL.md and finds all 10 rows", () 
 	const rows = extractRowCategories(skillMd);
 	expect(Object.keys(rows)).toHaveLength(10);
 	expect(rows["バグ修正"]).toBeDefined();
+});
+
+test("runActual logs the trimmed, non-empty row keys under the ref", () => {
+	const { log } = scratch();
+	runActual("a..b", " バグ修正 ,, CI・ビルド・スクリプト ", log);
+	expect(readLog(log)).toMatchObject([{ kind: "actual", ref: "a..b", rows: ["バグ修正", "CI・ビルド・スクリプト"] }]);
+});
+
+test("runPredict maps each row's noul answer back to its 変更種別", async () => {
+	const { dir, log } = scratch();
+	const diff = join(dir, "d.diff");
+	writeFileSync(diff, "+fix\n");
+	process.env.JEV_API_KEY = "key";
+	const fetchSpy = spyOn(globalThis, "fetch").mockImplementation((async (_url: string, init: RequestInit) => {
+		const { questions } = JSON.parse(String(init.body)) as { questions: Record<string, unknown> };
+		const answers = Object.fromEntries(Object.keys(questions).map((k, i) => [k, { type: "noul", noul: i === 0 ? 0.9 : 0.1 }]));
+		return new Response(JSON.stringify({ answers }));
+	}) as typeof fetch);
+	await runPredict("a..b", diff, log);
+	expect(fetchSpy).toHaveBeenCalledTimes(1);
+	const [row] = readLog(log) as [{ jevError: boolean; rowCount: number; probabilities: Record<string, number> }];
+	expect(row.jevError).toBe(false);
+	expect(Object.keys(row.probabilities)).toHaveLength(row.rowCount);
+	expect(row.probabilities["バグ修正"]).toBe(0.9);
+});
+
+test("runPredict records a jevError row instead of throwing when Jev fails", async () => {
+	const { dir, log } = scratch();
+	const diff = join(dir, "d.diff");
+	writeFileSync(diff, "+fix\n");
+	process.env.JEV_API_KEY = "key";
+	spyOn(globalThis, "fetch").mockResolvedValue(new Response("nope", { status: 500 }));
+	await runPredict("a..b", diff, log);
+	expect(readLog(log)).toMatchObject([{ kind: "predict", jevError: true, probabilities: null }]);
+});
+
+test("runPredict writes nothing for a missing or empty diff", async () => {
+	const { dir, log } = scratch();
+	process.env.JEV_API_KEY = "key";
+	const fetchSpy = spyOn(globalThis, "fetch");
+	await runPredict("a..b", join(dir, "missing.diff"), log);
+	writeFileSync(join(dir, "empty.diff"), "  \n");
+	await runPredict("a..b", join(dir, "empty.diff"), log);
+	expect(fetchSpy).not.toHaveBeenCalled();
+	expect(() => readFileSync(log)).toThrow();
 });
