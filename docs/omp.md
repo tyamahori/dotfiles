@@ -624,7 +624,7 @@ omp-review --help
 | debug adapter の差し替え | `omp/dap.json` |
 | OMP にだけ追加する常設指示 | `omp/APPEND_SYSTEM.md` |
 | OMP extension | `omp/extensions/` |
-| machine-global の Jev skill hint | `omp/extensions/jev-skill-hint.ts` |
+| 行動で必要になる Skill の案内 | `omp/extensions/skill-trigger-hint.ts` |
 | 三 CLI の代替ツール誘導ルール | `agents/command-rules.json` |
 | plugin と version | `scripts/omp-plugins` |
 | authored skill | `agents/skills/<name>/SKILL.md` |
