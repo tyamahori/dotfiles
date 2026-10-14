@@ -16,6 +16,14 @@ if ! command -v plannotator >/dev/null 2>&1 || [[ ! -e $HOME/.agents/skills/plan
 	curl -fsSL https://plannotator.ai/install.sh | bash -s -- --non-interactive
 fi
 
+# Marketing skill pack (CRO, copywriting, SEO, growth): the whole repository
+# is meant to be installed together (product-marketing is the shared-context
+# foundation every other skill in the set checks first), so it is bootstrapped
+# as one bulk `--skill '*'` add instead of per-skill global_skills entries.
+if [[ ! -e $HOME/.agents/skills/product-marketing/SKILL.md ]]; then
+	npx -y skills@latest add coreyhaines31/marketingskills -g --skill '*' --yes
+fi
+
 # Global third-party skills, one per entry: "<skill> <source> [extra add args]".
 # This list is the declaration for new machines; `npx -y skills@latest update -g`
 # keeps installed copies current. The explicit @latest stops npx from running
