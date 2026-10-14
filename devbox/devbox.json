@@ -37,6 +37,8 @@
     "starship":             "latest",
     "hadolint":             "latest",
     "shellcheck":           "latest",
+    "sqruff":               "latest",
+    "yq-go":                "latest",
     "carapace":             "latest",
     "mas": {
       "version":   "latest",
