@@ -5,9 +5,15 @@ services:
     # Local-only analysis server; freshness over pinning (docker compose pull).
     image: sonarqube:latest # dclint disable-line service-image-require-explicit-tag
     volumes:
-      - data:/opt/sonarqube/data
-      - extensions:/opt/sonarqube/extensions
-      - logs:/opt/sonarqube/logs
+      - type: volume
+        source: data
+        target: /opt/sonarqube/data
+      - type: volume
+        source: extensions
+        target: /opt/sonarqube/extensions
+      - type: volume
+        source: logs
+        target: /opt/sonarqube/logs
     restart: unless-stopped
     labels:
       dev.orbstack.domains: sonarqube.local
