@@ -171,6 +171,11 @@ Current checks:
   Compose files with all default rules, including style warnings
   (`--max-warnings 0`). A repo's own `.dclintrc` wins;
   `# dclint disable-line <rule>` opts out a line.
+- **pre-commit compose canonical** (`checks/pre-commit-compose-canonical`) —
+  rejects short-form syntax in staged Compose files for fields the Compose
+  Specification also offers as a long (mapping) form: `build`, `ports`,
+  `volumes`, `environment`, `env_file`, `depends_on`, `networks`, `secrets`,
+  and `configs`. No opt-out; rewrite to the long form. Skipped without `yq`.
 - **pre-commit compose config** (`checks/pre-commit-compose-config`) — runs
   `docker compose config --quiet` on the project of each staged Compose file,
   catching schema errors, unknown keys, and missing `env_file`/`extends`
@@ -179,6 +184,9 @@ Current checks:
 - **pre-commit hadolint** (`checks/pre-commit-hadolint`) — lints staged
   `Dockerfile`, `Dockerfile.*`, and `*.Dockerfile` files, including shell
   commands in `RUN`. All severities fail (`--failure-threshold style`).
+- **pre-commit sqruff** (`checks/pre-commit-sqruff`) — lints staged `*.sql`
+  files with [sqruff](https://github.com/quarylabs/sqruff) (ansi dialect by
+  default; a repo's own `.sqruff`/`.sqlfluff` config wins).
 - **pre-commit json** (`checks/pre-commit-json`) — validates staged JSON files
   with `jq empty` and requires `jq --sort-keys` canonical formatting for
   `claude/settings.json`, `codex/hooks.json`, `omp/lsp.json`, `omp/dap.json`,
@@ -445,17 +453,26 @@ extensions in `omp/extensions/`:
   writes or edits them (shellcheck for shell, ruff for Python, oxlint for
   TypeScript/JavaScript, actionlint for GitHub workflow files, jq syntax
   validation for JSON, `jq --sort-keys` formatting for the linked
-  Claude/Codex/OMP JSON configuration, hadolint for Dockerfiles, and dclint
-  for Docker Compose files) and feeds findings back for an immediate fix.
+  Claude/Codex/OMP JSON configuration, hadolint for Dockerfiles, dclint plus
+  `scripts/compose-canonical-check` for Docker Compose files, and sqruff for
+  SQL) and feeds findings back for an immediate fix.
   Hadolint reports all severities; dclint permits no warnings, including
   ordering/style rules. Project configs and inline rule exceptions still apply.
-  Both are installed by `scripts/devbox`: Hadolint via devbox global,
-  DCLint as a locked Node dependency in `tools/dclint`.
+  `scripts/compose-canonical-check` has no opt-out: it rejects short-form
+  `build`, `ports`, `volumes`, `environment`, `env_file`, `depends_on`,
+  `networks`, `secrets`, and `configs`, in favor of the Compose
+  Specification's long (mapping) form, by converting the file with
+  [yq](https://github.com/mikefarah/yq) (which preserves the source's
+  array/object shapes) and checking those shapes with `jq`.
+  Hadolint, sqruff, and yq are installed via devbox global;
+  DCLint is a locked Node dependency in `tools/dclint` (also via `scripts/devbox`).
   Run the same strict checks manually with:
 
   ```sh
   hadolint --failure-threshold style Dockerfile
   ~/dotfiles/tools/dclint/node_modules/.bin/dclint --max-warnings 0 compose.yaml
+  ~/dotfiles/scripts/compose-canonical-check compose.yaml
+  sqruff lint query.sql
   docker compose -f compose.yaml config -q
   ```
 
