@@ -8,7 +8,7 @@ case "${1:-}" in
 		;;
 	*)
 		notification_type=turn-complete
-		payload=${1:-{}}
+		payload=${1:-'{}'}
 		;;
 esac
 

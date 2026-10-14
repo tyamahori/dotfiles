@@ -238,7 +238,6 @@ def mask_markdown_structure(text: str) -> str:
     """
     lines = text.split("\n")
     masked_lines = []
-    in_code_block = False
     # 開いているフェンスの (文字種, 長さ)。``` と ~~~ の混同や、フェンス内に
     # 出てくる別種・より短いフェンス様の行での誤クローズを防ぐため、開始フェンスと
     # 同じ文字種かつ同じ長さ以上の行でしか閉じない（CommonMark 準拠までは行わない）。

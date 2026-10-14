@@ -95,7 +95,7 @@ store_keychain_secret() {
 valid_token() {
 	local token=$1
 	local response
-	response=$(curl -fsS -u "$token:" "$SONAR_HOST_URL/api/authentication/validate" 2>/dev/null || true)
+	response=$(curl -fsS -u "$token:" "$SONAR_HOST_URL/api/authentication/validate" 2>/dev/null || true) # gitleaks:allow
 	jq -e '.valid == true' >/dev/null 2>&1 <<<"$response"
 }
 
@@ -131,17 +131,13 @@ bootstrap_token() {
 		:
 	else
 		local default_auth
-		default_auth=$(curl -fsS -u admin:admin "$SONAR_HOST_URL/api/authentication/validate" 2>/dev/null || true)
+		default_auth=$(curl -fsS -u admin:admin "$SONAR_HOST_URL/api/authentication/validate" 2>/dev/null || true) # gitleaks:allow (SonarQube's documented default, probed to confirm it's unchanged)
 		jq -e '.valid == true' >/dev/null 2>&1 <<<"$default_auth" ||
 			fail "local admin credentials are already changed; set SONAR_TOKEN or restore the $ADMIN_SERVICE Keychain item"
 
 		admin_password="A1a!$(openssl rand -hex 20)" ||
 			fail "could not generate the local admin password"
-		curl -fsS -u admin:admin -X POST \
-			--data-urlencode login=admin \
-			--data-urlencode previousPassword=admin \
-			--data-urlencode "password=$admin_password" \
-			"$SONAR_HOST_URL/api/users/change_password" >/dev/null ||
+		curl -fsS -u admin:admin -X POST --data-urlencode login=admin --data-urlencode previousPassword=admin --data-urlencode "password=$admin_password" "$SONAR_HOST_URL/api/users/change_password" >/dev/null || # gitleaks:allow (SonarQube's documented default, being replaced below)
 			fail "could not change the default local admin password"
 		store_keychain_secret admin "$ADMIN_SERVICE" "$admin_password" ||
 			fail "could not store the local admin password in Keychain"
