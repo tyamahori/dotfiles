@@ -1,6 +1,6 @@
 ---
 name: natural-japanese
-description: 日本語の文書（議事録・レポート・ガイド・企画書・メール・スライド構成・note・ブログ）を書く／直すとき、AI臭い・不自然・読みにくい・一文が長いと指摘されたとき、AI臭さの採点や文体プロファイル化を頼まれたときに使う。
+description: 日本語の文書（議事録・レポート・ガイド・企画書・メール・スライド構成・note・ブログ）を書く／直すとき、AI臭い・不自然・読みにくい・一文が長いと指摘されたとき、AI臭さの採点や文体プロファイル化を頼まれたときに使う。英文は humanizer、技術書の章・解説記事の論証と段落構成は japanese-tech-writing。
 license: MIT
 argument-hint: "[write|score] [quick|full|exp] [対象ファイルや依頼内容]"
 ---
