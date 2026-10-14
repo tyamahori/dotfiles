@@ -1,0 +1,47 @@
+#!/bin/bash
+# Checks each given Docker Compose file for short-form syntax that the
+# Compose Specification also offers as a long (mapping) form: ports,
+# volumes, secrets, and configs entries given as scalars instead of
+# mappings; environment, depends_on, and service-level networks given as
+# lists instead of mappings; env_file given as a scalar/list-of-scalars
+# instead of a list of {path, ...} mappings; build given as a scalar
+# instead of a {context, ...} mapping. Converts each file to JSON with yq
+# (which preserves the source's array/object shape rather than normalizing
+# it) and inspects the shapes with jq. A clean file produces no output and
+# exit 0; any short-form field is reported as "<file>: service <name> uses
+# short-form <field>" and sets a nonzero exit. Shared by scripts/lint-on-edit
+# and git/global-hooks/checks/pre-commit-compose-canonical.
+set -euo pipefail
+
+# $svc/$f are jq variables (bound via --arg below), not shell variables —
+# the single quotes are intentional so bash never touches them.
+# shellcheck disable=SC2016
+jqf='
+  [.services // {} | to_entries[] | .key as $svc | .value |
+    (if has("build") and (.build|type)!="object" then {service:$svc, field:"build"} else empty end),
+    ((.ports // [])[] | select(type!="object") | {service:$svc, field:"ports"}),
+    ((.volumes // [])[] | select(type!="object") | {service:$svc, field:"volumes"}),
+    (if has("environment") and (.environment|type)=="array" then {service:$svc, field:"environment"} else empty end),
+    (if has("env_file") then
+       ((if (.env_file|type)=="array" then .env_file else [.env_file] end)[] | select(type!="object") | {service:$svc, field:"env_file"})
+     else empty end),
+    (if has("depends_on") and (.depends_on|type)=="array" then {service:$svc, field:"depends_on"} else empty end),
+    (if has("networks") and (.networks|type)=="array" then {service:$svc, field:"networks"} else empty end),
+    ((.secrets // [])[] | select(type!="object") | {service:$svc, field:"secrets"}),
+    ((.configs // [])[] | select(type!="object") | {service:$svc, field:"configs"})
+  ] | .[] | "\($f): service \(.service) uses short-form \(.field) \u2014 use the Compose Specification long (mapping) syntax"
+'
+
+failed=0
+for file in "$@"; do
+  [[ -f $file ]] || continue
+  if ! out=$(yq -o=json "$file" | jq -r --arg f "$file" "$jqf" 2>&1); then
+    printf '%s: yq/jq failed to parse: %s\n' "$file" "$out" >&2
+    failed=1
+    continue
+  fi
+  [[ -n $out ]] || continue
+  printf '%s\n' "$out"
+  failed=1
+done
+exit $failed
