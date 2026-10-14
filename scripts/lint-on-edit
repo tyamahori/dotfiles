@@ -2,9 +2,9 @@
 # Shared PostToolUse hook: lint a file right after an agent writes or edits
 # it, feeding findings back so they are fixed before commit. Dispatches by
 # file type: shellcheck for sh/bash, ruff for Python, oxlint for
-# TypeScript/JavaScript, actionlint for GitHub workflow files, dclint for
-# Docker Compose files, hadolint for Dockerfiles, jq syntax validation for JSON, and canonical
-# jq --sort-keys formatting for tracked Claude/Codex/OMP configuration.
+# TypeScript/JavaScript, actionlint for GitHub workflow files, dclint plus
+# compose-canonical-check for Docker Compose files, hadolint for
+# Dockerfiles, sqruff for SQL, jq syntax
 # Reads Claude-style JSON ({tool_input:{file_path}}) on stdin and emits a
 # {decision:"block"} JSON on findings. Consumers: Claude Code
 # (settings.json, Write|Edit matcher), Codex (codex/hooks/lint-edit.sh
@@ -23,6 +23,7 @@ case "$file" in
   # dclint's own discovery pattern: (docker-)?compose*.ya?ml
   compose*.yml|compose*.yaml|docker-compose*.yml|docker-compose*.yaml|*/compose*.yml|*/compose*.yaml|*/docker-compose*.yml|*/docker-compose*.yaml) linter=dclint ;;
   Dockerfile|Dockerfile.*|*.Dockerfile|*/Dockerfile|*/Dockerfile.*) linter=hadolint ;;
+  *.sql) linter=sqruff ;;
   # JSONC dialects (comments/trailing commas are legal there) — never jq them.
   *.jsonc|tsconfig*.json|*/tsconfig*.json|jsconfig*.json|*/jsconfig*.json|*/.vscode/*.json|devcontainer.json|*/devcontainer.json|*/.devcontainer/*.json) exit 0 ;;
   */claude/settings.json|*/.claude/settings.json|*/codex/hooks.json|*/.codex/hooks.json|*/omp/lsp.json|*/.omp/agent/lsp.json|*/omp/mcp.json|*/.omp/agent/mcp.json) linter=jq; json_format=canonical ;;
@@ -69,8 +70,18 @@ $findings"
   oxlint) findings=$(oxlint --format=unix "$file" 2>&1 | head -c 4000) || true ;;
   actionlint) findings=$(actionlint -no-color "$file" 2>&1 | head -c 4000) || true ;;
   hadolint) findings=$(hadolint --failure-threshold style --format tty "$file" 2>&1 | head -c 4000) || true ;;
-  # Keep project rules; warning-level style findings also block.
-  dclint) findings=$("$dclint_bin" --formatter compact --no-color --max-warnings 0 "$file" 2>&1 | head -c 4000) || true ;;
+  sqruff)
+    out=$(sqruff lint "$file" 2>&1) && rc=0 || rc=$?
+    [ "$rc" -eq 0 ] && findings="" || findings=$(printf '%s' "$out" | head -c 4000)
+    ;;
+  # Also enforces this repo's long-form-only Compose Specification policy
+  # (scripts/compose-canonical-check) alongside dclint's style rules.
+  dclint)
+    findings=$("$dclint_bin" --formatter compact --no-color --max-warnings 0 "$file" 2>&1) || true
+    canonical=
+    command -v yq >/dev/null && canonical=$("$HOME/dotfiles/scripts/compose-canonical-check" "$file" 2>&1) || true
+    findings=$(printf '%s\n%s' "$findings" "$canonical" | sed '/^$/d' | head -c 4000)
+    ;;
 esac
 [ -n "$findings" ] || exit 0
 
