@@ -419,6 +419,9 @@ modelRoles:
 同じメールアドレスでも組織ごとに別アカウントとして `~/.omp/agent/agent.db` に保存され、OMP が枠の残量を見て自動で選び分けます。
 Anthropic から Codex への退避も、OMP 本体がアカウントごとの残量を見て判定します。
 使用量の widget には、枠ごとに最も余裕のあるアカウントの値が表示されます。
+通常のターミナルでは、Starship プロンプトの使用率行（`dotfiles/.zshrc` の `_agent_usage_refresh`）が同じ記録を組織ごとに読み、`Claude personal F:… A:… S:… team F:… A:… S:…` の形で並べます。
+その端末の OMP にログインしていない組織は表示されません。
+個人とチームは組織名で判定し、Anthropic 既定の `<メール>'s Organization` を個人、それ以外をチームとみなします。
 
 有効値の確認には `omp config get` を使います。
 

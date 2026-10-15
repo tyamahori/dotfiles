@@ -102,15 +102,17 @@ unset _fzf_tab
 # 使用率は OMP の usage snapshot（anthropic-usage-guard と同じ）から取得する。
 # Starship は描画ごとに別プロセスになるため、SQLite の読み取りは Zsh 内で
 # 60秒キャッシュし、ANSI 色付きの値だけ環境変数で渡す。
+# Claude は OMP にログイン済みの組織ごとに個人/チームを分けて出し、その端末に
+# ない側（未ログイン・削除済み）は表示しない。
 autoload -Uz add-zsh-hook
 
 typeset -gi _agent_usage_refreshed_at=-60
 _agent_usage_refresh() {
   local db="$HOME/.omp/agent/agent.db"
-  local -a claude parts
-  local key pct age reset_mins tok reset
+  local -a personal team parts
+  local acct key pct age reset_mins tok reset codex claude
   if [[ -r $db ]] && command -v sqlite3 >/dev/null 2>&1; then
-    while read -r key pct age reset_mins; do
+    while read -r acct key pct age reset_mins; do
       tok="${pct}%%"
       (( age > 60 )) && tok+="*"
       if (( reset_mins < 0 )); then
@@ -128,16 +130,27 @@ _agent_usage_refresh() {
         tok="%F{yellow}${tok}%f"
       fi
       tok+="%F{245}(${reset})%f"
-      case $key in
-        F|A|S) claude+=("${key}:${tok}") ;;
-        codex) parts+=("%F{cyan}Codex%f ${tok}") ;;
+      case $acct in
+        personal) personal+=("${key}:${tok}") ;;
+        team) team+=("${key}:${tok}") ;;
+        codex) codex="%F{cyan}Codex%f ${tok}" ;;
       esac
     done < <(sqlite3 -separator ' ' "file:$db?mode=ro" "
-      SELECT CASE lower(u.limit_id)
+      SELECT CASE WHEN lower(u.provider) <> 'anthropic' THEN 'codex' ELSE COALESCE((
+               -- ponytail: 個人組織は Anthropic 既定名 \"<email>'s Organization\" で判定。
+               -- 個人組織を改名したら OMP 認証情報に組織種別が載るまで誤判定する。
+               SELECT CASE WHEN json_extract(c.data, '\$.orgName') LIKE '%''s Organization'
+                           THEN 'personal' ELSE 'team' END
+               FROM auth_credentials c
+               WHERE c.provider = 'anthropic'
+                 AND json_extract(c.data, '\$.orgId')
+                     = substr(u.account_key, instr(u.account_key, '|org:') + 5)
+               LIMIT 1), 'gone') END AS acct,
+             CASE lower(u.limit_id)
                WHEN 'anthropic:7d:fable' THEN 'F'
                WHEN 'anthropic:7d' THEN 'A'
                WHEN 'anthropic:5h' THEN 'S'
-               ELSE 'codex' END AS key,
+               ELSE 'C' END AS key,
              CAST(MAX(u.used_fraction)*100+0.5 AS INTEGER),
              CAST((strftime('%s','now')*1000 - MAX(u.recorded_at))/60000 AS INTEGER),
              COALESCE(CAST((MAX(u.resets_at) - strftime('%s','now')*1000)/60000 AS INTEGER), -1)
@@ -147,13 +160,17 @@ _agent_usage_refresh() {
           SELECT MAX(x.recorded_at)
           FROM usage_history x
           WHERE lower(x.provider)=lower(u.provider)
+            AND x.account_key=u.account_key
             AND lower(x.limit_id)=lower(u.limit_id)
         )
         AND lower(u.limit_id) IN
             ('anthropic:7d:fable','anthropic:7d','anthropic:5h','openai-codex:primary')
-      GROUP BY key
+      GROUP BY acct, key
       ORDER BY CASE key WHEN 'F' THEN 0 WHEN 'A' THEN 1 WHEN 'S' THEN 2 ELSE 3 END;" 2>/dev/null)
-    (( $#claude )) && parts=("%F{208}Claude%f ${(j: :)claude}" $parts)
+    (( $#personal )) && claude+=" %F{245}personal%f ${(j: :)personal}"
+    (( $#team )) && claude+=" %F{245}team%f ${(j: :)team}"
+    [[ -n $claude ]] && parts+=("%F{208}Claude%f${claude}")
+    [[ -n $codex ]] && parts+=("$codex")
   fi
   export STARSHIP_AGENT_USAGE="$(print -P -- "${(j: / :)parts}")"
 }
