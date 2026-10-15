@@ -1,25 +1,23 @@
 #!/bin/bash
 # Shared PostToolUse hook: lint a file right after an agent writes or edits
-# it, feeding findings back so they are fixed before commit. Dispatches by
-# file type: shellcheck for sh/bash, ruff for Python, oxlint for
-# TypeScript/JavaScript, actionlint for GitHub workflow files, dclint plus
-# compose-canonical-check for Docker Compose files, hadolint for
-# Dockerfiles, sqruff for SQL, jq syntax
-# Reads Claude-style JSON ({tool_input:{file_path}}) on stdin and emits a
-# {decision:"block"} JSON on findings. Consumers: Claude Code
 # (settings.json, Write|Edit matcher), Codex (codex/hooks/lint-edit.sh
 # adapter), and OMP (omp/extensions/lint-on-edit.ts). zsh is skipped (shellcheck
-# cannot parse it). Clean files, non-target files, and files whose linter is
-# not installed produce no output at all.
+# cannot parse it). Workflow files run both actionlint and zizmor. Clean files,
+# non-target files, and files whose linter is not installed produce no output at
+# all.
 set -euo pipefail
+
+# Reads Claude-style JSON ({tool_input:{file_path}}) on stdin and emits a
+# {decision:"block"} JSON on findings. Consumers: Claude Code, Codex, and OMP.
 
 file=$(jq -r '.tool_input.file_path // empty')
 [ -n "$file" ] && [ -f "$file" ] || exit 0
 
 linter=
+extra_linter=
 json_format=
 case "$file" in
-  */.github/workflows/*.yml|*/.github/workflows/*.yaml) linter=actionlint ;;
+  */.github/workflows/*.yml|*/.github/workflows/*.yaml) linter=actionlint; extra_linter=zizmor ;;
   # dclint's own discovery pattern: (docker-)?compose*.ya?ml
   compose*.yml|compose*.yaml|docker-compose*.yml|docker-compose*.yaml|*/compose*.yml|*/compose*.yaml|*/docker-compose*.yml|*/docker-compose*.yaml) linter=dclint ;;
   Dockerfile|Dockerfile.*|*.Dockerfile|*/Dockerfile|*/Dockerfile.*) linter=hadolint ;;
@@ -49,11 +47,16 @@ esac
 dclint_bin="$HOME/dotfiles/tools/dclint/node_modules/.bin/dclint"
 if [ "$linter" = dclint ]; then
   [ -x "$dclint_bin" ] || exit 0
-else
-  command -v "$linter" >/dev/null || exit 0
+elif ! command -v "$linter" >/dev/null; then
+  linter=
 fi
+if [ -n "$extra_linter" ] && ! command -v "$extra_linter" >/dev/null; then
+  extra_linter=
+fi
+[ -n "$linter$extra_linter" ] || exit 0
 
 # Never fail the hook itself; findings go back via decision:block.
+findings=
 case "$linter" in
   shellcheck) findings=$(shellcheck --format=gcc "$file" 2>&1 | head -c 4000) || true ;;
   jq)
@@ -83,7 +86,11 @@ $findings"
     findings=$(printf '%s\n%s' "$findings" "$canonical" | sed '/^$/d' | head -c 4000)
     ;;
 esac
+if [ "$extra_linter" = zizmor ]; then
+  extra_findings=$(zizmor --quiet --offline "$file" 2>&1 | head -c 4000) || true
+  [ -z "$extra_findings" ] || findings=$(printf '%s\n%s' "$findings" "$extra_findings" | sed '/^$/d' | head -c 4000)
+fi
 [ -n "$findings" ] || exit 0
 
-jq -n --arg reason "$linter found issues in the file you just edited — fix them now:
+jq -n --arg reason "${linter:-$extra_linter} found issues in the file you just edited — fix them now:
 $findings" '{decision: "block", reason: $reason}'

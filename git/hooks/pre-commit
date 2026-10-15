@@ -63,6 +63,7 @@ fi
 # pattern as the commit-msg symlink).
 "$repo_root/git/global-hooks/checks/pre-commit-semgrep"
 "$repo_root/git/global-hooks/checks/pre-commit-gitleaks"
+"$repo_root/git/global-hooks/checks/pre-commit-zizmor"
 "$repo_root/git/global-hooks/checks/pre-commit-dclint"
 "$repo_root/git/global-hooks/checks/pre-commit-compose-config"
 "$repo_root/git/global-hooks/checks/pre-commit-hadolint"

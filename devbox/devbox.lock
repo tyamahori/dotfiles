@@ -2027,6 +2027,44 @@
         }
       }
     },
+    "zizmor@latest": {
+      "last_modified": "2026-10-08T19:21:32Z",
+      "resolved": "github:NixOS/nixpkgs/8edc0c72e3a38faf5434e40d1f19431125fe4b30#zizmor",
+      "source": "devbox-search",
+      "version": "1.30.1",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/ivq64d3j7af04z1ld4wi3dv4fpq6pms7-zizmor-1.30.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/ivq64d3j7af04z1ld4wi3dv4fpq6pms7-zizmor-1.30.1"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/hlvdln8cx917zx6rw4454a1zc26igcyl-zizmor-1.30.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/hlvdln8cx917zx6rw4454a1zc26igcyl-zizmor-1.30.1"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/fwca988idiziil105pa3q9zvpg31cshk-zizmor-1.30.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/fwca988idiziil105pa3q9zvpg31cshk-zizmor-1.30.1"
+        }
+      }
+    },
     "zoxide@latest": {
       "last_modified": "2026-10-08T19:21:32Z",
       "resolved": "github:NixOS/nixpkgs/8edc0c72e3a38faf5434e40d1f19431125fe4b30#zoxide",

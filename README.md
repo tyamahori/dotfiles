@@ -164,6 +164,11 @@ Current checks:
   host namespaces, `cap_add` ALL/SYS_ADMIN, unconfined `security_opt`), so the
   gate holds structurally without an agent-side completion step. See
   [`docs/semgrep.md`](docs/semgrep.md).
+- **pre-commit zizmor** (`checks/pre-commit-zizmor`) — audits staged
+  `.github/workflows/*.yml` and `*.yaml` files for GitHub Actions security
+  issues in offline mode. It complements `actionlint`: actionlint checks
+  workflow syntax and expressions, while zizmor checks security-sensitive
+  workflow patterns.
 - **pre-commit gitleaks** (`checks/pre-commit-gitleaks`) — scans the staged
   diff for secrets; false positives are silenced with a `gitleaks:allow`
   comment.
@@ -451,8 +456,8 @@ extensions in `omp/extensions/`:
   Rule maintenance and activation: [OMP guide](docs/omp.md#代替ツールのルールを追加する).
 - **lint on edit** — `scripts/lint-on-edit` lints files right after an agent
   writes or edits them (shellcheck for shell, ruff for Python, oxlint for
-  TypeScript/JavaScript, actionlint for GitHub workflow files, jq syntax
-  validation for JSON, `jq --sort-keys` formatting for the linked
+  TypeScript/JavaScript, actionlint and zizmor for GitHub workflow files, jq
+  syntax validation for JSON, `jq --sort-keys` formatting for the linked
   Claude/Codex/OMP JSON configuration, hadolint for Dockerfiles, dclint plus
   `scripts/compose-canonical-check` for Docker Compose files, and sqruff for
   SQL) and feeds findings back for an immediate fix.
@@ -464,14 +469,15 @@ extensions in `omp/extensions/`:
   Specification's long (mapping) form, by converting the file with
   [yq](https://github.com/mikefarah/yq) (which preserves the source's
   array/object shapes) and checking those shapes with `jq`.
-  Hadolint, sqruff, and yq are installed via devbox global;
-  DCLint is a locked Node dependency in `tools/dclint` (also via `scripts/devbox`).
+  Hadolint, zizmor, sqruff, and yq are installed via devbox global; DCLint is
+  a locked Node dependency in `tools/dclint` (also via `scripts/devbox`).
   Run the same strict checks manually with:
 
   ```sh
   hadolint --failure-threshold style Dockerfile
   ~/dotfiles/tools/dclint/node_modules/.bin/dclint --max-warnings 0 compose.yaml
   ~/dotfiles/scripts/compose-canonical-check compose.yaml
+  zizmor --offline .github/workflows/
   sqruff lint query.sql
   docker compose -f compose.yaml config -q
   ```

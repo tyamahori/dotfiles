@@ -1,0 +1,26 @@
+#!/bin/bash
+# Machine-global pre-commit check: audit staged GitHub Actions workflows with
+# zizmor. Like the other staged-file checks, this reads the working-tree
+# versions of staged paths; one commit escapes with --no-verify.
+set -euo pipefail
+
+command -v zizmor >/dev/null || exit 0
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+workflows=()
+while IFS= read -r -d '' file; do
+	case "$file" in
+		.github/workflows/*.yml|.github/workflows/*.yaml)
+			[[ -f $file ]] && workflows+=("$file")
+			;;
+	esac
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+((${#workflows[@]})) || exit 0
+
+if ! zizmor --quiet --offline "${workflows[@]}"; then
+	echo "pre-commit: zizmor found GitHub Actions security issues in staged workflows." >&2
+	echo "Fix the findings or commit with --no-verify." >&2
+	exit 1
+fi
