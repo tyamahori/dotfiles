@@ -128,9 +128,13 @@ if command -v herdr >/dev/null 2>&1; then
 fi
 
 # hunk's bundled hunk-review skill (live diff session control): symlink the
-# unversioned brew opt path so links survive upgrades. Machine-level tool
-# like herdr, so it IS linked globally.
-hunk_skill="$(brew --prefix hunk 2>/dev/null || true)/libexec/skills/hunk-review"
+# unversioned brew opt path (macOS) or devbox profile path (Linux) so links
+# survive upgrades. Machine-level tool like herdr, so it IS linked globally.
+if [ "$(uname)" = Darwin ]; then
+	hunk_skill="$(brew --prefix hunk 2>/dev/null || true)/libexec/skills/hunk-review"
+else
+	hunk_skill="$HOME/.local/share/devbox/global/default/.devbox/nix/profile/default/skills/hunk-review"
+fi
 if [[ -d $hunk_skill ]]; then
 	link_into_dirs "$hunk_skill" hunk-review "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.copilot/skills" "$HOME/.agents/skills"
 fi

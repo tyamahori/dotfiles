@@ -21,8 +21,8 @@
     "github-copilot-cli":   "latest",
     "semgrep":              "latest",
     "ruff":                 "latest",
-    "actionlint":             "latest",
-    "zizmor":                 "latest",
+    "actionlint":           "latest",
+    "zizmor":               "latest",
     "gitleaks":             "latest",
     "oxlint":               "latest",
     "delve":                "latest",
@@ -70,8 +70,44 @@
       "disable_plugin": true
     },
     "github:NixOS/nixpkgs/nixpkgs-unstable#php85Packages.composer": "",
-    "github:NixOS/nixpkgs/nixpkgs-unstable#typescript": "",
+    "github:NixOS/nixpkgs/nixpkgs-unstable#typescript":             "",
     "node-gyp": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "shfmt": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "ast-grep": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "hunk": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "glow": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "ripgrep": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "fd": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "jaq": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "sonar-scanner-cli": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "ffmpeg": {
       "version":   "latest",
       "platforms": ["x86_64-linux", "aarch64-linux"]
     }
