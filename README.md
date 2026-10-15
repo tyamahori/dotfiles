@@ -697,7 +697,7 @@ update-my-dotfiles
 git add -- <files you chose>
 ./scripts/sync
 
-# Update brew formulae and casks
+# Update brew formulae and casks (macOS) or the OMP binary (Linux)
 ./scripts/brewUpdate
 
 # Bump devbox global packages; commit devbox/devbox.lock afterwards

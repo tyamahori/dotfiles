@@ -58,6 +58,10 @@ if [ "$(uname)" = Darwin ]; then
 		echo "brewUpdate: ~/.Brewfile is not satisfied; see brew bundle check --verbose" >&2
 else
 	echo "brewUpdate: skipping brew (macOS only)" >&2
+	# Linux OMP is the upstream binary (scripts/apps), which brew never sees.
+	if [ -x "$HOME/.local/bin/omp" ]; then
+		"$HOME/.local/bin/omp" update
+	fi
 fi
 
 # herdr upgrades ship a new bundled agent skill; keep the local copy in sync

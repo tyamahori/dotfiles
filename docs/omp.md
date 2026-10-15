@@ -442,7 +442,15 @@ TypeSafe（Jev）の systemone API を使う machine-global な補助機能で�
 
 ## OMP 本体を更新する
 
-`omp update` で本体を更新した後は、プラグインと dotfiles のリンクを再適用します。
+OMP 本体の入手経路は OS ごとに 1 つだけです。macOS は Brewfile の
+`can1357/tap/omp`、Linux は `scripts/apps` が公式インストーラ（`--binary`）で
+`~/.local/bin/omp` に入れる公式バイナリです。npm や bun のグローバルに同じ
+パッケージがあると PATH 上で先に見つかり、古い版が使われるので、
+`scripts/apps` が Linux で削除します。
+
+更新は `scripts/brewUpdate`（`brewup`）で行います。macOS では `brew upgrade`
+が、Linux では `omp update` が本体を更新します。更新した後は、プラグインと
+dotfiles のリンクを再適用します。
 
 ```bash
 omp-apply

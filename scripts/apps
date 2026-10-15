@@ -50,10 +50,21 @@ if [ ${#missing[@]} -gt 0 ]; then
 	sudo apt-get install -y "${missing[@]}"
 fi
 
-# OMP into ~/.local/bin. --binary: the installer's bun route needs a newer bun
-# than the devbox pin. Download first so a failed fetch fails this step instead
-# of piping nothing into sh.
-if ! command -v omp >/dev/null 2>&1; then
+# OMP's only Linux layer is the upstream binary in ~/.local/bin, updated by
+# `omp update` (scripts/brewUpdate). npm/bun global copies of the same package
+# sit earlier on PATH (.zprofile puts ~/.npm-global/bin first) and silently
+# shadow it with a stale version, so drop them.
+if npm ls -g --depth=0 @oh-my-pi/pi-coding-agent >/dev/null 2>&1; then
+	npm uninstall -g @oh-my-pi/pi-coding-agent
+fi
+if command -v bun >/dev/null 2>&1 && [ -e "$HOME/.bun/bin/omp" ]; then
+	bun remove -g @oh-my-pi/pi-coding-agent
+fi
+
+# --binary: the installer's bun route needs a newer bun than the devbox pin.
+# Download first so a failed fetch fails this step instead of piping nothing
+# into sh.
+if [ ! -x "$HOME/.local/bin/omp" ]; then
 	installer="$(mktemp)"
 	trap 'rm -f "$installer"' EXIT
 	curl -fsSL https://omp.sh/install -o "$installer"
