@@ -719,66 +719,6 @@
         }
       }
     },
-    "ghostty@latest": {
-      "last_modified": "2026-10-08T19:21:32Z",
-      "resolved": "github:NixOS/nixpkgs/8edc0c72e3a38faf5434e40d1f19431125fe4b30#ghostty",
-      "source": "devbox-search",
-      "version": "1.3.1",
-      "systems": {
-        "aarch64-linux": {
-          "outputs": [
-            {
-              "name": "out",
-              "path": "/nix/store/zd11055vz4mb9sphj2c8ry8zlgcwz6yv-ghostty-1.3.1",
-              "default": true
-            },
-            {
-              "name": "man",
-              "path": "/nix/store/j63amcs9v4233h8v8qsrdnihrwlnsl99-ghostty-1.3.1-man"
-            },
-            {
-              "name": "shell_integration",
-              "path": "/nix/store/p2mgrf38kp54xszbgnrvvwr1pfn9rgz3-ghostty-1.3.1-shell_integration"
-            },
-            {
-              "name": "terminfo",
-              "path": "/nix/store/zchsnqg5n2qn2nxnim7rf1mnpy3v7cl9-ghostty-1.3.1-terminfo"
-            },
-            {
-              "name": "vim",
-              "path": "/nix/store/3rd4wr06iald86yjlrw4i3jrnpf1bp3z-ghostty-1.3.1-vim"
-            }
-          ],
-          "store_path": "/nix/store/zd11055vz4mb9sphj2c8ry8zlgcwz6yv-ghostty-1.3.1"
-        },
-        "x86_64-linux": {
-          "outputs": [
-            {
-              "name": "out",
-              "path": "/nix/store/i5zqr903i6yb642h9amwh5174n5bmfc4-ghostty-1.3.1",
-              "default": true
-            },
-            {
-              "name": "man",
-              "path": "/nix/store/x4j678vsj0sy0bqxli44d5d0mba4hnq2-ghostty-1.3.1-man"
-            },
-            {
-              "name": "shell_integration",
-              "path": "/nix/store/mmp0a2nmrm9y8jgvn7hcq2x7h2j8vyvx-ghostty-1.3.1-shell_integration"
-            },
-            {
-              "name": "terminfo",
-              "path": "/nix/store/gxmbrl89w600wb77pl0fsxil955vd4yd-ghostty-1.3.1-terminfo"
-            },
-            {
-              "name": "vim",
-              "path": "/nix/store/hz95pyl09mfybd14q791cj6anlzy0sf5-ghostty-1.3.1-vim"
-            }
-          ],
-          "store_path": "/nix/store/i5zqr903i6yb642h9amwh5174n5bmfc4-ghostty-1.3.1"
-        }
-      }
-    },
     "git-absorb@latest": {
       "last_modified": "2026-10-08T19:21:32Z",
       "resolved": "github:NixOS/nixpkgs/8edc0c72e3a38faf5434e40d1f19431125fe4b30#git-absorb",

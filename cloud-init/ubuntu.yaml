@@ -21,6 +21,7 @@ packages:
   - git
   - curl
   - ca-certificates
+  - gnupg
   - xz-utils
   - build-essential
 

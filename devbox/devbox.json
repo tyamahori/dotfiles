@@ -53,10 +53,6 @@
       "version":   "latest",
       "platforms": ["x86_64-linux", "aarch64-linux"]
     },
-    "ghostty": {
-      "version":   "latest",
-      "platforms": ["x86_64-linux", "aarch64-linux"]
-    },
     "jq": {
       "version":   "latest",
       "platforms": ["x86_64-linux", "aarch64-linux"]

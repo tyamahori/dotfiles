@@ -3,8 +3,9 @@ set -euo pipefail
 
 # OS application layer, after scripts/devbox (Linux needs its node).
 # macOS: the Brewfile (casks and the claude-code / codex / omp CLIs; mas lines are commented out).
-# Linux: those CLIs have no Brewfile, so install them per user; Copilot CLI
-# comes from devbox on both OSes. Versions follow upstream latest.
+# Linux: those CLIs have no Brewfile, so Claude Code comes from its apt repo
+# and the rest are installed per user; Copilot CLI comes from devbox on both
+# OSes. Versions follow upstream latest.
 SCRIPT_DIR="$(cd -P "$(dirname "$0")" && pwd)"
 
 if [ "$(uname)" = Darwin ]; then
@@ -16,7 +17,38 @@ fi
 # ~/.npm-global (on PATH via .zprofile and scripts/setup).
 mkdir -p ~/.npm-global
 npm config set prefix ~/.npm-global
-npm install -g @anthropic-ai/claude-code @openai/codex
+npm install -g @openai/codex
+
+# Claude Code from Anthropic's signed apt repo, latest channel to match the
+# claude-code@latest cask. nixpkgs trails releases and the read-only store
+# blocks self-update; apt verifies the repo signature on every upgrade
+# (`sudo apt upgrade claude-code`). The key is checked against the fingerprint
+# published at code.claude.com/docs/en/setup before apt trusts it.
+claude_list=/etc/apt/sources.list.d/claude-code.list
+if [ ! -f "$claude_list" ]; then
+	claude_key=/etc/apt/keyrings/claude-code.asc
+	sudo install -d -m 0755 /etc/apt/keyrings
+	sudo curl -fsSL https://downloads.claude.ai/keys/claude-code.asc -o "$claude_key"
+	claude_fpr="$(gpg --show-keys --with-colons "$claude_key" || true)"
+	if ! grep -q '^fpr:.*:31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE:$' <<<"$claude_fpr"; then
+		sudo rm -f "$claude_key"
+		echo "apps: Claude Code signing key fingerprint mismatch" >&2
+		exit 1
+	fi
+	echo "deb [signed-by=$claude_key] https://downloads.claude.ai/claude-code/apt/latest latest main" |
+		sudo tee "$claude_list" >/dev/null
+	sudo apt-get update
+fi
+# ghostty from the Ubuntu archive: it links the host mesa, so it renders
+# without the LD_LIBRARY_PATH wrapper nixpkgs' build needed (which leaked into
+# every shell and broke nix binaries once nixpkgs' glibc outran the host's).
+missing=()
+for pkg in claude-code ghostty; do
+	dpkg -s "$pkg" >/dev/null 2>&1 || missing+=("$pkg")
+done
+if [ ${#missing[@]} -gt 0 ]; then
+	sudo apt-get install -y "${missing[@]}"
+fi
 
 # OMP into ~/.local/bin. --binary: the installer's bun route needs a newer bun
 # than the devbox pin. Download first so a failed fetch fails this step instead
