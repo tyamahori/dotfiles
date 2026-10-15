@@ -110,7 +110,7 @@ typeset -gi _agent_usage_refreshed_at=-60
 _agent_usage_refresh() {
   local db="$HOME/.omp/agent/agent.db"
   local -a personal team parts
-  local acct key pct age reset_mins tok reset codex claude
+  local acct key pct age reset_mins tok reset codex
   if [[ -r $db ]] && command -v sqlite3 >/dev/null 2>&1; then
     while read -r acct key pct age reset_mins; do
       tok="${pct}%%"
@@ -167,12 +167,11 @@ _agent_usage_refresh() {
             ('anthropic:7d:fable','anthropic:7d','anthropic:5h','openai-codex:primary')
       GROUP BY acct, key
       ORDER BY CASE key WHEN 'F' THEN 0 WHEN 'A' THEN 1 WHEN 'S' THEN 2 ELSE 3 END;" 2>/dev/null)
-    (( $#personal )) && claude+=" %F{245}personal%f ${(j: :)personal}"
-    (( $#team )) && claude+=" %F{245}team%f ${(j: :)team}"
-    [[ -n $claude ]] && parts+=("%F{208}Claude%f${claude}")
+    (( $#personal )) && parts+=("%F{208}Claude%f personal ${(j: :)personal}")
+    (( $#team )) && parts+=("%F{208}Claude%f team ${(j: :)team}")
     [[ -n $codex ]] && parts+=("$codex")
   fi
-  export STARSHIP_AGENT_USAGE="$(print -P -- "${(j: / :)parts}")"
+  export STARSHIP_AGENT_USAGE="$(print -P -- "${(pj:\n:)parts}")"
 }
 _agent_usage_precmd() {
   if (( SECONDS - _agent_usage_refreshed_at >= 60 )); then
