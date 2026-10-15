@@ -19,9 +19,9 @@ cd ~/project/dotfiles
 
 1. `scripts/init` — install Homebrew (macOS), Nix, and Devbox
 2. `scripts/devbox` — link `devbox/devbox.json` and `devbox/devbox.lock` into devbox global, install the pinned packages (including `gh` and the Copilot CLI), and install lockfile-pinned dependencies for local hooks
-3. `scripts/apps` — macOS: install the repository Brewfile; Linux: install Claude Code and Codex with npm, OMP with its upstream installer, and `ax` from its upstream release binary
+3. `scripts/apps` — macOS: install the repository Brewfile; Linux: install Claude Code from Anthropic's signed apt repository (latest channel) and Ghostty from the Ubuntu archive (asks for sudo), Codex with npm, OMP with its upstream installer, and `ax` from its upstream release binary
 4. `scripts/python` — install the latest CPython via `uv`, register it as the global `python` / `python3`, and install or upgrade the debugpy and Strix CLI tools
-5. `scripts/link` — local placement only: create the stable `~/dotfiles` alias, symlink dotfiles, shared instructions, runtime adapters, and OMP configuration, set this repo's `core.hooksPath`, and load launchd jobs (macOS). It also writes files derived from what is installed: the herdr skill and agent-state hook scripts (from the `herdr` binary), the Codex `skills.config` entry, and on Linux the Ghostty GL wrapper and desktop entry. It never touches the network, so it is safe to rerun after any pull
+5. `scripts/link` — local placement only: create the stable `~/dotfiles` alias, symlink dotfiles, shared instructions, runtime adapters, and OMP configuration, set this repo's `core.hooksPath`, and load launchd jobs (macOS). It also writes files derived from what is installed: the herdr skill and agent-state hook scripts (from the `herdr` binary), and the Codex `skills.config` entry; on Linux it removes the Ghostty GL wrapper and desktop entry that older links generated. It never touches the network, so it is safe to rerun after any pull
 6. `scripts/agent-tools` — install what is missing from the network: Playwright tooling, Plannotator, the `global_skills` set, and the Codex ponytail plugin
 7. `scripts/omp-plugins` — install the declared OMP plugin set (`omp plugin install`)
 
@@ -33,7 +33,7 @@ tmux/herdr; undo with `sudo rm /etc/pam.d/sudo_local`.
 Versions: devbox packages are pinned by `devbox/devbox.lock`, and npm OMP
 plugins by the versions in `scripts/omp-plugins`' `plugins` array (it reinstalls the declared
 version on drift, so it can downgrade). Everything else setup installs
-(Homebrew formulae and casks, the npm agent CLIs on Linux, OMP marketplace plugins, OMP and other
+(Homebrew formulae and casks, Claude Code (apt) and Codex (npm) on Linux, OMP marketplace plugins, OMP and other
 upstream installers, `skills@latest`) tracks latest by design, so a rerun
 months apart can produce newer tools than the last machine. Pin one only after
 a release breaks it, and record why next to the pin.
@@ -77,10 +77,10 @@ pipelines. `xh` replaces HTTPie, not the OS curl or ax web-reading workflow.
 Before using xh with corporate endpoints, verify its certificate/proxy behavior
 in that environment.
 
-#### Searchable Tab completion (macOS)
+#### Searchable Tab completion
 
-`scripts/apps` installs `fzf-tab` from `.Brewfile`; it uses the `fzf` supplied
-by devbox. Run `reload` after installation, or open a new Zsh pane.
+`fzf-tab` comes from `.Brewfile` on macOS and from devbox on Linux; it uses the
+`fzf` supplied by devbox. Run `reload` after installation, or open a new Zsh pane.
 
 Press `Tab` after a command, option prefix, or path to open the completion
 menu, then type to filter candidates. `Enter` inserts the selected candidate;
@@ -672,14 +672,17 @@ to the `docker` group), clones this repo, and runs `./scripts/setup` as that
 user, so the VM gets the same steps as macOS minus the Brewfile. Running
 `./scripts/setup` by hand on another Ubuntu host works the same way, given zsh,
 git, curl, build-essential, and passwordless sudo for the Nix and Devbox installers.
+`scripts/apps` also uses sudo to register Claude Code's apt repository; on a host
+without passwordless sudo it prompts once.
 
 Some parts stay macOS-only by design, and Linux skips them: the Brewfile
 (apps, Keychain/GUI tools), the launchd jobs (`scripts/link` has no systemd
 equivalent, so the weekly/quarterly reviews do not run), and
 `scripts/sonar-quality-gate` (it requires macOS `dscacheutil` and bootstraps its
-token from the Keychain, so it exits early on Linux). On Linux, `scripts/link` writes the Ghostty desktop entry and
-icon when devbox provides Ghostty; refreshing the desktop and icon caches is best-effort and silently
-skipped when `update-desktop-database` / `gtk-update-icon-cache` are absent.
+token from the Keychain, so it exits early on Linux). On Linux, Ghostty comes from the Ubuntu archive rather than devbox: the
+nixpkgs build needs the host's mesa through `LD_LIBRARY_PATH`, which leaked
+into every shell and broke nix binaries once nixpkgs' glibc was newer than the
+host's.
 
 > Note: the docker group membership only takes effect after the next login —
 > reconnect with `orb shell dev` or run `newgrp docker` once.
@@ -752,3 +755,13 @@ duplicate silently shadows the brew copy and forks behavior.
   `homebrew/brew.env` lists the devbox-owned CLIs in
   `HOMEBREW_FORBIDDEN_FORMULAE`, so brew refuses to install a duplicate; keep
   it in sync when adding a devbox package that also exists as a formula.
+- **Linux** — the Brewfile's CLI formulae (zsh plugins, ripgrep, fd, jaq,
+  ast-grep, hunk, and so on) are devbox packages restricted with
+  `--platform x86_64-linux,aarch64-linux`, so macOS keeps the brew copy. apt
+  owns only the cloud-init base packages, Docker CE, Ghostty (the distro
+  build links the host GPU drivers), and Claude Code (its
+  signed repository ships releases ahead of nixpkgs; upgrade with
+  `sudo apt update && sudo apt upgrade claude-code`). GNU coreutils/sed/awk
+  are the OS's own; casks and macOS-only tools (terminal-notifier,
+  sleepwatcher, pam-reattach, ollama's launchd service) have no Linux
+  counterpart here.
