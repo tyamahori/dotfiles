@@ -253,6 +253,11 @@ if [ "$(uname)" != Darwin ]; then
 		fi
 	done
 	find "$HOME/.local/share/icons/hicolor" -name 'com.mitchellh.ghostty.png' -xtype l -delete 2>/dev/null || true
+	# The user icon cache still lists the removed icon and hides the system one.
+	if [ -f "$HOME/.local/share/icons/hicolor/icon-theme.cache" ]; then
+		gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" 2>/dev/null ||
+			rm -f "$HOME/.local/share/icons/hicolor/icon-theme.cache"
+	fi
 fi
 
 # herdr config (session state and logs stay unmanaged in ~/.config/herdr)
