@@ -3,9 +3,9 @@ set -euo pipefail
 
 # OS application layer, after scripts/devbox (Linux needs its node).
 # macOS: the Brewfile (casks and the claude-code / codex / omp CLIs; mas lines are commented out).
-# Linux: those CLIs have no Brewfile, so Claude Code comes from its apt repo
-# and the rest are installed per user; Copilot CLI comes from devbox on both
-# OSes. Versions follow upstream latest.
+# Linux: those CLIs have no Brewfile, so Claude Code and Docker CE come from
+# their apt repos and the rest are installed per user; Copilot CLI comes from
+# devbox on both OSes. Versions follow upstream latest.
 SCRIPT_DIR="$(cd -P "$(dirname "$0")" && pwd)"
 
 if [ "$(uname)" = Darwin ]; then
@@ -39,15 +39,54 @@ if [ ! -f "$claude_list" ]; then
 		sudo tee "$claude_list" >/dev/null
 	sudo apt-get update
 fi
+
+# Docker CE from Docker's signed apt repo, not the snap: the snap's AppArmor
+# profile blocked dockerd's DNS lookups to systemd-resolved (127.0.0.53), so
+# every pull failed. Removing the snap purges its images and volumes, so leave
+# that call to the user. Key checked against the fingerprint published at
+# docs.docker.com/engine/install/ubuntu before apt trusts it.
+if snap list docker >/dev/null 2>&1; then
+	echo "apps: snap docker is installed; remove it first (drops its images and volumes): sudo snap remove --purge docker" >&2
+	exit 1
+fi
+docker_sources=/etc/apt/sources.list.d/docker.sources
+# docker.list: OrbStack VMs built before Docker moved here from cloud-init
+if [ ! -f "$docker_sources" ] && [ ! -f /etc/apt/sources.list.d/docker.list ]; then
+	docker_key=/etc/apt/keyrings/docker.asc
+	sudo install -d -m 0755 /etc/apt/keyrings
+	sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o "$docker_key"
+	docker_fpr="$(gpg --show-keys --with-colons "$docker_key" || true)"
+	if ! grep -q '^fpr:.*:9DC858229FC7DD38854AE2D88D81803C0EBFCD88:$' <<<"$docker_fpr"; then
+		sudo rm -f "$docker_key"
+		echo "apps: Docker signing key fingerprint mismatch" >&2
+		exit 1
+	fi
+	# shellcheck source=/dev/null
+	sudo tee "$docker_sources" >/dev/null <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Signed-By: $docker_key
+EOF
+	sudo apt-get update
+fi
 # ghostty from the Ubuntu archive: it links the host mesa, so it renders
 # without the LD_LIBRARY_PATH wrapper nixpkgs' build needed (which leaked into
 # every shell and broke nix binaries once nixpkgs' glibc outran the host's).
 missing=()
-for pkg in claude-code ghostty; do
+for pkg in claude-code ghostty docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; do
 	dpkg -s "$pkg" >/dev/null 2>&1 || missing+=("$pkg")
 done
 if [ ${#missing[@]} -gt 0 ]; then
 	sudo apt-get install -y "${missing[@]}"
+fi
+if ! systemctl is-enabled --quiet docker || ! systemctl is-active --quiet docker; then
+	sudo systemctl enable --now docker
+fi
+# Group membership applies from the next login (or `newgrp docker`).
+if ! id -nG "$USER" | grep -qw docker; then
+	sudo usermod -aG docker "$USER"
 fi
 
 # OMP's only Linux layer is the upstream binary in ~/.local/bin, updated by

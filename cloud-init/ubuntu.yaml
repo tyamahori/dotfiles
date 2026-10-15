@@ -4,13 +4,14 @@
 # Usage:
 #   orb create -c cloud-init/ubuntu.yaml ubuntu:24.04 dev
 #
-# System packages and Docker come from here; everything per user runs the same
-# ./scripts/setup as macOS (Nix, Devbox, Claude Code / Codex, OMP + plugins,
-# links). macOS-only items (Homebrew casks, mas) are skipped by scripts/apps.
+# System packages come from here; everything per user, Docker CE included,
+# runs the same ./scripts/setup as macOS (Nix, Devbox, Claude Code / Codex,
+# OMP + plugins, links). macOS-only items (Homebrew casks, mas) are skipped by
+# scripts/apps.
 #
 # OrbStack deletes the cloud image's default `ubuntu` user (uid 1000) and creates a
 # user matching the macOS account. cloud-init's runcmd races with that step, so all
-# user-touching work (chsh, usermod, su -) is deferred to /usr/local/sbin/dev-bootstrap.sh
+# user-touching work (chsh, su -) is deferred to /usr/local/sbin/dev-bootstrap.sh
 # fired via `systemd-run --no-block` and waits for the rename to complete.
 
 package_update: true
@@ -47,9 +48,8 @@ write_files:
       done
 
       chsh -s /usr/bin/zsh "$USER_NAME"
-      usermod -aG docker "$USER_NAME"
 
-      # Everything per user (Nix, Devbox, agent CLIs, OMP, links) is the same
+      # Everything per user (Nix, Devbox, Docker CE, agent CLIs, OMP, links) is the same
       # entry point as macOS. It needs passwordless sudo for the Nix and Devbox
       # installers, which OrbStack's default user has.
       su - "$USER_NAME" -c '
@@ -61,11 +61,7 @@ write_files:
       touch "$DONE"
 
 runcmd:
-  # Docker CE from official apt repo.
-  - bash -c 'install -dm 0755 /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && chmod a+r /etc/apt/keyrings/docker.asc && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list && apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin'
-  - systemctl enable --now docker
-
-  # User-specific setup (chsh, usermod, scripts/setup) is fired in the
+  # User-specific setup (chsh, scripts/setup) is fired in the
   # background — it polls for the OrbStack user rename before touching the new user.
   - systemd-run --no-block --unit=dev-bootstrap --description="Dev environment bootstrap" /usr/local/sbin/dev-bootstrap.sh
 

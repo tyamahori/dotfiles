@@ -16,8 +16,8 @@ set -euo pipefail
 # links, so `devbox global add/rm/update` edits the repo copies directly.
 # Per-OS packages use "platforms": mas has no Linux build, and zsh, herdr,
 # jq, sqlite and the other Brewfile CLIs come from brew on macOS. git/curl on
-# Linux come from apt (cloud-init/ubuntu.yaml); ghostty and Claude Code come
-# from apt via scripts/apps.
+# Linux come from apt (cloud-init/ubuntu.yaml); ghostty, Claude Code and
+# Docker CE come from apt via scripts/apps.
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(cd -- "$script_dir/.." && pwd)
 global_dir=$(devbox global path)

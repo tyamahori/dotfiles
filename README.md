@@ -19,7 +19,7 @@ cd ~/project/dotfiles
 
 1. `scripts/init` — install Homebrew (macOS), Nix, and Devbox
 2. `scripts/devbox` — link `devbox/devbox.json` and `devbox/devbox.lock` into devbox global, install the pinned packages (including `gh` and the Copilot CLI), and install lockfile-pinned dependencies for local hooks
-3. `scripts/apps` — macOS: install the repository Brewfile; Linux: install Claude Code from Anthropic's signed apt repository (latest channel) and Ghostty from the Ubuntu archive (asks for sudo), Codex with npm, OMP with its upstream installer, and `ax` from its upstream release binary
+3. `scripts/apps` — macOS: install the repository Brewfile; Linux: install Claude Code from Anthropic's signed apt repository (latest channel), Docker CE from Docker's signed apt repository (adding you to the `docker` group), and Ghostty from the Ubuntu archive (asks for sudo), Codex with npm, OMP with its upstream installer, and `ax` from its upstream release binary. It stops if the Docker snap is installed: remove it first with `sudo snap remove --purge docker` (this deletes the snap's images and volumes), because its AppArmor profile can block dockerd's DNS lookups so every pull fails
 4. `scripts/python` — install the latest CPython via `uv`, register it as the global `python` / `python3`, and install or upgrade the debugpy and Strix CLI tools
 5. `scripts/link` — local placement only: create the stable `~/dotfiles` alias, symlink dotfiles, shared instructions, runtime adapters, and OMP configuration, set this repo's `core.hooksPath`, and load launchd jobs (macOS). It also writes files derived from what is installed: the herdr skill and agent-state hook scripts (from the `herdr` binary), and the Codex `skills.config` entry; on Linux it removes the Ghostty GL wrapper and desktop entry that older links generated. It never touches the network, so it is safe to rerun after any pull
 6. `scripts/agent-tools` — install what is missing from the network: Playwright tooling, Plannotator, the `global_skills` set, and the Codex ponytail plugin
@@ -667,13 +667,13 @@ orb create --isolated --forward-ssh-agent -c cloud-init/ubuntu.yaml ubuntu:24.04
 orb shell dev   # default user inherits from the macOS host
 ```
 
-cloud-init installs zsh, build tools, and Docker CE (with the default user added
-to the `docker` group), clones this repo, and runs `./scripts/setup` as that
-user, so the VM gets the same steps as macOS minus the Brewfile. Running
-`./scripts/setup` by hand on another Ubuntu host works the same way, given zsh,
+cloud-init installs zsh and build tools, clones this repo, and runs
+`./scripts/setup` as the default user, so the VM gets the same steps as macOS
+minus the Brewfile; `scripts/apps` adds Docker CE and the `docker` group.
+Running `./scripts/setup` by hand on another Ubuntu host works the same way, given zsh,
 git, curl, build-essential, and passwordless sudo for the Nix and Devbox installers.
-`scripts/apps` also uses sudo to register Claude Code's apt repository; on a host
-without passwordless sudo it prompts once.
+`scripts/apps` also uses sudo to register the Claude Code and Docker apt
+repositories; on a host without passwordless sudo it prompts once.
 
 Some parts stay macOS-only by design, and Linux skips them: the Brewfile
 (apps, Keychain/GUI tools), the launchd jobs (`scripts/link` has no systemd
@@ -758,7 +758,7 @@ duplicate silently shadows the brew copy and forks behavior.
 - **Linux** — the Brewfile's CLI formulae (zsh plugins, ripgrep, fd, jaq,
   ast-grep, hunk, and so on) are devbox packages restricted with
   `--platform x86_64-linux,aarch64-linux`, so macOS keeps the brew copy. apt
-  owns only the cloud-init base packages, Docker CE, Ghostty (the distro
+  owns only the cloud-init base packages, Docker CE (`scripts/apps`; not the snap), Ghostty (the distro
   build links the host GPU drivers), and Claude Code (its
   signed repository ships releases ahead of nixpkgs; upgrade with
   `sudo apt update && sudo apt upgrade claude-code`). GNU coreutils/sed/awk
