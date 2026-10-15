@@ -110,6 +110,22 @@
     "ffmpeg": {
       "version":   "latest",
       "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "zsh-completions": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "zsh-autosuggestions": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "zsh-fzf-tab": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "zsh-syntax-highlighting": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
     }
   }
 }

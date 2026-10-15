@@ -44,14 +44,23 @@ _cache_completion herdr herdr completion zsh
 _cache_completion devbox devbox completion zsh
 unfunction _cache_completion
 
+# zsh プラグインは macOS では Homebrew、Linux では devbox global から入る。
+if [[ $OSTYPE == darwin* ]]; then
+  _plugin_share="${HOMEBREW_PREFIX:-/opt/homebrew}/share"
+  _fzf_tab="${HOMEBREW_PREFIX:-/opt/homebrew}/opt/fzf-tab/share/fzf-tab/fzf-tab.zsh"
+else
+  _plugin_share="$HOME/.local/share/devbox/global/default/.devbox/nix/profile/default/share"
+  _fzf_tab="$_plugin_share/fzf-tab/fzf-tab.zsh"
+fi
+
 typeset -U fpath FPATH
 fpath=(
   "$_comp_cache_dir"
   "$HOME"/.grok/completions/zsh(N-/)
   "$HOME"/.docker/completions(N-/)
   "$HOME"/.local/share/devbox/global/default/.devbox/nix/profile/default/share/zsh/site-functions(N-/)
-  "${HOMEBREW_PREFIX:-/opt/homebrew}"/share/zsh-completions(N-/)
-  "${HOMEBREW_PREFIX:-/opt/homebrew}"/share/zsh/site-functions(N-/)
+  "$_plugin_share"/zsh-completions(N-/)
+  "$_plugin_share"/zsh/site-functions(N-/)
   $fpath
 )
 unset _comp_cache_dir
@@ -78,14 +87,15 @@ setopt COMPLETE_IN_WORD                                             # カーソ�
 (( $+commands[fzf] )) && source <(fzf --zsh)
 
 # Tab の所有者を fzf-tab にし、autosuggestions が widget を包む前に読み込む。
-if (( $+commands[fzf] )) && [[ -r "${HOMEBREW_PREFIX:-/opt/homebrew}/opt/fzf-tab/share/fzf-tab/fzf-tab.zsh" ]]; then
+if (( $+commands[fzf] )) && [[ -r "$_fzf_tab" ]]; then
   zstyle ':completion:*' menu no
   zstyle ':completion:*:descriptions' format '[%d]'
-  source "${HOMEBREW_PREFIX:-/opt/homebrew}/opt/fzf-tab/share/fzf-tab/fzf-tab.zsh"
+  source "$_fzf_tab"
 fi
+unset _fzf_tab
 
-[ -r "${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ] && \
-  source "${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+[ -r "$_plugin_share/zsh-autosuggestions/zsh-autosuggestions.zsh" ] && \
+  source "$_plugin_share/zsh-autosuggestions/zsh-autosuggestions.zsh"
 
 (( $+commands[carapace] )) && source <(carapace _carapace)
 
@@ -224,7 +234,8 @@ add-zsh-hook -d precmd _agent_usage_precmd
 add-zsh-hook precmd _agent_usage_precmd
 
 # zsh-syntax-highlighting はウィジェットをラップするため、Kiro post block を除き最後に読み込む。
-[ -r "${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ] && \
-  source "${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+[ -r "$_plugin_share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ] && \
+  source "$_plugin_share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+unset _plugin_share
 # Kiro CLI post block. Keep at the bottom of this file.
 [[ -f "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh" ]] && builtin source "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh"

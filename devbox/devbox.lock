@@ -2540,6 +2540,198 @@
         }
       }
     },
+    "zsh-autosuggestions@latest": {
+      "last_modified": "2026-10-10T12:58:50Z",
+      "resolved": "github:NixOS/nixpkgs/ca1659429c950a11a565b5764e37a1b704e17ec8#zsh-autosuggestions",
+      "source": "devbox-search",
+      "version": "0.7.1",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/lni2rmgh94kjwy3kbv9iyll803y6x2hy-zsh-autosuggestions-0.7.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/lni2rmgh94kjwy3kbv9iyll803y6x2hy-zsh-autosuggestions-0.7.1"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/g1y6gn8v8yikw6xynk34b9ddv9il0yxa-zsh-autosuggestions-0.7.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/g1y6gn8v8yikw6xynk34b9ddv9il0yxa-zsh-autosuggestions-0.7.1"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/qpmpfmm9xwmpz2yzp4ljmqyrm95mkpdf-zsh-autosuggestions-0.7.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/qpmpfmm9xwmpz2yzp4ljmqyrm95mkpdf-zsh-autosuggestions-0.7.1"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/w7dlspm02n5y0jqyjwshqvwa8212n1r2-zsh-autosuggestions-0.7.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/w7dlspm02n5y0jqyjwshqvwa8212n1r2-zsh-autosuggestions-0.7.1"
+        }
+      }
+    },
+    "zsh-completions@latest": {
+      "last_modified": "2026-10-10T12:58:50Z",
+      "resolved": "github:NixOS/nixpkgs/ca1659429c950a11a565b5764e37a1b704e17ec8#zsh-completions",
+      "source": "devbox-search",
+      "version": "0.36.0",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/0yd62dllnsdislnpa2hp9rnyklswyjf1-zsh-completions-0.36.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/0yd62dllnsdislnpa2hp9rnyklswyjf1-zsh-completions-0.36.0"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/d6v5cvj1f6s2k12r8qdi7gj8qwr4x8ay-zsh-completions-0.36.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/d6v5cvj1f6s2k12r8qdi7gj8qwr4x8ay-zsh-completions-0.36.0"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/ipxm4xxdci3xzijxr01p3m6k5qkjzbcc-zsh-completions-0.36.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/ipxm4xxdci3xzijxr01p3m6k5qkjzbcc-zsh-completions-0.36.0"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/cqxlbrs5brb5ikmp5nzc970ljm607392-zsh-completions-0.36.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/cqxlbrs5brb5ikmp5nzc970ljm607392-zsh-completions-0.36.0"
+        }
+      }
+    },
+    "zsh-fzf-tab@latest": {
+      "last_modified": "2026-10-10T12:58:50Z",
+      "resolved": "github:NixOS/nixpkgs/ca1659429c950a11a565b5764e37a1b704e17ec8#zsh-fzf-tab",
+      "source": "devbox-search",
+      "version": "1.3.0",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/ms6qipadm8yz7r6kxk7y6kyvgdmwb57m-zsh-fzf-tab-1.3.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/ms6qipadm8yz7r6kxk7y6kyvgdmwb57m-zsh-fzf-tab-1.3.0"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/1fg7xa39lbmn6bx95n8sczhs7khfng8q-zsh-fzf-tab-1.3.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/1fg7xa39lbmn6bx95n8sczhs7khfng8q-zsh-fzf-tab-1.3.0"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/n0y819m2d9fwvxiv5kdkv5k5lmnnfnc4-zsh-fzf-tab-1.3.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/n0y819m2d9fwvxiv5kdkv5k5lmnnfnc4-zsh-fzf-tab-1.3.0"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/g7zwpnq6185mww9v4l1p80gffwpn5x39-zsh-fzf-tab-1.3.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/g7zwpnq6185mww9v4l1p80gffwpn5x39-zsh-fzf-tab-1.3.0"
+        }
+      }
+    },
+    "zsh-syntax-highlighting@latest": {
+      "last_modified": "2026-10-10T12:58:50Z",
+      "resolved": "github:NixOS/nixpkgs/ca1659429c950a11a565b5764e37a1b704e17ec8#zsh-syntax-highlighting",
+      "source": "devbox-search",
+      "version": "0.8.0",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/9v0w1g0hdqirrk7sg7jsvcx1mvigmq26-zsh-syntax-highlighting-0.8.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/9v0w1g0hdqirrk7sg7jsvcx1mvigmq26-zsh-syntax-highlighting-0.8.0"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/6mbckzg4vw6kxxlyx0n3qkwsmqjnx9nd-zsh-syntax-highlighting-0.8.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/6mbckzg4vw6kxxlyx0n3qkwsmqjnx9nd-zsh-syntax-highlighting-0.8.0"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/iizk6j85pg3bwpn22d79x17h2y732cv1-zsh-syntax-highlighting-0.8.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/iizk6j85pg3bwpn22d79x17h2y732cv1-zsh-syntax-highlighting-0.8.0"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/0svfgpg93xym83l2s1fw04hmbvryghzs-zsh-syntax-highlighting-0.8.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/0svfgpg93xym83l2s1fw04hmbvryghzs-zsh-syntax-highlighting-0.8.0"
+        }
+      }
+    },
     "zsh@latest": {
       "last_modified": "2026-10-08T19:21:32Z",
       "resolved": "github:NixOS/nixpkgs/8edc0c72e3a38faf5434e40d1f19431125fe4b30#zsh",
