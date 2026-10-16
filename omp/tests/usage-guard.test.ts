@@ -3,6 +3,7 @@ import { Database } from "bun:sqlite";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 
 const fixtureDir = mkdtempSync(join(tmpdir(), "omp-usage-guard-"));
 const fixtureDb = join(fixtureDir, "agent.db");
@@ -21,6 +22,13 @@ db.run(`
     recorded_at INTEGER NOT NULL
   )
 `);
+// Only the logged-in organisations: a usage row whose org has no credential was logged out.
+db.run(`CREATE TABLE auth_credentials (provider TEXT NOT NULL, data TEXT NOT NULL)`);
+db.run(
+  `INSERT INTO auth_credentials VALUES
+    ('anthropic', '{"orgId":"org-p","orgName":"me@example.com''s Organization"}'),
+    ('anthropic', '{"orgId":"org-t","orgName":"acme"}')`,
+);
 db.close();
 
 // The agent dir is resolved while the extension module initializes.
@@ -110,20 +118,22 @@ function usageHarness(
   };
 }
 
-test("shows the account with the most headroom per limit in the widget", async () => {
+test("shows one widget line per logged-in Claude organisation, then Codex", async () => {
   const guard = usageHarness(
     () => ({ provider: "anthropic", id: "claude-opus-5-5" }),
     () => undefined,
   );
   blockNetwork();
 
-  // The exhausted team account is recorded last, so a latest-row-wins reading would show 95%.
   seedUsage([
-    { provider: "anthropic", account: "personal", limitId: "anthropic:7d", pct: 10 },
-    { provider: "anthropic", account: "team", limitId: "anthropic:7d", pct: 95 },
+    { provider: "anthropic", account: "oauth|account:a|org:org-p", limitId: "anthropic:7d", pct: 10 },
+    { provider: "anthropic", account: "oauth|account:a|org:org-t", limitId: "anthropic:7d", pct: 60 },
+    { provider: "anthropic", account: "oauth|account:a|org:org-gone", limitId: "anthropic:7d", pct: 95 },
+    { provider: "openai-codex", account: "codex", limitId: "openai-codex:primary", pct: 3 },
   ]);
   await guard.sessionStart();
-  expect(guard.widgets.at(-1)?.[0]).toContain("7d 10%");
+  const lines = (guard.widgets.at(-1) ?? []).map(stripVTControlCharacters);
+  expect(lines).toEqual(["Claude personal A:10%(60m)", "Claude team A:60%(60m)", "Codex 3%(60m)"]);
 });
 
 test("uses the local rescue only when both pools are depleted and ollama serves qwen", async () => {

@@ -8,10 +8,10 @@
 // 1. Codex 週次枠（openai-codex:primary）の残量が20%以下になったら通知する。
 //    切替はしない: omp 本体の usage-aware fallback が
 //    retry.fallbackChains（openai-codex/* → anthropic）で退避する。
-// 2. 両 pool の使用率を editor 下の widget に常時表示する（Claude 5h / 7d /
-//    モデル別 7d と Codex 週次枠）。複数アカウントでは枠ごとに最も余裕のある
-//    アカウントの値を出す。データ源は agent.db の最新 usage snapshot で、
-//    更新は session_start とチェック周期（5分毎）に揃う。
+// 2. 両 pool の使用率を editor 下の widget に常時表示する。Claude は組織ごとに
+//    `Claude personal` / `Claude team` の行に分け、Codex 週次枠を最後の行に置く
+//    （dotfiles/.zshrc のプロンプト表示と同じ形）。データ源は agent.db の最新
+//    usage snapshot で、更新は session_start とチェック周期（5分毎）に揃う。
 // 3. 両 pool が 98% 以上（実質枯渇）のときだけ、ローカル ollama を probe して
 //    応答があればメインを qwen へ退避する。ollama 不在なら何もしない。
 //
@@ -64,6 +64,8 @@ type ExtensionHandlerApi = {
 type UsageRow = {
 	provider: string;
 	accountKey: string;
+	/** Anthropic の組織種別。ログアウト済みの組織は gone、他 provider は null。 */
+	kind: "personal" | "team" | "gone" | null;
 	limitId: string;
 	pct: number;
 	resetsAt: number | null;
@@ -80,6 +82,16 @@ function latestUsageRows(): UsageRow[] {
 				.query(
 					`SELECT lower(u.provider) AS provider,
 					        coalesce(u.account_key, '') AS accountKey,
+					        CASE WHEN lower(u.provider) <> 'anthropic' THEN NULL ELSE coalesce((
+					          -- ponytail: 個人組織は Anthropic 既定名 "<email>'s Organization" で判定。
+					          -- 個人組織を改名したら OMP 認証情報に組織種別が載るまで team と誤判定する。
+					          SELECT CASE WHEN json_extract(c.data, '$.orgName') LIKE '%''s Organization'
+					                      THEN 'personal' ELSE 'team' END
+					          FROM auth_credentials c
+					          WHERE c.provider = 'anthropic'
+					            AND json_extract(c.data, '$.orgId')
+					                = substr(u.account_key, instr(u.account_key, '|org:') + 5)
+					          LIMIT 1), 'gone') END AS kind,
 					        u.limit_id AS limitId,
 					        CAST(u.used_fraction * 100 + 0.5 AS INTEGER) AS pct,
 					        u.resets_at AS resetsAt
@@ -128,7 +140,7 @@ function latestUsedPct(
 }
 
 function formatReset(resetsAt: number | null): string {
-	if (resetsAt === null) return "idle";
+	if (resetsAt === null) return "-";
 	const mins = Math.max(0, Math.round((resetsAt - Date.now()) / 60000));
 	if (mins < 120) return `${mins}m`;
 	const hours = Math.round(mins / 60);
@@ -142,42 +154,38 @@ function coloredPct(pct: number): string {
 	return `${pct}%`;
 }
 
-function poolParts(
-	rows: UsageRow[],
-	provider: string,
-	label: (limitId: string) => string | null,
-): string[] {
-	// 枠ごとに最も余裕のあるアカウントの行を残す（rows は limit_id 順なので表示順も保たれる）。
-	const best = new Map<string, UsageRow>();
-	for (const row of rows) {
-		if (row.provider !== provider) continue;
-		const seen = best.get(row.limitId);
-		if (!seen || row.pct < seen.pct) best.set(row.limitId, row);
-	}
-	return [...best.values()].flatMap((row) => {
-		const name = label(row.limitId);
-		if (name === null) return [];
-		return [
-			`${name} ${coloredPct(row.pct)} \x1b[2m(${formatReset(row.resetsAt)})\x1b[22m`,
-		];
-	});
+/** 同じ枠に複数組織があれば最も逼迫している値を `12%(3h)` の形で出す。 */
+function tightest(hits: UsageRow[]): string {
+	const row = hits.reduce((a, b) => (b.pct > a.pct ? b : a));
+	return `${coloredPct(row.pct)}\x1b[2m(${formatReset(row.resetsAt)})\x1b[22m`;
 }
 
-/** 両 pool の使用率1行。表示対象の枠が無ければ null。 */
-function buildUsageLine(rows: UsageRow[]): string | null {
-	const claude = poolParts(rows, "anthropic", (id) =>
-		id.startsWith("anthropic:") ? id.slice("anthropic:".length) : null,
-	);
+// プロンプトと同じ略号: F=モデル別7d(fable) A=全モデル7d S=5h。
+const CLAUDE_LIMITS: [string, string][] = [
+	["anthropic:7d:fable", "F"],
+	["anthropic:7d", "A"],
+	["anthropic:5h", "S"],
+];
+
+function claudeLine(rows: UsageRow[], kind: "personal" | "team"): string | null {
+	const parts = CLAUDE_LIMITS.flatMap(([limitId, key]) => {
+		const hits = rows.filter((r) => r.kind === kind && r.limitId.toLowerCase() === limitId);
+		return hits.length > 0 ? [`${key}:${tightest(hits)}`] : [];
+	});
+	return parts.length > 0 ? `\x1b[38;5;208mClaude\x1b[39m ${kind} ${parts.join(" ")}` : null;
+}
+
+/** 1アカウント1行の使用率。表示対象の枠が無ければ空配列。
+ *  その端末の OMP にログインしていない組織の行は出さない。 */
+function buildUsageLines(rows: UsageRow[]): string[] {
+	const lines = [claudeLine(rows, "personal"), claudeLine(rows, "team")];
 	// spark:* は補助枠で常時ほぼ0%のうえ意味が不明瞭なのでノイズとして省く。
 	// guard の判定も primary（週次）だけを使っている。
-	const codex = poolParts(rows, "openai-codex", (id) =>
-		id === "openai-codex:primary" ? "wk" : null,
-	);
-	const pools: string[] = [];
-	if (claude.length > 0) pools.push(`Claude ${claude.join(" · ")}`);
-	if (codex.length > 0) pools.push(`Codex ${codex.join(" · ")}`);
-	if (pools.length === 0) return null;
-	return `\x1b[2musage\x1b[22m ${pools.join(" \x1b[2m│\x1b[22m ")}`;
+	const codex = rows.filter((r) => r.limitId.toLowerCase() === "openai-codex:primary");
+	if (codex.length > 0) {
+		lines.push(`\x1b[36mCodex\x1b[39m ${tightest(codex)}`);
+	}
+	return lines.filter((line): line is string => line !== null);
 }
 
 const WIDGET_KEY = "usage-summary";
@@ -185,8 +193,8 @@ const WIDGET_KEY = "usage-summary";
 function updateWidget(ctx: Ctx | undefined, rows: UsageRow[]): void {
 	if (!ctx?.hasUI || !ctx.ui?.setWidget) return;
 	try {
-		const line = buildUsageLine(rows);
-		ctx.ui.setWidget(WIDGET_KEY, line ? [line] : undefined, {
+		const lines = buildUsageLines(rows);
+		ctx.ui.setWidget(WIDGET_KEY, lines.length > 0 ? lines : undefined, {
 			placement: "belowEditor",
 		});
 	} catch {

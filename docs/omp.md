@@ -260,7 +260,7 @@ Anthropic の残りが 20% に達すると `retry.fallbackChains` に従って O
 Anthropic 側はモデル別枠（`anthropic:7d:fable` など）も本体が判定し、現在のモデルに対応する枠の残量で切り替えます。
 両方の pool が同時に 20% を切っていても、本体は `retry.fallbackChains` のとおりに切り替えます。メインを Anthropic に留めて Codex の残りを subagent 用に温存する処理はありません。
 `anthropic-usage-guard` extension は、Codex 週次枠 80% 到達の通知を担当します。
-同 extension は両 pool の使用率（Claude 5h / 7d / モデル別 7d、Codex 週次枠）を editor 下の widget に常時表示します。
+同 extension は両 pool の使用率を editor 下の widget に常時表示します。形式はターミナルのプロンプトと同じで、`Claude personal`・`Claude team`（F=モデル別 7d、A=7d、S=5h）と `Codex`（週次枠）を1行ずつ並べ、その端末でログインしていない組織の行は出しません。
 表示は Claude Code / Codex の GUI にある Usage 表示と同じ窓で、session_start と5分毎のチェックのたびに更新されます。
 両方の pool が実質枯渇（98% 以上）した場合は、ローカル ollama を probe して応答があるときだけ qwen へ退避します。
 ollama が起動していなければ何もせず、枠のリセットを待ちます（ollama は動いている前提にしない）。
@@ -418,7 +418,7 @@ modelRoles:
 既定プロファイルで `/login` → Anthropic を 2 回実行し、ブラウザの同意画面でそれぞれチームの組織と個人の組織を選びます。
 同じメールアドレスでも組織ごとに別アカウントとして `~/.omp/agent/agent.db` に保存され、OMP が枠の残量を見て自動で選び分けます。
 Anthropic から Codex への退避も、OMP 本体がアカウントごとの残量を見て判定します。
-使用量の widget には、枠ごとに最も余裕のあるアカウントの値が表示されます。
+使用量の widget とプロンプトには、組織ごとの値が個別に表示されます。
 通常のターミナルでは、Starship プロンプトの使用率行（`dotfiles/.zshrc` の `_agent_usage_refresh`）が同じ記録を組織ごとに読み、`Claude personal …`・`Claude team …`・`Codex …` を1行ずつ並べます。
 その端末の OMP にログインしていない組織は表示されません。
 個人とチームは組織名で判定し、Anthropic 既定の `<メール>'s Organization` を個人、それ以外をチームとみなします。
