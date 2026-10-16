@@ -4,6 +4,7 @@
     "go":                   "latest",
     "bun":                  "latest",
     "cmake":                "latest",
+    "gnumake":              "latest",
     "go-task":              "latest",
     "pnpm":                 "latest",
     "direnv":               "latest",
