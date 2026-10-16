@@ -29,6 +29,9 @@ Spotlight indexing is no longer disabled by setup; run `scripts/disable-spotligh
 to opt in (undo with `sudo mdutil -a -i on`).
 `scripts/touchid-sudo` (also opt-in) lets sudo accept Touch ID, including inside
 tmux/herdr; undo with `sudo rm /etc/pam.d/sudo_local`.
+`scripts/gnome` (opt-in, Ubuntu desktop only) applies the GNOME preferences
+with `gsettings set`, one non-default key per line; find a key with
+`dconf watch /` while changing it in the GUI.
 
 Versions: devbox packages are pinned by `devbox/devbox.lock`, and npm OMP
 plugins by the versions in `scripts/omp-plugins`' `plugins` array (it reinstalls the declared

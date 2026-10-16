@@ -1,0 +1,50 @@
+#!/bin/bash
+# Opt-in, not part of scripts/setup (the OrbStack Ubuntu VMs have no GNOME):
+# apply the GNOME desktop preferences on Ubuntu. Rerunnable; each line sets one
+# key, and gsettings rejects a key a GNOME upgrade renamed, so drift fails loudly.
+# Only keys that differ from the default belong here. To find a key, run
+# `dconf watch /` and change the setting in the GUI. Display-dependent values
+# (text-scaling-factor, cursor-size, mutter experimental-features) stay
+# machine-local, as do settings without a stable key such as app-picker-layout.
+set -euo pipefail
+
+if [ "$(uname)" = Darwin ] || ! command -v gsettings >/dev/null; then
+	echo "gnome: needs a GNOME session with gsettings" >&2
+	exit 1
+fi
+
+s() { gsettings set "$@"; }
+
+# Appearance. Cica is not installed by any script; GNOME falls back without it.
+s org.gnome.desktop.interface color-scheme "'prefer-dark'"
+s org.gnome.desktop.interface gtk-theme "'Yaru-dark'"
+s org.gnome.desktop.interface font-name "'Cica 11'"
+s org.gnome.desktop.interface document-font-name "'Cica 12'"
+s org.gnome.desktop.interface monospace-font-name "'Cica 11'"
+s org.gnome.desktop.interface font-hinting "'none'"
+s org.gnome.desktop.a11y.interface high-contrast true
+s org.gnome.desktop.a11y.interface show-status-shapes true
+
+# Input: US layout plus Mozc, toggled with Ctrl+Space.
+s org.gnome.desktop.input-sources sources "[('xkb', 'us'), ('ibus', 'mozc-jp')]"
+s org.gnome.desktop.wm.keybindings switch-input-source "['<Control>space']"
+s org.gnome.desktop.wm.keybindings switch-input-source-backward "['<Shift><Control>space']"
+s org.gnome.desktop.peripherals.mouse natural-scroll true
+s org.gnome.desktop.peripherals.mouse speed 0.66
+s org.gnome.desktop.peripherals.touchpad speed 1.0
+
+# Session, power, sound, privacy.
+s org.gnome.desktop.session idle-delay "uint32 900"
+s org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type "'nothing'"
+s org.gnome.desktop.sound event-sounds false
+s org.gnome.system.location enabled true
+
+# Workspaces and shell. wsmatrix comes from extensions.gnome.org, not apt;
+# enabling it before it is installed is harmless.
+s org.gnome.mutter dynamic-workspaces false
+s org.gnome.shell.keybindings toggle-application-view "['<Super>a']"
+s org.gnome.shell enabled-extensions "['ding@rastersoft.com', 'ubuntu-dock@ubuntu.com', 'tiling-assistant@ubuntu.com', 'wsmatrix@martin.zurowietz.de']"
+s org.gnome.shell favorite-apps "['org.gnome.Nautilus.desktop', 'org.gnome.Rhythmbox3.desktop', 'libreoffice-writer.desktop', 'snap-store_snap-store.desktop', 'org.gnome.Yelp.desktop', 'org.gnome.Settings.desktop', 'org.gnome.Terminal.desktop']"
+s org.gnome.shell.extensions.dash-to-dock dash-max-icon-size 40
+s org.gnome.shell.extensions.ding icon-size "'small'"
+s org.gnome.shell.extensions.tiling-assistant tiling-popup-all-workspace true
