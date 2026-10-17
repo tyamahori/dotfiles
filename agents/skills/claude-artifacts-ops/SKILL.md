@@ -81,4 +81,4 @@ Artifactが見つからない、内容を取得できない、公開に失敗し
 
 ## UI方針との関係
 
-このskillはArtifact操作の手続きだけを定める。HTMLの見た目は global instructions の「Skills to load first」と「Review surfaces」節に従う（読み物は素のHTML+CSSで書き、部品ライブラリを使わない。frontend-design・ja-html-typography・nondesigner-design が正本）。
+このskillはArtifact操作の手続きだけを定める。HTMLの見た目は global instructions の「Skills to load first」節に従う（読み物は素のHTML+CSSで書き、部品ライブラリを使わない。frontend-design・ja-html-typography・nondesigner-design が正本）。
