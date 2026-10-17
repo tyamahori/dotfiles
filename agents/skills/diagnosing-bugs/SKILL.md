@@ -122,6 +122,17 @@ Tool preference:
 
 Report the baseline, the final value with the percent change, attempts kept and reverted, and one line per kept change.
 
+**Vet the number before you trust it.** Before you report or act on a number you measured (a baseline, a speedup, a regression, an aggregate count), answer these from a run, not from reading code:
+
+1. What limits it? Name the bottleneck (one saturated core, I/O wait, a lock, the load generator itself). If a change did not move the number, the limiter explains why.
+2. Did both sides run the same way? Same build mode, flags, data, versions, and cache warmth. A side left on defaults compares configurations, not implementations.
+3. Does it break a limit? Compare against bandwidth, cores times cost per operation, and the share of the run the changed piece took; removing 10% of the run caps the gain near 11%. A result past a limit measured a cache, a no-op, or a bug.
+4. Did it error? Count failures and check that outputs are correct, not just present. Rejections are fast; timeouts and retries are slow.
+5. Does it reproduce? Alternate the sides (A, B, A, B) at least five times and report the median and range. A gap smaller than the run-to-run spread is no measurable difference.
+6. Did the work happen inside what you counted? Unawaited promises, unread generators, timeouts, and a time window or filter that silently drops records all yield numbers for work that never ran.
+
+Lead with the verdict: better, worse, no measurable difference, or inconclusive. Call it inconclusive when you cannot name the limiter or could not check 4 and 6, and name the gap. A one-run ballpark the user asked for still needs 4 and 6, and says it is one run.
+
 ## Phase 5: Fix + regression test
 
 Write the regression test **before the fix**, but only if there is a **correct seam** for it.
@@ -159,4 +170,4 @@ Required before declaring done:
 - [ ] Throwaway prototypes deleted (or moved to a clearly-marked debug location)
 - [ ] The hypothesis that turned out correct is stated in the commit / PR message, so the next debugger learns
 
-Local addition: the Hillclimb loop and "attack the premise" are adapted from poteto's pstack (`cursor/plugins`, `pstack/skills/poteto-mode/playbooks/hillclimb.md` and `principle-attack-the-premise`).
+Local addition: the Hillclimb loop, "vet the number", and "attack the premise" are adapted from poteto's pstack (`cursor/plugins`, `pstack/skills/poteto-mode/playbooks/hillclimb.md`, `benchmark-checklist`, `principle-explain-the-number`, and `principle-attack-the-premise`).
