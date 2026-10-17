@@ -71,6 +71,16 @@ compaction:
   methodOrder: [remote, handoff, shake, soft]
 lsp:
   diagnosticsOnEdit: true
+tools:
+  # builtins inlines built-in device schemas (lsp, ast_edit, debug) so they are
+  # callable without a docs read; MCP devices stay catalog-only.
+  xdevDocs: builtins
+advisor:
+  enabled: true
+  # Final-yield review only; per-turn review re-reads the whole context.
+  reviewMode: agent-end
+checkpoint:
+  enabled: true
 display:
   showTokenUsage: true
   cacheMissMarker: true

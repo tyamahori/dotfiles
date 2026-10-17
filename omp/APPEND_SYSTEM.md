@@ -7,10 +7,6 @@ and isolation rules live in the global instructions.
 - Before git, confirm the explicit `cwd` is a Git repository; never assume `jj` exists.
 - Diffs touching auth, permissions, deploy/CI credentials, secrets, or
   untrusted-input handling get a `security-reviewer` pass alongside `reviewer`.
-- Mechanical bulk edits or data collection with a fully specified recipe go to
-  `sonic`, not `task`.
-- The same check or extraction over many items (files, PR threads, issues):
-  eval `workpool()` / `judge_batch`, not one hand-written `task` per item.
 
 # Code navigation goes through LSP
 

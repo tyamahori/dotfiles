@@ -83,6 +83,8 @@ Go module では `go.work` または `go.mod` もプロジェクトルートの�
 TypeScript は `scripts/devbox` が入れる `typescript`（7 系のネイティブ版、nixpkgs-unstable を直接指定）の `tsc --lsp --stdio` を、`omp/lsp.json` の `tsc-lsp` で起動します。built-in の `typescript-native` は、`tsc` の隣に npm 形式の `package.json` がないと 7 系と判定せず外されるため、nix の配置（`bin/tsc -> ../lib/typescript/tsc`）では起動しません。そこで無効化し、同じ内容を別名で定義しています。7 系は `tsserver.js` を同梱しないので、それを fork する `typescript-language-server` は入れていません。`tsconfig.json` のないリポジトリ（この dotfiles など）では開いたファイル単位の推論プロジェクトになるので、ファイルをまたぐ参照検索は取りこぼします。
 Bash と YAML は built-in 定義（root marker は `.git`）のまま、`scripts/devbox` が入れる `bash-language-server` と `yaml-language-server` で自動検出されます。
 `omp/config.yml` の `lsp.diagnosticsOnEdit: true` で、`edit` のたびに型・lint 診断を返します。
+`omp/config.yml` の `tools.xdevDocs: builtins` で、`lsp`・`ast_edit`・`debug` などの組み込みツールのスキーマを最初からプロンプトに載せています。呼び出しは引き続き `xd://` 経由ですが、docs を読まずにそのまま使えます。MCP のツールは必要なときだけ docs を読みます。
+調査で膨らんだ文脈は `checkpoint.enabled: true` の `checkpoint` → `rewind` で報告1件に畳めます。
 
 `debug` ツールのアダプタは Go が `delve`（`scripts/devbox`）、Python が `debugpy`（`scripts/python` の `uv tool install`）です。
 built-in の debugpy 定義は `python -m debugpy.adapter` を起動しますが、uv tool は隔離 venv なので `omp/dap.json` で `debugpy-adapter` 実行ファイルへ差し替えています。
@@ -235,7 +237,7 @@ omp config get retry.fallbackChains --json
 | `slow` | 重い推論 |
 | `vision` | 画像確認 |
 | `commit` | commit 文面 |
-| `advisor` | メインセッションの補助レビュー |
+| `advisor` | メインセッションの補助レビュー。`advisor.reviewMode: agent-end` で最終応答時だけ動く。止めるときは `/advisor off` |
 
 ### モデルや退避先を見直す
 
