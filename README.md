@@ -402,6 +402,11 @@ also uses `subpath: "."` (its `SKILL.md` sits at the repo root next to
 deletion-only: it drops everything but `SKILL.md` on every sync instead of
 editing content.
 
+When a globally installed skill moves into `agents/skills/`, drop it from
+`global_skills`; `scripts/link` then deletes the installer's leftover
+directory in `~/.agents/skills` and its `.skill-lock.json` entry on each
+machine, so no manual `skills remove` is needed.
+
 The global set includes all nine skills from `usestrix/strix` for security
 testing, remediation, and CI scanning. `scripts/python` installs the Strix CLI
 with `uv tool install --upgrade strix-agent`. Local scans still require running

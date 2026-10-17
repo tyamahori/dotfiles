@@ -80,6 +80,23 @@ link_into_dirs() {
 	done
 }
 
+# A third-party skill moved from `npx skills add -g` to agents/skills/ (vendored
+# for local edits) leaves the installer's real directory in ~/.agents/skills:
+# ln -snf would nest the link inside it, and `skills update -g` would keep
+# refreshing the stale copy from its lock entry. Drop both so the repository
+# copy wins. Only real directories named like a repository skill are touched.
+skill_lock="$HOME/.agents/.skill-lock.json"
+for skill in "${AGENTS_DIR}/skills"/*/; do
+	skill_name="$(basename "$skill")"
+	global_copy="$HOME/.agents/skills/$skill_name"
+	[[ -d $global_copy && ! -L $global_copy ]] || continue
+	rm -rf "$global_copy"
+	if [[ -f $skill_lock ]] && command -v jq >/dev/null 2>&1; then
+		jq --arg n "$skill_name" 'del(.skills[$n])' "$skill_lock" >"$skill_lock.tmp" && mv "$skill_lock.tmp" "$skill_lock"
+	fi
+	echo "link: replaced global install of $skill_name with agents/skills/$skill_name" >&2
+done
+
 # personal skills, shared across LLM CLIs
 for skill in "${AGENTS_DIR}/skills"/*/; do
 	skill="${skill%/}"
