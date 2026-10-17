@@ -57,12 +57,13 @@ retry:
 task:
   showResolvedModelBadge: true
   maxRecursionDepth: 1
-  softRequestBudget: 60
+  softRequestBudget: 200
   agentModelOverrides:
     scout: "@smol"
     reviewer: "@slow"
     security-reviewer: "@slow"
     librarian: "@smol"
+  enableLsp: true
 compaction:
   thresholdTokens: 160000
   # snapcompact omitted: with the fixed 160k trigger it kept ~88% of tokens
@@ -78,8 +79,9 @@ tools:
   xdevDocs: builtins
 advisor:
   enabled: true
-  # Final-yield review only; per-turn review re-reads the whole context.
-  reviewMode: agent-end
+  # Per-turn review catches drift mid-task; it re-reads the whole context, so
+  # advisor usage is higher than agent-end (final-yield only).
+  reviewMode: turn
 checkpoint:
   enabled: true
 display:
@@ -109,9 +111,9 @@ skills:
 enabledProviders:
   - claude
   - codex
-defaultThinkingLevel: medium
+defaultThinkingLevel: high
 magicKeywords:
-  enabled: false
+  enabled: true
 colorBlindMode: true
 setupVersion: 2
 dev:
@@ -120,3 +122,7 @@ composer:
   shape: pi
 browser:
   screenshotDir: .agent-msgs/screenshots
+security:
+  enabled: true
+features:
+  unexpectedStopDetection: smart
