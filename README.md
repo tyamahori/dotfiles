@@ -428,15 +428,17 @@ directory over it (excluding `.openskills.json` and `local.patch`), and save
 `scripts/tool-release-review` runs at the end of `scripts/brewUpdate`. When
 the installed herdr, omp, Claude Code, or Codex version differs from the last
 reviewed one, the script fetches the release notes in that range verbatim
-with `gh`, and `claude -p` (Read/Glob/Grep only; no shell, web, or MCP tools,
-since the notes are untrusted) compares them with this repo's config, writing
-a report to `~/.local/state/tool-release-review/`,
-sorted into required changes, optional features, and checked non-impacts. A
-macOS notification follows; inside herdr a review pane opens unfocused
-(`TOOL_RELEASE_REVIEW_PANE=off` disables it). `--apply` (herdr
-`prefix+shift+u`) starts Claude on the latest report and edits only the items
-you approve; `--ack` records the versions as reviewed. The first run only
-records a baseline.
+with `gh`, and `claude -p --restricted` (Read/Glob/Grep confined to this repo
+and the state directory; no shell, web, or MCP tools, since the notes are
+untrusted) compares them with this repo's config, writing a report to
+`~/.local/state/tool-release-review/` (mode 0700), sorted into required
+changes, optional features, and checked non-impacts. A failed fetch or an
+empty report is retried on the next run; the review is capped at 15 minutes
+so `brewUpdate` cannot hang on it. A macOS notification follows; inside herdr
+a review pane opens unfocused (`TOOL_RELEASE_REVIEW_PANE=off` disables it).
+`--apply` (herdr `prefix+shift+u`) starts Claude on the latest report, which
+it treats as untrusted, and edits only the items you approve; `--ack` records
+the versions as reviewed. The first run only records a baseline.
 
 Global skills that were removed on purpose (Cloudflare vendor packs,
 `orchestration` from stablyai/orca) are listed in `retired_global_skills` in
