@@ -81,10 +81,15 @@ else
 fi
 
 # GitHub-installed herdr plugins (terminal-browser, tode) have no declaration
-# file; keep them current here. Linked local plugins (worktree-track) are
-# skipped by herdr itself. No --yes: each update runs the plugin's remote
+# file; update them on interactive runs. Linked local plugins (worktree-track)
+# are skipped by herdr itself. No --yes: each update runs the plugin's remote
 # `curl | bash` build, so keep herdr's preview/confirm as the checkpoint.
+# Without a TTY herdr refuses to update (exit 2), so skip instead.
 if command -v herdr >/dev/null 2>&1; then
-	herdr plugin update ||
-		echo "agent-tools: herdr plugin update failed or was declined" >&2
+	if [[ -t 0 ]]; then
+		herdr plugin update ||
+			echo "agent-tools: herdr plugin update failed or was declined" >&2
+	else
+		echo "agent-tools: herdr plugin update skipped (needs an interactive terminal)" >&2
+	fi
 fi
