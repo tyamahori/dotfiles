@@ -62,7 +62,9 @@ shims). Do not fall back to bare python.
 
 ## Tool choice: cheapest tool that finishes in one step
 
-- JSON/JSONL field extraction, counting, filtering → `jq`.
+- JSON/JSONL field extraction, counting, filtering → `jq`, including another
+  command's output: `cmd | jq …`, never `cmd | python3 -c 'import json…'`
+  (also a bare-python deny).
 - Text search → `rg` / `grep`. Web fetch/scrape → `ax` (see the ax section of
   the global instructions).
 - Switch to Python as soon as the shell version needs more than ~2 pipe
