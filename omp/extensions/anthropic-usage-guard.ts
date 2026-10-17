@@ -156,7 +156,7 @@ function coloredPct(pct: number): string {
 
 /** 同じ枠に複数組織があれば最も逼迫している値を `12%(3h)` の形で出す。 */
 function tightest(hits: UsageRow[]): string {
-	const row = hits.reduce((a, b) => (b.pct > a.pct ? b : a));
+	const row = hits.reduce((a, b) => (b.pct > a.pct ? b : a), hits[0]);
 	return `${coloredPct(row.pct)}\x1b[2m(${formatReset(row.resetsAt)})\x1b[22m`;
 }
 
