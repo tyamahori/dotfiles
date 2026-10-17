@@ -577,8 +577,10 @@ the ecosystem move, a self-checking loop keeps it honest:
   is actually improving agent behavior.
 - **`launchd/com.tyamahori.python-skill-review.plist`** (rendered & loaded by
   `scripts/link`) fires **`scripts/python-skill-review`** quarterly
-  (Jan/Apr/Jul/Oct 15th, 09:47; a sleeping Mac runs it on wake). It runs a
-  headless `claude -p` that re-audits, checks uv release notes, and writes a
+  (Jan/Apr/Jul/Oct 15th, 09:47; a sleeping Mac runs it on wake). The script
+  runs the audit and fetches the last 100 days of uv release notes with `gh`,
+  then a headless `claude -p --restricted` (Read/Glob/Grep only, confined to
+  this repo and the state directory) compares them with the skill and writes a
   **proposal-only** report (no files are edited) to
   `~/.local/state/python-usage-audit/review-YYYY-MM-DD.md`, announced via a
   macOS notification.
