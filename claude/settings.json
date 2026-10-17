@@ -174,16 +174,6 @@
       {
         "hooks": [
           {
-            "command": "bash \"$HOME/.claude/hooks/herdr-agent-state.sh\" session",
-            "timeout": 10,
-            "type": "command"
-          }
-        ],
-        "matcher": "*"
-      },
-      {
-        "hooks": [
-          {
             "command": "\"$HOME/dotfiles/scripts/jbcontext-clobber-check\"",
             "timeout": 10,
             "type": "command"
