@@ -17,9 +17,10 @@
 | ADR のテンプレートと置き場所（既存規約に合わせる、なければ `docs/adr/NNNN-title.md`） | 同 skill の「ADRs」節 | コミットを超えて残る決定をしたとき |
 | 設計資料に何を書くか（書くべきかの判定、間違えたときのコストで内容を選ぶ、Goals は影響で・Non-goals を明示、Open issues は問題・選択肢・次の一歩） | 同 skill の「Design docs」節。HTML 化とコメント運用は `reviewable-design-doc` | 複数人・長期・要件曖昧・致命的リスクのある案件の実装前 |
 | テスト設計（変更種別ごとに要るテスト、name the break、実物 > fake > stub > mock、特性テスト、property-based、mutation check、消すべきテスト） | `agents/skills/test-design/SKILL.md` | テストを書く・直す・消す前、mock や helper を足す前 |
-| 依頼の枠組み（背景・課題・ゴール・スコープ・成果物） | `task-briefing`、前提を問い直すなら `grill-me` | 着手前、依頼が曖昧なとき |
+| 依頼の枠組み（背景・課題・ゴール・スコープ・成果物、実行すれば分かる問いは聞かずに試す） | `task-briefing`、前提を問い直すなら `grill-me` | 着手前、依頼が曖昧なとき |
 | 複雑タスクの工程（調査 → 計画 → 独立レビュー → 証拠つき納品） | `sureforge` | 複数ファイル・複数段階の実装 |
-| バグ診断（仮説と再現、根本原因の証拠、同じ前提の修正が二度失敗したら前提を検証する）と指標の改善（一変更ずつ計測して残すか戻す Hillclimb） | `diagnosing-bugs`（vendoring して節を追加）、共有指示の「Root-cause claims need reproduction」 | 障害・不具合・性能劣化、数値を目標まで改善するとき |
+| バグ診断（仮説と再現、根本原因の証拠、同じ前提の修正が二度失敗したら前提を検証する）と指標の改善（一変更ずつ計測して残すか戻す Hillclimb、測った数値を報告前に検める） | `diagnosing-bugs`（vendoring して節を追加）、共有指示の「Root-cause claims need reproduction」 | 障害・不具合・性能劣化、数値を目標まで改善するとき、測った数値を報告するとき |
+| アプリ固有の検証手順（起動・Doctor・操作・証拠・後片付けと機能の地図を、対象リポジトリの project-local skill として生成・保守する） | `create-verification-skill`、汎用のブラウザ経路は `browser-verify` | 振る舞いを証明する手順がスクリプト化されていないアプリ |
 | レビュー（変更種別ごとの必須質問、fresh context での反証、差分の外への波及範囲、Copilot 事前確認、過剰設計の摘出、ローカル差分の証拠つきレビュー） | `github-pr-review`、`evidence-code-review`、`adversarial-verification`、`copilot-preflight`、`ponytail-review` / `ponytail-audit`、OMP の `reviewer` / `security-reviewer` | PR の前後 |
 | 構造的な編集（rename、参照列挙、codemod） | 共有指示の「Structural edits」、`structural-edit`、OMP `lsp` / `ast_edit` | 複数箇所に及ぶ書き換え |
 | 言語別のスクリプト作法 | `efficient-python`、`efficient-ts-js` | スクリプトを書く・実行する前 |
@@ -38,7 +39,7 @@
 
 借りたのは中身である。superpowers の `writing-good-tests.md` から「name the break」「mock は自分の存在を assert しない」「mutation check」を、addyosmani から「まずスタックを発見する」「real > fake > stub > mock」「DAMP」「境界で検証し内側は信頼する」「Hyrum の法則」と ADR の「既存規約に合わせてから既定へ」を、Ousterhout から深いモジュールとエラーの定義消去を、Fowler から smell とカタログの対応を取り込んだ。出典は各 skill の末尾に残している。
 
-2026-10 には poteto の pstack（`cursor/plugins`）を再検討した。Claude Code プラグイン版でも多モデルのパネルは Claude 単独に縮み、原則と playbook の大半は ponytail・`test-design`・`software-design`・`diagnosing-bugs` と重なるため、導入は見送った。代わりに、手元にない三つを既存 skill の節として取り込んだ。`blast-radius` は `adversarial-verification` の「波及範囲」観点に、hillclimb playbook と `attack-the-premise` は `diagnosing-bugs` に入れた。
+2026-10 には poteto の pstack（`cursor/plugins`）を再検討した。Claude Code プラグイン版でも多モデルのパネルは Claude 単独に縮み、原則と playbook の大半は ponytail・`test-design`・`software-design`・`diagnosing-bugs` と重なるため、導入は見送った。代わりに、手元にない部分を既存 skill の節として取り込んだ。最初に `blast-radius` を `adversarial-verification` の「波及範囲」観点に、hillclimb playbook と `attack-the-premise` を `diagnosing-bugs` に入れた。続けて、`benchmark-checklist` と `explain-the-number` を `diagnosing-bugs` の「Vet the number」節と `agent-usage-review` の診断に、poteto-mode の「観測できる問いは聞かずに試す」を `task-briefing` に、`correct` の「二度起きたら一クラス」「過去の実例で落ちることを確かめる」を本書の「形式化のサイクルを回す」に、playbook の手順を todo へそのまま写す運用を共有指示の「Skills to load first」に入れた。`create-verification-skill` と `maintain-verification-skill` だけは置き場所になる既存 skill がないため、一つの skill にまとめて新設した。
 
 ## 追加するときの判断
 
@@ -47,5 +48,7 @@
 ## 形式化のサイクルを回す
 
 `agents/measured-notes.md` の `Mechanized:` 欄はこのリポジトリにおける形式化の実装である。判断が繰り返し必要になったら、まず構造的な信号（hook・permission・skillOverrides・型・schema・semgrep ルール）に落とせないか試す。落とせれば prose 規則を機械的な強制に置き換え、常時注入の一行ポインタだけを残せる（毎ターンの再判断が要らなくなる分だけ、共有指示は削れる）。落とせなければ理由を書いて次回の判断コストを下げる。
+
+間違いを機械化の対象に数えるのは、同じ種類の間違いが二度起きてからにする。一度きりの失敗に規則を足しても、再発する証拠がないまま規則だけが増える。hook・semgrep ルール・テストを足したら、記録に残っている過去の実例（該当コミットの差分や `measured-notes.md` の事例）をそのチェックに通し、実際に落ちることを確かめる。過去の実例で落ちないチェックは、その間違いを防げる根拠にならない。
 
 `Mechanized: no` の行は解決済みの課題ではなく、新しい signal（hook の新機能、設定スキーマの追加、ファイル規約の整備）が出たときに再挑戦する対象のキューとして読む。逆に「no」のまま放置すると、後から追加した機械化に記録が追いつかず、規則が二重管理になる（2026-08-26 の `skillOverrides.update-config` 追加が測定ノートに反映されず 2026-09-16 まで "no" のままだった例がある）。skill や hook を足して既存の判断を機械化したら、対応する measured-notes.md のエントリを同じコミットで更新する。
