@@ -62,7 +62,7 @@ ERROR_SIG = re.compile(
 
 STYLE_MARKERS = {
     "os_path": re.compile(r"os\.path\."),
-    "manual_open": re.compile(r"open\([^)]*\)\.read|for line in open|readlines\(\)"),
+    "manual_open": re.compile(r"\bopen\([^)]*\)\.read|for line in open|readlines\(\)"),
     "pathlib": re.compile(r"from pathlib|import pathlib|Path\("),
     "print_debug": re.compile(r"print\("),
     "f_strings": re.compile(r"""f["']"""),
@@ -129,26 +129,20 @@ def scan_file(path):
     return records, skipped
 
 
-def jaccard(a, b):
-    if not a or not b:
-        return 0.0
-    return len(a & b) / len(a | b)
-
-
 def rerun_clusters(commands):
-    tokens = [
-        set(re.sub(r"\s+", " ", cmd.strip())[:200].split()) for cmd, _ in commands
-    ]
+    # full-text match: a prefix/Jaccard test counted same-script-new-args runs
+    # and deny→uv rewrites as "unchanged" reruns
+    normalized = [re.sub(r"\s+", " ", cmd.strip()) for cmd, _ in commands]
     clusters = []
     i = 0
     while i < len(commands):
         j = i + 1
-        while j < len(commands) and jaccard(tokens[i], tokens[j]) > 0.6:
+        while j < len(commands) and normalized[j] == normalized[i]:
             j += 1
         group = commands[i:j]
         if len(group) >= 2 and any(err for _, err in group[:-1]):
             clusters.append(len(group))
-        i = j if len(group) >= 2 else i + 1
+        i = j
     return clusters
 
 
