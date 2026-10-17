@@ -84,6 +84,16 @@ zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
 zstyle ':completion:*' use-cache yes                                # brew/gh など重い候補列挙を保存
 zstyle ':completion:*' cache-path "$HOME/.zsh/cache"
 setopt COMPLETE_IN_WORD                                             # カーソルが単語の途中でも補完
+# fzf の Ctrl-T / Alt-C 候補は fd（.gitignore を尊重）で出し、Ctrl-T は bat でプレビューする。
+if (( $+commands[fd] )); then
+  export FZF_DEFAULT_COMMAND='fd --type f --hidden --exclude .git'
+  export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+  export FZF_ALT_C_COMMAND='fd --type d --hidden --exclude .git'
+fi
+if (( $+commands[bat] )); then
+  export FZF_CTRL_T_OPTS="--preview 'bat --color=always --style=numbers --decorations=always --line-range=:200 {}'"
+  export MANPAGER="sh -c 'col -bx | bat -l man -p'"
+fi
 (( $+commands[fzf] )) && source <(fzf --zsh)
 
 # Tab の所有者を fzf-tab にし、autosuggestions が widget を包む前に読み込む。
@@ -242,7 +252,8 @@ export PATH="$PATH:${HOME}/.jbcontext/bin"
 export PATH="$HOME/.grok/bin:$PATH"
 # <<< grok installer <<<
 
-(( $+commands[zoxide] )) && eval "$(zoxide init zsh)"
+# cd 自体を zoxide にする（通常のパスは従来どおり、それ以外は訪問履歴から飛ぶ）。
+(( $+commands[zoxide] )) && eval "$(zoxide init zsh --cmd cd)"
 
 # reload 時に ZLE widget のラッパーを重ねず、終了状態の取得を使用率更新より先に行う。
 add-zsh-hook -d precmd _agent_usage_precmd

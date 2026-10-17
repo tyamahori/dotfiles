@@ -68,13 +68,14 @@ after installation to enable the shell integrations.
 
 | Tool | Everyday use |
 | --- | --- |
-| `fzf` | `Ctrl-R` searches history, `Ctrl-T` selects files, and `Alt-C` selects a directory. |
-| `zoxide` | `z <name>` jumps to a previously visited directory; `zi <name>` selects one with fzf. |
-| `bat` | `bat <file>` displays highlighted source with line numbers and automatic paging. |
+| `fzf` | `Ctrl-R` searches history, `Ctrl-T` selects files (listed by `fd`, previewed by `bat`), and `Alt-C` selects a directory (listed by `fd`). |
+| `zoxide` | Replaces `cd`: real paths work as before, and `cd <name>` jumps to a previously visited directory; `cdi <name>` selects one with fzf. |
+| `bat` | `bat <file>` displays highlighted source with line numbers and automatic paging; it is also the `man` pager. |
 | `xh` | `xh GET <url>` or `xh POST <url> name=value count:=2` sends HTTP requests. |
 | `starship` | Shows Git working state and command feedback in the Zsh prompt; configured in [`starship/starship.toml`](starship/starship.toml). |
 
-Standard `cd`, `cat`, `ls`, `curl`, and `jq` are not aliased to replacements.
+`cd` is the only standard command replaced (by zoxide); `cat`, `ls`, `curl`, and
+`jq` are not aliased.
 Use `bat` for human-readable output, not as a required step in scripts or agent
 pipelines. `xh` replaces HTTPie, not the OS curl or ax web-reading workflow.
 Before using xh with corporate endpoints, verify its certificate/proxy behavior
