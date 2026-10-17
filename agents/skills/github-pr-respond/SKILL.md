@@ -94,6 +94,12 @@ Copilot レビューは指摘ゼロだとスレッドが増えず、レビュー
 **対応する場合**: 修正 → テスト → commit（論理単位・リポジトリの規約に従う）→
 push → スレッドに何をどう直したかをコミット SHA 付きで日本語返信 → resolve。
 
+指摘の修正が既存 commit の範囲に収まり、リポジトリが論理 commit の積み上げを
+求めていて force push が許されるなら、追加 commit の代わりに
+`git absorb --and-rebase` で修正を元の commit へ吸収し、`git push --force-with-lease`
+する。返信の SHA は書き換え後の commit を指す。吸収先が見つからない変更は
+absorb が残すので、通常どおり commit する。
+
 **対応しない / 回答のみの場合**: 理由・回答を日本語で返信 → resolve。
 
 返信はスレッド先頭コメントの `databaseId` に対して REST で行う。日本語本文は
