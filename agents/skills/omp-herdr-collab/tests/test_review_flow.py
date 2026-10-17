@@ -96,6 +96,7 @@ def findings(directory: Path, entries: list[tuple[str, str, str, str]], revision
         ("scope", "agents/skills/herdr-collab"),
         ("verification", "Read the implementation and contract tests"),
         ("count", str(len(entries))),
+        ("pre-existing", "none"),
     ]
     for identifier, (severity, location, summary, evidence) in enumerate(entries, start=1):
         fields.extend(
@@ -103,6 +104,7 @@ def findings(directory: Path, entries: list[tuple[str, str, str, str]], revision
                 (f"finding-{identifier}", f"{severity} {location} {summary}"),
                 (f"evidence-{identifier}", evidence),
                 (f"confidence-{identifier}", "high"),
+                (f"instances-{identifier}", "none"),
             ]
         )
     return write_message(directory, 2, "findings", "reviewer", "implementer", "[FINDINGS] parser lifecycle", fields)
@@ -224,6 +226,7 @@ def panel_findings(
         ("scope", "agents/skills/herdr-collab"),
         ("verification", "Read the pinned implementation and contract tests"),
         ("count", str(len(entries))),
+        ("pre-existing", "none"),
         ("reviewer", reviewer),
         ("lens", lens),
     ]
@@ -234,6 +237,7 @@ def panel_findings(
                 (f"finding-{source_id}", f"{severity} {location} {summary}"),
                 (f"evidence-{source_id}", evidence),
                 (f"confidence-{source_id}", "high"),
+                (f"instances-{source_id}", "none"),
             ]
         )
     return write_message(directory, number, "findings", reviewer, "implementer", "[FINDINGS] panel lifecycle", fields)
@@ -597,7 +601,8 @@ class ReviewFlowTest(unittest.TestCase):
                 f"reviewed-revision: {BASE_REVISION}\n"
                 "scope: agents/skills/herdr-collab\n"
                 "verification: TODO\n"
-                "count: TODO\n",
+                "count: TODO\n"
+                "pre-existing: TODO\n",
             )
             request.write_text(
                 request.read_text(encoding="utf-8") + "return-mode: artifact-import\nreturn-directory: " + str(directory / "returns") + "\n",
@@ -763,8 +768,10 @@ class ReviewFlowTest(unittest.TestCase):
                     ("scope", "agents/skills/herdr-collab"),
                     ("verification", "Inspected it"),
                     ("count", "1"),
+                    ("pre-existing", "none"),
                     ("finding-1", "mid scripts/review-flow.py:100 Missing validation"),
                     ("confidence-1", "high"),
+                    ("instances-1", "none"),
                 ],
             )
 
@@ -786,6 +793,61 @@ class ReviewFlowTest(unittest.TestCase):
             result = self.invoke("validate-message", str(candidate))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("confidence-1", result.stderr)
+
+    def test_instances_accept_locations_and_reject_prose(self) -> None:
+        cases = [
+            ("scripts/send.sh:12, docs/omp.md:3", True),
+            ("same pattern in send.sh", False),
+            ("scripts/send.sh:12-20", False),
+        ]
+        for value, accepted in cases:
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                review_request(directory)
+                candidate = findings(
+                    directory,
+                    [("mid", "scripts/review-flow.py:100", "Missing validation", "The field is absent")],
+                )
+                content = candidate.read_text(encoding="utf-8").replace("instances-1: none", f"instances-1: {value}")
+                candidate.write_text(content, encoding="utf-8")
+
+                result = self.invoke("validate-message", str(candidate))
+                self.assertEqual(result.returncode == 0, accepted, result.stderr)
+                if not accepted:
+                    self.assertIn("instances-1", result.stderr)
+
+    def test_pre_existing_report_is_required_even_without_findings(self) -> None:
+        for key in ("pre-existing", "instances-1"):
+            with self.subTest(key=key), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                review_request(directory)
+                entries = [] if key == "pre-existing" else [
+                    ("mid", "scripts/review-flow.py:100", "Missing validation", "The field is absent")
+                ]
+                candidate = findings(directory, entries)
+                lines = candidate.read_text(encoding="utf-8").splitlines(keepends=True)
+                candidate.write_text("".join(line for line in lines if not line.startswith(f"{key}:")), encoding="utf-8")
+
+                result = self.invoke("validate-message", str(candidate))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(key, result.stderr)
+
+    def test_panel_findings_reject_prose_instances(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            panel_request(directory)
+            candidate = panel_findings(
+                directory,
+                2,
+                "reviewer-a",
+                [("mid", "scripts/review-flow.py:100", "Missing guard", "The guard is absent")],
+            )
+            content = candidate.read_text(encoding="utf-8").replace("instances-a-1: none", "instances-a-1: elsewhere too")
+            candidate.write_text(content, encoding="utf-8")
+
+            result = self.invoke("validate-message", str(candidate))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("instances-a-1", result.stderr)
 
     def test_malformed_count_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -1405,7 +1467,8 @@ class ReviewFlowTest(unittest.TestCase):
                 f"reviewed-revision: {BASE_REVISION}\n"
                 "scope: agents/skills/herdr-collab\n"
                 "verification: Read the pinned revision\n"
-                "count: 0\n",
+                "count: 0\n"
+                "pre-existing: none\n",
                 encoding="utf-8",
             )
 
@@ -1595,6 +1658,7 @@ class ReviewFlowTest(unittest.TestCase):
                     "scope: agents/skills/herdr-collab\n"
                     "verification: Read the pinned implementation and contract tests\n"
                     "count: 0\n"
+                    "pre-existing: none\n"
                     f"reviewer: {reviewer}\n"
                     f"lens: {lens}\n",
                     encoding="utf-8",

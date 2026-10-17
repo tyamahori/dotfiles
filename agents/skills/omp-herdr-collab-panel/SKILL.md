@@ -87,11 +87,13 @@ reviewed-revision: <REVIEW-REQ revision>
 scope: <確認範囲>
 verification: <確認内容>
 count: <N>
+pre-existing: <変更前からある問題、なければ none>
 reviewer: <担当 identity>
 lens: <assigned lens>
 finding-a-1: <high|mid|low> <path>:<line> <要約>
 evidence-a-1: <根拠>
 confidence-a-1: <high|mid|low>
+instances-a-1: <同じ類型の他の箇所 <path>:<line>、なければ none>
 
 [FYI] panel findings relay
 reviewed-revision: <REVIEW-REQ revision>

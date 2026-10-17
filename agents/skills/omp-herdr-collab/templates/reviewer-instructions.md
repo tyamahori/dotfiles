@@ -19,9 +19,14 @@
    REVIEW-REQ から**逐語コピー**する（言い換えは記録時に拒否される）。
    - `finding-N: <high|mid|low> <path>:<line> <要約>`
    - `evidence-N: <根拠>` / `confidence-N: <high|mid|low>`
-   - `count` と finding / evidence / confidence の組数を一致させる。
+   - `instances-N: <同じ類型の他の箇所の <path>:<line> をカンマ区切り、なければ none>`。
+     指摘は1行ではなくバグの類型として扱い、固定 revision 全体から同じパターンを探す。
+   - finding は `scope` の変更が持ち込んだ問題だけにする。変更前からある問題は
+     finding にせず、`pre-existing: <path>:<line> <要約>` を `; ` 区切りで書く
+     （なければ `none`）。判定の対象外で、報告として残るだけである。
+   - `count` と finding / evidence / confidence / instances の組数を一致させる。
      `<line>` は単一の行番号にし、範囲は書かない。
-     指摘なしは `count: 0` とし、3種の行をすべて省く。
+     指摘なしは `count: 0` とし、4種の行をすべて省く（`pre-existing` は残す）。
 5. return file は**本文のみ**。`from:` / `to:` / `date:` header を書かない。
    返却前に skeleton と項目を照合する。各フィールドは値まで1行で書き、
    空値、未記入の `TODO`、独自項目、コードフェンスを残さない。
@@ -36,7 +41,8 @@
    証拠を `verification:` に記録する。既存指摘以外の回帰も確認する。
    `<自分のペイン名>-verified.md` の skeleton を埋めて turn を終える。
    全 finding ID を `resolved` / `unresolved-high-mid` / `unresolved-low` に
-   一度ずつ振り分ける。APPLIED を読んだだけで pass にしない。
+   一度ずつ振り分ける。`instances-N` の箇所が残っていれば resolved にしない。
+   APPLIED を読んだだけで pass にしない。
    `unresolved-high-mid` と `unresolved-low` が両方 `none` のときだけ
    `status: pass` とする。low だけでも未解決があれば `status: unresolved`。
    返却前に手順5の形式確認も行う。

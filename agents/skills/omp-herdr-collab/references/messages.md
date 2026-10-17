@@ -47,12 +47,17 @@ reviewed-revision: <REVIEW-REQ revision>
 scope: <REVIEW-REQ から逐語>
 verification: <読んだ対象・実行した確認>
 count: <N>
+pre-existing: <変更前からある問題の <path>:<line> <要約> を ; 区切り、なければ none>
 finding-1: <high|mid|low> <path>:<line> <要約>
 evidence-1: <根拠>
 confidence-1: <high|mid|low>
+instances-1: <同じ類型の他の箇所 <path>:<line> のカンマ区切り、なければ none>
 ```
 
-指摘なしは `count: 0` とし、finding 行を書かない。
+指摘なしは `count: 0` とし、finding 行を書かない。finding は `scope` の変更が
+持ち込んだ問題に限る。`pre-existing` は判定（APPLIED / VERIFIED / DECISION）の
+対象外で、報告として残る。APPLIED で resolved にする finding は `instances-N` の
+箇所も直す。
 
 ```
 [APPLIED] <FINDINGS への対応>

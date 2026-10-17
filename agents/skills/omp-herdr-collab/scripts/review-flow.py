@@ -35,6 +35,7 @@ TITLE_RE = re.compile(
 KEY_VALUE_RE = re.compile(r"^(?P<key>[a-z][a-z0-9-]*):\s*(?P<value>\S(?:.*\S)?)$")
 REVISION_RE = re.compile(r"^commit:[0-9A-Fa-f]{7,64}$")
 FINDING_RE = re.compile(r"^(?P<severity>high|mid|low)\s+(?P<path>\S+):(?P<line>[1-9][0-9]*)\s+\S.*$")
+LOCATION_RE = re.compile(r"^[^\s,]+:[1-9]\d*$")
 ID_LIST_RE = re.compile(r"^[1-9][0-9]*(?:\s*,\s*[1-9][0-9]*)*$")
 NAMESPACED_ID_RE = re.compile(r"^[ab]-[1-9][0-9]*$")
 NAMESPACED_ID_LIST_RE = re.compile(r"^[ab]-[1-9][0-9]*(?:\s*,\s*[ab]-[1-9][0-9]*)*$")
@@ -165,6 +166,12 @@ def require_fields(message: Message, required: set[str], allowed: set[str]) -> N
 def require_nonempty(message: Message, key: str) -> None:
     if not message.value(key).strip():
         fail(f"{message.path.name}: {key} must not be empty")
+
+
+def require_instances(message: Message, key: str) -> None:
+    raw = message.value(key)
+    if raw != "none" and not all(LOCATION_RE.fullmatch(item.strip()) for item in raw.split(",")):
+        fail(f"{message.path.name}: {key} must be `none` or comma-separated <path>:<line> locations")
 
 
 def require_revision(message: Message, key: str) -> str:
@@ -349,12 +356,13 @@ def validate_findings(message: Message) -> dict[int, str]:
     if not re.fullmatch(r"0|[1-9][0-9]*", message.value("count")):
         fail(f"{message.path.name}: count must be a non-negative integer")
     count = int(message.value("count"), 10)
-    expected_keys = fixed | {
+    expected_keys = fixed | {"pre-existing"} | {
         f"{prefix}-{identifier}"
         for identifier in range(1, count + 1)
-        for prefix in ("finding", "evidence", "confidence")
+        for prefix in ("finding", "evidence", "confidence", "instances")
     }
-    require_fields(message, fixed, expected_keys)
+    require_fields(message, fixed | {"pre-existing"}, expected_keys)
+    require_nonempty(message, "pre-existing")
     require_revision(message, "reviewed-revision")
 
     severities: dict[int, str] = {}
@@ -371,6 +379,7 @@ def validate_findings(message: Message) -> dict[int, str]:
         confidence = message.value(f"confidence-{identifier}")
         if confidence not in {"high", "mid", "low"}:
             fail(f"{message.path.name}: confidence-{identifier} must be high, mid, or low")
+        require_instances(message, f"instances-{identifier}")
         severities[identifier] = finding_match.group("severity")
     return severities
 
@@ -537,12 +546,13 @@ def validate_panel_findings(
     if not re.fullmatch(r"0|[1-9][0-9]*", message.value("count")):
         fail(f"{message.path.name}: count must be a non-negative integer")
     count = int(message.value("count"), 10)
-    expected_keys = fixed | {
+    expected_keys = fixed | {"pre-existing"} | {
         f"{field}-{prefix}-{identifier}"
         for identifier in range(1, count + 1)
-        for field in ("finding", "evidence", "confidence")
+        for field in ("finding", "evidence", "confidence", "instances")
     }
-    require_fields(message, fixed, expected_keys)
+    require_fields(message, fixed | {"pre-existing"}, expected_keys)
+    require_nonempty(message, "pre-existing")
     require_revision(message, "reviewed-revision")
 
     findings: dict[str, tuple[str, str]] = {}
@@ -559,6 +569,7 @@ def validate_panel_findings(
             fail(f"{message.path.name}: evidence-{source_id} must not be empty")
         if message.value(f"confidence-{source_id}") not in {"high", "mid", "low"}:
             fail(f"{message.path.name}: confidence-{source_id} must be high, mid, or low")
+        require_instances(message, f"instances-{source_id}")
         findings[source_id] = (finding_match.group("severity"), finding)
     return findings
 
@@ -1089,6 +1100,7 @@ def scaffold_findings_fields(request: Message, panel: bool, reviewer: str) -> li
         ("scope", request.value("scope")),
         ("verification", "TODO"),
         ("count", "TODO"),
+        ("pre-existing", "TODO"),
     ]
     if panel:
         require_panel_reviewer(request, reviewer)

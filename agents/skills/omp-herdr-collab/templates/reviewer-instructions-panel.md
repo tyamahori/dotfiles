@@ -27,9 +27,14 @@
    拒否される)。
    - `finding-<自分のprefix>-N: <high|mid|low> <path>:<line> <要約>`
    - `evidence-<自分のprefix>-N: <根拠>` / `confidence-<自分のprefix>-N: <high|mid|low>`
-   - `count` と finding / evidence / confidence の組数を一致させる。
+   - `instances-<自分のprefix>-N: <同じ類型の他の箇所の <path>:<line> をカンマ区切り、なければ none>`。
+     指摘は1行ではなくバグの類型として扱い、固定 revision 全体から同じパターンを探す。
+   - finding は `scope` の変更が持ち込んだ問題だけにする。変更前からある問題は
+     finding にせず、`pre-existing: <path>:<line> <要約>` を `; ` 区切りで書く
+     （なければ `none`）。判定の対象外で、報告として残るだけである。
+   - `count` と finding / evidence / confidence / instances の組数を一致させる。
      `<line>` は単一の行番号にし、範囲は書かない。
-     指摘なしは `count: 0` とし、3種の行をすべて省く。
+     指摘なしは `count: 0` とし、4種の行をすべて省く（`pre-existing` は残す）。
 5. peer の FINDINGS path を載せた `[FYI]` が届いたら、その path を読み、
    `<自分のペイン名>-cross-check.md` の skeleton を埋める。対象は peer の
    high/mid だけ(`finding-ids:` に列挙済み。ID の prefix は peer のもの)。
@@ -46,7 +51,8 @@
    `<自分のペイン名>-verified.md` の skeleton を埋める。
    指摘の振分け対象は自分のprefixのcanonical IDだけ(`finding-ids:`に列挙済み)。
    全 ID を `resolved` / `unresolved-high-mid` / `unresolved-low` に一度ずつ
-   振り分ける。APPLIED を読んだだけで pass にしない。
+   振り分ける。`instances-` の箇所が残っていれば resolved にしない。
+   APPLIED を読んだだけで pass にしない。
    `unresolved-high-mid` と `unresolved-low` が両方 `none` のときだけ
    `status: pass` とする。low だけでも未解決があれば `status: unresolved`。
 7. return file は**本文のみ**。`from:` / `to:` / `date:` header を書かない。
