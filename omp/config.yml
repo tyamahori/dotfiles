@@ -70,6 +70,8 @@ compaction:
   methodOrder: [remote, handoff, shake, soft]
 lsp:
   diagnosticsOnEdit: true
+prewalk:
+  auto: suggest
 tools:
   # builtins inlines built-in device schemas (lsp, ast_edit, debug) so they are
   # callable without a docs read; MCP devices stay catalog-only.
