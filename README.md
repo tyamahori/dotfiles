@@ -425,6 +425,19 @@ upstream subpath into a scratch git repo, commit it, rsync the vendored
 directory over it (excluding `.openskills.json` and `local.patch`), and save
 `git diff` as `local.patch`.
 
+`scripts/tool-release-review` runs at the end of `scripts/brewUpdate`. When
+the installed herdr, omp, Claude Code, or Codex version differs from the last
+reviewed one, the script fetches the release notes in that range verbatim
+with `gh`, and `claude -p` (Read/Glob/Grep only; no shell, web, or MCP tools,
+since the notes are untrusted) compares them with this repo's config, writing
+a report to `~/.local/state/tool-release-review/`,
+sorted into required changes, optional features, and checked non-impacts. A
+macOS notification follows; inside herdr a review pane opens unfocused
+(`TOOL_RELEASE_REVIEW_PANE=off` disables it). `--apply` (herdr
+`prefix+shift+u`) starts Claude on the latest report and edits only the items
+you approve; `--ack` records the versions as reviewed. The first run only
+records a baseline.
+
 Global skills that were removed on purpose (Cloudflare vendor packs,
 `orchestration` from stablyai/orca) are listed in `retired_global_skills` in
 `scripts/link`; a reinstall shows up as a warning on the next `link` run.

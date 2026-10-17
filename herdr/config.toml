@@ -51,6 +51,13 @@ type = "pane"
 command = "hunk diff --watch"
 description = "Hunk で working tree の差分を開く"
 
+# scripts/tool-release-review の最新レポートを Claude で開く（承認した項目だけ適用）。
+[[keys.command]]
+key = "prefix+shift+u"
+type = "pane"
+command = '"$HOME/dotfiles/scripts/tool-release-review" --apply'
+description = "ツール更新レビューを開く"
+
 [experimental]
 # terminal-browser（Chromiumをペインに描画）が要求。Kitty graphics対応ターミナル前提。
 kitty_graphics = true
