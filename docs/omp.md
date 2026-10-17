@@ -248,6 +248,10 @@ omp config get retry.fallbackChains --json
 退避先は `provider/model-id` の配列で、上から順に試します。空配列は、そのモデルの退避候補をなくす指定です。
 通常モデルの ID を変えた場合は、対応する退避元のキーも変更してください。`@role` は退避先には使えません。
 
+`retry.fallbackChains.web` だけは意味が違い、`web_search` が `modelRoles.web` の次に試す検索候補（`web/<engine>` の検索エンジン、またはグラウンディング対応のチャットモデル）の順番です。
+例外・時間切れ（`providers.webSearchTimeoutSeconds`）・中身のない応答・bot チャレンジで次の段へ進み、的外れでも結果が返れば止まります。
+URL を読む `read` はこのチェーンを通りません。詳細は OMP 本体の `omp://tools/web_search.md` です。
+
 `anthropic-usage-guard` はこの配列を読みません。退避は OMP 本体の usage-aware fallback が処理します。
 変更後は `scripts/link` を実行し、OMP を再起動してください。稼働中のセッションへは設定ファイルの変更が自動反映されません。
 
