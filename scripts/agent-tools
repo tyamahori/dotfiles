@@ -1,8 +1,8 @@
 #!/bin/bash
 # Network installs for agent tooling: Playwright, Plannotator, global
-# third-party skills, and the Codex ponytail plugin. Each step skips what is
-# already installed. Symlinks and local generated files stay in scripts/link,
-# which never touches the network.
+# third-party skills, the Codex ponytail plugin, and herdr plugin updates.
+# Each step skips what is already installed. Symlinks and local generated
+# files stay in scripts/link, which never touches the network.
 set -euo pipefail
 
 REPO_ROOT="$(cd -P "$(dirname "$0")/.." && pwd)"
@@ -78,4 +78,13 @@ if command -v codex >/dev/null 2>&1; then
 	fi
 else
 	echo "agent-tools: codex not found; the ponytail plugin was not installed" >&2
+fi
+
+# GitHub-installed herdr plugins (terminal-browser, tode) have no declaration
+# file; keep them current here. Linked local plugins (worktree-track) are
+# skipped by herdr itself. No --yes: each update runs the plugin's remote
+# `curl | bash` build, so keep herdr's preview/confirm as the checkpoint.
+if command -v herdr >/dev/null 2>&1; then
+	herdr plugin update ||
+		echo "agent-tools: herdr plugin update failed or was declined" >&2
 fi
