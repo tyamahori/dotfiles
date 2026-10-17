@@ -19,8 +19,8 @@
 | テスト設計（変更種別ごとに要るテスト、name the break、実物 > fake > stub > mock、特性テスト、property-based、mutation check、消すべきテスト） | `agents/skills/test-design/SKILL.md` | テストを書く・直す・消す前、mock や helper を足す前 |
 | 依頼の枠組み（背景・課題・ゴール・スコープ・成果物） | `task-briefing`、前提を問い直すなら `grill-me` | 着手前、依頼が曖昧なとき |
 | 複雑タスクの工程（調査 → 計画 → 独立レビュー → 証拠つき納品） | `sureforge` | 複数ファイル・複数段階の実装 |
-| バグ診断（仮説と再現、根本原因の証拠） | `diagnosing-bugs`、共有指示の「Root-cause claims need reproduction」 | 障害・不具合・性能劣化 |
-| レビュー（変更種別ごとの必須質問、fresh context での反証、Copilot 事前確認、過剰設計の摘出、ローカル差分の証拠つきレビュー） | `github-pr-review`、`evidence-code-review`、`adversarial-verification`、`copilot-preflight`、`ponytail-review` / `ponytail-audit`、OMP の `reviewer` / `security-reviewer` | PR の前後 |
+| バグ診断（仮説と再現、根本原因の証拠、同じ前提の修正が二度失敗したら前提を検証する）と指標の改善（一変更ずつ計測して残すか戻す Hillclimb） | `diagnosing-bugs`（vendoring して節を追加）、共有指示の「Root-cause claims need reproduction」 | 障害・不具合・性能劣化、数値を目標まで改善するとき |
+| レビュー（変更種別ごとの必須質問、fresh context での反証、差分の外への波及範囲、Copilot 事前確認、過剰設計の摘出、ローカル差分の証拠つきレビュー） | `github-pr-review`、`evidence-code-review`、`adversarial-verification`、`copilot-preflight`、`ponytail-review` / `ponytail-audit`、OMP の `reviewer` / `security-reviewer` | PR の前後 |
 | 構造的な編集（rename、参照列挙、codemod） | 共有指示の「Structural edits」、`structural-edit`、OMP `lsp` / `ast_edit` | 複数箇所に及ぶ書き換え |
 | 言語別のスクリプト作法 | `efficient-python`、`efficient-ts-js` | スクリプトを書く・実行する前 |
 | 品質ゲート（semgrep、SonarQube、ruff、commit-msg の Why 検査） | `docs/semgrep.md`、`docs/sonarqube.md`、`ruff/ruff.toml`、`git/global-hooks/` | commit 時、完了報告前 |
@@ -37,6 +37,8 @@
 そのまま入れなかった理由は三つある。superpowers はテストのないコードを削除する「Iron Law」を軸にしており、ponytail の「動く最小限」と衝突する。公開スキルはどれも英語の長文で、REST の命名規約やチェンジログの書き方まで含むため、skill 一覧の説明文と読み込み時の文脈を余計に消費する。そして dotfiles には `github-pr-review` の変更種別ごとの質問表や OMP の検証規範がすでにあり、そこへ接続する形で書くほうが重複を避けられる。
 
 借りたのは中身である。superpowers の `writing-good-tests.md` から「name the break」「mock は自分の存在を assert しない」「mutation check」を、addyosmani から「まずスタックを発見する」「real > fake > stub > mock」「DAMP」「境界で検証し内側は信頼する」「Hyrum の法則」と ADR の「既存規約に合わせてから既定へ」を、Ousterhout から深いモジュールとエラーの定義消去を、Fowler から smell とカタログの対応を取り込んだ。出典は各 skill の末尾に残している。
+
+2026-10 には poteto の pstack（`cursor/plugins`）を再検討した。Claude Code プラグイン版でも多モデルのパネルは Claude 単独に縮み、原則と playbook の大半は ponytail・`test-design`・`software-design`・`diagnosing-bugs` と重なるため、導入は見送った。代わりに、手元にない三つを既存 skill の節として取り込んだ。`blast-radius` は `adversarial-verification` の「波及範囲」観点に、hillclimb playbook と `attack-the-premise` は `diagnosing-bugs` に入れた。
 
 ## 追加するときの判断
 

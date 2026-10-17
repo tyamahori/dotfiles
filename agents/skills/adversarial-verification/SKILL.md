@@ -1,6 +1,6 @@
 ---
 name: adversarial-verification
-description: 「反証して」「裏取りして」「敵対的検証して」「assertive review」と言われたとき、または記事・意思決定文書・リリース前コード・ADR を出した直後に使う。fresh context の懐疑エージェントに反証させ、深刻度・根拠・確度付きの指摘と壊せなかった点を返す。別モデル経由は omp-herdr-collab。
+description: 「反証して」「裏取りして」「敵対的検証して」「assertive review」「この変更で何が壊れる？」と言われたとき、または記事・意思決定文書・リリース前コード・ADR を出した直後に使う。fresh context の懐疑エージェントに反証させ、深刻度・根拠・確度付きの指摘と壊せなかった点を返す。別モデル経由は omp-herdr-collab。
 ---
 
 # adversarial-verification
@@ -56,6 +56,7 @@ fresh context の懐疑役を複数、**観点を分けて並列**に立てる�
 - **論理・前提** — 前提の飛躍、一般化しすぎ、n=1、相関を因果と取り違え、結論の飛躍
 - **目的適合・成立性** — 成果物が目的／読者／要件を満たすか、致命的な欠落はないか
 - （コードなら上記に代えて／加えて）**反例・エッジケース** — 壊れる入力・境界・競合を具体的に構成
+- （コードなら）**波及範囲** — 差分の外で何が壊れるか。下記「コード変更の波及範囲」の手順で調べさせる
 
 各懐疑役へのプロンプトは下記雛形。fresh context・反証役・接地・出力形式を必ず含める。
 
@@ -81,6 +82,17 @@ fresh context の懐疑役を複数、**観点を分けて並列**に立てる�
 
 規模が大きい・網羅性が要る監査でも、ランタイム固有の未共有 Workflow 名を前提にしない。
 同じ find → 指摘ごとの並列 verify を、利用可能な subagent batch で構成する。
+
+### コード変更の波及範囲（blast radius）
+
+小さく見えて信用しきれない差分や、「何が壊れうるか」と聞かれたときに使う観点。呼び出し元の列挙は grep で済むので仕事ではない。grep に出てこない壊れ方を探す。
+
+1. 差分が足す・変える・消す振る舞いを、差分に書かれていない部分まで含めて言葉にする。
+2. 変更が安全だと言える根拠になっている事実を一つか二つ見つける（例:「この呼び出しは既に無効になったキャッシュだけを捨てる」）。危なく見える変更の多くはこの一つの事実で安全になるので、可能性の羅列より先にここへ時間を使う。
+3. grep が届かない先を見る。呼んでいるライブラリの該当版のソースとローカルパッチ、実行のタイミング（マイクロタスク、破棄・teardown）、API が返す JSON・DB カラム・ワイヤフォーマット・同じバイト列を読む別言語、feature flag、数段先の下流。
+4. 根拠の事実ごとに、確かさを次の段階のどこまで上げたかを明記する。①そう述べただけ（単独では価値なし）、②`file:line` かライブラリのソースを示した、③失敗経路を一歩ずつ辿って届かないことを示した、④実コードを呼ぶスクリプトかテストを走らせた、⑤動いているアプリで再現した。安く届くなら④まで上げ、実行結果を貼る。上げきれなければ「未証明」と書く。
+
+出力は通常の4項目に加え、「安全の根拠」（事実・到達段階・証拠）、確認して問題なしとした点、マージ前に回すべき最小のテストまたは再現手順を返す。
 
 ## 機構B: クロスモデル（Codex / Gemini）
 
@@ -151,4 +163,5 @@ fresh context の懐疑役を複数、**観点を分けて並列**に立てる�
 出典: [敵対的検証（ログラス松岡）](https://zenn.dev/loglass/articles/6aa18c80496ec6) /
 [Adversarial Review（ナレッジセンス）](https://zenn.dev/knowledgesense/articles/0cb441713c9fee) /
 Anthropic [Adversarial verification](https://claude.com/blog/a-harness-for-every-task-dynamic-workflows-in-claude-code) /
-[best practices](https://code.claude.com/docs/en/best-practices)
+[best practices](https://code.claude.com/docs/en/best-practices) /
+波及範囲の節は poteto の pstack [`blast-radius`](https://github.com/cursor/plugins/tree/main/pstack/skills/blast-radius) から
