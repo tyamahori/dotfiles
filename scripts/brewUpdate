@@ -76,4 +76,9 @@ fi
 # during the routine update pass. Applying is deliberate: scripts/skill-sync --apply.
 "$(dirname "$0")/skill-sync" --check || true
 
+# herdr / omp / Claude Code / Codex: when an installed version moved past the
+# last reviewed one, write a report-only review of the changelog against this
+# repo's config and notify. Applying is deliberate: tool-release-review --apply.
+"$(dirname "$0")/tool-release-review" || echo "brewUpdate: tool-release-review failed" >&2
+
 "$(dirname "$0")/python"
