@@ -43,7 +43,6 @@ retry:
       - web/ecosia
       - web/mojeek
       - web/public
-      - web/perplexity
       - google-antigravity/gemini-2.5-flash
       - openai-codex/gpt-6.1-sol
       - openai-codex/gpt-5.5
