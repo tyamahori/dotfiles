@@ -62,9 +62,10 @@ that outlive a commit, not design docs that duplicate the implementation.
 
 ## Skills to load first
 
-Read the skill before starting the matching work. When it prescribes numbered
-steps, copy them into the todo list verbatim before task-specific items; a step
-you skip stays listed with `skip: <reason>`. In read-only review sessions
+Read the skill before starting the matching work. When it gives a numbered
+procedure for the task itself (not reference lists or checklists), copy those
+steps into the todo list verbatim before task-specific items; a step you skip
+stays listed with `skip: <reason>`. In read-only review sessions
 (`codex exec -s read-only`), skip these skill loads; the review prompt defines
 the criteria.
 
