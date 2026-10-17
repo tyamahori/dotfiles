@@ -1,0 +1,54 @@
+diff --git a/SKILL.md b/SKILL.md
+index d039541..4527af2 100644
+--- a/SKILL.md
++++ b/SKILL.md
+@@ -1,6 +1,6 @@
+ ---
+ name: diagnosing-bugs
+-description: Diagnosis loop for hard bugs and performance regressions. Use when the user says "diagnose"/"debug this", or reports something broken/throwing/failing/slow.
++description: Diagnosis loop for hard bugs and performance regressions, plus a measure-keep-or-revert loop for pushing one metric toward a target. Use when the user says "diagnose"/"debug this", reports something broken/throwing/failing/slow, or asks to make a measured number better.
+ ---
+ 
+ # Diagnosing Bugs
+@@ -111,6 +111,17 @@ Tool preference:
+ 
+ **Perf branch.** For performance regressions, logs are usually wrong. Instead: establish a baseline measurement (timing harness, `performance.now()`, profiler, query plan), then bisect. Measure first, fix second.
+ 
++**Hillclimb.** When the goal is to push one measurable thing (latency, memory, bundle size, test time) toward a target rather than fix one regression, loop instead of bisecting:
++
++1. Fix one metric, the direction that counts as better, and a stop predicate that pairs a target with a minimum number of attempts, so a lucky early win cannot end the run ("≥30% below baseline and ≥5 attempts").
++2. Freeze the harness before changing code: one command that prints the metric as the median of N runs, plus the count of work done and errors, run on a workload that reproduces the complaint. Record the baseline and a green run of the regression tests.
++3. One hypothesis per attempt, each naming a mechanism ("defer X off the startup path because it blocks first paint"), not "try memoizing something". Measure before and after with the frozen harness and run the tests.
++4. Keep a change only when the metric moves past noise and the tests stay green; otherwise revert it in full. Never stack untested changes, never claim a win from reading code. One commit per kept change.
++5. Log every attempt, kept or reverted (hypothesis, before, after, verdict) in an untracked file, and read it before the next attempt.
++6. On a stall, change category or re-read the source before declaring the hill climbed. Stop at the predicate or when the remaining ideas cost more than they would gain; never relax the predicate to meet it.
++
++Report the baseline, the final value with the percent change, attempts kept and reverted, and one line per kept change.
++
+ ## Phase 5: Fix + regression test
+ 
+ Write the regression test **before the fix**, but only if there is a **correct seam** for it.
+@@ -127,6 +138,17 @@ If a correct seam exists:
+ 4. Watch it pass.
+ 5. Re-run the Phase 1 feedback loop against the original (un-minimised) scenario.
+ 
++### When fixes keep failing: attack the premise
++
++If two fixes that rest on the same premise have failed the same check, suspect the premise, not the fixes. Each failure is evidence against the belief both fixes assumed.
++
++1. Write the premise as one sentence that every failed fix assumed.
++2. Before the next fix, make an observation that would come out differently if the premise were false, and make it rerunnable. Look at how the failures are distributed, not only how large they are.
++3. If the observation contradicts the premise, go back to Phase 3 with what the failures share that the premise did not predict. If it confirms the premise, ask the next "why": the earlier fixes may have treated a consequence.
++4. Remove the condition that causes the failure instead of adding a mechanism that cleans up after it.
++
++Do not write a third fix on an untested premise.
++
+ ## Phase 6: Cleanup
+ 
+ Required before declaring done:
+@@ -136,3 +158,5 @@ Required before declaring done:
+ - [ ] All `[DEBUG-...]` instrumentation removed (`grep` the prefix)
+ - [ ] Throwaway prototypes deleted (or moved to a clearly-marked debug location)
+ - [ ] The hypothesis that turned out correct is stated in the commit / PR message, so the next debugger learns
++
++Local addition: the Hillclimb loop and "attack the premise" are adapted from poteto's pstack (`cursor/plugins`, `pstack/skills/poteto-mode/playbooks/hillclimb.md` and `principle-attack-the-premise`).

@@ -44,7 +44,6 @@ global_skills=(
 	"evidence-code-review https://github.com/akkie76/code-review-skills/tree/main/dist/claude-code"
 	"typesafe-ai typesafe-ai/skills"
 	"find-skills vercel-labs/skills"
-	"diagnosing-bugs mattpocock/skills"
 	"api-security-testing usestrix/strix"
 	"application-security-testing usestrix/strix"
 	"ci-security-scanning-with-strix usestrix/strix"
