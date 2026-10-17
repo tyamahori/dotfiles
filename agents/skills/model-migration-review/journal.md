@@ -1,6 +1,33 @@
 # model migration journal
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
+## 2026-10-17 未 ack 差分の再照合と Codex 正本の Astra 復帰
+
+- 契機: commit 時の hook が8件の差分を報告(`codex.model`、
+  `omp.modelRoles` の vision / smol / task / commit / plan / web / tiny)。
+- 照合: `~/.local/state/model-migration/last-reviewed.tsv` の mtime は
+  2026-09-23 のままだった。09-29・10-02・10-05・10-06 の各エントリに書いた
+  「ack 実行済み」は、このマシンのファイルに一度も反映されていない。
+  OMP の7件は既存エントリで承認・適用済みのため、新たな判断はない。
+  Codex は、user 層 `~/.codex/config.toml`(dotfiles 管理外、10-15 更新)の
+  `gpt-6-astra` / `medium` が、正本の `gpt-6.1-sol` / `low` を上書きしていた。
+  新規に起動した `codex exec` の実効値は astra / medium。
+  公式資料(取得日 2026-10-17):
+  https://developers.openai.com/api/docs/models/gpt-6-astra.md
+  (最上位モデル、effort は low〜max)。
+- 提案と承認:
+  - Codex の正本を実効値の astra / medium へ揃える。判定: 判断。承認。
+  - `retry.fallbackChains` の `openai-codex/*` の先頭を `anthropic/claude-sonnet-5`
+    → `claude-sonnet-5-5`(10-06 の task / vision と同じ世代に揃える)。
+    判定: 判断。承認。
+- 検証: 新規プロセスで確認した。`codex exec` は `model: gpt-6-astra` /
+  `reasoning effort: medium`。`omp config get retry.fallbackChains` は新しい ID を返した。
+  その後 `scripts/model-pins ack` を実行し、mtime が 10-17 に更新されたことと、
+  `check` の exit 0 を確かめた。
+- 1週間後: Codex 週次枠の消費を sol / low の期間と比べる。レビューの
+  round 数と見落としも同じ期間で比べる。ack の記録ファイルの mtime が
+  また巻き戻っていないかも確認する。
+
 ## 2026-10-09 Haiku 4.5 → Haiku 5.5
 
 - 契機: ユーザー承認により、軽量ロールと退避先を全置換。判定: 判断。
