@@ -80,7 +80,8 @@ def classify_area(path: str) -> str:
 def count_reviews(repo: str, pr_numbers: list[int], workers: int, review_login: str) -> dict[int, int]:
     def fetch(number: int) -> tuple[int, int]:
         reviews = gh_json(["api", f"repos/{repo}/pulls/{number}/reviews?per_page=100"])
-        count = sum(review.get("user", {}).get("login") == review_login for review in reviews)
+        # GitHub returns "user": null for some reviews (nullable-simple-user), so .get's default never applies.
+        count = sum((review.get("user") or {}).get("login") == review_login for review in reviews)
         return number, count
 
     with ThreadPoolExecutor(max_workers=workers) as executor:
@@ -93,7 +94,7 @@ def build_summary(args: argparse.Namespace) -> dict[str, Any]:
     findings = [
         comment
         for comment in all_comments
-        if comment.get("user", {}).get("login") == args.comment_login
+        if (comment.get("user") or {}).get("login") == args.comment_login
         and not comment.get("in_reply_to_id")
     ]
     finding_ids = {comment["id"] for comment in findings}
@@ -101,7 +102,7 @@ def build_summary(args: argparse.Namespace) -> dict[str, Any]:
         comment
         for comment in all_comments
         if comment.get("in_reply_to_id") in finding_ids
-        and comment.get("user", {}).get("login") != args.comment_login
+        and (comment.get("user") or {}).get("login") != args.comment_login
     ]
 
     pr_counts: collections.Counter[int] = collections.Counter()
