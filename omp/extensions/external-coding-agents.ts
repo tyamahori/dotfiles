@@ -59,7 +59,8 @@ export default function externalCodingAgents(pi: ExtensionAPI) {
     defaultInactive: false,
     approval: "exec",
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
-      const args = ["--no-alt-screen", "--cwd", ctx.cwd, "-p", params.prompt, "--output-format", "plain"];
+      // `--single=` keeps a prompt that starts with `-` (e.g. a bullet list) from being parsed as a flag.
+      const args = ["--no-alt-screen", "--cwd", ctx.cwd, `--single=${params.prompt}`, "--output-format", "plain"];
       if (params.agent) args.push("--agent", params.agent);
       if (params.model) args.push("--model", params.model);
       if (params.effort) args.push("--reasoning-effort", params.effort);
