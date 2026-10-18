@@ -114,14 +114,17 @@ the criteria.
   `git log --oneline <base>..HEAD` must show only intended commits (measured).
 - Create PRs as draft; ready-for-review only when asked. `gh pr create --body`
   skips the repo's template, so follow it yourself and tick only verified
-  checkboxes.
+  checkboxes. Either way, state what is out of scope and what else the change
+  could affect.
 
 ## Quality gates
 
 `semgrep-quality-gate` already runs from the global pre-commit hook; don't run
 it separately. Run `sonar-quality-gate` once before reporting a non-trivial
 implementation complete, only when `sonar-project.properties` is at the repo
-root; a failed gate blocks completion.
+root; a failed gate blocks completion. Never loosen a gate's thresholds,
+exclusions, or suppressions to make it pass; fix the cause, or ask with the
+reason.
 
 ## Diagnosis and failures
 
