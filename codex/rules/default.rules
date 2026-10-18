@@ -9,8 +9,32 @@
 #   codex execpolicy check --pretty --rules codex/rules/default.rules -- git push --force
 
 # git: the sandbox marks .git read-only inside the workspace, so every
-# mutating git command escalates. Review pushes regardless of push-option order.
-prefix_rule(pattern=["git"], decision="allow")
+# mutating git command escalates. Allow named subcommands rather than all of
+# ["git"]: a blanket allow also covered `git -C <dir> push` and
+# `git -c k=v reset --hard`, whose global options sit where the prompt rules
+# below expect the subcommand. `config` stays out for the same reason: a
+# written core.sshCommand or alias runs later under an allowed subcommand.
+# Unlisted forms fall back to the default approval flow. Review pushes
+# regardless of push-option order.
+prefix_rule(
+    pattern=["git", [
+        "add", "am", "apply", "bisect", "blame", "branch", "cat-file",
+        "check-ignore", "checkout", "cherry-pick", "clone", "commit",
+        "describe", "diff", "fetch", "for-each-ref", "format-patch", "grep",
+        "init", "log", "ls-files", "ls-remote", "ls-tree", "merge", "merge-base",
+        "mv", "notes", "pull", "range-diff", "rebase", "reflog", "remote",
+        "reset", "restore", "rev-list", "rev-parse", "revert", "rm", "shortlog",
+        "show", "show-ref", "stash", "status", "submodule", "switch",
+        "symbolic-ref", "tag", "worktree",
+    ]],
+    decision="allow",
+    match=["git status", "git commit -F -", "git reset HEAD~1"],
+    not_match=[
+        "git -C /tmp/x push origin main",
+        "git -c core.x=1 reset --hard",
+        "git --git-dir=/tmp/x/.git push -f",
+    ],
+)
 prefix_rule(
     pattern=["git", "push"],
     decision="prompt",
@@ -22,7 +46,9 @@ prefix_rule(
 )
 prefix_rule(pattern=["git", "reset", "--hard"], decision="prompt")
 prefix_rule(pattern=["git", "clean"], decision="prompt")
-prefix_rule(pattern=["git", "branch", "-D"], decision="prompt")
+prefix_rule(pattern=["git", "branch", ["-D", "-df", "-fd"]], decision="prompt")
+prefix_rule(pattern=["git", "branch", ["-d", "--delete"], ["-f", "--force"]], decision="prompt")
+prefix_rule(pattern=["git", "branch", ["-f", "--force"], ["-d", "--delete"]], decision="prompt")
 prefix_rule(pattern=["gh", "pr"], decision="allow")
 prefix_rule(pattern=["gh", "pr", "merge"], decision="prompt")
 prefix_rule(pattern=["gh", "pr", "close"], decision="prompt")
