@@ -32,6 +32,8 @@ const GIT_NESTED: Record<string, Set<string>> = {
   remote: new Set(["update", "show", "prune"]),
   submodule: new Set(["update"]),
 };
+// 次の語を値に取る git のグローバルオプション（--git-dir=/x の形は一語なので対象外）。
+const GIT_VALUE_OPTIONS = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env"]);
 
 function reachesSshAgent(segment: string): boolean {
   const words = segment.trim().split(/\s+/);
@@ -41,7 +43,7 @@ function reachesSshAgent(segment: string): boolean {
   if (words[i] !== "git") return false;
   i++;
   while (i < words.length && words[i].startsWith("-")) {
-    i += words[i] === "-C" || words[i] === "-c" ? 2 : 1;
+    i += GIT_VALUE_OPTIONS.has(words[i]) ? 2 : 1;
   }
   const sub = words[i];
   return GIT_REMOTE.has(sub) || (GIT_NESTED[sub]?.has(words[i + 1]) ?? false);

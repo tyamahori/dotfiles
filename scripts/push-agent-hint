@@ -19,7 +19,7 @@ cmd=$(jq -r '.tool_input.command // empty | gsub("\u0027[^\u0027]*\u0027"; "Q") 
 # with a false lock diagnosis. A here-string, not a pipe: grep -q exits at the
 # first match, and printf writing a long command into the closed pipe fails
 # the pipeline under pipefail.
-grep -Eq '(^|[;&|(])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(ssh|scp|sftp|git([[:space:]]+(-[Cc][[:space:]]+[^[:space:]]+|-[^[:space:]]+))*[[:space:]]+(push|pull|fetch|clone|ls-remote|remote[[:space:]]+(update|show|prune)|submodule[[:space:]]+update))([[:space:]]|$)' <<<"$cmd" || exit 0
+grep -Eq '(^|[;&|(])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(ssh|scp|sftp|git([[:space:]]+((-[Cc]|--git-dir|--work-tree|--namespace|--config-env)[[:space:]]+[^[:space:]]+|-[^[:space:]]+))*[[:space:]]+(push|pull|fetch|clone|ls-remote|remote[[:space:]]+(update|show|prune)|submodule[[:space:]]+update))([[:space:]]|$)' <<<"$cmd" || exit 0
 
 out=$(jq -r '[.tool_response // empty, .error // empty] | tostring' <<<"$payload" 2>/dev/null) || exit 0
 printf '%s' "$out" | grep -qi 'communication with agent failed' || exit 0

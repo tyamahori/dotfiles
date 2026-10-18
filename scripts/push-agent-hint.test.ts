@@ -30,6 +30,7 @@ test.each([
   ["blocks a push with a quoted remote", 'git push "origin" main', true],
   ["blocks a push whose -C path is quoted with spaces", "git -C '/repo with spaces' push", true],
   ["blocks a push whose -c value is quoted with spaces", 'git -c "core.sshCommand=ssh -v" push', true],
+  ["blocks a push whose --git-dir and --work-tree take separate values", "git --git-dir /repo/.git --work-tree /repo push", true],
 ])("%s", (_name, command, blocks) => {
   const out = run(command, "sign_and_send_pubkey: communication with agent failed");
   expect(out.includes('"decision": "block"')).toBe(blocks);

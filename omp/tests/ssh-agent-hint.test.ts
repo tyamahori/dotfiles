@@ -29,6 +29,7 @@ test.each([
   ["stays quiet on a remote listing", { input: { command: "git remote -v" }, content: locked, isError: true }, 0],
   ["stays quiet when a separator sits inside quotes", { input: { command: "printf 'x; git push origin' && git commit -m \"a; git fetch\"" }, content: locked, isError: true }, 0],
   ["steers when -C and -c values are quoted with spaces", { input: { command: "git -C '/repo with spaces' -c \"core.sshCommand=ssh -v\" push" }, content: locked, isError: true }, 1],
+  ["steers when --git-dir and --work-tree take separate values", { input: { command: "git --git-dir /repo/.git --work-tree /repo push" }, content: locked, isError: true }, 1],
 ])("%s", (_name, event, expected) => {
   expect(steersFor(event)).toBe(expected);
 });
