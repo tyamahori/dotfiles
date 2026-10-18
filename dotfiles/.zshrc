@@ -256,10 +256,6 @@ alias claude-personal='CLAUDE_CONFIG_DIR=~/.claude-personal claude'
 # JetBrains Context CLI
 export PATH="$PATH:${HOME}/.jbcontext/bin"
 
-# >>> grok installer >>>
-export PATH="$HOME/.grok/bin:$PATH"
-# <<< grok installer <<<
-
 # cd 自体を zoxide にする（通常のパスは従来どおり、それ以外は訪問履歴から飛ぶ）。
 (( $+commands[zoxide] )) && eval "$(zoxide init zsh --cmd cd)"
 
