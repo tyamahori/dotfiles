@@ -92,3 +92,45 @@ test("snapshot counts repeated failures per client, class, and session from all 
     rmSync(home, { recursive: true, force: true });
   }
 }, 60_000);
+
+test("snapshot counts days spanned by human input in local time, not UTC", () => {
+  const scratch = resolve(root, ".agent-msgs/scratch");
+  mkdirSync(scratch, { recursive: true });
+  const home = mkdtempSync(resolve(scratch, "usage-snapshot-"));
+  // A JST calendar day two days ago, inside the --days 7 window.
+  const day = new Date(Date.now() - 2 * 86_400_000).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+  const next = new Date(Date.parse(`${day}T12:00:00+09:00`) + 86_400_000).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+  const at = (date: string, time: string) => new Date(`${date}T${time}:00+09:00`).toISOString();
+  const session = (name: string, first: string, second: string) => {
+    const path = resolve(home, `.claude/projects/p/${name}.jsonl`);
+    mkdirSync(dirname(path), { recursive: true });
+    const human = (timestamp: string) => ({ type: "user", timestamp, origin: { kind: "human" }, message: { content: "hi" } });
+    const rows = [
+      human(first),
+      { type: "assistant", timestamp: first, message: { id: `${name}-1`, model: "m", usage: { input_tokens: 10 } } },
+      human(second),
+    ];
+    writeFileSync(path, rows.map((row) => JSON.stringify(row)).join("\n") + "\n");
+  };
+  // 08:30 and 09:30 JST fall on two UTC dates but one local day.
+  session("same-local-day", at(day, "08:30"), at(day, "09:30"));
+  // 23:30 and 00:30 JST fall on one UTC date but two local days.
+  session("crosses-local-midnight", at(day, "23:30"), at(next, "00:30"));
+
+  const bin = resolve(home, "bin");
+  mkdirSync(bin);
+  symlinkSync(Bun.which("jq")!, resolve(bin, "jq"));
+
+  try {
+    const run = spawnSync(Bun.which("bash")!, [snapshot, "--days", "7"], {
+      env: { HOME: home, PATH: `${bin}:/usr/bin:/bin`, LC_ALL: "C", TZ: "Asia/Tokyo" },
+      encoding: "utf8",
+    });
+    expect(run.status).toBe(0);
+    const section = run.stdout.split("## 警告フラグ: Claude セッション")[1].split("\n## ")[0];
+    const flagged = section.split("\n").filter((line) => line.includes("\tdays=")).map((line) => line.split("\t").slice(0, 2).join("\t"));
+    expect(flagged).toEqual(["crosses-local-midnight\tdays=2"]);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+}, 60_000);

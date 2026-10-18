@@ -222,7 +222,8 @@ find "$HOME/.claude/projects" -name '*.jsonl' -newermt "$CUTOFF" 2>/dev/null | w
 			and (.origin.kind=="human" or .promptSource=="typed")
 			and (try (.timestamp | epoch) catch 0) >= $cutoff_epoch)] as $human
 		| select(($a | length) > 0)
-		| ([$human[].timestamp[0:10]] | unique | length) as $days
+		| ([$human[] | try (.timestamp | epoch | localtime | strftime("%Y-%m-%d")) catch empty]
+			| unique | length) as $days
 		| ([$a[].message.usage.input_tokens // 0] | add // 0) as $fresh
 		| ([$a[].message.usage.cache_read_input_tokens // 0] | add // 0) as $cr
 		| ([$a[].message.usage.cache_creation_input_tokens // 0] | add // 0) as $cw
