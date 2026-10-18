@@ -27,10 +27,12 @@ const HOUR = 60 * 60 * 1000;
 function harness(opts: { idleMs: number; bytes: number; hasUI?: boolean }) {
   const handlers: Record<string, Handler> = {};
   const notices: string[] = [];
+  const asides: string[] = [];
   guard({
     on(event: string, handler: Handler) {
       handlers[event] = handler;
     },
+    sendUserMessage: (message: string) => asides.push(message),
   });
   // 最終エントリは idleMs 前。深夜に走ると日跨ぎ警告も出るので、
   // この警告(transcript を含む通知)だけを数える。
@@ -45,8 +47,10 @@ function harness(opts: { idleMs: number; bytes: number; hasUI?: boolean }) {
   };
   return {
     notices,
+    asides,
     start: () => handlers.session_start({}, ctx),
     switchTo: (reason: string) => handlers.session_switch({ reason }, ctx),
+    input: (text: string) => handlers.input({ text, source: "interactive" }, ctx),
   };
 }
 
@@ -83,4 +87,24 @@ test("does nothing in sessions without UI", () => {
   h.start();
   h.switchTo("resume");
   expect(h.notices).toHaveLength(0);
+});
+
+// idleMs 26時間 = 前日開始のセッション。0 バイトなので放置警告は出ない。
+test("nudges once per day-crossing session, and again after /resume into another old session", () => {
+  const h = harness({ idleMs: 26 * HOUR, bytes: 0 });
+  h.input("続けて");
+  h.input("もう一つ");
+  expect(h.asides).toHaveLength(1);
+  h.switchTo("resume");
+  h.input("こちらも");
+  expect(h.asides).toHaveLength(2);
+});
+
+test("session-ending commands get no nudge; the next real input still does", () => {
+  const h = harness({ idleMs: 26 * HOUR, bytes: 0 });
+  h.input("/new");
+  h.input("/handoff-switch .agent-msgs/handoff/x.md");
+  expect(h.asides).toHaveLength(0);
+  h.input("/news を調べて");
+  expect(h.asides).toHaveLength(1);
 });

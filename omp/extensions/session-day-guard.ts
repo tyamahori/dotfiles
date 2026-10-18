@@ -129,11 +129,16 @@ export default function (pi: ExtensionHandlerApi): void {
   });
 
   pi.on("session_switch", (event, ctx) => {
+    // 1日1回はセッションごと。/resume で別の古いセッションへ移ったら、そこでも促す。
+    nudgedDates.clear();
     if ((event as Rec | undefined)?.reason === "resume") warnIdleLargeResume(ctx);
   });
 
-  pi.on("input", (_event, ctx) => {
+  pi.on("input", (event, ctx) => {
     if (!ctx?.hasUI) return;
+    // 推奨どおり /new や /handoff-switch で移る入力に、古いセッションで1ターン回す aside を足さない。
+    const text = (event as { text?: string } | undefined)?.text?.trimStart() ?? "";
+    if (/^\/(?:new|quit|q|exit|resume|drop|handoff-switch)(?:\s|$)/.test(text)) return;
     const start = sessionStartDate(ctx);
     const today = localDate(new Date());
     if (!start || start >= today || nudgedDates.has(today)) return;
