@@ -329,7 +329,10 @@ prefix に畳んで一回限りの行を消す。リポジトリ固有のコマ�
 `.codex/rules/` に置く。判定の確認は
 `codex execpolicy check --pretty --rules codex/rules/default.rules -- <cmd>`。
 `git push` は通常・force とも一律 `prompt` とし、push のオプション順に依存せず
-自動レビューへ送る。設定・ルールの変更後は Codex を再起動する。
+自動レビューへ送る。`git branch` と `git reset` も許可リストに入れない。prefix では
+フラグの位置を固定できず、`git branch x -D` や `git reset HEAD~1 --hard` が
+`prompt` ルールをすり抜けるため。一覧表示はサンドボックス内でそのまま動く。
+設定・ルールの変更後は Codex を再起動する。
 
 ### Local SonarQube quality gate
 

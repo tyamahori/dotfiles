@@ -15,24 +15,28 @@
 # below expect the subcommand. `config` stays out for the same reason: a
 # written core.sshCommand or alias runs later under an allowed subcommand.
 # Unlisted forms fall back to the default approval flow. Review pushes
-# regardless of push-option order.
+# regardless of push-option order. `branch` and `reset` stay out too: a prefix
+# can't pin a flag's position, so `git branch x -D` and `git reset HEAD~1
+# --hard` slipped past the prompt rules below; listing them works in the sandbox.
 prefix_rule(
     pattern=["git", [
-        "add", "am", "apply", "bisect", "blame", "branch", "cat-file",
+        "add", "am", "apply", "bisect", "blame", "cat-file",
         "check-ignore", "checkout", "cherry-pick", "clone", "commit",
         "describe", "diff", "fetch", "for-each-ref", "format-patch", "grep",
         "init", "log", "ls-files", "ls-remote", "ls-tree", "merge", "merge-base",
         "mv", "notes", "pull", "range-diff", "rebase", "reflog", "remote",
-        "reset", "restore", "rev-list", "rev-parse", "revert", "rm", "shortlog",
+        "restore", "rev-list", "rev-parse", "revert", "rm", "shortlog",
         "show", "show-ref", "stash", "status", "submodule", "switch",
         "symbolic-ref", "tag", "worktree",
     ]],
     decision="allow",
-    match=["git status", "git commit -F -", "git reset HEAD~1"],
+    match=["git status", "git commit -F -", "git switch -c x"],
     not_match=[
         "git -C /tmp/x push origin main",
         "git -c core.x=1 reset --hard",
         "git --git-dir=/tmp/x/.git push -f",
+        "git branch x -D",
+        "git reset HEAD~1 --hard",
     ],
 )
 prefix_rule(
