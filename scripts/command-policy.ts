@@ -18,7 +18,7 @@ type CommandMatch = {
 
 type Rule = {
   id: string;
-  matcher: "command" | "curl-web-fetch";
+  matcher: "command" | "curl-web-fetch" | "git-commit-subject-only";
   commands: CommandMatch[];
   excludeAfterPipe?: boolean;
   clients: Client[];
@@ -265,6 +265,46 @@ function isSimpleWebFetch(args: string[]): boolean {
   }
 }
 
+// Mirrors git/global-hooks/checks/commit-msg-why before the commit runs, so the
+// pre-commit checks are not paid for a message the hook will reject. Only one
+// literal single-line `-m` counts: a second `-m`, a quoted newline, or any `$`
+// (`$(cat <<EOF …)`, `$'…'`, variables) may carry a body this scanner cannot see.
+function isSubjectOnlyCommit(args: string[]): boolean {
+  const messages: string[] = [];
+  for (let cursor = 0; cursor < args.length; cursor += 1) {
+    if (args[cursor] === "--") break;
+    const kind = commitArgument(args[cursor]);
+    if (kind === "exempt") return false;
+    if (kind === "next") {
+      cursor += 1;
+      messages.push(args[cursor] ?? "");
+    } else if (kind) {
+      messages.push(kind.message);
+    }
+  }
+  return (
+    messages.length === 1 &&
+    !/[\n$]/.test(messages[0]) &&
+    !/^(?:fixup!|squash!|amend!|Merge |Revert )/.test(messages[0])
+  );
+}
+
+// One `git commit` argument: "exempt" ends the scan (commit-msg-why passes it
+// too), "next" means the following argument is a message.
+function commitArgument(argument: string): "exempt" | "next" | { message: string } | undefined {
+  if (/^--(?:file|reuse-message|reedit-message|fixup|squash|no-verify|template|edit)(?:=|$)/.test(argument)) return "exempt";
+  if (argument === "--message") return "next";
+  if (argument.startsWith("--message=")) return { message: argument.slice("--message=".length) };
+  if (!/^-[A-Za-z]/.test(argument)) return undefined;
+  // A short-option cluster ends at the first letter that takes a value.
+  for (let offset = 1; offset < argument.length; offset += 1) {
+    const letter = argument[offset];
+    if ("FCctne".includes(letter)) return "exempt"; // message file, reused message, template, --no-verify, editor
+    if (letter === "m") return offset + 1 < argument.length ? { message: argument.slice(offset + 1) } : "next";
+  }
+  return undefined;
+}
+
 function replacementAvailable(rule: Pick<Rule, "replacement">): boolean {
   if (rule.replacement.type === "native-tool") return true;
   const replacement = rule.replacement.value.startsWith("scripts/")
@@ -290,7 +330,8 @@ export function denyCommand(command: string, client: Client): string | undefined
         (!match.noArgPattern || !words.slice(index + 1).some((word) => match.noArgPattern!.test(word))) &&
         (!match.operandPattern || !operandsMatch(words.slice(index + 1), match.skipOperands ?? 0, match.operandPattern)) &&
         (!match.requireNoRedirection || !parsed.hasRedirection) &&
-        (rule.matcher !== "curl-web-fetch" || (!parsed.hasRedirection && isSimpleWebFetch(words.slice(index + 1))))
+        (rule.matcher !== "curl-web-fetch" || (!parsed.hasRedirection && isSimpleWebFetch(words.slice(index + 1)))) &&
+        (rule.matcher !== "git-commit-subject-only" || isSubjectOnlyCommit(words.slice(words.indexOf("commit", index) + 1)))
       );
     });
     if (!matched || !replacementAvailable(rule)) continue;

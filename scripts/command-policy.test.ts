@@ -159,8 +159,38 @@ test("sweeping git stages are denied; explicit paths are not", () => {
   for (const command of ["git add -A", "git add .", "git add -u", "git commit -am 'msg'", "git commit --all -m x"]) {
     expect(denyCommand(command, "claude")).toBeDefined();
   }
-  for (const command of ["git add src/a.ts docs/b.md", "git add -p src/a.ts", "git commit -m 'add -A flag docs'", "git commit --amend --no-edit"]) {
+  for (const command of ["git add src/a.ts docs/b.md", "git add -p src/a.ts", "git commit -m 'add -A flag docs' -m 'why'", "git commit --amend --no-edit"]) {
     expect(denyCommand(command, "claude")).toBeUndefined();
+  }
+});
+
+test("subject-only commits are denied before the hooks run; any possible body passes", () => {
+  for (const command of [
+    "git commit -m 'fix parser'",
+    "git commit -qm 'fix parser'",
+    "git commit -m'fix parser' src/a.ts",
+    "git commit --message 'fix parser'",
+    "git commit --message='fix parser'",
+    "git -C repo commit --amend -m 'fix parser'",
+    "cd repo && git commit -m \"fix parser\"",
+  ]) {
+    expect(denyCommand(command, "omp")).toBeDefined();
+  }
+  for (const command of [
+    "git commit -m 'fix parser' -m 'Why: tokens were dropped'",
+    "git commit -m 'fix parser\n\nWhy: tokens were dropped'",
+    "git commit -m \"$(cat <<'EOF'\nfix parser\n\nWhy: tokens were dropped\nEOF\n)\"",
+    "git commit -F - <<'EOF'\nfix parser\n\nWhy\nEOF",
+    "git commit -F .git/msg",
+    "git commit --no-verify -m 'typo'",
+    "git commit -nm 'typo'",
+    "git commit -e -m 'fix parser'",
+    "git commit -m 'fixup! fix parser'",
+    "git commit --fixup HEAD~1",
+    "git commit",
+    "git log -m 'not a commit'",
+  ]) {
+    expect(denyCommand(command, "omp")).toBeUndefined();
   }
 });
 

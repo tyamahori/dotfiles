@@ -149,6 +149,14 @@
       "reason": "Sweeping stages (`git add -A/./-u`, `git commit -a`) are blocked: they pick up the user's unrelated edits. Stage the paths you changed explicitly: `git add path/a path/b`, then check `git diff --cached --stat`."
     },
     {
+      "id": "git-commit-subject-only",
+      "matcher": "git-commit-subject-only",
+      "commands": [{ "executables": ["git"], "subcommand": "commit" }],
+      "clients": ["claude", "codex", "omp"],
+      "replacement": { "type": "command", "value": "git" },
+      "reason": "Subject-only `git commit -m` is blocked: the commit-msg hook rejects it for changes over 3 lines after pre-commit has already run. Put the Why in a body: add a second `-m \"<why: problem, constraint, context>\"`, or pass the whole message with `-F -` and a heredoc. A genuinely trivial change may use `--no-verify`."
+    },
+    {
       "id": "raw-git-worktree-add",
       "matcher": "command",
       "commands": [{ "executables": ["git"], "subcommand": "worktree", "anyArgPattern": "^add$" }],
