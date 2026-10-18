@@ -208,8 +208,8 @@ Current checks:
 
 Genuinely exceptional commits bypass all checks with `git commit --no-verify`.
 This repository sets a local `core.hooksPath`, so it wires the same checks
-through `git/hooks/commit-msg` (symlink) and explicit calls at the end of its
-`git/hooks/pre-commit`.
+through `git/hooks/commit-msg` and `git/hooks/pre-push` (symlinks) and a
+hand-off to the dispatcher at the end of its `git/hooks/pre-commit`.
 
 ## OMP (Oh My Pi)
 

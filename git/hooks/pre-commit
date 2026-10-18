@@ -59,12 +59,7 @@ if [[ -n $pins ]]; then
 fi
 
 # This repo sets a local core.hooksPath, which bypasses the machine-global
-# dispatcher — run the same global pre-commit checks here explicitly (same
-# pattern as the commit-msg symlink).
-"$repo_root/git/global-hooks/checks/pre-commit-semgrep"
-"$repo_root/git/global-hooks/checks/pre-commit-gitleaks"
-"$repo_root/git/global-hooks/checks/pre-commit-zizmor"
-"$repo_root/git/global-hooks/checks/pre-commit-dclint"
-"$repo_root/git/global-hooks/checks/pre-commit-compose-config"
-"$repo_root/git/global-hooks/checks/pre-commit-hadolint"
-"$repo_root/git/global-hooks/checks/pre-commit-json"
+# dispatcher. Hand off to it through its pre-commit symlink (the dispatcher
+# keys on its own name) so a check added there runs here too, instead of
+# keeping a second copy of the list that silently drifts.
+exec "$repo_root/git/global-hooks/pre-commit" "$@"
