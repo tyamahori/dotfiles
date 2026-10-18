@@ -40,6 +40,9 @@ export default function (pi: ExtensionHandlerApi): void {
         detached: true,
         stdio: "ignore",
       });
+      // A missing binary arrives as an async "error" event, not a throw;
+      // unhandled, it becomes an uncaught exception in the OMP process.
+      child.on("error", () => {});
       child.unref();
     } catch {
       // jbcontext が PATH にも無い等。検索品質の問題であって
