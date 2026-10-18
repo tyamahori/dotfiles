@@ -31,7 +31,8 @@ export default function externalCodingAgents(pi: ExtensionAPI) {
       if (params.model) args.push("--model", params.model);
       if (params.effort) args.push("--effort", params.effort);
       if (params.allowToolUse) args.push("--trust-all-tools");
-      args.push(params.prompt);
+      // `--` keeps a prompt that starts with `-` (e.g. a bullet list) from being parsed as a flag.
+      args.push("--", params.prompt);
 
       onUpdate?.({ content: [{ type: "text", text: "Running Kiro CLI…" }] });
       const result = await pi.exec("kiro-cli", args, { cwd: ctx.cwd, signal });
