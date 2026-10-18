@@ -10,6 +10,7 @@ test("denies executable positions, not quoted prose or script arguments", () => 
   which.mockReturnValue("/available/uv");
   expect(denyCommand("MODE='two words' command python3 app.py", "claude")).toBeDefined();
   expect(denyCommand("echo done && python -c 'print(1)'", "codex")).toBeDefined();
+  expect(denyCommand("if ! [ -f out ]; then python3 app.py; else FOO=1 python3 b.py; fi", "omp")).toBeDefined();
   expect(denyCommand("printf '%s' 'example; python3 script.py | grep text'", "omp")).toBeUndefined();
   expect(denyCommand("sh -c 'python3 script.py'", "claude")).toBeUndefined();
   expect(denyCommand("uv run python3 script.py", "codex")).toBeUndefined();
@@ -162,7 +163,7 @@ test("grep/awk on .env stay outside this rule; the pattern argument would false-
 });
 
 test("sleeps of 10s or more are denied as polling; short readiness sleeps stay allowed", () => {
-  for (const command of ["sleep 60; gh pr checks 612", "unset GH_TOKEN; sleep 45 && gh run list", "sleep 10", "sleep 1m", "sleep 12.5s"]) {
+  for (const command of ["sleep 60; gh pr checks 612", "unset GH_TOKEN; sleep 45 && gh run list", "sleep 10", "sleep 1m", "sleep 12.5s", "until gh pr checks 5; do sleep 60; done", "while true; do { time sleep 30; }; done"]) {
     expect(denyCommand(command, "omp")).toBeDefined();
   }
   expect(denyCommand("sleep 30", "codex")).toContain("--watch");

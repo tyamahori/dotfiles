@@ -283,9 +283,11 @@ function isSafeSearch(args: string[], followsPipe: boolean, redirected: boolean)
   return (followsPipe && operands.length === 1) || (listOnly && operands.length > 0);
 }
 
+const SHELL_PREFIXES = new Set(["!", "{", "do", "elif", "else", "if", "then", "time", "until", "while"]);
+
 function commandIndex(words: string[]): number {
   let index = 0;
-  while (/^[A-Za-z_]\w*=/.test(words[index] ?? "")) index += 1;
+  while (SHELL_PREFIXES.has(words[index]) || /^[A-Za-z_]\w*=/.test(words[index] ?? "")) index += 1;
   if (words[index] === "command") index += 1;
   return index;
 }
