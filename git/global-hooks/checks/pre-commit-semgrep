@@ -34,7 +34,7 @@ done < <(git diff --cached --name-only --diff-filter=ACMR -z)
 # (exit 7 with zero output), which would fail every commit undiagnosably.
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
-if ! semgrep scan --config "$config" --config "$DOTFILES_ROOT/semgrep/security-compose.yaml" --metrics=off --error "${targets[@]}" >"$log" 2>&1; then
+if ! semgrep scan --config "$config" --config "$DOTFILES_ROOT/semgrep/security-compose.yaml" --metrics=off --error -- "${targets[@]}" >"$log" 2>&1; then
 	cat "$log" >&2
 	echo "pre-commit: semgrep failed for staged files (rules: $config + semgrep/security-compose.yaml)." >&2
 	echo "Fix findings, add '# nosemgrep: <rule id>' with a reason, or commit with --no-verify." >&2

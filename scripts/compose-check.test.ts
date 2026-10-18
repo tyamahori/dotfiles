@@ -36,6 +36,28 @@ for (const row of [
     stage: ["compose.yaml"],
     blockedWith: null,
   },
+  // Root-level names starting with "-" must reach the linters as files, not options.
+  {
+    name: "semgrep scans a staged file whose name starts with a dash",
+    hook: "pre-commit-semgrep",
+    files: { "-notes.txt": "hi\n" },
+    stage: ["-notes.txt"],
+    blockedWith: null,
+  },
+  {
+    name: "hadolint lints a staged Dockerfile whose name starts with a dash",
+    hook: "pre-commit-hadolint",
+    files: { "-x.Dockerfile": "FROM alpine:3.21\nRUN echo hello | cat\n" },
+    stage: ["-x.Dockerfile"],
+    blockedWith: "DL4006",
+  },
+  {
+    name: "sqruff lints a staged SQL file whose name starts with a dash",
+    hook: "pre-commit-sqruff",
+    files: { "-x.sql": "SELECT a,b FROM t WHERE x = 1\n" },
+    stage: ["-x.sql"],
+    blockedWith: "LT01",
+  },
 ]) {
   test(row.name, () => {
     const scratch = resolve(root, ".agent-msgs/scratch");
