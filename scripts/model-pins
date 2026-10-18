@@ -79,7 +79,9 @@ case ${1:-show} in
 		;;
 	ack)
 		mkdir -p "$(dirname "$STATE_FILE")"
-		show_pins >"$STATE_FILE"
+		# A failed read must not truncate the reviewed baseline.
+		show_pins >"$STATE_FILE.tmp"
+		mv "$STATE_FILE.tmp" "$STATE_FILE"
 		;;
 	*)
 		printf 'Usage: %s [show|check|ack]\n' "$0" >&2
