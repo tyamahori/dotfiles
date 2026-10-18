@@ -30,8 +30,12 @@ case "$file" in
   Dockerfile|Dockerfile.*|*.Dockerfile|*/Dockerfile|*/Dockerfile.*) linter=hadolint ;;
   *.sql) linter=sqruff ;;
   # JSONC dialects (comments/trailing commas are legal there) — never jq them.
-  *.jsonc|tsconfig*.json|*/tsconfig*.json|jsconfig*.json|*/jsconfig*.json|*/.vscode/*.json|devcontainer.json|*/devcontainer.json|*/.devcontainer/*.json) exit 0 ;;
-  */claude/settings.json|*/.claude/settings.json|*/codex/hooks.json|*/.codex/hooks.json|*/omp/lsp.json|*/.omp/agent/lsp.json|*/omp/mcp.json|*/.omp/agent/mcp.json) linter=jq; json_format=canonical ;;
+  # Same list as git/global-hooks/checks/pre-commit-json, so edit time never
+  # rejects what commit time accepts.
+  *.jsonc|tsconfig*.json|*/tsconfig*.json|jsconfig*.json|*/jsconfig*.json|*/.vscode/*.json|devcontainer.json|*/devcontainer.json|*/.devcontainer/*.json|*/.devcontainer.json|*/biome.json|*/turbo.json|*/.eslintrc.json) exit 0 ;;
+  # The dotfiles-managed configs, in the repo or through their $HOME symlinks;
+  # another project's own .claude/settings.json keeps its team's formatting.
+  */claude/settings.json|*/codex/hooks.json|*/omp/lsp.json|*/omp/dap.json|*/omp/mcp.json|"$HOME"/.claude/settings.json|"$HOME"/.codex/hooks.json|"$HOME"/.omp/agent/lsp.json|"$HOME"/.omp/agent/dap.json|"$HOME"/.omp/agent/mcp.json) linter=jq; json_format=canonical ;;
   *.json) linter=jq ;;
   *.ts|*.tsx|*.mts|*.cts|*.js|*.jsx|*.mjs|*.cjs) linter=oxlint ;;
   *.py) linter=ruff ;;
