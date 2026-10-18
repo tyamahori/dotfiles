@@ -25,7 +25,7 @@ function toolCommand(toolInput: unknown): string | undefined {
 
 type HookClient = "claude" | "codex" | "copilot";
 
-const COPILOT_READ_TOOLS = new Set(["view", "grep", "rg"]);
+const COPILOT_READ_TOOLS: Record<string, true> = { view: true, grep: true, rg: true };
 const COPILOT_ENV_READ_REASON =
   "`.env`-style credential files are blocked from the view/grep tools, including grep globs that can match one (`*`, `*.*`, `{.env,...}`). These files hold plaintext secrets — don't load one into context unless the user explicitly asked you to inspect that exact file. Narrow the glob to the file types the task needs.";
 
@@ -71,7 +71,7 @@ export function denyCommandHook(client: HookClient, payload: string) {
   // Copilot CLI sends camelCase toolName/toolArgs for every tool (no matcher),
   // and a non-zero exit denies the call, so only its shell and read tools are parsed.
   const copilotTool = client === "copilot" && typeof input.toolName === "string" ? input.toolName : "";
-  const copilotReader = COPILOT_READ_TOOLS.has(copilotTool);
+  const copilotReader = Object.hasOwn(COPILOT_READ_TOOLS, copilotTool);
   const copilotArgs: unknown =
     (copilotTool === "bash" || copilotReader) && typeof input.toolArgs === "string"
       ? JSON.parse(input.toolArgs)
