@@ -322,7 +322,8 @@ function isSimpleWebFetch(args: string[]): boolean {
   if (urls.length !== 1) return false;
 
   try {
-    const url = new URL(urls[0]);
+    // curl assumes http:// for a bare host, and so does this check.
+    const url = new URL(/^[A-Za-z][\w+.-]*:\/\//.test(urls[0]) ? urls[0] : `http://${urls[0]}`);
     const filename = url.pathname.slice(url.pathname.lastIndexOf("/") + 1);
     const extension = filename.includes(".") ? filename.slice(filename.indexOf(".") + 1) : "";
     return (
@@ -390,13 +391,21 @@ function replacementAvailable(rule: Pick<Rule, "replacement">): boolean {
   return Bun.which(replacement) !== null;
 }
 
+// Piping into `sh`, `tar`, or `jq` installs, unpacks, or parses data; only a
+// text reader means the agent is reading the page.
+const PAGE_READERS = new Set(["awk", "cat", "grep", "head", "less", "more", "rg", "sed", "tail"]);
+
+function outputIsRead(next: Segment | undefined): boolean {
+  return !next?.followsPipe || PAGE_READERS.has(next.words[commandIndex(next.words)]);
+}
+
 /** Returns the client-specific denial reason, or undefined when the command is allowed. */
 export function denyCommand(command: string, client: Client): string | undefined {
   const parsed = segments(command);
   for (const rule of rules) {
     if (!rule.clients.includes(client)) continue;
     if (rule.requireEnv && Object.entries(rule.requireEnv).some(([name, value]) => process.env[name] !== value)) continue;
-    const matched = parsed.some(({ words, followsPipe, redirected }) => {
+    const matched = parsed.some(({ words, followsPipe, redirected }, at) => {
       if (rule.excludeAfterPipe && followsPipe) return false;
       if (rule.matcher === "search-allowlist") {
         // Any word naming a searcher counts, so `env`, `command`, `xargs`,
@@ -413,7 +422,7 @@ export function denyCommand(command: string, client: Client): string | undefined
         (!match.noArgPattern || !words.slice(index + 1).some((word) => match.noArgPattern!.test(word))) &&
         (!match.operandPattern || !operandsMatch(words.slice(index + 1), match.skipOperands ?? 0, match.operandPattern)) &&
         (!match.requireNoRedirection || !redirected) &&
-        (rule.matcher !== "curl-web-fetch" || (!redirected && isSimpleWebFetch(words.slice(index + 1)))) &&
+        (rule.matcher !== "curl-web-fetch" || (!redirected && outputIsRead(parsed[at + 1]) && isSimpleWebFetch(words.slice(index + 1)))) &&
         (rule.matcher !== "git-commit-subject-only" || isSubjectOnlyCommit(words.slice(words.indexOf("commit", index) + 1)))
       );
     });

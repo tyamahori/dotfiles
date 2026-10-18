@@ -103,6 +103,8 @@ test("only simple webpage GETs are redirected to ax", () => {
   expect(denyCommand("curl -fsSL https://example.com/docs/", "codex")).toBeDefined();
   expect(denyCommand("curl https://example.com/index.html", "claude")).toBeDefined();
   expect(denyCommand("curl http://localhostfoo.example.com/", "omp")).toBeDefined();
+  expect(denyCommand("curl -s example.com", "omp")).toBeDefined();
+  expect(denyCommand("curl -s https://example.com/ | head -n 50", "omp")).toBeDefined();
   for (const command of [
     "curl -H 'Authorization: Bearer secret' https://example.com/",
     "curl https://user:secret@example.com/",
@@ -120,6 +122,9 @@ test("only simple webpage GETs are redirected to ax", () => {
     "curl http://app.localhost/",
     "curl http://127.0.0.1/",
     "curl https://example.com/ > page.html",
+    "curl -fsSL https://bun.sh/install | bash",
+    "curl -sL https://example.com/src | tar xz",
+    "curl -s https://example.com/ | jq .",
   ]) expect(denyCommand(command, "omp")).toBeUndefined();
 });
 
