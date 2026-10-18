@@ -66,7 +66,7 @@ skill listing、会話内の名前への言及、tool result に含まれる ski
 出力するのは agent、skill 名、発火回数、該当セッション数、シグナル種別だけとし、会話本文、tool 引数、ファイルパス、session ID は出力しない。
 Codex と OMP の `skill_file_read` は読込の証拠であり、手順を最後まで実行した証拠ではない。
 
-「繰り返し失敗 (OMP)」は、拒否 hook のルール id、lint-on-edit の linter と shellcheck code、fail-fast、bash の service mode 拒否、未完了 todo の差し戻しを class ごとに数える。
+「繰り返し失敗」は client（OMP・Claude・Codex）と class ごとに数える。OMP は拒否 hook のルール id、lint-on-edit の linter と shellcheck code、fail-fast、bash の service mode 拒否、commit-msg の本文なし拒否、未完了 todo の差し戻し。Claude Code は tool_result のエラーのうち拒否 hook、commit-msg 拒否、Read 前の Edit、読込後の変更衝突。Codex は PreToolUse 拒否、commit-msg 拒否、Stop hook の差し戻し。
 数は指定期間全体の合計である。7 日の期間で 2 セッション以上に出た class は、規則の文面を足す前に機械化（自動補正、除外、ルールの範囲変更）を検討する。手順は `docs/software-engineering.md` の「形式化のサイクルを回す」に従う。
 
 ## 診断の読込経路

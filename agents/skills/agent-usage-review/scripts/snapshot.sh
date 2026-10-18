@@ -640,13 +640,16 @@ else
 	echo "- 取得不能: \`$OMP_SESSIONS\` がない。"
 fi
 
+# commit-msg-why の拒否文。数字で照合し、hook のソースを読んだだけの出力を数えない。
+COMMIT_MSG_REJECT='commit-msg: subject-only message for a [0-9]+-line change'
+
 # 1 行 = 1 件の失敗信号（class と集計キー用の session パス）。本文は出力しない。
 omp_failure_records() {
 	local rules="$REPO_ROOT/agents/command-rules.json"
 	[ -d "$OMP_SESSIONS" ] && [ -f "$rules" ] || return
 	find "$OMP_SESSIONS" -name '*.jsonl' -newermt "$CUTOFF" -print0 2>/dev/null |
 		while IFS= read -r -d '' file; do
-			jq -r --arg session "$file" --argjson cutoff_epoch "$CUTOFF_EPOCH" --slurpfile table "$rules" '
+			jq -r --arg session "$file" --argjson cutoff_epoch "$CUTOFF_EPOCH" --arg commit_msg "$COMMIT_MSG_REJECT" --slurpfile table "$rules" '
 				def epoch: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
 				# 拒否理由の先頭 50 字で照合し、文面の後半を直しても過去分を数え続ける
 				($table[0].rules | map({id, prefix: ((.reasons.omp // .reason // "")[0:50])}) | map(select(.prefix != ""))) as $denials
@@ -657,6 +660,7 @@ omp_failure_records() {
 				| (
 					if $m.role == "toolResult" and $m.toolName == "bash" then
 						if ($text | startswith("Service mode does not accept")) then "bash-service-mode"
+						elif ($text | test($commit_msg)) then "commit-msg-why"
 						else ($denials[] | .prefix as $p | select($text | startswith($p)) | "deny:" + .id)
 						end
 					elif $m.role == "user" and ($text | startswith("[lint-on-edit] ")) then
@@ -672,20 +676,79 @@ omp_failure_records() {
 		done
 }
 
+# Claude Code: tool_result のエラー。拒否 hook は "PreToolUse:Bash hook error: " の後ろに理由が続く。
+claude_failure_records() {
+	local rules="$REPO_ROOT/agents/command-rules.json"
+	[ -d "$HOME/.claude/projects" ] && [ -f "$rules" ] || return
+	find "$HOME/.claude/projects" -name '*.jsonl' -newermt "$CUTOFF" -print0 2>/dev/null |
+		while IFS= read -r -d '' file; do
+			jq -r --arg session "$file" --argjson cutoff_epoch "$CUTOFF_EPOCH" --arg commit_msg "$COMMIT_MSG_REJECT" --slurpfile table "$rules" '
+				def epoch: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+				($table[0].rules | map({id, prefix: ((.reasons.claude // .reason // "")[0:50])}) | map(select(.prefix != ""))) as $denials
+				| select(.type == "user")
+				| select((try (.timestamp | epoch) catch 0) >= $cutoff_epoch)
+				| .message.content | arrays | .[]
+				| select(.type? == "tool_result" and .is_error == true)
+				| (.content | if type == "array" then map(.text? // "") | join(" ") else (. // "" | tostring) end) as $text
+				| (
+					if ($text | test($commit_msg)) then "commit-msg-why"
+					elif ($text | startswith("<tool_use_error>File has not been read yet")) then "edit-before-read"
+					elif ($text | startswith("<tool_use_error>File has been modified since read")) then "stale-read"
+					else first($denials[] | .prefix as $p | select($text | contains($p)) | "deny:" + .id) // empty
+					end
+				)
+				| [., $session] | @tsv
+			' "$file" 2>/dev/null
+		done
+}
+
+# Codex: PreToolUse の拒否は tool output の "Command blocked by PreToolUse hook: <reason>"、
+# Stop hook の差し戻しは HookPrompt item として残る（2026-10-18 に codex exec で実測）。
+codex_failure_records() {
+	local rules="$REPO_ROOT/agents/command-rules.json"
+	[ -d "$HOME/.codex/sessions" ] && [ -f "$rules" ] || return
+	find "$HOME/.codex/sessions" -name '*.jsonl' -newermt "$CUTOFF" -print0 2>/dev/null |
+		while IFS= read -r -d '' file; do
+			jq -r --arg session "$file" --argjson cutoff_epoch "$CUTOFF_EPOCH" --arg commit_msg "$COMMIT_MSG_REJECT" --slurpfile table "$rules" '
+				def epoch: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+				($table[0].rules | map({id, prefix: ((.reasons.codex // .reason // "")[0:50])}) | map(select(.prefix != ""))) as $denials
+				| select((try (.timestamp | epoch) catch 0) >= $cutoff_epoch)
+				| .payload as $p
+				| (
+					if $p.type? == "item_completed" and $p.item.type? == "HookPrompt" then "stop-hook"
+					elif $p.type? == "custom_tool_call_output" or $p.type? == "function_call_output" then
+						($p.output | if type == "array" then map(.text? // "") elif type == "string" then [.] else [tostring] end) as $texts
+						| if any($texts[]; test($commit_msg)) then "commit-msg-why"
+						else
+							first($texts[] | capture("^(Script error:\\n)?Command blocked by PreToolUse hook: (?<r>.*)"; "s").r) as $r
+							| first($denials[] | .prefix as $pre | select($r | startswith($pre)) | "deny:" + .id) // "deny:other"
+						end
+					else empty
+					end
+				)
+				| [., $session] | @tsv
+			' "$file" 2>/dev/null
+		done
+}
+
 echo
-echo "### 繰り返し失敗 (OMP)"
+echo "### 繰り返し失敗"
 echo
-echo '> 拒否 hook（ルール id 別）、lint-on-edit（linter と shellcheck code 別）、fail-fast、bash の service mode 拒否、未完了 todo の差し戻しを、指定期間全体で数える。7 日の期間で sessions が 2 以上の class は機械化の候補として扱う（docs/software-engineering.md「形式化のサイクルを回す」）。Claude Code と Codex は未集計。'
+echo '> OMP は拒否 hook（ルール id 別）、lint-on-edit（linter と shellcheck code 別）、fail-fast、bash の service mode 拒否、commit-msg の本文なし拒否、未完了 todo の差し戻し。Claude Code は tool_result のエラーのうち拒否 hook、commit-msg 拒否、Read 前の Edit（edit-before-read）、読込後の変更衝突（stale-read）。Codex は PreToolUse 拒否、commit-msg 拒否、Stop hook の差し戻し。指定期間全体で数え、7 日の期間で sessions が 2 以上の class は機械化の候補として扱う（docs/software-engineering.md「形式化のサイクルを回す」）。'
 echo
-echo 'class	events	sessions'
-OMP_FAILURES="$(
-	omp_failure_records | awk -F '\t' '
-		{ events[$1]++; if (!seen[$1 SUBSEP $2]++) sessions[$1]++ }
+echo 'client	class	events	sessions'
+FAILURES="$(
+	{
+		omp_failure_records | sed 's/^/OMP\t/'
+		claude_failure_records | sed 's/^/Claude\t/'
+		codex_failure_records | sed 's/^/Codex\t/'
+	} | awk -F '\t' '
+		{ k = $1 FS $2; events[k]++; if (!seen[k SUBSEP $3]++) sessions[k]++ }
 		END { for (k in events) printf "%s\t%d\t%d\n", k, events[k], sessions[k] }
-	' | sort -t $'\t' -k3,3nr -k2,2nr -k1,1
+	' | sort -t $'\t' -k4,4nr -k3,3nr -k1,2
 )"
-if [ -n "$OMP_FAILURES" ]; then
-	printf '%s\n' "$OMP_FAILURES"
+if [ -n "$FAILURES" ]; then
+	printf '%s\n' "$FAILURES"
 else
 	echo "(none)"
 fi
