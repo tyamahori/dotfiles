@@ -29,7 +29,11 @@ const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 // 両pool枯渇時の最終退避先。ローカルollamaが「起動していてモデルが居る」
 // 場合だけ使う(あれば使う)。chainに入れないのは、停止中でもretry budget
 // を浪費する上、利用枠なし=常にeligible扱いでreserve帯から降格するため。
-const OLLAMA_HOST = process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434";
+// ollama の公式形式 `127.0.0.1:11434` はスキームが無く、そのままでは fetch が Invalid URL を投げて「ollama不在」扱いになる。
+const OLLAMA_HOST = (() => {
+	const host = process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434";
+	return host.includes("://") ? host : `http://${host}`;
+})();
 const LOCAL_RESCUE_MODEL = "ollama/qwen3.6:35b-mlx";
 const DEPLETED_PCT = 98;
 

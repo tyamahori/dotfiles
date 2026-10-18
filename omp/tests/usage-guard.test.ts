@@ -82,6 +82,7 @@ function seedUsage(rows: UsageRow[]): void {
 function usageHarness(
   current: () => Model,
   resolve: (spec: string) => Model | undefined,
+  install: typeof installUsageGuard = installUsageGuard,
 ) {
   const selected: Model[] = [];
   const notifications: string[] = [];
@@ -97,7 +98,7 @@ function usageHarness(
       return true;
     },
   };
-  installUsageGuard(api);
+  install(api);
   const context = {
     hasUI: true,
     models: {
@@ -192,5 +193,29 @@ test("an unused Claude account (null reset) keeps the local rescue off", async (
 
   expect(fetch).not.toHaveBeenCalled();
   expect(guard.selected).toEqual([]);
+});
+
+test("an OLLAMA_HOST without a scheme is queried over http", async () => {
+  seedUsage([
+    { provider: "anthropic", account: "oauth|account:a|org:org-p", limitId: "anthropic:7d", pct: 99 },
+    { provider: "openai-codex", limitId: "openai-codex:primary", pct: 99 },
+  ]);
+  const saved = process.env.OLLAMA_HOST;
+  process.env.OLLAMA_HOST = "127.0.0.1:11434";
+  // A static import cannot work: OLLAMA_HOST is read when the module initializes, so load a fresh copy.
+  const { default: freshGuard } = await import("../extensions/anthropic-usage-guard.ts?scheme");
+  if (saved === undefined) delete process.env.OLLAMA_HOST;
+  else process.env.OLLAMA_HOST = saved;
+  const guard = usageHarness(
+    () => ({ provider: "anthropic", id: "claude-sonnet-5" }),
+    () => undefined,
+    freshGuard,
+  );
+  const fetch = blockNetwork();
+  fetch.mockResolvedValue(new Response(JSON.stringify({ models: [] })));
+
+  await guard.sessionStart();
+
+  expect(String(fetch.mock.calls[0]?.[0])).toBe("http://127.0.0.1:11434/api/tags");
 });
 
