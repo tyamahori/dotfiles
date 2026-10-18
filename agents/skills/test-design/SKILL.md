@@ -87,9 +87,9 @@ Rules that hold at every level:
   breaks.
 - The mock earns no assertions about its own existence. If the assertion
   fails only when the mock is removed, unmock it or delete the assertion.
-- "Was not called" proves nothing alone: a test that cannot see the call
-  passes too. Pair it with a case on the same setup that asserts the call
-  does happen.
+- A "was not called" assertion also passes when the test never reaches the
+  call site or watches the wrong dependency. Pair it with a case that drives
+  the same dependency with inputs that require the call, and asserts it.
 - Give each branch (success, error, malformed) its own fixture, so the wrong
   branch cannot satisfy the expectation.
 - Cleanup only tests need lives in test utilities, never as a method on the
