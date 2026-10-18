@@ -42,6 +42,12 @@ it hides. A module whose interface is as large as its implementation
 callee) adds a layer without hiding anything; inline it. *Does the caller
 need to know less than before?*
 
+**Thirty-second trace.** A new reader should be able to say where a value
+comes from and what can change it within thirty seconds; if not, there is a
+layer or a piece of state too many, and it gets removed rather than
+documented. *Can I answer "where does X come from, what changes X" for
+every value this change touches?*
+
 **Dependency direction (the Clean Architecture rule).** Source dependencies
 point inward only: entities and use cases know nothing of HTTP, DB,
 filesystem, clock, UI, or framework; adapters at the edge depend on the
@@ -302,4 +308,5 @@ Lynch, "How to Write an Effective Software Design Document"
 (refactoringenglish.com); addyosmani/agent-skills
 `api-and-interface-design` and `documentation-and-adrs`; poteto's pstack
 (`cursor/plugins`: `architect`, `why`, `principle-make-operations-idempotent`,
-`principle-separate-before-serializing-shared-state`).
+`principle-separate-before-serializing-shared-state`,
+`principle-minimize-reader-load`).
