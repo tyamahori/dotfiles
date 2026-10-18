@@ -18,8 +18,15 @@ extra_linter=
 json_format=
 case "$file" in
   */.github/workflows/*.yml|*/.github/workflows/*.yaml) linter=actionlint; extra_linter=zizmor ;;
-  # dclint's own discovery pattern: (docker-)?compose*.ya?ml
-  compose*.yml|compose*.yaml|docker-compose*.yml|docker-compose*.yaml|*/compose*.yml|*/compose*.yaml|*/docker-compose*.yml|*/docker-compose*.yaml) linter=dclint ;;
+  # dclint's own discovery pattern: (docker-)?compose*.ya?ml on the basename
+  # (a `*/compose*` case pattern would also match a directory named compose).
+  *.yml|*.yaml)
+    case "${file##*/}" in
+      compose*|docker-compose*) linter=dclint ;;
+      Dockerfile.*) linter=hadolint ;;
+      *) exit 0 ;;
+    esac
+    ;;
   Dockerfile|Dockerfile.*|*.Dockerfile|*/Dockerfile|*/Dockerfile.*) linter=hadolint ;;
   *.sql) linter=sqruff ;;
   # JSONC dialects (comments/trailing commas are legal there) — never jq them.

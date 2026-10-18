@@ -35,7 +35,9 @@ jqf='
 failed=0
 for file in "$@"; do
   [[ -f $file ]] || continue
-  if ! out=$(yq -o=json "$file" | jq -r --arg f "$file" "$jqf" 2>&1); then
+  # Spec merge-key semantics (what Compose itself uses); without the flag yq
+  # warns on every `<<:` and lint-on-edit reports the warning as a finding.
+  if ! out=$(yq --yaml-fix-merge-anchor-to-spec=true -o=json "$file" | jq -r --arg f "$file" "$jqf" 2>&1); then
     printf '%s: yq/jq failed to parse: %s\n' "$file" "$out" >&2
     failed=1
     continue

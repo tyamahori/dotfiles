@@ -75,3 +75,44 @@ for (const fixture of [
     }
   });
 }
+
+test("lint-on-edit stays silent on a clean merge-key compose file and on YAML under a compose directory", () => {
+  const scratch = resolve(root, ".agent-msgs/scratch");
+  mkdirSync(scratch, { recursive: true });
+  const cwd = mkdtempSync(resolve(scratch, "container-lint-"));
+  const files = {
+    "compose.yaml": "x-common: &common\n  image: alpine:3.21\nname: lint-merge\nservices:\n  a:\n    <<: *common\n  b:\n    <<: *common\n",
+    "compose/prometheus.yml": "global:\n  scrape_interval: 15s\n",
+  };
+  try {
+    mkdirSync(resolve(cwd, "compose"));
+    for (const [name, content] of Object.entries(files)) {
+      const file = resolve(cwd, name);
+      writeFileSync(file, content);
+      const edit = spawnSync(resolve(root, "scripts/lint-on-edit"), {
+        input: JSON.stringify({ tool_input: { file_path: file } }),
+        encoding: "utf8",
+      });
+      expect({ name, status: edit.status, stdout: edit.stdout }).toEqual({ name, status: 0, stdout: "" });
+    }
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test("lint-on-edit still runs hadolint on a Dockerfile with a YAML extension", () => {
+  const scratch = resolve(root, ".agent-msgs/scratch");
+  mkdirSync(scratch, { recursive: true });
+  const cwd = mkdtempSync(resolve(scratch, "container-lint-"));
+  try {
+    const file = resolve(cwd, "Dockerfile.yml");
+    writeFileSync(file, "FROM alpine:3.21\nRUN echo hello | cat\n");
+    const edit = spawnSync(resolve(root, "scripts/lint-on-edit"), {
+      input: JSON.stringify({ tool_input: { file_path: file } }),
+      encoding: "utf8",
+    });
+    expect(edit.stdout).toContain("DL4006");
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
