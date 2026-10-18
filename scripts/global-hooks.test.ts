@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -52,4 +52,25 @@ test("pre-push-base-freshness blocks a stale fork in a single-branch clone", () 
   );
   expect(push.out).toContain("forked from 'feature-a' before its current tip");
   expect(push.status).toBe(1);
+});
+
+// git/hooks/pre-commit is this repo's own hook; run a copy whose global hand-off is stubbed.
+test.each([
+  ["the last pattern of a patterns file without a trailing newline", "secretproject\nother", "mentions other thing\n"],
+  ["an added line that starts with ++", "secretproject\n", "++ secretproject\n"],
+])("dotfiles pre-commit blocks %s", (_case, patterns, added) => {
+  dir = mkdtempSync(join(tmpdir(), "global-hooks-"));
+  mkdirSync(join(dir, "git/hooks"), { recursive: true });
+  mkdirSync(join(dir, "git/global-hooks"));
+  writeFileSync(join(dir, "git/hooks/pre-commit"), readFileSync(resolve(checks, "../../hooks/pre-commit")));
+  writeFileSync(join(dir, "git/global-hooks/pre-commit"), "#!/bin/sh\nexit 0\n");
+  chmodSync(join(dir, "git/hooks/pre-commit"), 0o755);
+  chmodSync(join(dir, "git/global-hooks/pre-commit"), 0o755);
+  writeFileSync(join(dir, "git/sensitive-patterns.local"), patterns);
+  writeFileSync(join(dir, "notes.md"), added);
+  sh(dir, "git init -q && git add notes.md");
+
+  const r = sh(dir, "git/hooks/pre-commit");
+  expect(r.out).toContain("machine-local pattern");
+  expect(r.status).toBe(1);
 });

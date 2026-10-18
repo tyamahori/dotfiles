@@ -11,8 +11,10 @@ trap 'rm -f "$staged"' EXIT
 
 {
 	git diff --cached --name-only --diff-filter=ACMR --
+	# No `+++` header filter: it would also drop added lines starting with "++",
+	# and the header only repeats a path already listed above.
 	git diff --cached --unified=0 --no-color --diff-filter=ACMR -- \
-		| sed -n '/^+/ { /^+++/d; s/^+//; p; }'
+		| sed -n 's/^+//p'
 } >"$staged"
 
 failures=()
@@ -29,7 +31,7 @@ if grep -Fq -- "$HOME/" "$staged"; then
 	failures+=("absolute home directory path ($HOME/...)")
 fi
 if [[ -s $local_patterns ]]; then
-	while IFS= read -r pattern; do
+	while IFS= read -r pattern || [[ -n $pattern ]]; do
 		[[ -z $pattern || $pattern == \#* ]] && continue
 		if grep -Fiq -- "$pattern" "$staged"; then
 			failures+=("machine-local pattern: $pattern")
