@@ -46,6 +46,8 @@
 
 四回目は取り込みではなく、取り込んだ原則を手元の実績に当てた。`correct` の「失敗はクラスで数える」を、`agent-usage-review` の snapshot に「繰り返し失敗」の節として足し、拒否ルール・lint の code・fail-fast・bash の service mode 拒否を週ごとに数えるようにした。その集計で週をまたいで繰り返していたものは、文面を足さずに構造で直した。bash の `name` と `async` の併用は OMP extension で引数を直し、shellcheck の SC2016 と SC1091 は lint-on-edit から外し、`shell-read-search` は件数・存在確認の grep と scratch・`/tmp`・ログへの読み取りを許すよう範囲を絞った。`guard-the-context-window` の段階的開示は、自作の `cognitive-rhythm-writing` を本体と `references/` に分ける形で当てた。
 
+五回目は、sc30gsw の Zenn 本「[【Cursor pstack】AIエージェントに開発を任せる環境をつくる](https://zenn.dev/sc30gsw/books/080faba713547b)」の全44章と付録、pstack 本体（`0b8e952`）を、章ごと・skill ごとに読み直した。これまでの四回で入っていないものだけを、置き場所のある既存 skill に一節ずつ足している。`architect` の「呼び出し側から骨組みを書き、形の違う二案を比べ、作り込む途中で崩れの兆候が出たら骨組みを捨てる」、`why` の由来のたどり方、冪等性と共有状態の二原則は `software-design` に入れた。`principle-fix-root-causes` の「その状態は正当か」で直す場所を分ける考え方と、赤いテストは報告された症状と同じ理由で落ちることを確かめる手順は `diagnosing-bugs` に入れた。`build-the-lever` は `structural-edit` に、型の規律は `efficient-ts-js` に、`pause-safely`・`swarm`・`ketchup` は `show-me-your-work` に、`sharpen` の「指定しすぎも点検する」は `task-briefing` に入れた。検証の振り分けで観測側を先に疑う手順は `create-verification-skill`、変更より前のスクショを証拠にしない規則は `browser-verify`、rebase 後の `git patch-id` 比較は `github-pr-review`、flaky の再実行を一度に限る規則は `github-pr-respond` が受け持つ。共有指示に足したのは二つだけである。一つは PR 本文にスコープ外と波及範囲を書くこと、もう一つはゲートを緩めて通さないことだ。`recall` を元にした skill は作らなかった。過去セッションは OMP の eval にある `archive` で引けるうえ、使う頻度もまだ測れていない。審査基準を隠す arena と、複数モデルの合議も入れていない。
+
 ## 追加するときの判断
 
 新しい規範を書きたくなったら、まず既存の skill の節として足せないかを見る。毎ターン読ませたい一行ポインタだけを `agents/global-instructions.md` に置き、手順や判断基準は skill、導入・運用の手順は `docs/` に書く。skill を増やしたら `scripts/link` を実行して各ホストの skills ディレクトリへ symlink し、`omp -p --no-session "read skill://<name>"` で新しいセッションから読めることを確かめる。
@@ -57,5 +59,7 @@
 落とせない判断は、理由を書いて次回の判断コストを下げる。そのうえで規則を目立つ位置に移し、実際に起きた失敗例を一つ添える。抽象的な規則だけでは、エージェントは自分の行動がその規則に当たると気づきにくい。
 
 間違いを機械化の対象に数えるのは、同じ種類の間違いが二度起きてからにする。一度きりの失敗に規則を足しても、再発する証拠がないまま規則だけが増える。hook・semgrep ルール・テストを足したら、記録に残っている過去の実例（該当コミットの差分や `measured-notes.md` の事例）をそのチェックに通し、実際に落ちることを確かめる。過去の実例で落ちないチェックは、その間違いを防げる根拠にならない。
+
+新しいチェックを入れた時点で既存の違反が残っているなら、違反を baseline として記録し、新しい違反だけを落とす。baseline は減らす向きにだけ更新し、増やす変更は通さない。ゲートの閾値や除外を緩めて通すのも、baseline を増やすのと同じ扱いにする。
 
 `Mechanized: no` の行は解決済みの課題ではなく、新しい signal（hook の新機能、設定スキーマの追加、ファイル規約の整備）が出たときに再挑戦する対象のキューとして読む。逆に「no」のまま放置すると、後から追加した機械化に記録が追いつかず、規則が二重管理になる（2026-08-26 の `skillOverrides.update-config` 追加が測定ノートに反映されず 2026-09-16 まで "no" のままだった例がある）。skill や hook を足して既存の判断を機械化したら、対応する measured-notes.md のエントリを同じコミットで更新する。
