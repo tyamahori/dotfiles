@@ -241,10 +241,10 @@ function segments(command: string): Segment[] {
   return result;
 }
 
-// Options and bare numbers (option values such as `-n 50`, fd numbers of
-// `2>/dev/null`) are not operands; anything else is, including the pattern.
+// Options and the number right after one (`-n 50`, `-n +2`, `-c 1k`) are not
+// operands; anything else is, including the pattern and a file named `1k`.
 function operandsMatch(args: string[], skip: number, pattern: RegExp): boolean {
-  const operands = args.filter((word) => !word.startsWith("-") && !/^\d+$/.test(word)).slice(skip);
+  const operands = args.filter((word, at) => !word.startsWith("-") && !(/^\+?\d+(?:[bkmgKMG]|[KMG]i?B)?$/.test(word) && args[at - 1]?.startsWith("-"))).slice(skip);
   return operands.length > 0 && operands.every((word) => pattern.test(word));
 }
 
@@ -330,7 +330,7 @@ function isSimpleWebFetch(args: string[]): boolean {
       !url.port &&
       !url.search &&
       !url.hash &&
-      !/^(?:localhost|127\.|0\.0\.0\.0|\[::1\])/i.test(url.hostname) &&
+      !/^(?:(?:.+\.)?localhost|127(?:\.\d+){3}|0\.0\.0\.0|\[::1\])$/i.test(url.hostname) &&
       !/(^|[.-])api([.-]|$)/i.test(url.hostname) &&
       !/\/(?:api|v\d+|graphql|health|healthz|metrics|status|download|downloads)(?:\/|$)/i.test(url.pathname) &&
       (!extension || /^html?$/i.test(extension))

@@ -64,6 +64,8 @@ test("count/list/quiet greps and reads confined to scratch, /tmp, or logs are al
     "tail -n 50 /tmp/build.log",
     "head -20 build/output.log 2>/dev/null",
     "rg fail /private/tmp/a.txt /tmp/b.txt",
+    "tail -n +2 /tmp/build.log",
+    "head -c 1k /tmp/x.log",
   ]) {
     expect(denyCommand(command, "omp")).toBeUndefined();
   }
@@ -73,6 +75,7 @@ test("count/list/quiet greps and reads confined to scratch, /tmp, or logs are al
     "head .agent-msgs/scratch/../../agents/global-instructions.md",
     "tail /tmp/../etc/hosts",
     "tail -n 50 /tmp/a.log src/app.ts",
+    "head 1k /tmp/x.log",
     "head README.md",
     "grep x",
     "cat /tmp/build.log",
@@ -98,6 +101,7 @@ test("only simple webpage GETs are redirected to ax", () => {
   which.mockReturnValue("/available/ax");
   expect(denyCommand("curl -fsSL https://example.com/docs/", "codex")).toBeDefined();
   expect(denyCommand("curl https://example.com/index.html", "claude")).toBeDefined();
+  expect(denyCommand("curl http://localhostfoo.example.com/", "omp")).toBeDefined();
   for (const command of [
     "curl -H 'Authorization: Bearer secret' https://example.com/",
     "curl https://user:secret@example.com/",
@@ -112,6 +116,8 @@ test("only simple webpage GETs are redirected to ax", () => {
     "curl -v https://example.com/",
     "curl --retry 3 https://example.com/",
     "curl https://localhost/health",
+    "curl http://app.localhost/",
+    "curl http://127.0.0.1/",
     "curl https://example.com/ > page.html",
   ]) expect(denyCommand(command, "omp")).toBeUndefined();
 });
