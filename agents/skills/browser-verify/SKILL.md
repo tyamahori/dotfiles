@@ -27,6 +27,8 @@ terminal-browser は実ブラウザのフレームをターミナルセルへ再
 - 証拠は accessibility snapshot や抽出結果を優先し、見た目の確認だけスクショにする。
   MCP で `filename` を指定するときも `.agent-msgs/screenshots/` からのパスを渡す。
   相対ファイル名だけを渡すと、`--output-dir` の外に保存される場合がある。
+  変更の後に撮ったものだけを証拠にする。撮影時刻が変更より前か分からないスクショは、
+  未検証として扱う。
 - 既存のログイン済み Chrome、relay、Chrome 連携、Playwright Extension は明示的な同意が
   あるときだけ使う。Extension を自動導入・接続しない。通常の CLI は個人プロファイルを
   使わない。
