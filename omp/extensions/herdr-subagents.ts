@@ -21,6 +21,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 const paneId = process.env.HERDR_PANE_ID;
+let reportSeq = Date.now() * 1000;
 // Panes created by older herdr servers lack HERDR_BIN_PATH; fall back to PATH.
 const herdrBin = process.env.HERDR_BIN_PATH || "herdr";
 const markerDir = path.join(
@@ -48,9 +49,11 @@ function report(): void {
       "omp",
       ...flag,
       // Concurrent subagent sessions report from one process; a monotonic
-      // sequence lets herdr drop out-of-order reports.
+      // sequence lets herdr drop out-of-order reports. herdr keeps the last
+      // seq per pane and source across clears and TTL expiry, so it must keep
+      // rising across omp restarts too: Bun's hrtime restarts near zero.
       "--seq",
-      String(process.hrtime.bigint()),
+      String(++reportSeq),
       // Backstop against a crashed process leaving a stale count; every
       // change refreshes the TTL.
       "--ttl-ms",
@@ -67,7 +70,9 @@ type ExtensionHandlerApi = {
 };
 
 export default function (pi: ExtensionHandlerApi): void {
-  if (process.env.HERDR_ENV !== "1" || !paneId) return;
+  // A nested `omp` run from a parent session's shell (OMPCODE=1) shares the
+  // pane and source token; its reports would overwrite the parent's count.
+  if (process.env.HERDR_ENV !== "1" || !paneId || process.env.OMPCODE === "1") return;
 
   let isRoot = false;
   let marker: string | undefined;
