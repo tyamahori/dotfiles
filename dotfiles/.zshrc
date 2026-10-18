@@ -34,9 +34,11 @@ cdpath=("$HOME" "$HOME/project")
 _comp_cache_dir="$HOME/.zsh/completions"
 _cache_completion() {
   local cmd=$1; shift
-  command -v "$cmd" >/dev/null 2>&1 || return 0
+  # $commands は外部コマンドの実体だけを返す。command -v は後で定義する
+  # omp() 関数の名前を返し、reload のたびに cwd 相対のパスを記録していた。
+  local bin="${commands[$cmd]:A}" prev=
+  [[ -n "$bin" ]] || return 0
   local out="$_comp_cache_dir/_$cmd" src="$_comp_cache_dir/.$cmd.src"
-  local bin="${$(command -v "$cmd"):A}" prev=
   [[ -f "$src" ]] && prev="$(<"$src")"
   if [[ ! -f "$out" || "$prev" != "$bin" || "$bin" -nt "$out" ]]; then
     mkdir -p "$_comp_cache_dir"
