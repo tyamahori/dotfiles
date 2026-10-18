@@ -63,6 +63,14 @@ test("pre-commit-json names the file whose JSON is invalid", () => {
   expect(r.out).not.toContain("good.json");
 });
 
+test("pre-commit-json checks a [bracketed].json even when a sibling it glob-matches is a symlink", () => {
+  dir = mkdtempSync(join(tmpdir(), "global-hooks-"));
+  sh(dir, "git init -q && ln -s target x1.json && echo '{,}' > 'x[1].json' && git add x1.json 'x[1].json'");
+  const r = sh(dir, `${checks}/pre-commit-json`);
+  expect(r.status).toBe(1);
+  expect(r.out).toContain("x[1].json: jq: ");
+});
+
 test("pre-push-base-freshness blocks a stale fork in a single-branch clone", () => {
   dir = mkdtempSync(join(tmpdir(), "global-hooks-"));
   const bin = join(dir, "bin");

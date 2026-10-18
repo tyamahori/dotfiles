@@ -20,7 +20,8 @@ while IFS= read -r -d '' file; do
 	*) continue ;;
 	esac
 	# A staged symlink's blob is its target path, not JSON.
-	[[ $(git ls-files -s -- "$file") == 120000\ * ]] && continue
+	# --literal-pathspecs: `[id].json` would otherwise glob-match `i.json` too.
+	[[ $(git --literal-pathspecs ls-files -s -- "$file") == 120000\ * ]] && continue
 	# Checked here, not up front: a commit without JSON must not need jq.
 	if ! command -v jq >/dev/null; then
 		echo "pre-commit: jq is required to validate staged JSON." >&2
