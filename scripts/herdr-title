@@ -24,8 +24,11 @@ command -v "$herdr_bin" >/dev/null 2>&1 || exit 0
 # codepoint, so Japanese text is never cut mid-character.
 title=$(jq -r '.prompt // empty | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ") | .[0:60]' 2>/dev/null)
 [ -n "$title" ] || exit 0
-case "$title" in
-  /*) exit 0 ;; # slash commands are not tasks
+# Slash commands (/model, /skill:x) are not tasks; a prompt opening with an
+# absolute path is (same rule as omp/extensions/herdr-title.ts).
+case "${title%% *}" in
+  /*/* | *[!A-Za-z0-9_:/-]*) ;;
+  /*) exit 0 ;;
 esac
 
 "$herdr_bin" pane report-metadata "$HERDR_PANE_ID" \
