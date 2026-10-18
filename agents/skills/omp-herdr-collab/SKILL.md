@@ -131,6 +131,9 @@ return file は coordinator が実パスと内容を確認してから ledger �
 
 - wake 目的の再 spawn。反応がなければペインの生死をユーザーに確認する。
 - working 中のペインへの prompt 注入（send.sh を経由すれば起きない）。
+- 進捗を聞くための prompt 配送。idle のピアに質問を送ると作業が再開される。
+  様子は `herdr agent read <peer>`、台帳、ピアの worktree の `git log` を読み取り
+  専用で見て、自己申告ではなくコミットや return file などの痕跡で数える。
 - reviewer から coordinator への review return message の通常配送。
 - レビュー中の承認エラーを理由に、global hook、agent 設定、permission 設定を
   変更すること。return mode を切り替えるか、ユーザーへ blocker を報告する。
