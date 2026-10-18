@@ -14,6 +14,15 @@ test("await-*.sh runs async with the timeout disabled", () => {
   expect(call(input)?.input).toEqual({ ...input, async: true, timeout: 0 });
 });
 
+test("quoted await-*.sh paths are rewritten too", () => {
+  for (const command of [
+    `bash "$HOME/.agents/skills/herdr/scripts/await-agent.sh" --pane 1`,
+    `bash '/opt/my skills/await-agent.sh'`,
+  ]) {
+    expect(call({ command })?.input).toEqual({ command, async: true, timeout: 0 });
+  }
+});
+
 test("short sync checks and named services are left alone", () => {
   expect(call({ command: "bash .claude/skills/funadev-watch/wait-ready.sh" })).toBeUndefined();
   expect(call({ command: "await-event.sh", name: "svc" })).toBeUndefined();

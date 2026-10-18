@@ -26,7 +26,7 @@ type ExtensionHandlerApi = {
   ): void;
 };
 
-const AWAIT_SCRIPT = /(^|[\s/;&|(])await-[\w-]+\.sh(\s|$|[;&|)])/;
+const AWAIT_SCRIPT = /(^|[\s/;&|("'])await-[\w-]+\.sh(\s|$|[;&|)"'])/;
 
 // bash が拒否するのは name と async: true、または数値の timeout の組だけで、
 // name と async: false は常駐サービスとして通る(2026-10-18 に実ツールで確認)。
