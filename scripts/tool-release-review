@@ -88,7 +88,9 @@ open_pane() {
 case "${1:-}" in
 --apply) apply ;;
 --ack)
-	versions_json >"$REVIEWED"
+	# A failing --version must not truncate the reviewed baseline.
+	versions_json >"$REVIEWED.tmp"
+	mv "$REVIEWED.tmp" "$REVIEWED"
 	echo "tool-release-review: reviewed $(cat "$REVIEWED")" >&2
 	exit 0
 	;;
@@ -149,6 +151,11 @@ release_notes() {
 
 changes="$(jq -rn --argjson old "$reviewed" --argjson new "$current" \
 	'$new | to_entries[] | select($old[.key] != .value) | "- \(.key): \($old[.key] // "未導入") → \(.value)"')"
+if [[ -z $changes ]]; then
+	# Only a tool went missing: nothing to review, so move the baseline.
+	printf '%s\n' "$current" >"$REVIEWED"
+	exit 0
+fi
 stamp="$(date +%Y-%m-%d-%H%M%S)"
 report="$STATE_DIR/report-$stamp.md"
 notes="$STATE_DIR/notes-$stamp.md"
