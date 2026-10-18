@@ -141,10 +141,12 @@ A correct seam is one where the test exercises the **real bug pattern** as it oc
 
 **If no correct seam exists, that itself is the finding.** Note it. The codebase architecture is preventing the bug from being locked down. Flag this for the next phase.
 
+**Fix the fault, not where it surfaced.** Ask whether the state that triggered the symptom is legitimate. If the system may be in that state, the code that broke on it is the root cause and handling the state there is the fix. If the state should never exist, a check where it broke hides the bug: find what produced the state. Guards, retries, swallowed errors, clamped values, and discarded state are the usual ways to hide one. When it fails only after a restart, suspect persisted state first (config, caches, lock files, serialized state). Fix every site with the same fault, not only the reported one. A workaround that needs a paragraph-long comment to justify it means the code is wrong.
+
 If a correct seam exists:
 
 1. Turn the minimised repro into a failing test at that seam.
-2. Watch it fail. If you forced the red by mutating code or a fixture, `diff` against a pristine copy to prove the mutation landed before you trust it.
+2. Watch it fail **for the reported reason**: the failure message matches the symptom from Phase 1. A test that goes red for another reason does not lock the bug down. If you forced the red by mutating code or a fixture, `diff` against a pristine copy to prove the mutation landed before you trust it.
 3. Apply the fix.
 4. Watch it pass.
 5. Re-run the Phase 1 feedback loop against the original (un-minimised) scenario.
@@ -170,4 +172,4 @@ Required before declaring done:
 - [ ] Throwaway prototypes deleted (or moved to a clearly-marked debug location)
 - [ ] The hypothesis that turned out correct is stated in the commit / PR message, so the next debugger learns
 
-Local addition: the Hillclimb loop, "vet the number", and "attack the premise" are adapted from poteto's pstack (`cursor/plugins`, `pstack/skills/poteto-mode/playbooks/hillclimb.md`, `benchmark-checklist`, `principle-explain-the-number`, and `principle-attack-the-premise`).
+Local addition: the Hillclimb loop, "vet the number", "attack the premise", and "fix the fault, not where it surfaced" are adapted from poteto's pstack (`cursor/plugins`, `pstack/skills/poteto-mode/playbooks/hillclimb.md`, `benchmark-checklist`, `principle-explain-the-number`, `principle-attack-the-premise`, and `principle-fix-root-causes`).
