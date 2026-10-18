@@ -33,7 +33,7 @@ ts	phase	decision	why	evidence	result
 
 ## 置き場所
 
-既定は `.agent-msgs/decisions/<task-slug>.tsv`（グローバルに ignore 済み）。commit するのは、ユーザーが求めたとき、またはレビュアーが記録なしでは結果を信用できない規模の作業のときだけにし、置き場所はそのリポジトリの慣習に合わせる。handoff メモを書くときは、このログのパスを入れる。
+既定は `.agent-msgs/decisions/<task-slug>.tsv`（グローバルに ignore 済み）。commit するのはユーザーが求めたときだけにし、置き場所はそのリポジトリの慣習に合わせる。handoff メモを書くときは、このログのパスを入れる。
 
 ## 規則
 
