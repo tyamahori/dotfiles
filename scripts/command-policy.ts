@@ -53,13 +53,29 @@ const repoRoot = resolve(import.meta.dir, "..");
  * (except `command`), or recursive script-body inspection. Unsupported shell
  * constructs may pass through; this is tool guidance, not a security sandbox.
  */
-type Operator = ";" | "&" | "&&" | "|" | "||" | "(" | ")" | "<" | ">" | "<<" | ">>" | "newline";
-type Token = { type: "word"; value: string } | { type: "operator"; value: Operator };
-type Segment = { words: string[]; followsPipe: boolean };
+type Operator = ";" | "&" | "&&" | "|" | "|&" | "||" | "(" | ")" | "<" | ">" | "<<" | ">>" | ">&" | "&>" | "newline";
+type Token = { type: "word"; value: string } | { type: "operator"; value: Operator; fd?: string };
+type OperatorToken = Extract<Token, { type: "operator" }>;
+type Segment = { words: string[]; followsPipe: boolean; redirected: boolean };
+
+// `<<` inside `$((…))` or `((…))` is a left shift, not a heredoc.
+function heredocIndex(tokens: Token[]): number {
+  let arithmetic = 0;
+  for (let at = 0; at < tokens.length; at += 1) {
+    const token = tokens[at];
+    const after = tokens[at + 1];
+    if (token.type !== "operator") continue;
+    const doubled = after?.type === "operator" && after.value === token.value;
+    if (token.value === "(" && doubled) arithmetic += 1;
+    else if (token.value === ")" && doubled && arithmetic > 0) arithmetic -= 1;
+    else if (token.value === "<<" && arithmetic === 0) return at;
+  }
+  return -1;
+}
 
 function heredocOpening(line: string): { delimiter: string; stripTabs: boolean } | undefined {
   const tokens = tokenize(line);
-  const opening = tokens.findIndex((token) => token.type === "operator" && token.value === "<<");
+  const opening = heredocIndex(tokens);
   const next = tokens[opening + 1];
   if (opening === -1 || next?.type !== "word") return undefined;
   const stripTabs = next.value.startsWith("-");
@@ -103,8 +119,14 @@ function tokenize(command: string): Token[] {
     atWordStart = true;
   };
   const pushOperator = (value: Operator) => {
+    // Digits glued to a redirection name a file descriptor (`2>`), not a word.
+    const fd = /^[<>]/.test(value) && /^\d+$/.test(word) ? word : undefined;
+    if (fd !== undefined) {
+      word = "";
+      atWordStart = true;
+    }
     pushWord();
-    tokens.push({ type: "operator", value });
+    tokens.push({ type: "operator", value, fd });
   };
 
   const consumeQuotedCharacter = (character: string): boolean => {
@@ -150,8 +172,8 @@ function tokenize(command: string): Token[] {
     }
 
     const pair = command.slice(index, index + 2);
-    if (pair === "&&" || pair === "||" || pair === "<<" || pair === ">>") {
-      pushOperator(pair);
+    if (["&&", "||", "|&", "<<", ">>", ">&", "&>"].includes(pair)) {
+      pushOperator(pair as Operator);
       return index + 1;
     }
     if (";&|()<>".includes(character)) {
@@ -173,32 +195,50 @@ function tokenize(command: string): Token[] {
   return tokens;
 }
 
-function segments(command: string): { segments: Segment[]; hasRedirection: boolean } {
+// An output target is not an argument. Only stdout sent to a file makes a
+// reader write-mode: `2>/dev/null` and `>&2` still print to the agent.
+function writesStdoutToFile(redirection: OperatorToken, target: string): boolean {
+  if (redirection.value === "&>") return true;
+  if (redirection.fd !== undefined && redirection.fd !== "1") return false;
+  return redirection.value !== ">&" || !/^(?:\d+|-)$/.test(target);
+}
+
+function segments(command: string): Segment[] {
   const result: Segment[] = [];
   let words: string[] = [];
   let followsPipe = false;
-  let hasRedirection = false;
+  let redirected = false;
+  let output: OperatorToken | undefined;
 
   const finish = () => {
-    if (words.length) result.push({ words, followsPipe });
+    if (words.length) result.push({ words, followsPipe, redirected });
     words = [];
+    redirected = false;
   };
 
   for (const token of tokenize(stripHeredocs(command))) {
     if (token.type === "word") {
-      words.push(token.value);
+      if (output) redirected ||= writesStdoutToFile(output, token.value);
+      else words.push(token.value);
+      output = undefined;
       continue;
     }
-    if (token.value === "<" || token.value === ">" || token.value === "<<" || token.value === ">>") {
-      hasRedirection = true;
+    // `<` stays a read (its target remains a word); `<<` feeds literal text.
+    if (token.value === "<" || token.value === "<<") {
+      redirected ||= token.value === "<<";
       continue;
     }
-    const continuedPipe = token.value === "newline" && followsPipe && words.length === 0;
+    if (token.value === ">" || token.value === ">>" || token.value === ">&" || token.value === "&>") {
+      output = token;
+      continue;
+    }
+    output = undefined;
+    const continuedPipe: boolean = token.value === "newline" && followsPipe && words.length === 0;
     finish();
-    followsPipe = token.value === "|" || continuedPipe;
+    followsPipe = token.value === "|" || token.value === "|&" || continuedPipe;
   }
   finish();
-  return { segments: result, hasRedirection };
+  return result;
 }
 
 // Options and bare numbers (option values such as `-n 50`, fd numbers of
@@ -228,8 +268,8 @@ const SAFE_LONG_FLAGS: Record<string, true> = {
 
 // Allowlist for the `search-allowlist` matcher: a post-pipe filter whose one
 // operand is the pattern (it reads stdin), or a file-names-only `-l` search.
-function isSafeSearch(args: string[], followsPipe: boolean, hasRedirection: boolean): boolean {
-  if (hasRedirection) return false;
+function isSafeSearch(args: string[], followsPipe: boolean, redirected: boolean): boolean {
+  if (redirected) return false;
   const operands: string[] = [];
   let listOnly = false;
   for (const argument of args) {
@@ -354,13 +394,13 @@ export function denyCommand(command: string, client: Client): string | undefined
   for (const rule of rules) {
     if (!rule.clients.includes(client)) continue;
     if (rule.requireEnv && Object.entries(rule.requireEnv).some(([name, value]) => process.env[name] !== value)) continue;
-    const matched = parsed.segments.some(({ words, followsPipe }) => {
+    const matched = parsed.some(({ words, followsPipe, redirected }) => {
       if (rule.excludeAfterPipe && followsPipe) return false;
       if (rule.matcher === "search-allowlist") {
         // Any word naming a searcher counts, so `env`, `command`, `xargs`,
         // `sudo`, and absolute paths cannot hide it.
         const at = words.findIndex((word) => rule.commands[0].executables.includes(word.slice(word.lastIndexOf("/") + 1)));
-        return at !== -1 && !(at === 0 && isSafeSearch(words.slice(1), followsPipe, parsed.hasRedirection));
+        return at !== -1 && !(at === 0 && isSafeSearch(words.slice(1), followsPipe, redirected));
       }
       const index = commandIndex(words);
       return rule.commands.some((match) =>
@@ -370,8 +410,8 @@ export function denyCommand(command: string, client: Client): string | undefined
         (!match.anyArgPattern || words.slice(index + 1).some((word) => match.anyArgPattern!.test(word))) &&
         (!match.noArgPattern || !words.slice(index + 1).some((word) => match.noArgPattern!.test(word))) &&
         (!match.operandPattern || !operandsMatch(words.slice(index + 1), match.skipOperands ?? 0, match.operandPattern)) &&
-        (!match.requireNoRedirection || !parsed.hasRedirection) &&
-        (rule.matcher !== "curl-web-fetch" || (!parsed.hasRedirection && isSimpleWebFetch(words.slice(index + 1)))) &&
+        (!match.requireNoRedirection || !redirected) &&
+        (rule.matcher !== "curl-web-fetch" || (!redirected && isSimpleWebFetch(words.slice(index + 1)))) &&
         (rule.matcher !== "git-commit-subject-only" || isSubjectOnlyCommit(words.slice(words.indexOf("commit", index) + 1)))
       );
     });

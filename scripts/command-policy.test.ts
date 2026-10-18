@@ -37,6 +37,24 @@ test("Python pipelines are denied while read filters and write-mode cat stay all
   expect(denyCommand("grep value file", "omp")).toContain("glob");
 });
 
+test("redirections count per command, and only stdout sent to a file makes a reader write-mode", () => {
+  which.mockReturnValue("/available/replacement");
+  for (const command of [
+    "echo $((1<<2))\ngit add -A",
+    "cat README.md 2>/dev/null",
+    "cat README.md 2>&1",
+    "cat README.md >&2",
+    "cat < README.md",
+    "cat README.md; echo done > out",
+    "curl https://example.com/ 2>/dev/null",
+  ]) {
+    expect(denyCommand(command, "omp")).toBeDefined();
+  }
+  for (const command of ["cat a b > out", "cat a >> out 2>&1", "cat a &> out", "cat <<EOF\nhi\nEOF", "ls |& grep foo", "curl https://example.com/ >page.html"]) {
+    expect(denyCommand(command, "omp")).toBeUndefined();
+  }
+});
+
 test("count/list/quiet greps and reads confined to scratch, /tmp, or logs are allowed", () => {
   for (const command of [
     "grep -c TODO src/app.ts",
