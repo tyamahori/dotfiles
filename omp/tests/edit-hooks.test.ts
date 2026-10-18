@@ -219,3 +219,13 @@ test("blocks a failed Japanese prose hook once, then recovers", () => {
   spawn.mockReturnValue(hookResult());
   expect(stop?.({}, { cwd: "/project" })).toBeUndefined();
 });
+
+test("blocks a failed Japanese prose Stop hook once, then passes", () => {
+  const extension = capturedExtension();
+  japaneseProse(extension.api as never);
+  spawn.mockReturnValue(hookResult("", 1, "stop hook failed"));
+
+  const stop = extension.hooks.get("session_stop");
+  expect(stop?.({}, { cwd: "/project" })).toMatchObject({ decision: "block" });
+  expect(stop?.({}, { cwd: "/project" })).toBeUndefined();
+});

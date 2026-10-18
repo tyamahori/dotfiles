@@ -115,6 +115,7 @@ export default function japaneseProse(pi: ExtensionApi): void {
     });
     if (result.error) {
       hookError = result.error;
+      reportedHookError = result.error;
       return {
         decision: "block",
         reason: `日本語文章レビューHookの実行に失敗しました: ${result.error}`,
