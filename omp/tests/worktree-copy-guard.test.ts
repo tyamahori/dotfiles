@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -73,4 +73,39 @@ test("failed adds, other worktree subcommands, and other tools do not run the ho
     expect(notificationsAfter(event)).toEqual([]);
   }
   expect(existsSync(payload)).toBe(false);
+});
+
+// The real hook, with HOME pointed at a temp dir whose dotfiles/scripts is this
+// checkout's scripts/. Returns the sweep's context and whether wt got the file.
+function realHook(command: string, cwdOf: (repo: string) => string): { context: string; copied: boolean } {
+  if (home) rmSync(home, { force: true, recursive: true });
+  home = mkdtempSync(join(tmpdir(), "omp-worktree-hook-"));
+  mkdirSync(join(home, "dotfiles"));
+  symlinkSync(join(import.meta.dir, "../../scripts"), join(home, "dotfiles/scripts"));
+  const repo = join(home, "work/repo");
+  const wt = join(home, "wt");
+  mkdirSync(repo, { recursive: true });
+  const env = { ...process.env, HOME: home, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" };
+  const git = (...args: string[]) => {
+    const r = Bun.spawnSync(["git", "-C", repo, "-c", "user.name=t", "-c", "user.email=t@t", ...args], { env });
+    if (r.exitCode !== 0) throw new Error(r.stderr.toString());
+  };
+  git("init", "-q");
+  writeFileSync(join(repo, ".gitignore"), ".env\n");
+  writeFileSync(join(repo, ".worktreeinclude"), ".env\n");
+  writeFileSync(join(repo, ".env"), "SECRET=1\n");
+  git("add", ".gitignore", ".worktreeinclude");
+  git("commit", "-q", "-m", "init");
+  git("worktree", "add", "-q", wt);
+  const result = Bun.spawnSync([join(import.meta.dir, "../../scripts/worktree-copy-hook")], {
+    env,
+    stdin: new TextEncoder().encode(JSON.stringify({ cwd: cwdOf(repo), tool_input: { command } })),
+  });
+  if (result.exitCode !== 0) throw new Error(result.stderr.toString());
+  return { context: result.stdout.toString(), copied: existsSync(join(wt, ".env")) };
+}
+
+test("git -C with an unexpanded $PWD or ~ still sweeps the real repository", () => {
+  expect(realHook('git -C "$PWD" worktree add ../wt', (repo) => repo).copied).toBe(true);
+  expect(realHook("git -C ~/work/repo worktree add ../wt", () => tmpdir()).copied).toBe(true);
 });

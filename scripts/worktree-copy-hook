@@ -27,6 +27,13 @@ if [[ $cmd =~ $re_single || $cmd =~ $re_double || $cmd =~ $re_bare ]]; then
 else
 	base="$cwd"
 fi
+# The hook sees the command text, not the shell's expansion: `$PWD`, `$(...)`
+# and backticks can't be resolved here, so fall back to the hook cwd.
+case "$base" in
+	*'$'* | *'`'*) base="$cwd" ;;
+	\~) base="$HOME" ;;
+	\~/*) base="$HOME/${base#\~/}" ;;
+esac
 case "$base" in
 	/*) ;;
 	*) base="$cwd/$base" ;;
