@@ -44,7 +44,12 @@ function bodyText(args: string[], command: string, cwd: string): string | undefi
     const path = isAbsolute(file) ? file : join(cwd, file);
     return existsSync(path) ? readFileSync(path, "utf8") : undefined;
   }
-  return args.some((arg) => /^(?:--body|-b)(?:=|$)/.test(arg)) ? command : undefined;
+  const bodyIndex = args.findIndex((arg) => /^(?:--body|-b)(?:=|$)/.test(arg));
+  if (bodyIndex < 0) return undefined;
+  const flag = args[bodyIndex];
+  const body = flag.includes("=") ? flag.slice(flag.indexOf("=") + 1) : (args[bodyIndex + 1] ?? "");
+  // The tokenizer drops heredoc text, so `--body "$(cat <<EOF …)"` falls back to the raw command.
+  return body.includes("$") ? command : body;
 }
 
 function requiredHeadings(template: string): string[] {

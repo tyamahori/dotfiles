@@ -32,6 +32,8 @@ test("checks only a real gh pr create segment and ignores flag-like body text", 
   expect(missingTemplateHeadings("gh pr create --draft --body '## Summary\nrun npm test -w pkg'", repo)).toEqual(["Test plan"]);
   expect(missingTemplateHeadings("GH_REPO=o/r gh pr create --draft --body '## Summary'", repo)).toEqual(["Test plan"]);
   expect(missingTemplateHeadings(`gh pr create --draft --body "$(cat <<'EOF'\n## Summary\nx\nEOF\n)"`, repo)).toEqual(["Test plan"]);
+  expect(missingTemplateHeadings(`echo "## Test plan"; gh pr create --draft --body "## Summary"`, repo)).toEqual(["Test plan"]);
+  expect(missingTemplateHeadings("gh pr create --draft --body='## Summary\n## Test plan'", repo)).toEqual([]);
 });
 
 test("does not require sections the template marks optional", () => {
