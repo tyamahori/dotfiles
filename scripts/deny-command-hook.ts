@@ -27,7 +27,7 @@ type HookClient = "claude" | "codex" | "copilot";
 
 const COPILOT_READ_TOOLS = new Set(["view", "grep", "rg"]);
 const COPILOT_ENV_READ_REASON =
-  "`.env`-style credential files are blocked from the view/grep tools. These files hold plaintext secrets — don't load one into context unless the user explicitly asked you to inspect that exact file.";
+  "`.env`-style credential files are blocked from the view/grep tools, including grep globs that can match one (`*`, `*.*`, `{.env,...}`). These files hold plaintext secrets — don't load one into context unless the user explicitly asked you to inspect that exact file. Narrow the glob to the extensions you need (e.g. `*.ts`).";
 
 // Mirrors omp/extensions/deny-env-reads.ts for Copilot's native readers. grep
 // can reach an .env file through a directory in `paths` plus a `glob` filter
@@ -40,11 +40,18 @@ const COPILOT_ENV_READ_REASON =
 // glob like `**/env/**`, still reads .env files that ripgrep does not ignore.
 const ENV_GLOB = /(?:^|[^A-Z\d])env(?:[^A-Z\d/]|$)/i;
 
+// Spellings such as `[.]e[n]v` or `.{e,x}{n,x}{v,x}` have no `env` word, so the
+// glob is also evaluated against common credential file names. Wildcards like
+// `*` match them too and are refused; the reason text tells the agent to narrow.
+const ENV_PROBES = [".env", ".env.local", ".env.production", ".env.development", ".env.test", "credentials.env"]
+  .flatMap((name) => [name, `dir/${name}`]);
+
 function copilotEnvRead(args: unknown): string | undefined {
   if (!isPlainObject(args)) throw new Error("hook input toolArgs must be a JSON object");
   const targets = [args.path, args.paths].flat().filter((value): value is string => typeof value === "string");
-  const envTarget = targets.some(isEnvPath) || (typeof args.glob === "string" && ENV_GLOB.test(args.glob));
-  return envTarget ? COPILOT_ENV_READ_REASON : undefined;
+  const glob = typeof args.glob === "string" ? args.glob : "";
+  const globHitsEnv = glob !== "" && (ENV_GLOB.test(glob) || ENV_PROBES.some((name) => new Bun.Glob(glob).match(name)));
+  return targets.some(isEnvPath) || globHitsEnv ? COPILOT_ENV_READ_REASON : undefined;
 }
 
 function commandReason(command: string, client: HookClient, cwd: unknown): string | undefined {
