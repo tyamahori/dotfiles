@@ -45,8 +45,8 @@ need to know less than before?*
 **Thirty-second trace.** A new reader should be able to say where a value
 comes from and what can change it within thirty seconds; if not, there is a
 layer or a piece of state too many, and it gets removed rather than
-documented. *Can I answer "where does X come from, what changes X" for
-every value this change touches?*
+documented. *Can a reader answer "where does X come from, what changes X"
+for each value or piece of state they must trace to follow this change?*
 
 **Dependency direction (the Clean Architecture rule).** Source dependencies
 point inward only: entities and use cases know nothing of HTTP, DB,
