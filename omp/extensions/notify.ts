@@ -206,8 +206,6 @@ type ExtensionHandlerApi = {
 };
 
 export default function (pi: ExtensionHandlerApi): void {
-  if (process.platform !== "darwin") return;
-
   // Only the interactive root session notifies; headless/subagent sessions
   // (hasUI false) stay silent.
   let rootSession = false;
