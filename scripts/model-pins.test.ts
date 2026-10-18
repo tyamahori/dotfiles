@@ -24,3 +24,12 @@ test("a failed ack keeps the reviewed baseline", () => {
   writeFileSync(join(repo, "claude/settings.json"), '{"model": "opus"}');
   expect(run("check").exitCode).toBe(0);
 });
+
+test("show lists only top-level codex pins and every modelRoles entry past blank and comment lines", () => {
+  writeFileSync(join(repo, "claude/settings.json"), '{"model": "opus"}');
+  writeFileSync(join(repo, "codex/config.toml"), 'model = "gpt-c"\n\n[profiles.x]\nmodel = "other"\n');
+  writeFileSync(join(repo, "omp/config.yml"), "modelRoles:\n  slow: openai/y\n  # cheap on purpose\n\n  smol: openai/z\nother: 1\n");
+  expect(run("show").stdout.toString()).toBe(
+    "claude\tmodel\topus\ncodex\tmodel\tgpt-c\nomp\tmodelRoles.slow\topenai/y\nomp\tmodelRoles.smol\topenai/z\n",
+  );
+});

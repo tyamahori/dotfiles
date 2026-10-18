@@ -7,13 +7,18 @@ STATE_FILE="$HOME/.local/state/model-migration/last-reviewed.tsv"
 show_pins() {
 	jq -r '.model' "$REPO_ROOT/claude/settings.json" \
 		| sed 's/^/claude\tmodel\t/'
+	# Only top-level keys: [profiles.x] tables may set their own model.
 	sed -n \
+		-e '/^\[/q' \
 		-e 's/^model = "\(.*\)"$/codex\tmodel\t\1/p' \
 		-e 's/^model_reasoning_effort = "\(.*\)"$/codex\tmodel_reasoning_effort\t\1/p' \
 		"$REPO_ROOT/codex/config.toml"
 	awk '
 		/^modelRoles:[[:space:]]*$/ {
 			in_model_roles = 1
+			next
+		}
+		in_model_roles && /^[[:space:]]*(#|$)/ {
 			next
 		}
 		in_model_roles && !/^[[:space:]]/ {
