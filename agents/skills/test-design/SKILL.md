@@ -56,6 +56,12 @@ its helpers; a mirror assertion passes whatever the code does. Table-driven
 tests with literal `want` columns are the preferred shape for several inputs
 of one behaviour.
 
+For a bug fix, the expected value is the intended behaviour, not what the
+buggy code returns today (two notifications sent: expect one). Never weaken
+an existing assertion (`toBe(1)` to `toBeGreaterThanOrEqual(1)`) to make a
+change pass; change it only when the intended behaviour itself changed, and
+say why in the commit body.
+
 Test your contract at your boundary, not the framework's mechanics: the route
 you register, the query you emit, the payload you produce. Asserting that the
 router invokes a registered handler is the router's test. When a dependency's
