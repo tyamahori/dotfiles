@@ -27,6 +27,8 @@ import sys
 from pathlib import Path
 
 from textcore import (
+    _CODE_FENCE_RE,
+    _FRONT_MATTER_DELIM_RE,
     _HEADING_RE,
     _heading_level_and_text,
     get_tokenizer,
@@ -125,9 +127,27 @@ def build_term_inventory(raw_text: str) -> list[dict]:
     # 見出し行は mask_markdown_structure() で空文字化されるため、見出しテキストも
     # 用語抽出の対象に含めたい場合は別途生テキストから拾って合流させる
     # （制品名・専門用語が見出しで最初に登場するケースを取りこぼさないため）。
+    # コードフェンス内の `# コメント` やフロントマター内の行は見出しではないので、
+    # mask_markdown_structure() と同じ規則でそれらを飛ばす。
     heading_lines: list[tuple[int, str]] = []
+    open_fence: tuple[str, int] | None = None
+    in_front_matter = False
     for no, line in iter_lines_with_no(masked_comments):
-        if _HEADING_RE.match(line):
+        if no == 1 and _FRONT_MATTER_DELIM_RE.match(line):
+            in_front_matter = True
+            continue
+        if in_front_matter:
+            in_front_matter = not _FRONT_MATTER_DELIM_RE.match(line)
+            continue
+        fence = _CODE_FENCE_RE.match(line)
+        if fence:
+            run = fence.group(1)
+            if open_fence is None:
+                open_fence = (run[0], len(run))
+            elif run[0] == open_fence[0] and len(run) >= open_fence[1] and not line[fence.end() :].strip():
+                open_fence = None
+            continue
+        if open_fence is None and _HEADING_RE.match(line):
             _, heading_text = _heading_level_and_text(line)
             heading_lines.append((no, heading_text))
 
