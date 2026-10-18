@@ -76,5 +76,6 @@ Read only the sections matching the diff. Repository instructions override these
 
 - Read commit messages for the Why; a body that is absent or merely restates the diff loses the change's context.
 - Flag comments that narrate what the next line does; keep comments to what code cannot express — constraints, rejected alternatives, "looks wrong but isn't".
+- When a comment states a constraint that a type, test, lint rule, or hook could enforce, prefer the enforcement and delete the comment. Suppression comments (`eslint-disable`, `# noqa`, `@ts-expect-error`, `nosemgrep`) either carry the reason or get resolved.
 - Check that test names state the behavior they pin down, not the method they call.
 - Treat prose walkthroughs of the implementation as duplicated How; prefer deleting them over keeping them synchronized with code.
