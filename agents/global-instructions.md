@@ -115,7 +115,8 @@ the criteria.
 - Create PRs as draft; ready-for-review only when asked. `gh pr create --body`
   skips the repo's template, so follow it yourself and tick only verified
   checkboxes. Either way, state what is out of scope and what else the change
-  could affect.
+  could affect. Keep the description readable in a minute: link run logs,
+  SHA lists, and metric tables instead of pasting them.
 
 ## Quality gates
 
