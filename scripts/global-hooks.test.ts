@@ -54,6 +54,15 @@ test("pre-commit-json skips JSONC config files that allow comments", () => {
   expect(sh(dir, `${checks}/pre-commit-json`).status).toBe(0);
 });
 
+test("pre-commit-json names the file whose JSON is invalid", () => {
+  dir = mkdtempSync(join(tmpdir(), "global-hooks-"));
+  sh(dir, "git init -q && echo '{}' > good.json && echo '{,}' > bad.json && git add -A");
+  const r = sh(dir, `${checks}/pre-commit-json`);
+  expect(r.status).toBe(1);
+  expect(r.out).toContain("bad.json: jq: ");
+  expect(r.out).not.toContain("good.json");
+});
+
 test("pre-push-base-freshness blocks a stale fork in a single-branch clone", () => {
   dir = mkdtempSync(join(tmpdir(), "global-hooks-"));
   const bin = join(dir, "bin");
