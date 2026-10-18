@@ -37,7 +37,7 @@ main_root=$(git -C "$(dirname "$common")" rev-parse --show-toplevel 2>/dev/null)
 
 copied=""
 while IFS= read -r wt; do
-	[ -n "$wt" ] && [ "$wt" != "$main_root" ] && [ -d "$wt" ] || continue
+	if [ -z "$wt" ] || [ "$wt" = "$main_root" ] || [ ! -d "$wt" ]; then continue; fi
 	result=$("$copy" "$main_root" "$wt" 2>&1) || continue
 	case "$result" in
 	'Copied 0 '*) ;;

@@ -85,13 +85,18 @@ $findings"
   dclint)
     findings=$("$dclint_bin" --formatter compact --no-color --max-warnings 0 "$file" 2>&1) || true
     canonical=
-    command -v yq >/dev/null && canonical=$("$HOME/dotfiles/scripts/compose-canonical-check" "$file" 2>&1) || true
+    if command -v yq >/dev/null; then
+      canonical=$("$HOME/dotfiles/scripts/compose-canonical-check" "$file" 2>&1) || true
+    fi
     findings=$(printf '%s\n%s' "$findings" "$canonical" | sed '/^$/d' | head -c 4000)
     ;;
 esac
 if [ "$extra_linter" = zizmor ]; then
-  extra_findings=$(zizmor --quiet --offline "$file" 2>&1 | head -c 4000) || true
-  [ -z "$extra_findings" ] || findings=$(printf '%s\n%s' "$findings" "$extra_findings" | sed '/^$/d' | head -c 4000)
+  # zizmor prints "No findings to report" even with --quiet; only a non-zero
+  # exit means findings (or a parse error worth showing).
+  if ! extra_findings=$(zizmor --quiet --offline "$file" 2>&1); then
+    findings=$(printf '%s\n%s' "$findings" "$extra_findings" | sed '/^$/d' | head -c 4000)
+  fi
 fi
 [ -n "$findings" ] || exit 0
 
