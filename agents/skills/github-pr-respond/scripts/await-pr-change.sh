@@ -11,7 +11,7 @@ fingerprint() {
   # CI は SUCCESS / FAILURE / ERROR の結論だけを見る。PENDING・EXPECTED・未登録(null)は
   # 同じ "-" に畳む: push 直後に null→PENDING へ移るだけで起きると空振りになるため。
   # shellcheck disable=SC2016 # $owner などは GraphQL 変数で、シェル展開させない
-  gh api graphql -F owner="$owner" -F name="$repo" -F number="$number" -f query='
+  gh api graphql -f owner="$owner" -f name="$repo" -F number="$number" -f query='
 query($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {

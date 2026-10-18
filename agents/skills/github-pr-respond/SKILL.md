@@ -39,7 +39,7 @@ ERROR、実行中は `-`）・レビュー数・会話コメント数・未解�
 未解決スレッドと PR の状態は GraphQL でまとめて取る:
 
 ```sh
-gh api graphql -F owner='<owner>' -F name='<repo>' -F number=<N> -f query='
+gh api graphql -f owner='<owner>' -f name='<repo>' -F number=<N> -f query='
 query($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
