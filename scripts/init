@@ -10,6 +10,10 @@ Darwin | Linux) ;;
 	;;
 esac
 
+# Where the installers below put brew, nix and devbox: a non-login shell
+# (agent, hook) lacks them on PATH and would rerun every installer.
+PATH="$PATH:/opt/homebrew/bin:/nix/var/nix/profiles/default/bin:/usr/local/bin"
+
 if [ "$OS" = Darwin ]; then
 	# Apple Silicon only: the Homebrew prefix below and .zprofile assume /opt/homebrew.
 	if [ "$(uname -m)" != arm64 ]; then
