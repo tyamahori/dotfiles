@@ -302,17 +302,23 @@ function commandIndex(words: string[]): number {
   return index;
 }
 
+// git's global options that take the next word as their value; every other
+// leading option (`-P`, `--no-pager`, `-C<path>`, `--git-dir=<path>`) stands
+// alone. Other tools keep the subcommand right after the executable: their
+// value-taking options (`uv --directory <dir>`) differ per tool.
+const GIT_VALUE_OPTIONS = new Set(["-C", "-c", "--exec-path", "--git-dir", "--work-tree", "--namespace", "--config-env", "--super-prefix"]);
+
 function subcommandMatches(words: string[], index: number, subcommand: string): boolean {
   if (words[index] !== "git") return words[index + 1] === subcommand;
   let cursor = index + 1;
   while (cursor < words.length) {
     const option = words[cursor];
     if (option === "--") return words[cursor + 1] === subcommand;
-    if (option === "-C" || option === "-c" || option === "--exec-path") {
+    if (GIT_VALUE_OPTIONS.has(option)) {
       cursor += 2;
       continue;
     }
-    if (/^--(?:git-dir|work-tree|namespace|exec-path)=/.test(option) || /^-[Cc].+/.test(option)) {
+    if (option.startsWith("-")) {
       cursor += 1;
       continue;
     }

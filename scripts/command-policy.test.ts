@@ -250,6 +250,23 @@ test("remote pulls require effective fast-forward-only", () => {
   }
 });
 
+test("git global options before the subcommand do not hide it", () => {
+  which.mockReturnValue("/available/git");
+  for (const command of [
+    "git --no-pager add -A",
+    "git -P pull",
+    "git --git-dir ../x/.git --work-tree . add -A",
+    "git -C repo --no-optional-locks commit -am 'fix parser'",
+    "git -p commit -m 'fix parser'",
+  ]) {
+    expect(denyCommand(command, "claude")).toBeDefined();
+  }
+  // --work-tree takes `pull` as its path here; the subcommand is status.
+  for (const command of ["git --no-pager log -p", "git -C repo --git-dir .git status", "git --work-tree pull status"]) {
+    expect(denyCommand(command, "claude")).toBeUndefined();
+  }
+});
+
 test("raw git worktree add is denied for OMP only inside Herdr", () => {
   which.mockReturnValue("/available/herdr");
   const saved = process.env.HERDR_ENV;
