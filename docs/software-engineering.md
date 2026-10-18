@@ -44,6 +44,8 @@
 
 三回目は、uehaj の Zenn 記事「[【メモ】pstack (Claude Code 移植版pstack-claude) のスタック構成とオーケストレーションを読む](https://zenn.dev/uehaj/articles/claude-code-pstack-structure-memo)」で残りを洗い直した。poteto-mode の「読んだ原則だけを根拠に挙げる」「直しや再試行は統合したスコープで新しい subagent に渡す」と、`principle-never-block-on-the-human` の「戻せる作業は進めてから見せ、代わりに決めた既定は報告する」を共有指示に入れた。`principle-encode-lessons-in-structure` の強度の順と「構造で直したら文章は症状として削る」は本書の「形式化のサイクルを回す」に、`show-me-your-work` は置き場所がないため skill として新設した。記事のコメントで勧められていた Matt Pocock の `grill-with-docs` は、中身の `grilling` がすでに `grill-me` に入っているので、もう一方の `domain-modeling`（用語集と ADR）だけを `grill-me` の一節として足した。orchestrate playbook とモデルの振り分けは、単一ホストで Herdr が担う部分と重なるため入れていない。
 
+四回目は取り込みではなく、取り込んだ原則を手元の実績に当てた。`correct` の「失敗はクラスで数える」を、`agent-usage-review` の snapshot に「繰り返し失敗」の節として足し、拒否ルール・lint の code・fail-fast・bash の service mode 拒否を週ごとに数えるようにした。その集計で週をまたいで繰り返していたものは、文面を足さずに構造で直した。bash の `name` と `async` の併用は OMP extension で引数を直し、shellcheck の SC2016 と SC1091 は lint-on-edit から外し、`shell-read-search` は件数・存在確認の grep と scratch・`/tmp`・ログへの読み取りを許すよう範囲を絞った。`guard-the-context-window` の段階的開示は、自作の `cognitive-rhythm-writing` を本体と `references/` に分ける形で当てた。
+
 ## 追加するときの判断
 
 新しい規範を書きたくなったら、まず既存の skill の節として足せないかを見る。毎ターン読ませたい一行ポインタだけを `agents/global-instructions.md` に置き、手順や判断基準は skill、導入・運用の手順は `docs/` に書く。skill を増やしたら `scripts/link` を実行して各ホストの skills ディレクトリへ symlink し、`omp -p --no-session "read skill://<name>"` で新しいセッションから読めることを確かめる。
