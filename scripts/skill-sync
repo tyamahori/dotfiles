@@ -76,7 +76,7 @@ for name in "${skills[@]}"; do
 		exit 2
 	fi
 	rsync -a --delete \
-		--exclude .openskills.json --exclude local.patch --exclude __pycache__ \
+		--exclude .openskills.json --exclude local.patch --exclude __pycache__ --exclude .git \
 		"$work/src/$subpath/" "$dir/"
 	if [ -f "$dir/local.patch" ]; then
 		# --directory scopes patch paths to the skill dir. No --3way: it needs
