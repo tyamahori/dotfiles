@@ -37,6 +37,33 @@ test("Python pipelines are denied while read filters and write-mode cat stay all
   expect(denyCommand("grep value file", "omp")).toContain("glob");
 });
 
+test("count/list/quiet greps and reads confined to scratch, /tmp, or logs are allowed", () => {
+  for (const command of [
+    "grep -c TODO src/app.ts",
+    "rg -l needle src",
+    "grep -q x file && echo hit",
+    "grep -n err .agent-msgs/scratch/run.txt",
+    "tail -n 50 /tmp/build.log",
+    "head -20 build/output.log 2>/dev/null",
+    "rg fail /private/tmp/a.txt /tmp/b.txt",
+  ]) {
+    expect(denyCommand(command, "omp")).toBeUndefined();
+  }
+  for (const command of [
+    "grep -rn needle src",
+    "grep secret src/app.ts .agent-msgs/scratch/x",
+    "head .agent-msgs/scratch/../../agents/global-instructions.md",
+    "tail /tmp/../etc/hosts",
+    "tail -n 50 /tmp/a.log src/app.ts",
+    "head README.md",
+    "grep x",
+    "cat /tmp/build.log",
+    "find /tmp -name '*.log'",
+  ]) {
+    expect(denyCommand(command, "omp")).toBeDefined();
+  }
+});
+
 test("replacement availability is checked on each invocation", () => {
   for (const command of ["python3 app.py", "curl https://example.com/", "brew upgrade"]) {
     which.mockReturnValue(null);

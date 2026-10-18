@@ -8,6 +8,11 @@ type CommandMatch = {
   nextArgPattern?: string;
   anyArgPattern?: string;
   noArgPattern?: string;
+  // Exempt the command when every operand after the first `skipOperands`
+  // (e.g. grep's search pattern) matches. Unlike noArgPattern, one allowed
+  // path cannot carry a source path along with it.
+  operandPattern?: string;
+  skipOperands?: number;
   requireNoRedirection?: boolean;
 };
 
@@ -31,11 +36,12 @@ type RuleTable = { rules: Rule[] };
 
 const rules = (ruleTable as RuleTable).rules.map((rule) => ({
   ...rule,
-  commands: rule.commands.map(({ nextArgPattern, anyArgPattern, noArgPattern, ...match }) => ({
+  commands: rule.commands.map(({ nextArgPattern, anyArgPattern, noArgPattern, operandPattern, ...match }) => ({
     ...match,
     nextArgPattern: nextArgPattern ? new RegExp(nextArgPattern) : undefined,
     anyArgPattern: anyArgPattern ? new RegExp(anyArgPattern) : undefined,
     noArgPattern: noArgPattern ? new RegExp(noArgPattern) : undefined,
+    operandPattern: operandPattern ? new RegExp(operandPattern) : undefined,
   })),
 }));
 const repoRoot = resolve(import.meta.dir, "..");
@@ -195,6 +201,13 @@ function segments(command: string): { segments: Segment[]; hasRedirection: boole
   return { segments: result, hasRedirection };
 }
 
+// Options and bare numbers (option values such as `-n 50`, fd numbers of
+// `2>/dev/null`) are not operands; anything else is, including the pattern.
+function operandsMatch(args: string[], skip: number, pattern: RegExp): boolean {
+  const operands = args.filter((word) => !word.startsWith("-") && !/^\d+$/.test(word)).slice(skip);
+  return operands.length > 0 && operands.every((word) => pattern.test(word));
+}
+
 function commandIndex(words: string[]): number {
   let index = 0;
   while (/^[A-Za-z_]\w*=/.test(words[index] ?? "")) index += 1;
@@ -275,6 +288,7 @@ export function denyCommand(command: string, client: Client): string | undefined
         (!match.nextArgPattern || match.nextArgPattern.test(words[index + 1] ?? "")) &&
         (!match.anyArgPattern || words.slice(index + 1).some((word) => match.anyArgPattern!.test(word))) &&
         (!match.noArgPattern || !words.slice(index + 1).some((word) => match.noArgPattern!.test(word))) &&
+        (!match.operandPattern || !operandsMatch(words.slice(index + 1), match.skipOperands ?? 0, match.operandPattern)) &&
         (!match.requireNoRedirection || !parsed.hasRedirection) &&
         (rule.matcher !== "curl-web-fetch" || (!parsed.hasRedirection && isSimpleWebFetch(words.slice(index + 1))))
       );

@@ -550,7 +550,7 @@ guard の切り替えは利用枠ごとに一度だけなので、`/model` で�
 
 `omp/extensions/deny-commands.ts` が、専用ツールで代替できる shell 呼び出しを拒否した表示です。
 同じコマンドを再試行せず、拒否理由に示された `read`、`grep`、`glob` を使います。
-パイプ途中の読み取りフィルタや、書き込み用の `cat`、heredoc は許可します。
+パイプ途中の読み取りフィルタ、書き込み用の `cat`、heredoc、件数・一覧・存在確認の grep（`-c`・`-l`・`-q`）、対象がすべて `.agent-msgs/scratch/`・`/tmp/`・`*.log` の grep・head・tail は許可します。
 正当な用途まで拒否された場合は、コマンドと拒否理由を確認してルールを修正します。
 
 ### 「`.env`-style credential files are blocked」と出る

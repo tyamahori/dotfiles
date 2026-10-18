@@ -16,7 +16,14 @@
       "id": "shell-read-search",
       "matcher": "command",
       "commands": [
-        { "executables": ["grep", "rg", "find", "head", "tail"] },
+        {
+          "executables": ["grep", "rg"],
+          "noArgPattern": "^(?:-[A-Za-z]*[clLq][A-Za-z]*|--count|--files-with-matches|--files-without-match|--quiet|--silent)$",
+          "operandPattern": "^(?!.*(?:^|/)\\.\\.(?:/|$)).*(?:(?:^|/)\\.agent-msgs/scratch/|^(?:/private)?/tmp/|^/dev/null$|\\.log$)",
+          "skipOperands": 1
+        },
+        { "executables": ["head", "tail"], "operandPattern": "^(?!.*(?:^|/)\\.\\.(?:/|$)).*(?:(?:^|/)\\.agent-msgs/scratch/|^(?:/private)?/tmp/|^/dev/null$|\\.log$)" },
+        { "executables": ["find"] },
         { "executables": ["sed"], "nextArgPattern": "^(?:-[A-Za-z]*n[A-Za-z]*|--quiet|--silent)$" },
         { "executables": ["cat"], "requireNoRedirection": true }
       ],
@@ -24,9 +31,8 @@
       "clients": ["claude", "omp"],
       "replacement": { "type": "native-tool" },
       "reasons": {
-        "claude": "Shell read/search commands are blocked on this machine. Use Grep instead of grep/rg, Read with offset/limit instead of cat/head/tail/sed -n, and Glob instead of find. Mid-pipeline filters and write-mode cat remain allowed.",
-        "codex": "",
-        "omp": "Shell read/search commands are blocked on this machine. Use grep instead of shell grep/rg, read with a bounded selector instead of cat/head/tail/sed -n, and glob instead of find. Mid-pipeline filters and write-mode cat remain allowed."
+        "claude": "Shell read/search commands are blocked on this machine. Use Grep instead of grep/rg, Read with offset/limit instead of cat/head/tail/sed -n, and Glob instead of find. Allowed: mid-pipeline filters, write-mode cat, grep -c/-l/-q, and grep/head/tail on .agent-msgs/scratch/, /tmp/, or *.log.",
+        "omp": "Shell read/search commands are blocked on this machine. Use grep instead of shell grep/rg, read with a bounded selector instead of cat/head/tail/sed -n, and glob instead of find. Allowed: mid-pipeline filters, write-mode cat, grep -c/-l/-q, and grep/head/tail on .agent-msgs/scratch/, /tmp/, or *.log."
       }
     },
     {
