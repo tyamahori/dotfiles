@@ -1,5 +1,5 @@
 diff --git a/SKILL.md b/SKILL.md
-index d039541..62b6c84 100644
+index d039541..2bca4de 100644
 --- a/SKILL.md
 +++ b/SKILL.md
 @@ -1,6 +1,6 @@
@@ -10,7 +10,7 @@ index d039541..62b6c84 100644
  ---
  
  # Diagnosing Bugs
-@@ -111,6 +111,28 @@ Tool preference:
+@@ -111,6 +111,29 @@ Tool preference:
  
  **Perf branch.** For performance regressions, logs are usually wrong. Instead: establish a baseline measurement (timing harness, `performance.now()`, profiler, query plan), then bisect. Measure first, fix second.
  
@@ -33,13 +33,14 @@ index d039541..62b6c84 100644
 +4. Did it error? Count failures and check that outputs are correct, not just present. Rejections are fast; timeouts and retries are slow.
 +5. Does it reproduce? Alternate the sides (A, B, A, B) at least five times and report the median and range. A gap smaller than the run-to-run spread is no measurable difference.
 +6. Did the work happen inside what you counted? Unawaited promises, unread generators, timeouts, and a time window or filter that silently drops records all yield numbers for work that never ran.
++7. Does it matter? A micro-benchmark result also gets an end-to-end run of what the user waits for, at production-sized data and concurrency, and is reported as a share of that time.
 +
 +Lead with the verdict: better, worse, no measurable difference, or inconclusive. Call it inconclusive when you cannot name the limiter or could not check 4 and 6, and name the gap. A one-run ballpark the user asked for still needs 4 and 6, and says it is one run.
 +
  ## Phase 5: Fix + regression test
  
  Write the regression test **before the fix**, but only if there is a **correct seam** for it.
-@@ -119,14 +141,27 @@ A correct seam is one where the test exercises the **real bug pattern** as it oc
+@@ -119,14 +142,27 @@ A correct seam is one where the test exercises the **real bug pattern** as it oc
  
  **If no correct seam exists, that itself is the finding.** Note it. The codebase architecture is preventing the bug from being locked down. Flag this for the next phase.
  
@@ -69,7 +70,7 @@ index d039541..62b6c84 100644
  ## Phase 6: Cleanup
  
  Required before declaring done:
-@@ -136,3 +171,5 @@ Required before declaring done:
+@@ -136,3 +172,5 @@ Required before declaring done:
  - [ ] All `[DEBUG-...]` instrumentation removed (`grep` the prefix)
  - [ ] Throwaway prototypes deleted (or moved to a clearly-marked debug location)
  - [ ] The hypothesis that turned out correct is stated in the commit / PR message, so the next debugger learns

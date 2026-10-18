@@ -130,6 +130,7 @@ Report the baseline, the final value with the percent change, attempts kept and 
 4. Did it error? Count failures and check that outputs are correct, not just present. Rejections are fast; timeouts and retries are slow.
 5. Does it reproduce? Alternate the sides (A, B, A, B) at least five times and report the median and range. A gap smaller than the run-to-run spread is no measurable difference.
 6. Did the work happen inside what you counted? Unawaited promises, unread generators, timeouts, and a time window or filter that silently drops records all yield numbers for work that never ran.
+7. Does it matter? A micro-benchmark result also gets an end-to-end run of what the user waits for, at production-sized data and concurrency, and is reported as a share of that time.
 
 Lead with the verdict: better, worse, no measurable difference, or inconclusive. Call it inconclusive when you cannot name the limiter or could not check 4 and 6, and name the gap. A one-run ballpark the user asked for still needs 4 and 6, and says it is one run.
 
