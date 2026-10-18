@@ -27,15 +27,17 @@ for (const [name, body] of Object.entries(stubs)) {
   writeFileSync(join(bin, name), `#!/bin/sh\n${body}\n`, { mode: 0o755 });
 }
 
-// The apt list files already exist, as on a rerun after a failed `apt-get update`.
-const listsExist = '[() { case "$3" in /etc/apt/sources.list.d/*) return 1 ;; esac; builtin [ "$@"; }';
+// A copy whose apt source lists already exist, as on a rerun after a failed `apt-get update`.
+const lists = join(dir, "sources.list.d");
+mkdirSync(lists);
+writeFileSync(join(lists, "claude-code.list"), "");
+writeFileSync(join(lists, "docker.sources"), "");
+const script = join(dir, "apps");
+writeFileSync(script, readFileSync(resolve(import.meta.dir, "apps"), "utf8").replaceAll("/etc/apt/sources.list.d", lists));
 
 function run(env: Record<string, string>) {
   writeFileSync(log, "");
-  const script = resolve(import.meta.dir, "apps");
-  const r = Bun.spawnSync(["/bin/bash", "-c", `${listsExist}; source "$0"`, script], {
-    env: { PATH: `${bin}:/usr/bin:/bin`, HOME: home, ...env },
-  });
+  const r = Bun.spawnSync(["/bin/bash", script], { env: { PATH: `${bin}:/usr/bin:/bin`, HOME: home, ...env } });
   return { status: r.exitCode, err: r.stderr.toString(), calls: readFileSync(log, "utf8") };
 }
 
