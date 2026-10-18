@@ -231,6 +231,9 @@ export default function (pi: ExtensionHandlerApi): void {
 
   pi.on("agent_end", (event, ctx) => {
     if (!rootSession || !agentActive) return;
+    // A continuation is already scheduled, so this end is not a stop.
+    // Older builds omit the field and fall through as before.
+    if (asRecord(event)?.willContinue === true) return;
     agentActive = false;
 
     // A queued follow-up starts the next turn immediately; not a real stop.
@@ -247,6 +250,15 @@ export default function (pi: ExtensionHandlerApi): void {
     }
 
     void notify("done", "OMP 作業完了", assistantText(messages) || "作業が完了しました");
+  });
+
+  // agent_end swallows retryable errors on the assumption that auto-retry
+  // follows; when the retries run out, this is the only stop signal left.
+  pi.on("auto_retry_end", (event) => {
+    if (!rootSession) return;
+    const detail = asRecord(event);
+    if (detail?.success !== false) return;
+    void notify("attention", "OMP エラー停止", (asString(detail.finalError) || "リトライが尽きて停止しました").slice(0, 120));
   });
 
   pi.on("tool_execution_start", (event, ctx) => {
