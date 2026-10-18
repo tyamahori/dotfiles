@@ -74,8 +74,14 @@ fi
 # ghostty from the Ubuntu archive: it links the host mesa, so it renders
 # without the LD_LIBRARY_PATH wrapper nixpkgs' build needed (which leaked into
 # every shell and broke nix binaries once nixpkgs' glibc outran the host's).
+# The archive ships it from 26.04; older releases such as the 24.04 OrbStack
+# VM (headless anyway) have no candidate, which would fail the whole install.
+pkgs=(claude-code docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin)
+if [ -n "$(apt-cache search --names-only '^ghostty$')" ]; then
+	pkgs+=(ghostty)
+fi
 missing=()
-for pkg in claude-code ghostty docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; do
+for pkg in "${pkgs[@]}"; do
 	dpkg -s "$pkg" >/dev/null 2>&1 || missing+=("$pkg")
 done
 if [ ${#missing[@]} -gt 0 ]; then
