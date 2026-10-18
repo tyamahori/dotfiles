@@ -67,6 +67,9 @@ test("count/list/quiet greps and reads confined to scratch, /tmp, or logs are al
     "rg fail /private/tmp/a.txt /tmp/b.txt",
     "tail -n +2 /tmp/build.log",
     "head -c 1k /tmp/x.log",
+    "grep -n 404 /tmp/access.log",
+    "rg -t ts needle /tmp/a.log",
+    "grep -e 404 -e 500 /tmp/a.log",
   ]) {
     expect(denyCommand(command, "omp")).toBeUndefined();
   }
@@ -81,6 +84,10 @@ test("count/list/quiet greps and reads confined to scratch, /tmp, or logs are al
     "grep x",
     "cat /tmp/build.log",
     "find /tmp -name '*.log'",
+    "grep -i 404 src/x.ts /tmp/a.log",
+    "grep -e x src/app.ts /tmp/a.log",
+    "grep src/app.ts -e /tmp/x",
+    "grep -ex src/app.ts /tmp/a.log",
   ]) {
     expect(denyCommand(command, "omp")).toBeDefined();
   }

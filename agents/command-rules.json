@@ -20,9 +20,15 @@
           "executables": ["grep", "rg"],
           "noArgPattern": "^(?:-[A-Za-z]*[clLq][A-Za-z]*|--count|--files-with-matches|--files-without-match|--quiet|--silent)$",
           "operandPattern": "^(?!.*(?:^|/)\\.\\.(?:/|$)).*(?:(?:^|/)\\.agent-msgs/scratch/|^(?:/private)?/tmp/|^/dev/null$|\\.log$)",
-          "skipOperands": 1
+          "skipOperands": 1,
+          "valueFlags": "^(?:-[A-Za-z]*[ABCmgtef]|--(?:after-context|before-context|context|max-count|glob|iglob|type|type-not|regexp|file))$",
+          "patternFlags": "^(?:-[A-Za-z]*[ef]|--(?:regexp|file)(?:=|$))"
         },
-        { "executables": ["head", "tail"], "operandPattern": "^(?!.*(?:^|/)\\.\\.(?:/|$)).*(?:(?:^|/)\\.agent-msgs/scratch/|^(?:/private)?/tmp/|^/dev/null$|\\.log$)" },
+        {
+          "executables": ["head", "tail"],
+          "operandPattern": "^(?!.*(?:^|/)\\.\\.(?:/|$)).*(?:(?:^|/)\\.agent-msgs/scratch/|^(?:/private)?/tmp/|^/dev/null$|\\.log$)",
+          "valueFlags": "^(?:-[A-Za-z]*[nc]|--(?:lines|bytes))$"
+        },
         { "executables": ["find"] },
         { "executables": ["sed"], "nextArgPattern": "^(?:-[A-Za-z]*n[A-Za-z]*|--quiet|--silent)$" },
         { "executables": ["cat"], "requireNoRedirection": true }

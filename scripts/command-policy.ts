@@ -13,6 +13,11 @@ type CommandMatch = {
   // path cannot carry a source path along with it.
   operandPattern?: string;
   skipOperands?: number;
+  // Options whose next word is their value, not an operand (`head -n 50`,
+  // `rg -t ts`, `grep -e x`).
+  valueFlags?: string;
+  // Options that supply the pattern (`-e`, `-f`); with one, skipOperands is 0.
+  patternFlags?: string;
   requireNoRedirection?: boolean;
 };
 
@@ -36,14 +41,17 @@ type RuleTable = { rules: Rule[] };
 
 const rules = (ruleTable as RuleTable).rules.map((rule) => ({
   ...rule,
-  commands: rule.commands.map(({ nextArgPattern, anyArgPattern, noArgPattern, operandPattern, ...match }) => ({
+  commands: rule.commands.map(({ nextArgPattern, anyArgPattern, noArgPattern, operandPattern, valueFlags, patternFlags, ...match }) => ({
     ...match,
     nextArgPattern: nextArgPattern ? new RegExp(nextArgPattern) : undefined,
     anyArgPattern: anyArgPattern ? new RegExp(anyArgPattern) : undefined,
     noArgPattern: noArgPattern ? new RegExp(noArgPattern) : undefined,
     operandPattern: operandPattern ? new RegExp(operandPattern) : undefined,
+    valueFlags: valueFlags ? new RegExp(valueFlags) : undefined,
+    patternFlags: patternFlags ? new RegExp(patternFlags) : undefined,
   })),
 }));
+type CompiledMatch = (typeof rules)[number]["commands"][number];
 const repoRoot = resolve(import.meta.dir, "..");
 
 /**
@@ -241,11 +249,13 @@ export function segments(command: string): Segment[] {
   return result;
 }
 
-// Options and the number right after one (`-n 50`, `-n +2`, `-c 1k`) are not
-// operands; anything else is, including the pattern and a file named `1k`.
-function operandsMatch(args: string[], skip: number, pattern: RegExp): boolean {
-  const operands = args.filter((word, at) => !word.startsWith("-") && !(/^\+?\d+(?:[bkmgKMG]|[KMG]i?B)?$/.test(word) && args[at - 1]?.startsWith("-"))).slice(skip);
-  return operands.length > 0 && operands.every((word) => pattern.test(word));
+// Options and the value right after a value-taking one (`-n 50`, `-t ts`) are
+// not operands; anything else is, including the pattern and a file named `1k`.
+// A pattern given by flag (`-e x`) leaves no pattern operand to skip.
+function operandsMatch(args: string[], match: CompiledMatch): boolean {
+  const skip = args.some((word) => match.patternFlags?.test(word)) ? 0 : match.skipOperands ?? 0;
+  const operands = args.filter((word, at) => !word.startsWith("-") && !match.valueFlags?.test(args[at - 1] ?? "")).slice(skip);
+  return operands.length > 0 && operands.every((word) => match.operandPattern!.test(word));
 }
 
 // Flags that cannot widen what a search reads or prints: no -e/-f (a pattern
@@ -420,7 +430,7 @@ export function denyCommand(command: string, client: Client): string | undefined
         (!match.nextArgPattern || match.nextArgPattern.test(words[index + 1] ?? "")) &&
         (!match.anyArgPattern || words.slice(index + 1).some((word) => match.anyArgPattern!.test(word))) &&
         (!match.noArgPattern || !words.slice(index + 1).some((word) => match.noArgPattern!.test(word))) &&
-        (!match.operandPattern || !operandsMatch(words.slice(index + 1), match.skipOperands ?? 0, match.operandPattern)) &&
+        (!match.operandPattern || !operandsMatch(words.slice(index + 1), match)) &&
         (!match.requireNoRedirection || !redirected) &&
         (rule.matcher !== "curl-web-fetch" || (!redirected && outputIsRead(parsed[at + 1]) && isSimpleWebFetch(words.slice(index + 1)))) &&
         (rule.matcher !== "git-commit-subject-only" || isSubjectOnlyCommit(words.slice(words.indexOf("commit", index) + 1)))
