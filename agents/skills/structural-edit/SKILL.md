@@ -15,6 +15,11 @@ Use the narrowest tool that preserves program structure:
 AST matching is syntactic, not semantic. A pattern such as `oldApi($A)` can
 match unrelated functions with the same spelling; use LSP for symbol identity.
 
+Many sites, one shape: change one site by hand first, then run the rewrite on
+that site's original and compare the two; apply it to the rest only when they
+match. Do not hand the sites to subagents as per-site manual edits when one
+pattern covers them; hand edits drift and the pattern does not.
+
 ## Pattern rules
 
 - Metavariables match complete AST nodes: `$VALUE`, `$NAME`.
