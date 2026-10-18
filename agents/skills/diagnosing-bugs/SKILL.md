@@ -147,7 +147,7 @@ If a correct seam exists:
 
 1. Turn the minimised repro into a failing test at that seam.
 2. Watch it fail **for the reported reason**: the failure message matches the symptom from Phase 1. A test that goes red for another reason does not lock the bug down. If you forced the red by mutating code or a fixture, `diff` against a pristine copy to prove the mutation landed before you trust it.
-3. Apply the fix.
+3. Apply the fix: only the changes the runtime evidence shows are needed. A "might help" change is an untested hypothesis, not a fix. When evidence refutes a hypothesis, revert every change made for it; a leftover workaround gets copied as a pattern.
 4. Watch it pass.
 5. Re-run the Phase 1 feedback loop against the original (un-minimised) scenario.
 
