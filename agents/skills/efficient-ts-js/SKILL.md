@@ -47,6 +47,12 @@ These APIs are for programs being built, not substitutes for harness tools.
   Treat external JSON as `unknown` in TS; validate its needed shape before
   effects. `as SomeType` does not validate data. Reuse an existing schema library
   when the project has one; do not build a general validator for one payload.
+- Types: the project's type conventions come first. Model alternatives as a
+  discriminated union and end its `switch` with a `never` check so a new case
+  fails to compile. Derive types from the schema or an existing type instead
+  of restating them; use `satisfies` to check a literal without widening it.
+  Narrow by control flow (`switch`, `in`, `typeof`/`instanceof`, a type
+  guard) before reaching for `as`.
 - HTTP in a real script: native `fetch`, a finite `AbortSignal.timeout(...)`,
   `response.ok`, then payload validation. HTTP errors do not reject fetch.
 - Subprocesses: argv-based `execFileSync` for short bounded calls, or the
