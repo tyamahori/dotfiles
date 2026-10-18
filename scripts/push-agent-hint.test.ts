@@ -25,6 +25,11 @@ test.each([
   ["blocks a submodule update", "git submodule update --init", true],
   ["stays quiet on a local remote listing", "git remote -v", false],
   ["stays quiet on a bare submodule status", "git submodule", false],
+  ["stays quiet when a separator sits inside single quotes", "printf 'x; git push origin'", false],
+  ["stays quiet when a separator sits inside double quotes", 'git commit -m "fix; git push later"', false],
+  ["blocks a push with a quoted remote", 'git push "origin" main', true],
+  ["blocks a push whose -C path is quoted with spaces", "git -C '/repo with spaces' push", true],
+  ["blocks a push whose -c value is quoted with spaces", 'git -c "core.sshCommand=ssh -v" push', true],
 ])("%s", (_name, command, blocks) => {
   const out = run(command, "sign_and_send_pubkey: communication with agent failed");
   expect(out.includes('"decision": "block"')).toBe(blocks);

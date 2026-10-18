@@ -10,7 +10,9 @@
 set -euo pipefail
 
 payload=$(cat)
-cmd=$(jq -r '.tool_input.command // empty' <<<"$payload")
+# Quoted text becomes one placeholder word: `printf 'x; git push origin'` is
+# one command, while `git -C 'a b' push` keeps -C's value as a single word.
+cmd=$(jq -r '.tool_input.command // empty | gsub("\u0027[^\u0027]*\u0027"; "Q") | gsub("\"(?:[^\"\\\\]|\\\\.)*\""; "Q")' <<<"$payload")
 # Only commands that reach the SSH agent, in command position. Any git
 # command was too wide: Codex's PostToolUse carries no exit status, so
 # `git show` of a file quoting the signature (this repo's own docs) blocked

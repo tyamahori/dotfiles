@@ -48,7 +48,10 @@ function reachesSshAgent(segment: string): boolean {
 }
 
 function isSshCommand(command: string): boolean {
-  return command.split(/[;&|()\n]/).some(reachesSshAgent);
+  // 引用符の中身は一語の置き換えにする。中の区切り文字で二つ目のコマンドを作らず
+  // （printf 'x; git push origin'）、git -C 'a b' push の値も一語のまま残す。
+  const unquoted = command.replaceAll(/'[^']*'|"(?:[^"\\]|\\.)*"/g, "Q");
+  return unquoted.split(/[;&|()\n]/).some(reachesSshAgent);
 }
 
 export default function (pi: ExtensionHandlerApi): void {
