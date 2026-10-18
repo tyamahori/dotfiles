@@ -528,8 +528,8 @@ extensions in `omp/extensions/`:
 - **locked-1Password hint** — `scripts/push-agent-hint` intercepts
   `communication with agent failed` on commands that reach the SSH agent
   (`git push`/`pull`/`fetch`/`clone`/`ls-remote`, `git remote update`/`show`/`prune`,
-  `git submodule update`, `ssh`/`scp`/`sftp`; quoted text is never read as a
-  command) and feeds
+  `git submodule update`, `ssh`/`scp`/`sftp`; single- and double-quoted
+  substrings are replaced by one word before matching) and feeds
   back that the only fix is unlocking 1Password, so agents stop misdiagnosing
   it as a network or SSH-config problem. Other git commands are ignored, so
   showing a file that quotes the message does not trigger it.
