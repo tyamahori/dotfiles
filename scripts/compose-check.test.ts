@@ -58,13 +58,22 @@ for (const row of [
     stage: ["-x.sql"],
     blockedWith: "LT01",
   },
+  {
+    name: "dclint is skipped, not failed, when node is not on PATH",
+    hook: "pre-commit-dclint",
+    files: { "compose.yaml": base },
+    stage: ["compose.yaml"],
+    blockedWith: null,
+    // A GUI git client without the devbox profile; git itself lives in /usr/bin.
+    path: "/usr/bin:/bin",
+  },
 ]) {
   test(row.name, () => {
     const scratch = resolve(root, ".agent-msgs/scratch");
     mkdirSync(scratch, { recursive: true });
     const cwd = mkdtempSync(resolve(scratch, "compose-check-"));
-    const run = (args: string[]) => {
-      const result = spawnSync(args[0], args.slice(1), { cwd, encoding: "utf8" });
+    const run = (args: string[], env = process.env) => {
+      const result = spawnSync(args[0], args.slice(1), { cwd, encoding: "utf8", env });
       if (result.error) throw result.error;
       return result;
     };
@@ -72,7 +81,10 @@ for (const row of [
       expect(run(["git", "init", "--quiet"]).status).toBe(0);
       for (const [file, content] of Object.entries(row.files)) writeFileSync(resolve(cwd, file), content);
       expect(run(["git", "add", "--", ...row.stage]).status).toBe(0);
-      const commit = run([resolve(root, "git/global-hooks/checks", row.hook)]);
+      const commit = run(
+        [resolve(root, "git/global-hooks/checks", row.hook)],
+        "path" in row ? { ...process.env, PATH: row.path } : process.env,
+      );
       if (row.blockedWith) {
         expect(commit.status).toBe(1);
         expect(commit.stdout + commit.stderr).toContain(row.blockedWith);

@@ -7,7 +7,8 @@
 set -euo pipefail
 
 dclint="$HOME/dotfiles/tools/dclint/node_modules/.bin/dclint"
-[[ -x $dclint ]] || exit 0
+# dclint is a node script; GUI git clients often run without the devbox PATH.
+[[ -x $dclint ]] && command -v node >/dev/null || exit 0
 
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
