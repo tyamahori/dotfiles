@@ -171,6 +171,9 @@ done
 integrations="$(herdr integration status 2>&1 | grep -E '^(claude|codex|omp|copilot):' || true)"
 
 # brewUpdate runs this synchronously; a stalled request must not block it.
+# A failing claude must reach the empty-report branch below (cleanup + notify),
+# not abort under set -e with a 0-byte report left behind; truncating on
+# failure also drops a partial report.
 limit=()
 command -v timeout >/dev/null 2>&1 && limit=(timeout 900)
 cd "$REPO_ROOT"
@@ -179,7 +182,7 @@ ${limit[@]+"${limit[@]}"} claude -p --restricted \
 	--strict-mcp-config --mcp-config '{"mcpServers":{}}' \
 	--add-dir "$STATE_DIR" \
 	--allowedTools "Read" "Glob" "Grep" \
-	>"$report" <<PROMPT
+	>"$report" <<PROMPT || : >"$report"
 ツール更新のレビューを実行する。ファイルの編集は一切禁止。成果物はこのセッションの
 標準出力に書く日本語 Markdown レポートのみ。
 
