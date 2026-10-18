@@ -49,3 +49,17 @@ test("does not require sections the template marks optional", () => {
     rmSync(optional, { recursive: true, force: true });
   }
 });
+
+test("does not treat # lines inside fenced code as sections", () => {
+  const fenced = mkdtempSync(join(tmpdir(), "pr-template-fenced-"));
+  try {
+    mkdirSync(join(fenced, ".github"));
+    writeFileSync(
+      join(fenced, ".github/pull_request_template.md"),
+      "## Summary\n\n```sh\n# run tests\nbun test\n```\n\n~~~\n# also code\n~~~\n\n## Test plan\n",
+    );
+    expect(missingTemplateHeadings("gh pr create --draft --body '## Summary\nx'", fenced)).toEqual(["Test plan"]);
+  } finally {
+    rmSync(fenced, { recursive: true, force: true });
+  }
+});

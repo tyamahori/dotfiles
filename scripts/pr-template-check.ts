@@ -54,8 +54,15 @@ function bodyText(args: string[], command: string, cwd: string): string | undefi
 
 function requiredHeadings(template: string): string[] {
   const lines = template.split("\n");
+  let fence: string | undefined;
   return lines.flatMap((line, index) => {
-    if (!/^#{1,6}\s+\S/.test(line)) return [];
+    // A `# comment` inside a fenced shell snippet is not a section.
+    const marker = /^\s*(`{3,}|~{3,})/.exec(line)?.[1];
+    if (marker && (!fence || marker.startsWith(fence))) {
+      fence = fence ? undefined : marker;
+      return [];
+    }
+    if (fence || !/^#{1,6}\s+\S/.test(line)) return [];
     const next = lines.slice(index + 1).find((candidate) => candidate.trim() !== "");
     if (next?.trim() === OPTIONAL_MARKER) return [];
     return [line.replace(/^#+\s+/, "").trim()];
