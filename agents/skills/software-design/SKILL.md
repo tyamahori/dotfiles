@@ -151,7 +151,10 @@ repository:
 2. When the boundary is expensive to reverse and more than one shape is
    viable, sketch at least two structurally different ones (one function vs
    a stateful type, push vs pull), not two variants of one. Choose with the
-   gate questions above and record why the other lost: in the ADR's
+   gate questions above, except when the shapes differ in what a user or
+   caller can observe (layout, latency, interaction): then build a quick,
+   throwaway prototype of each and choose on recorded output (screenshot,
+   timing, read-back value). Record why the other lost: in the ADR's
    Alternatives when the decision warrants one, otherwise in the commit body.
    Otherwise sketch the neighbouring convention once.
 3. While filling in the bodies, scrap the sketch and redesign when any of
