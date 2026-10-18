@@ -28,11 +28,19 @@ pre-commit)
 	"$hook_dir/checks/pre-commit-sqruff" "$@"
 	;;
 pre-push)
-	"$hook_dir/checks/pre-push-base-freshness" "$@"
+	# The check and the repo hook both read git's ref list from stdin, so
+	# buffer it once (the x sentinel keeps trailing newlines) and replay it.
+	refs=$(
+		cat
+		echo x
+	)
+	refs=${refs%x}
+	"$hook_dir/checks/pre-push-base-freshness" "$@" < <(printf '%s' "$refs")
 	;;
 esac
 
 repo_hook="$(git rev-parse --git-common-dir)/hooks/$hook_name"
 if [[ -x $repo_hook ]]; then
-	exec "$repo_hook" "$@" # exec preserves stdin for pre-push / post-rewrite
+	[[ $hook_name == pre-push ]] && exec "$repo_hook" "$@" < <(printf '%s' "$refs")
+	exec "$repo_hook" "$@" # exec preserves stdin for post-rewrite
 fi
