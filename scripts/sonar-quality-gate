@@ -194,15 +194,14 @@ if [[ -n ${SONAR_TOKEN:-} ]]; then
 	valid_token "$SONAR_TOKEN" || fail "SONAR_TOKEN is not valid for $SONAR_HOST_URL"
 	token=$SONAR_TOKEN
 elif token=$(keychain_secret "$TOKEN_ACCOUNT" "$TOKEN_SERVICE") && managed_token_valid "$token"; then
-	:
+	ensure_project
 else
 	security delete-generic-password -a "$TOKEN_ACCOUNT" -s "$TOKEN_SERVICE" >/dev/null 2>&1 || true
 	if ! token=$(bootstrap_token); then
 		fail "could not bootstrap local SonarQube authentication"
 	fi
+	ensure_project
 fi
-
-ensure_project
 
 scanner_args=(
 	-Dsonar.qualitygate.wait=true
