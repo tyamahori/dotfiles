@@ -133,7 +133,7 @@ if [ -n "$FILE" ]; then
 else
   [ -z "$RETRY_TARGET" ] || die "--retry-target requires --file"
   if [ -z "$FROM" ]; then
-    FROM="$(herdr agent get "$HERDR_PANE_ID" 2>/dev/null | jq -r '.result.agent.name // empty')"
+    FROM="$(herdr agent get "$HERDR_PANE_ID" 2>/dev/null | jq -r '.result.agent.name // empty')" || true
     FROM="${FROM:-$HERDR_PANE_ID}"
   fi
   case "$TAG" in
@@ -225,7 +225,7 @@ deliver_target() {
         # 0.8.0 では稀 (herdr#1878 修正済み) だが、入力欄にテキストが残った場合の保険。
         herdr agent send-keys "$target" enter >/dev/null 2>&1 || true
         sleep 2
-        st="$(herdr agent get "$target" 2>/dev/null | jq -r '.result.agent.agent_status // empty')"
+        st="$(herdr agent get "$target" 2>/dev/null | jq -r '.result.agent.agent_status // empty')" || true
         if [ "$st" = working ]; then
           echo "sent=$ABS to=$target (stalled -> enter で着火)"
           return 0
@@ -246,7 +246,7 @@ deliver_target() {
   # settle を拾い、まだ書かれていない返信を「完了済み」と誤判定するレースになる。
   ignited=0
   for _ in 1 2 3 4 5 6 7 8 9 10; do
-    st="$(herdr agent get "$target" 2>/dev/null | jq -r '.result.agent.agent_status // empty')"
+    st="$(herdr agent get "$target" 2>/dev/null | jq -r '.result.agent.agent_status // empty')" || true
     if [ "$st" = working ]; then
       ignited=1
       break

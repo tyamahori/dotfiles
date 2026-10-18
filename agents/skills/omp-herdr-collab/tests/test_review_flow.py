@@ -1436,6 +1436,9 @@ class ReviewFlowTest(unittest.TestCase):
         herdr.write_text(
             "#!/bin/bash\n"
             "printf '%s\\n' \"$*\" >> \"$HERDR_LOG\"\n"
+            "if [ \"$1\" = agent ] && [ \"$2\" = get ] && [ \"${HERDR_FAIL_TARGET:-}\" = \"$3\" ]; then\n"
+            "  exit 1\n"
+            "fi\n"
             "if [ \"$1\" = agent ] && [ \"$2\" = wait ]; then\n"
             "  [ \"${HERDR_FAIL_TARGET:-}\" = \"$3\" ] && exit 1\n"
             "  printf '{}\\n'\n"
@@ -1502,6 +1505,18 @@ class ReviewFlowTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stdout, "closed=w9:p7\n")
             self.assertIn("pane close w9:p7", (root / "herdr.log").read_text(encoding="utf-8"))
+
+    def test_despawn_reports_unknown_agent_instead_of_exiting_silently(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            environment = self.fake_herdr_environment(root, failed_target="gone")
+            # The jq stub always prints "working"; the real jq yields nothing for empty input.
+            (root / "bin" / "jq").unlink()
+            result = self.invoke_despawn("gone", environment)
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("no live agent for: gone", result.stderr)
+            self.assertNotIn("pane close", (root / "herdr.log").read_text(encoding="utf-8"))
 
     def test_send_fans_out_one_ledger_file_to_both_reviewers(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

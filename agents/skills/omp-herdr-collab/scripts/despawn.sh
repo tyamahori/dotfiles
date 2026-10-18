@@ -10,7 +10,8 @@ T="${1:?usage: despawn.sh <target>}"
 if [[ "$T" =~ ^w[0-9]+:p[0-9]+$ ]]; then
   PANE="$T"
 else
-  PANE="$(herdr agent get "$T" 2>/dev/null | jq -r '.result.agent.pane_id // empty')"
+  # pipefail: agent get exits 1 for an unknown/exited agent; fall through to the message below.
+  PANE="$(herdr agent get "$T" 2>/dev/null | jq -r '.result.agent.pane_id // empty')" || true
 fi
 [ -n "$PANE" ] || {
   echo "despawn.sh: no live agent for: $T; if it already exited, pass the pane_id returned by spawn.sh" >&2
