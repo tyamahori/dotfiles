@@ -163,6 +163,11 @@ _INLINE_CODE_SPAN_RE = re.compile(r"``(?:[^`\n]|`(?!`))+``|`[^`\n]+`")
 _MARKDOWN_LINK_URL_RE = re.compile(r"(\]\()([^)]*)(\))")
 
 
+def _code_span_end(line: str, pos: int, start: int) -> int | None:
+    """line[start] が pos 以降のインラインコードスパン内にあれば、そのスパンの終端を返す。"""
+    return next((m.end() for m in _INLINE_CODE_SPAN_RE.finditer(line, pos) if m.start() <= start < m.end()), None)
+
+
 def _mask_html_comments_in_line(line: str, in_comment: bool) -> tuple[str, bool]:
     """行内の HTML コメント（`<!-- ... -->`）を同じ長さの空白に置換する。
 
@@ -189,9 +194,15 @@ def _mask_html_comments_in_line(line: str, in_comment: bool) -> tuple[str, bool]
                 in_comment = False
         else:
             start = line.find("<!--", i)
+            # `<!--` を説明するインラインコード（例: `<!--`）はコメントの開始ではない。
+            # 開始とみなすと閉じタグが無いまま文書末尾まで空白化してしまう。
+            span_end = _code_span_end(line, i, start)
             if start == -1:
                 out.append(line[i:])
                 i = n
+            elif span_end is not None:
+                out.append(line[i:span_end])
+                i = span_end
             else:
                 out.append(line[i:start])
                 i = start
@@ -377,8 +388,12 @@ def split_sentences_with_lines(
         for s, e in bounds:
             piece = line[s:e]
             if piece.strip():
-                raw_piece = raw_line[s:e] if len(raw_line) >= e else piece
-                sentences.append((no, piece.strip(), raw_piece.strip()))
+                # 文頭はマスク済み側と同じ幅だけ原文を切り詰める。別々に strip すると、
+                # 文頭のインラインコード（マスク側では空白）の分だけ原文側だけが長く残り、
+                # マスク済みテキスト上のオフセットを原文に当てたときにずれる。
+                lead = len(piece) - len(piece.lstrip())
+                raw_piece = raw_line[s + lead : e].rstrip() if len(raw_line) >= e else piece.strip()
+                sentences.append((no, piece.strip(), raw_piece))
     return sentences
 
 
@@ -425,6 +440,8 @@ def read_source_file(path: Path) -> tuple[str | None, str | None]:
     if path.is_dir():
         return None, f"エラー: ディレクトリが指定されました（ファイルを指定してください）: {path}"
     try:
-        return path.read_text(encoding="utf-8"), None
+        # BOM 付き UTF-8 も BOM 無しと同じに扱う（BOM が残ると先頭行の
+        # フロントマター `---` や見出し `#` を認識できない）。
+        return path.read_text(encoding="utf-8-sig"), None
     except (OSError, UnicodeDecodeError) as exc:
         return None, f"エラー: ファイルを読み込めません: {path} ({exc})"
