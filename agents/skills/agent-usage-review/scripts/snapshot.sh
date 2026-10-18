@@ -402,10 +402,11 @@ else
 			WHERE timestamp >= $CUTOFF_MS;
 		" 2>/dev/null
 	)"
-	if [ -n "$OMP_LATEST_EVENT" ] && [ -n "$OMP_LATEST_DB" ] &&
-		[ "$OMP_LATEST_EVENT" -gt $((OMP_LATEST_DB / 1000 + 3600)) ]; then
+	# クエリ失敗（テーブル欠落など）で OMP_LATEST_DB が空でも、JSONLイベントがあるなら鮮度は確認できていない。
+	if [ -n "$OMP_LATEST_EVENT" ] && { [ -z "$OMP_LATEST_DB" ] ||
+		[ "$OMP_LATEST_EVENT" -gt $((OMP_LATEST_DB / 1000 + 3600)) ]; }; then
 		OMP_STATS_USABLE=0
-		echo "- stats freshness: **失敗**（当期間のJSONLイベントがDBより1時間以上新しいため、stats.db は照会しない）。"
+		echo "- stats freshness: **失敗**（当期間のJSONLイベントがDBより1時間以上新しい、またはDBを照会できないため、stats.db は照会しない）。"
 	elif [ -z "$OMP_LATEST_EVENT" ]; then
 		echo "- stats freshness: 当期間のmodel/tool JSONLイベントなし（休止期間のため判定対象外）。"
 	else

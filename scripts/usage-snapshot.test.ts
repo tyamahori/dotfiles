@@ -134,3 +134,39 @@ test("snapshot counts days spanned by human input in local time, not UTC", () =>
     rmSync(home, { recursive: true, force: true });
   }
 }, 60_000);
+
+test("snapshot reports a failed stats freshness check when stats.db cannot be queried", () => {
+  const scratch = resolve(root, ".agent-msgs/scratch");
+  mkdirSync(scratch, { recursive: true });
+  const home = mkdtempSync(resolve(scratch, "usage-snapshot-"));
+  const now = new Date().toISOString();
+  const sessions = resolve(home, ".omp/agent/sessions");
+  mkdirSync(sessions, { recursive: true });
+  writeFileSync(
+    resolve(sessions, "s.jsonl"),
+    JSON.stringify({ type: "message", timestamp: now, message: { role: "assistant", content: [{ type: "text", text: "hi" }] } }) + "\n",
+  );
+  // The freshness query reads tool_calls too; a DB without it makes sqlite3 fail.
+  const db = resolve(home, ".omp/stats.db");
+  const created = spawnSync("sqlite3", [db, "CREATE TABLE messages (timestamp INTEGER);"]);
+  expect(created.status).toBe(0);
+
+  const bin = resolve(home, "bin");
+  mkdirSync(bin);
+  symlinkSync(Bun.which("jq")!, resolve(bin, "jq"));
+  const omp = resolve(bin, "omp");
+  writeFileSync(omp, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+
+  try {
+    const run = spawnSync(Bun.which("bash")!, [snapshot, "--days", "7"], {
+      env: { HOME: home, PATH: `${bin}:/usr/bin:/bin`, LC_ALL: "C" },
+      encoding: "utf8",
+    });
+    expect(run.status).toBe(0);
+    const line = run.stdout.split("\n").find((l) => l.startsWith("- stats freshness:"))!;
+    expect(line).toContain("失敗");
+    expect(run.stdout).toContain("OMP stats:** 取得不能");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+}, 60_000);
