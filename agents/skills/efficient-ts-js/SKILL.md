@@ -52,7 +52,8 @@ These APIs are for programs being built, not substitutes for harness tools.
   fails to compile. Derive types from the schema or an existing type instead
   of restating them; use `satisfies` to check a literal without widening it.
   Narrow by control flow (`switch`, `in`, `typeof`/`instanceof`, a type
-  guard) before reaching for `as`.
+  guard) before reaching for `as`. A type guard checks every field its name
+  claims; a guard that lies is worse than `as`, because the name says safe.
 - HTTP in a real script: native `fetch`, a finite `AbortSignal.timeout(...)`,
   `response.ok`, then payload validation. HTTP errors do not reject fetch.
 - Subprocesses: argv-based `execFileSync` for short bounded calls, or the
