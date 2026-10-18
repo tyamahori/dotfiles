@@ -50,7 +50,9 @@ for name in "${skills[@]}"; do
 	recorded=$(jq -r '.commit // ""' "$marker")
 
 	# ls-remote costs one round trip and no clone; enough for --check.
-	head=$(git ls-remote "$repo" HEAD | cut -f1)
+	# Under pipefail a failed ls-remote would kill the script with git's exit
+	# code before the exit-2 report below; keep it to that report.
+	head=$(git ls-remote "$repo" HEAD | cut -f1) || head=
 	if [ -z "$head" ]; then
 		echo "skill-sync: $name: could not read HEAD of $repo" >&2
 		exit 2
