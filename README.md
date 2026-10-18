@@ -458,8 +458,9 @@ wire them through `claude/settings.json` / `codex/hooks.json`; OMP uses
 extensions in `omp/extensions/`:
 
 - **command substitution guard** — `agents/command-rules.json` declares
-  client-specific rules. All three runtimes use `scripts/command-policy.ts`;
-  Claude/Codex invoke `scripts/deny-command-hook.ts` with Bun, and OMP loads
+  client-specific rules. All runtimes use `scripts/command-policy.ts`;
+  Claude/Codex/Copilot CLI invoke `scripts/deny-command-hook.ts` with Bun
+  (Copilot through `copilot/hooks/dotfiles.json`, sharing Codex's rules), and OMP loads
   `omp/extensions/deny-commands.ts`. The guard redirects bare Python to uv,
   simple curl web fetches to ax, and `brew upgrade` to `scripts/brewUpdate`
   only when the replacement executable is available. Shell read/search

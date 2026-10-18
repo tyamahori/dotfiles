@@ -205,6 +205,11 @@ for agent_target in \
 	ln -snfv "${AGENTS_DIR}/global-instructions.md" "$agent_target"
 done
 
+# Copilot CLI loads every ~/.copilot/hooks/*.json at startup; inline hooks in
+# ~/.copilot/settings.json are not used, so the repo file is linked in there.
+mkdir -p "$HOME/.copilot/hooks"
+ln -snfv "${REPO_ROOT}/copilot/hooks/dotfiles.json" "$HOME/.copilot/hooks/dotfiles.json"
+
 # local command-line entry points
 mkdir -p "$HOME/.local/bin"
 ln -snfv "${REPO_ROOT}/scripts/codex-notify" "$HOME/.local/bin/codex-notify"

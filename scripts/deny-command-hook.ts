@@ -22,26 +22,41 @@ function toolCommand(toolInput: unknown): string | undefined {
   return command;
 }
 
-export function denyCommandHook(client: "claude" | "codex", payload: string) {
+type HookClient = "claude" | "codex" | "copilot";
+
+// Copilot CLI sends camelCase toolName/toolArgs for every tool (no matcher),
+// and a non-zero exit denies the call, so only its shell tool is inspected.
+function copilotShellArgs(input: Record<string, unknown>): unknown {
+  if (input.toolName !== "bash") return undefined;
+  return typeof input.toolArgs === "string" ? JSON.parse(input.toolArgs) : input.toolArgs;
+}
+
+function commandReason(command: string, client: HookClient, cwd: unknown): string | undefined {
+  // Copilot is a shell-only agent like Codex; it shares Codex's rule set and wording.
+  const reason = denyCommand(command, client === "copilot" ? "codex" : client);
+  if (reason) return reason;
+  const missing = missingTemplateHeadings(command, typeof cwd === "string" ? cwd : process.cwd());
+  return missing.length > 0 ? templateReason(missing) : undefined;
+}
+
+export function denyCommandHook(client: HookClient, payload: string) {
   const input: unknown = JSON.parse(payload);
   if (!isPlainObject(input)) {
     throw new Error("hook input must be a JSON object");
   }
 
-  const toolInput = input.tool_input;
+  const toolInput = client === "copilot" ? copilotShellArgs(input) : input.tool_input;
   const command = toolCommand(toolInput);
 
   let reason: string | undefined;
   if (typeof command === "string") {
-    reason = denyCommand(command, client);
-    if (!reason) {
-      const missing = missingTemplateHeadings(command, typeof input.cwd === "string" ? input.cwd : process.cwd());
-      if (missing.length > 0) reason = templateReason(missing);
-    }
+    reason = commandReason(command, client, input.cwd);
   } else if (typeof input.tool_name === "string") {
     reason = slackNoticeViolation(input.tool_name, toolInput);
   }
   if (!reason) return;
+  // Copilot CLI reads the decision at the top level, not under hookSpecificOutput.
+  if (client === "copilot") return { permissionDecision: "deny", permissionDecisionReason: reason };
   return {
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
@@ -53,8 +68,8 @@ export function denyCommandHook(client: "claude" | "codex", payload: string) {
 
 if (import.meta.main) {
   const client = process.argv[2];
-  if (client !== "claude" && client !== "codex") {
-    throw new Error("usage: deny-command-hook.ts <claude|codex>");
+  if (client !== "claude" && client !== "codex" && client !== "copilot") {
+    throw new Error("usage: deny-command-hook.ts <claude|codex|copilot>");
   }
   const response = denyCommandHook(client, await Bun.stdin.text());
   if (response) console.log(JSON.stringify(response));

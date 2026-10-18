@@ -32,6 +32,16 @@ test("allowed commands and events without a command emit no permission decision"
   expect(denyCommandHook("codex", '{"tool_input":{}}')).toBeUndefined();
 });
 
+test("Copilot CLI shell calls get Codex's rules with a top-level decision; other tools pass", () => {
+  // Shape captured from copilot 1.0.91 preToolUse; the docs describe toolArgs as a JSON string.
+  const copilot = (toolName: string, toolArgs: unknown) =>
+    denyCommandHook("copilot", JSON.stringify({ cwd: "/tmp", toolName, toolArgs }));
+  expect(copilot("bash", { command: "python3 app.py", description: "run" })).toMatchObject({ permissionDecision: "deny" });
+  expect(copilot("bash", JSON.stringify({ command: "sleep 30" }))?.permissionDecisionReason).toContain("in one command");
+  expect(copilot("bash", { command: "cat file.txt" })).toBeUndefined();
+  expect(copilot("view", { path: "/tmp/.env", command: "python3 app.py" })).toBeUndefined();
+});
+
 test("malformed hook envelopes fail instead of becoming silent approvals", () => {
   for (const input of ["{", "null", "[]", '{"tool_input":null}', '{"tool_input":[]}', '{"tool_input":{"command":42}}']) {
     expect(() => denyCommandHook("codex", input)).toThrow();

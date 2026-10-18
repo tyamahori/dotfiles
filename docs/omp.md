@@ -569,7 +569,8 @@ Python/Node の一行スクリプトがファイルを直接開く、絶対パ�
 
 三 CLI 共通のルール表は `agents/command-rules.json` です。
 Claude Code と Codex は `scripts/deny-command-hook.ts`、OMP は `omp/extensions/deny-commands.ts` を通じて、同じ `scripts/command-policy.ts` の判定を使います。
-Claude Code と Codex のフック実行には、`scripts/devbox` で導入する Bun が必要です。
+Copilot CLI も `scripts/link` が `~/.copilot/hooks/dotfiles.json` に置く preToolUse フックから同じスクリプトを呼び、Codex 向けのルールと文面を使います。
+Claude Code・Codex・Copilot CLI のフック実行には、`scripts/devbox` で導入する Bun が必要です。
 
 | 対象 | 代替手段 | 適用する CLI |
 | --- | --- | --- |
