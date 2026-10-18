@@ -169,6 +169,16 @@ test(".env-style credential files are blocked across cat/head/tail/tee, not near
   expect(denyCommand("cat README.md", "codex")).toBeUndefined();
 });
 
+test("a glob the shell would expand to a .env-style name is blocked too", () => {
+  which.mockReturnValue("/available/replacement");
+  for (const command of ["head .env*", "cat .e?v", "cat config/.[e]nv.local", "tail -n 5 *.ENV", "cat .{env,x}"]) {
+    expect(denyCommand(command, "codex")).toBeDefined();
+  }
+  for (const command of ["cat *.md", "head -n 3 src/*.ts", "cat .github/*.yml"]) {
+    expect(denyCommand(command, "codex")).toBeUndefined();
+  }
+});
+
 test("grep/awk on .env stay outside this rule; the pattern argument would false-positive", () => {
   which.mockReturnValue("/available/replacement");
   expect(denyCommand("grep KEY .env", "codex")).toBeUndefined();

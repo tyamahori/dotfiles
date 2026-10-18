@@ -7,6 +7,10 @@ type CommandMatch = {
   subcommand?: string;
   nextArgPattern?: string;
   anyArgPattern?: string;
+  // The shell expands a glob operand (`.env*`, `.e?v`) before the command
+  // runs, so one that could match any of these names also counts as an
+  // anyArgPattern hit.
+  anyArgGlobSamples?: string[];
   noArgPattern?: string;
   // Exempt the command when every operand after the first `skipOperands`
   // (e.g. grep's search pattern) matches. Unlike noArgPattern, one allowed
@@ -416,6 +420,13 @@ function outputIsRead(next: Segment | undefined): boolean {
   return !next?.followsPipe || PAGE_READERS.has(next.words[commandIndex(next.words)]);
 }
 
+function globMatchesSample(word: string, samples: string[] | undefined): boolean {
+  const base = word.slice(word.lastIndexOf("/") + 1).toLowerCase();
+  if (!samples || !/[*?[{]/.test(base)) return false;
+  const glob = new Bun.Glob(base);
+  return samples.some((name) => glob.match(name));
+}
+
 /** Returns the client-specific denial reason, or undefined when the command is allowed. */
 export function denyCommand(command: string, client: Client): string | undefined {
   const parsed = segments(command);
@@ -435,7 +446,7 @@ export function denyCommand(command: string, client: Client): string | undefined
         match.executables.includes(words[index]) &&
         (!match.subcommand || subcommandMatches(words, index, match.subcommand)) &&
         (!match.nextArgPattern || match.nextArgPattern.test(words[index + 1] ?? "")) &&
-        (!match.anyArgPattern || words.slice(index + 1).some((word) => match.anyArgPattern!.test(word))) &&
+        (!match.anyArgPattern || words.slice(index + 1).some((word) => match.anyArgPattern!.test(word) || globMatchesSample(word, match.anyArgGlobSamples))) &&
         (!match.noArgPattern || !words.slice(index + 1).some((word) => match.noArgPattern!.test(word))) &&
         (!match.operandPattern || !operandsMatch(words.slice(index + 1), match)) &&
         (!match.requireNoRedirection || !redirected) &&

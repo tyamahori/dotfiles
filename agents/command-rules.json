@@ -71,7 +71,8 @@
       "commands": [
         {
           "executables": ["cat", "head", "tail", "less", "more", "strings", "od", "xxd", "base64", "tee"],
-          "anyArgPattern": "(?:^|/)(?:\\.[eE][nN][vV](?:\\..+)?|[^/]*\\.[eE][nN][vV])$"
+          "anyArgPattern": "(?:^|/)(?:\\.[eE][nN][vV](?:\\..+)?|[^/]*\\.[eE][nN][vV])$",
+          "anyArgGlobSamples": [".env", ".env.local", "x.env"]
         }
       ],
       "clients": ["claude", "codex", "omp"],
