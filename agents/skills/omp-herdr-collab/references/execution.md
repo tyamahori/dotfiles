@@ -79,6 +79,7 @@ $S/despawn.sh w1:p2
 - REVIEW-REQ 配送直後に scaffold を実行すれば、ピアが briefing と revision を
   読んでいる間に skeleton が return-directory に届く。厳密に先置きしたければ
   `--record-only` で REVIEW-REQ を記録 → scaffold → `--file` で配送する。
+  scaffold は既存ファイルを上書きせず失敗する（ピアが先に書き始めていた場合）。
 
 ## 検証とメッセージ規約
 

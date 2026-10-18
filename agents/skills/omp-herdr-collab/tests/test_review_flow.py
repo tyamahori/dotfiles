@@ -618,6 +618,10 @@ class ReviewFlowTest(unittest.TestCase):
                 "count: TODO\n"
                 "pre-existing: TODO\n",
             )
+            output.write_text("[FINDINGS] work in progress\n", encoding="utf-8")
+            again = self.invoke("scaffold", "--dir", str(directory), "--tag", "findings", "--out", str(output))
+            self.assertNotEqual(again.returncode, 0)
+            self.assertEqual(output.read_text(encoding="utf-8"), "[FINDINGS] work in progress\n")
             request.write_text(
                 request.read_text(encoding="utf-8") + "return-mode: artifact-import\nreturn-directory: " + str(directory / "returns") + "\n",
                 encoding="utf-8",

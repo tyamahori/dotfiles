@@ -1204,7 +1204,12 @@ def command_scaffold(directory_value: str, tag: str, reviewer: str | None, outpu
         title, fields = "[VERIFIED] TODO", scaffold_verified_fields(messages, request, panel, reviewer)
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join([title, *(f"{key}: {value}" for key, value in fields), ""]), encoding="utf-8")
+    # The peer may already be filling this file (scaffold runs right after REVIEW-REQ delivery).
+    try:
+        with path.open("x", encoding="utf-8") as handle:
+            handle.write("\n".join([title, *(f"{key}: {value}" for key, value in fields), ""]))
+    except FileExistsError:
+        fail(f"{path} already exists; remove it or pass --out to scaffold elsewhere")
     print(path)
     return 0
 
