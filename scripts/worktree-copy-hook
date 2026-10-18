@@ -19,8 +19,14 @@ copy="$HOME/dotfiles/scripts/worktree-include-copy"
 [ -x "$copy" ] || exit 0
 
 # `git -C <path> worktree add ...` acts on <path>, not on the hook cwd.
-base=$(printf '%s\n' "$cmd" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+"?([^" ]+)"?.*/\1/p' | head -1)
-[ -n "$base" ] || base="$cwd"
+re_single="git[[:space:]]+-C[[:space:]]+'([^']*)'"
+re_double='git[[:space:]]+-C[[:space:]]+"([^"]*)"'
+re_bare='git[[:space:]]+-C[[:space:]]+([^[:space:];&|]+)'
+if [[ $cmd =~ $re_single || $cmd =~ $re_double || $cmd =~ $re_bare ]]; then
+	base=${BASH_REMATCH[1]}
+else
+	base="$cwd"
+fi
 case "$base" in
 	/*) ;;
 	*) base="$cwd/$base" ;;
