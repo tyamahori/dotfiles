@@ -8,6 +8,8 @@ type UnknownRecord = Record<string, unknown>;
 type ToolEvent = {
   toolName?: unknown;
   input?: unknown;
+  content?: unknown;
+  details?: unknown;
   isError?: unknown;
 };
 
@@ -24,7 +26,7 @@ const GIT_OR_SSH = /(^|[^A-Za-z0-9_])(git|ssh)([^A-Za-z0-9_]|$)/;
 
 export default function (pi: ExtensionHandlerApi): void {
   pi.on("tool_result", (event) => {
-    if (event.toolName !== "bash") return;
+    if (event.toolName !== "bash" || event.isError !== true) return;
     const record =
       event.input !== null && typeof event.input === "object"
         ? (event.input as UnknownRecord)
@@ -32,12 +34,12 @@ export default function (pi: ExtensionHandlerApi): void {
     const command =
       typeof record?.command === "string" ? record.command : "";
     if (!GIT_OR_SSH.test(command)) return;
-    // 結果ペイロードの形はランタイム都合で揺れるため、イベント全体を
-    // 文字列化してシグネチャを探す。コマンド文字列自体がシグネチャを含む
-    // ことは実質ない。
+    // 結果ペイロードの形はランタイム都合で揺れるため、結果側(content/details)を
+    // まるごと文字列化してシグネチャを探す。input はコマンド文字列そのもので、
+    // シグネチャを grep する成功コマンドまで拾ってしまうので含めない。
     let serialized: string;
     try {
-      serialized = JSON.stringify(event) ?? "";
+      serialized = JSON.stringify([event.content, event.details]) ?? "";
     } catch {
       return;
     }

@@ -1,0 +1,27 @@
+import { expect, test } from "bun:test";
+import sshAgentHint from "../extensions/ssh-agent-hint";
+
+function steersFor(event: Record<string, unknown>): number {
+  let handler: ((event: unknown) => void) | undefined;
+  let steers = 0;
+  sshAgentHint({
+    on: (_name, fn) => {
+      handler = fn as (event: unknown) => void;
+    },
+    sendUserMessage: () => {
+      steers++;
+    },
+  });
+  handler?.({ toolName: "bash", ...event });
+  return steers;
+}
+
+const locked = [{ type: "text", text: "sign_and_send_pubkey: communication with agent failed\nfatal: Could not read from remote repository." }];
+
+test.each([
+  ["steers on a failed push whose output names the agent failure", { input: { command: "git push" }, content: locked, isError: true }, 1],
+  ["stays quiet on a successful search for the signature text", { input: { command: "git grep 'communication with agent failed'" }, content: locked, isError: false }, 0],
+  ["stays quiet when only the failed command's own text has the signature", { input: { command: "git grep 'communication with agent failed'" }, content: [{ type: "text", text: "" }], isError: true }, 0],
+])("%s", (_name, event, expected) => {
+  expect(steersFor(event)).toBe(expected);
+});
