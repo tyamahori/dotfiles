@@ -37,8 +37,15 @@ compact)
 resume)
 	transcript=$(jq -r '.transcript_path // empty' <<<"$payload")
 	[ -n "$transcript" ] && [ -f "$transcript" ] || exit 0
-	mtime=$(stat -f %m "$transcript" 2>/dev/null || stat -c %Y "$transcript" 2>/dev/null) || exit 0
-	size=$(stat -f %z "$transcript" 2>/dev/null || stat -c %s "$transcript" 2>/dev/null) || size=0
+	# GNU stat -f means --file-system and still prints to stdout, so an
+	# `stat -f || stat -c` chain would concatenate both outputs on Linux.
+	if [ "$(uname)" = Darwin ]; then
+		mtime=$(stat -f %m "$transcript") || exit 0
+		size=$(stat -f %z "$transcript") || size=0
+	else
+		mtime=$(stat -c %Y "$transcript") || exit 0
+		size=$(stat -c %s "$transcript") || size=0
+	fi
 	now=$(date +%s)
 	idle=$((now - mtime))
 	last_day=$(date -r "$mtime" +%Y-%m-%d 2>/dev/null || date -d "@$mtime" +%Y-%m-%d)
