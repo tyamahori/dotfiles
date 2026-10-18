@@ -58,7 +58,10 @@ fi
 # Never fail the hook itself; findings go back via decision:block.
 findings=
 case "$linter" in
-  shellcheck) findings=$(shellcheck --format=gcc "$file" 2>&1 | head -c 4000) || true ;;
+  # SC2016 ($ in single quotes) fires on intended jq/awk programs, and SC1091
+  # (unfollowed source) is an environment note, not a defect in the edit; both
+  # recurred across sessions with no fix to make.
+  shellcheck) findings=$(shellcheck --format=gcc -e SC2016,SC1091 "$file" 2>&1 | head -c 4000) || true ;;
   jq)
     findings=$(jq empty "$file" 2>&1 | head -c 4000) || true
     if [ -z "$findings" ] && [ "$json_format" = canonical ]; then
