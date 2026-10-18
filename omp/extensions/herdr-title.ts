@@ -17,7 +17,9 @@ type ExtensionHandlerApi = {
 };
 
 export default function (pi: ExtensionHandlerApi): void {
-  if (process.env.HERDR_ENV !== "1" || !paneId) return;
+  // A nested `omp` run from a parent session's shell (OMPCODE=1) shares the
+  // pane; its prompts would overwrite the parent's title.
+  if (process.env.HERDR_ENV !== "1" || !paneId || process.env.OMPCODE === "1") return;
 
   // `input` fires only for interactive input, and only the root session
   // owns the pane title; headless/subagent sessions (hasUI false) stay out.
