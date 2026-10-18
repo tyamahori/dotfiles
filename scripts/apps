@@ -37,7 +37,6 @@ if [ ! -f "$claude_list" ]; then
 	fi
 	echo "deb [signed-by=$claude_key] https://downloads.claude.ai/claude-code/apt/latest latest main" |
 		sudo tee "$claude_list" >/dev/null
-	sudo apt-get update
 fi
 
 # Docker CE from Docker's signed apt repo, not the snap: the snap's AppArmor
@@ -69,7 +68,6 @@ Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
 Components: stable
 Signed-By: $docker_key
 EOF
-	sudo apt-get update
 fi
 # ghostty from the Ubuntu archive: it links the host mesa, so it renders
 # without the LD_LIBRARY_PATH wrapper nixpkgs' build needed (which leaked into
@@ -84,15 +82,19 @@ missing=()
 for pkg in "${pkgs[@]}"; do
 	dpkg -s "$pkg" >/dev/null 2>&1 || missing+=("$pkg")
 done
+# Update here, not when a list is added: a failed update after writing the
+# list would leave the rerun skipping it and failing on "Unable to locate package".
 if [ ${#missing[@]} -gt 0 ]; then
+	sudo apt-get update
 	sudo apt-get install -y "${missing[@]}"
 fi
 if ! systemctl is-enabled --quiet docker || ! systemctl is-active --quiet docker; then
 	sudo systemctl enable --now docker
 fi
 # Group membership applies from the next login (or `newgrp docker`).
-if ! id -nG "$USER" | grep -qw docker; then
-	sudo usermod -aG docker "$USER"
+user="${USER:-$(id -un)}"
+if ! id -nG "$user" | grep -qw docker; then
+	sudo usermod -aG docker "$user"
 fi
 
 # OMP's only Linux layer is the upstream binary in ~/.local/bin, updated by
