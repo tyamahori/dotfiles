@@ -40,6 +40,7 @@ ts	phase	decision	why	evidence	result
 - 追記のみ。誤った判断は消さず、それを上書きする新しい行を足す。
 - 別のセッションが同じログの続きを書くときは、最初の行の `phase` を `start` にし、`evidence` に自分のセッション ID を書く。`start` はほかの意味に使わない。
 - 根拠は、使い捨てのコマンドより commit 済みのスクリプトの出力を優先する。
+- 途中で止めるときは、未コミットの変更を作業ブランチに `wip:` コミットとして残す（本文に止めた地点と理由を書く。commit-msg hook は本文のない commit を通さない）か、残せない理由を handoff メモに書く。メモには、ディスクにあるもの（コミット、ファイル、このログ）と、自分の頭の中にしかないもの（次の一手、疑っている仮説）を分けて書く。続きを引き受けた側は、前任が済みとした項目を git log とテストで確かめてから進める。
 
 ## 終了前の監査
 
@@ -51,6 +52,8 @@ ts	phase	decision	why	evidence	result
 
 直すのはログであって、話の筋ではない。監査でも行を編集・削除せず、正しい内容の行を足して上書きする。
 
+複数の単位（ファイル、PR、検証対象）の結果を報告するときは、単位ごとに pass・fail・空欄で数える。証拠のない単位は一度だけやり直し、それでも証拠が出なければ空欄として報告する。空欄を pass に数えない。
+
 ## 別モデル系統のレビュー
 
 作業したのと別のモデル系統に、ログと transcript を読ませる。自己レビューでは代わりにならない。やり直しではなく、ユーザーが注意すべき点を拾わせる。OMP では `task` の `model` に別系統を指定し（Claude が作業したなら Codex 系）、ほかのホストからは `omp-herdr-collab` で渡す。
@@ -60,6 +63,8 @@ ts	phase	decision	why	evidence	result
 - 振り返ると危うい判断（早すぎる、スコープが膨らんでいる、症状を覆っている）
 - ざっと読んだだけでは見落とす点
 
-この skill を使った作業の最終報告は「Attention」節で終える。最初の行に `reviewed by <model>`、続けて指摘ごとに該当行や場面を指す。指摘がなければ「No flags」と書く。
+この skill を使った作業の最終報告は、ユーザーの判断待ちから始める。項目ごとに、決めること、選択肢と推奨、根拠の指し先を一つ書き、取り返しのつかないものを先に並べる。判断待ちがなければ「判断待ちなし」と書く。
 
-出典: poteto の pstack（`cursor/plugins`）の [`show-me-your-work`](https://github.com/cursor/plugins/tree/main/pstack/skills/show-me-your-work) を、この環境の `.agent-msgs/` と OMP・Herdr のレビュー経路に合わせた。
+最終報告は「Attention」節で終える。最初の行に `reviewed by <model>`、続けて指摘ごとに該当行や場面を指す。指摘がなければ「No flags」と書く。
+
+出典: poteto の pstack（`cursor/plugins`）の [`show-me-your-work`](https://github.com/cursor/plugins/tree/main/pstack/skills/show-me-your-work) を、この環境の `.agent-msgs/` と OMP・Herdr のレビュー経路に合わせた。中断と再開は `pause-safely`・`session-pickup` playbook、単位ごとの数え方は `swarm`、判断待ちから始める報告は `ketchup` から取った。
