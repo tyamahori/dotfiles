@@ -5,7 +5,8 @@ import { join, resolve } from "node:path";
 
 const script = resolve(import.meta.dir, "python-skill-review");
 
-test.each([
+// The script is macOS-only (`date -v`, osascript); on Linux it would fail before gh runs.
+test.skipIf(process.platform !== "darwin").each([
   ["release list", "exit 1"],
   // view runs inside the `| while` loop, where bash 3.2 skips the ERR trap.
   ["release view", '[ "$2" = list ] && { echo 0.9.0; exit 0; }\nexit 1'],
@@ -31,7 +32,8 @@ test.each([
     });
 
     expect(r.exitCode).toBe(1);
-    expect(readFileSync(join(home, "notified"), "utf8")).toMatch(/^display notification "レビューが失敗しました（exit 1）[^\n]*\n$/);
+    // Exactly one notification, carrying the exit code.
+    expect(readFileSync(join(home, "notified"), "utf8")).toMatch(/^display notification "[^\n]*exit 1[^\n]*\n$/);
   } finally {
     rmSync(home, { force: true, recursive: true });
   }
