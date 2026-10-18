@@ -5,11 +5,6 @@
 # devcontainer) are skipped; one commit escapes with --no-verify.
 set -euo pipefail
 
-if ! command -v jq >/dev/null; then
-	echo "pre-commit: jq is required to validate staged JSON." >&2
-	exit 1
-fi
-
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
 failed=0
@@ -24,6 +19,11 @@ while IFS= read -r -d '' file; do
 	esac
 	# A staged symlink's blob is its target path, not JSON.
 	[[ $(git ls-files -s -- "$file") == 120000\ * ]] && continue
+	# Checked here, not up front: a commit without JSON must not need jq.
+	if ! command -v jq >/dev/null; then
+		echo "pre-commit: jq is required to validate staged JSON." >&2
+		exit 1
+	fi
 	git show ":$file" >"$staged"
 	if ! err=$(jq empty "$staged" 2>&1); then
 		printf '%s\n' "$err" >&2

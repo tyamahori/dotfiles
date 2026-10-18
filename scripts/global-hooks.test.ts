@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -28,6 +28,19 @@ test("commit-msg-why reads a body on a last line without a trailing newline", ()
   expect(sh(dir, `${checks}/commit-msg-why msg`).status).toBe(0);
   writeFileSync(join(dir, "msg"), "subject");
   expect(sh(dir, `${checks}/commit-msg-why msg`).status).toBe(1);
+});
+
+test("pre-commit-json needs jq only when JSON is staged", () => {
+  dir = mkdtempSync(join(tmpdir(), "global-hooks-"));
+  const bin = join(dir, "bin");
+  mkdirSync(bin);
+  for (const tool of ["git", "mktemp", "rm"]) symlinkSync(Bun.which(tool)!, join(bin, tool));
+  sh(dir, "git init -q && echo hi > plain.txt && git add plain.txt");
+  expect(sh(dir, `${checks}/pre-commit-json`, { PATH: bin }).status).toBe(0);
+  sh(dir, "echo '{}' > a.json && git add a.json");
+  const blocked = sh(dir, `${checks}/pre-commit-json`, { PATH: bin });
+  expect(blocked.out).toContain("jq is required");
+  expect(blocked.status).toBe(1);
 });
 
 test("pre-push-base-freshness blocks a stale fork in a single-branch clone", () => {
