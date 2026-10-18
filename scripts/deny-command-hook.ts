@@ -1,3 +1,4 @@
+import { isEnvPath } from "../omp/extensions/deny-env-reads.ts";
 import { denyCommand } from "./command-policy.ts";
 import { missingTemplateHeadings, templateReason } from "./pr-template-check.ts";
 import { slackNoticeViolation } from "./slack-notice.ts";
@@ -24,11 +25,26 @@ function toolCommand(toolInput: unknown): string | undefined {
 
 type HookClient = "claude" | "codex" | "copilot";
 
-// Copilot CLI sends camelCase toolName/toolArgs for every tool (no matcher),
-// and a non-zero exit denies the call, so only its shell tool is inspected.
-function copilotShellArgs(input: Record<string, unknown>): unknown {
-  if (input.toolName !== "bash") return undefined;
-  return typeof input.toolArgs === "string" ? JSON.parse(input.toolArgs) : input.toolArgs;
+const COPILOT_READ_TOOLS = new Set(["view", "grep", "rg"]);
+const COPILOT_ENV_READ_REASON =
+  "`.env`-style credential files are blocked from the view/grep tools. These files hold plaintext secrets — don't load one into context unless the user explicitly asked you to inspect that exact file.";
+
+// Mirrors omp/extensions/deny-env-reads.ts for Copilot's native readers. grep
+// can reach an .env file through a directory in `paths` plus a `glob` filter
+// (captured from copilot 1.0.91). A glob can name the file through
+// alternatives or classes (`{.env,.env.local}`, `[.]env`) that a filename
+// match misses, so any glob with `env` as a standalone word is refused. An
+// `env/` directory segment does not single out a credential file; it widens
+// the search no more than passing that directory without a glob.
+// ponytail: filename heuristic; a directory search without a glob, or with a
+// glob like `**/env/**`, still reads .env files that ripgrep does not ignore.
+const ENV_GLOB = /(?:^|[^A-Z\d])env(?:[^A-Z\d/]|$)/i;
+
+function copilotEnvRead(args: unknown): string | undefined {
+  if (!isPlainObject(args)) throw new Error("hook input toolArgs must be a JSON object");
+  const targets = [args.path, args.paths].flat().filter((value): value is string => typeof value === "string");
+  const envTarget = targets.some(isEnvPath) || (typeof args.glob === "string" && ENV_GLOB.test(args.glob));
+  return envTarget ? COPILOT_ENV_READ_REASON : undefined;
 }
 
 function commandReason(command: string, client: HookClient, cwd: unknown): string | undefined {
@@ -45,12 +61,23 @@ export function denyCommandHook(client: HookClient, payload: string) {
     throw new Error("hook input must be a JSON object");
   }
 
-  const toolInput = client === "copilot" ? copilotShellArgs(input) : input.tool_input;
+  // Copilot CLI sends camelCase toolName/toolArgs for every tool (no matcher),
+  // and a non-zero exit denies the call, so only its shell and read tools are parsed.
+  const copilotTool = client === "copilot" && typeof input.toolName === "string" ? input.toolName : "";
+  const copilotReader = COPILOT_READ_TOOLS.has(copilotTool);
+  const copilotArgs: unknown =
+    (copilotTool === "bash" || copilotReader) && typeof input.toolArgs === "string"
+      ? JSON.parse(input.toolArgs)
+      : input.toolArgs;
+  let toolInput = input.tool_input;
+  if (client === "copilot") toolInput = copilotTool === "bash" ? copilotArgs : undefined;
   const command = toolCommand(toolInput);
 
   let reason: string | undefined;
   if (typeof command === "string") {
     reason = commandReason(command, client, input.cwd);
+  } else if (copilotReader) {
+    reason = copilotEnvRead(copilotArgs);
   } else if (typeof input.tool_name === "string") {
     reason = slackNoticeViolation(input.tool_name, toolInput);
   }

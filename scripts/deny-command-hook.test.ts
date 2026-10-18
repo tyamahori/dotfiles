@@ -39,7 +39,30 @@ test("Copilot CLI shell calls get Codex's rules with a top-level decision; other
   expect(copilot("bash", { command: "python3 app.py", description: "run" })).toMatchObject({ permissionDecision: "deny" });
   expect(copilot("bash", JSON.stringify({ command: "sleep 30" }))?.permissionDecisionReason).toContain("in one command");
   expect(copilot("bash", { command: "cat file.txt" })).toBeUndefined();
-  expect(copilot("view", { path: "/tmp/.env", command: "python3 app.py" })).toBeUndefined();
+  expect(copilot("edit", { path: "/tmp/app.ts", command: "python3 app.py" })).toBeUndefined();
+});
+
+test("Copilot view/grep may not read .env-style files by path or by grep glob", () => {
+  const copilot = (toolName: string, toolArgs: unknown) =>
+    denyCommandHook("copilot", JSON.stringify({ cwd: "/tmp", toolName, toolArgs }));
+  for (const [toolName, toolArgs, denied] of [
+    ["view", { path: "/repo/.env" }, true],
+    ["view", { path: "/repo/notes.txt" }, false],
+    // grep as copilot 1.0.91 sent it: the directory in paths, the file picked by glob.
+    ["grep", { pattern: "FAKE", paths: "/repo", glob: "sample.env" }, true],
+    ["grep", { pattern: "FAKE", paths: "/repo", glob: ".env*" }, true],
+    ["grep", { pattern: "FAKE", paths: "/repo", glob: "{.env,.env.local}" }, true],
+    ["grep", { pattern: "FAKE", paths: "/repo", glob: "[.]ENV" }, true],
+    ["grep", { pattern: "FAKE", paths: "/repo", glob: "*.ts" }, false],
+    ["grep", { pattern: "FAKE", paths: "/repo", glob: "*.environment.ts" }, false],
+    ["grep", { pattern: "FAKE", paths: "/repo/src", glob: "env/*.ts" }, false],
+    ["rg", { pattern: "FAKE", paths: ["src", "/repo/.env.local"] }, true],
+    ["grep", JSON.stringify({ pattern: "FAKE", path: "/repo/.env.production" }), true],
+  ] as const) {
+    const response = copilot(toolName, toolArgs);
+    expect(response?.permissionDecision).toBe(denied ? "deny" : undefined);
+  }
+  expect(() => copilot("view", ["/repo/.env"])).toThrow();
 });
 
 test("malformed hook envelopes fail instead of becoming silent approvals", () => {
