@@ -170,3 +170,26 @@ test("snapshot reports a failed stats freshness check when stats.db cannot be qu
     rmSync(home, { recursive: true, force: true });
   }
 }, 60_000);
+
+test("snapshot prints a fallback when jbcontext analyze yields no summary lines", () => {
+  const scratch = resolve(root, ".agent-msgs/scratch");
+  mkdirSync(scratch, { recursive: true });
+  const home = mkdtempSync(resolve(scratch, "usage-snapshot-"));
+  const bin = resolve(home, "bin");
+  mkdirSync(bin);
+  symlinkSync(Bun.which("jq")!, resolve(bin, "jq"));
+  // Plain-text mode prints nothing the summary filter matches; --json-output fails.
+  writeFileSync(resolve(bin, "jbcontext"), '#!/bin/sh\ncase "$*" in *--json-output*) exit 1;; esac\necho unrelated\n', { mode: 0o755 });
+
+  try {
+    const run = spawnSync(Bun.which("bash")!, [snapshot, "--days", "7"], {
+      env: { HOME: home, PATH: `${bin}:/usr/bin:/bin`, LC_ALL: "C" },
+      encoding: "utf8",
+    });
+    expect(run.status).toBe(0);
+    const section = run.stdout.split("### jbcontext 活用度")[1].split("###")[0];
+    expect(section.trim().split("\n").slice(1).join("").trim()).not.toBe("");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+}, 60_000);

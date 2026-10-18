@@ -958,8 +958,14 @@ if command -v jbcontext >/dev/null 2>&1; then
 		echo '```'
 	else
 		# JSON が取れない場合は人間可読レポートの要約行だけを載せる
-		jbcontext analyze 2>/dev/null | grep -E 'jbcontext usage|Explore now|Modeled|Cost / tokens|Calls / turns' |
-			sed 's/^[[:space:]]*/- /' || echo "- 取得不能（\`jbcontext analyze\` が出力を返さない）"
+		# パイプは pipefail なし・sed が常に 0 を返すため、`|| echo` では空出力を拾えない
+		JB_SUMMARY="$(jbcontext analyze 2>/dev/null | grep -E 'jbcontext usage|Explore now|Modeled|Cost / tokens|Calls / turns' |
+			sed 's/^[[:space:]]*/- /')"
+		if [ -n "$JB_SUMMARY" ]; then
+			echo "$JB_SUMMARY"
+		else
+			echo "- 取得不能（\`jbcontext analyze\` が出力を返さない）"
+		fi
 	fi
 else
 	echo "- 取得不能（jbcontext CLI がない）"
