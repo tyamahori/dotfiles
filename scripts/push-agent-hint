@@ -11,7 +11,9 @@ set -euo pipefail
 
 payload=$(cat)
 cmd=$(jq -r '.tool_input.command // empty' <<<"$payload")
-printf '%s' "$cmd" | grep -Eq '(^|[^A-Za-z0-9_])(git|ssh)([^A-Za-z0-9_]|$)' || exit 0
+# A here-string, not a pipe: grep -q exits at the first match, and printf
+# writing a long command into the closed pipe fails the pipeline under pipefail.
+grep -Eq '(^|[^A-Za-z0-9_])(git|ssh)([^A-Za-z0-9_]|$)' <<<"$cmd" || exit 0
 
 out=$(jq -r '[.tool_response // empty, .error // empty] | tostring' <<<"$payload" 2>/dev/null) || exit 0
 printf '%s' "$out" | grep -qi 'communication with agent failed' || exit 0
