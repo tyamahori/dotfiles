@@ -53,12 +53,13 @@ fi
 rm -f "$INPUT.stderr"
 
 cd "$REPO_ROOT"
+status=0
 timeout 1800 claude -p --restricted \
 	--tools "Read,Glob,Grep" \
 	--strict-mcp-config --mcp-config '{"mcpServers":{}}' \
 	--add-dir "$STATE_DIR" \
 	--allowedTools "Read" "Glob" "Grep" \
-	>"$REPORT" <<PROMPT
+	>"$REPORT" <<PROMPT || status=$?
 efficient-python スキルの四半期レビューを実行する。ファイルの編集は一切禁止。
 成果物はこのセッションの標準出力に書く日本語 Markdown レポートのみ。
 
@@ -86,5 +87,13 @@ efficient-python スキルの四半期レビューを実行する。ファイル
   提案がなければ「変更不要」と明記
 - 次回レビューまでに人間が判断すべきこと（あれば）
 PROMPT
+
+# Under launchd a failed or empty session is otherwise silent: set -e would
+# exit before the notification, and an empty file looks like a report.
+if ((status != 0)) || [[ ! -s $REPORT ]]; then
+	rm -f "$REPORT"
+	osascript -e "display notification \"レビューが失敗しました（exit $status）。入力: ${INPUT/#$HOME/~}\" with title \"python-skill-review\"" || true
+	exit 1
+fi
 
 osascript -e "display notification \"レポート: ${REPORT/#$HOME/~}\" with title \"python-skill-review\"" || true
