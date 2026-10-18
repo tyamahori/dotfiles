@@ -15,7 +15,7 @@ esac
 sky_client="$HOME/.codex/computer-use/Codex Computer Use.app/Contents/SharedSupport/SkyComputerUseClient.app/Contents/MacOS/SkyComputerUseClient"
 
 if [ "$notification_type" = turn-complete ] && [ "${CODEX_NOTIFY_SKIP_SKY:-0}" != 1 ] && [ -x "$sky_client" ]; then
-	"$sky_client" turn-ended "$payload"
+	"$sky_client" turn-ended "$payload" || true
 fi
 
 case "$notification_type" in
@@ -107,13 +107,15 @@ esac
 # Delivery differs per OS. terminal-notifier is macOS-only and its absolute
 # Homebrew path made this script exit 127 on Linux, which Codex surfaces as a
 # failing hook on every turn — so each backend is probed and a machine with
-# neither stays silent instead of erroring.
+# neither stays silent instead of erroring. A backend that is present but fails
+# (notify-send without a D-Bus session, e.g. over SSH) must not fail the hook
+# either, hence the `|| true` under set -e.
 if [ -x /opt/homebrew/bin/terminal-notifier ]; then
 	/opt/homebrew/bin/terminal-notifier \
 		-title "$title" \
 		-subtitle "$location" \
 		-message "$message" \
-		-group "codex-${notification_id:-default}"
+		-group "codex-${notification_id:-default}" || true
 elif command -v notify-send >/dev/null 2>&1; then
 	# notify-send has no subtitle field; the location line is folded into the body.
 	notify-send \
@@ -121,7 +123,7 @@ elif command -v notify-send >/dev/null 2>&1; then
 		--hint="string:x-canonical-private-synchronous:codex-${notification_id:-default}" \
 		"$title" \
 		"$location
-$message"
+$message" || true
 fi
 
 exit 0
