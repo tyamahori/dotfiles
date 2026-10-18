@@ -7,6 +7,13 @@
 // ここで引数を書き換える。対象を await-*.sh に限るのは、一般の async ジョブは
 // ハングしたときにタイムアウトで止まってほしいからである(wait-ready.sh のような
 // 数秒で返る同期チェックと名前で区別する)。
+//
+// 同じハンドラで、name と async/timeout の併用も直す。bash は name 付きを常駐
+// サービスとして扱い「Service mode does not accept async or timeout」で拒否するが、
+// モデルは有限ジョブに名札を付けるつもりで name を足しており、拒否のあとは name を
+// 外して同じコマンドを送り直していた。その再試行を省くため name と、サービス専用の
+// ready を外す。別の extension に分けないのは、
+// name を外した後の入力に await-*.sh の規則を当てる順序を保証するためである。
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -21,15 +28,29 @@ type ExtensionHandlerApi = {
 
 const AWAIT_SCRIPT = /(^|[\s/;&|(])await-[\w-]+\.sh(\s|$|[;&|)])/;
 
+// bash が拒否するのは name と async: true、または数値の timeout の組だけで、
+// name と async: false は常駐サービスとして通る(2026-10-18 に実ツールで確認)。
+function dropServiceArgs(input: UnknownRecord): UnknownRecord {
+  if (input.name === undefined) return input;
+  if (input.async !== true && typeof input.timeout !== "number") return input;
+  const job = { ...input };
+  delete job.name;
+  delete job.ready;
+  return job;
+}
+
 export default function awaitScriptTimeout(pi: ExtensionHandlerApi): void {
   pi.on("tool_call", (event) => {
     if (event.toolName !== "bash") return;
     if (event.input === null || typeof event.input !== "object") return;
-    const input = event.input as UnknownRecord;
+    const original = event.input as UnknownRecord;
+    let input = dropServiceArgs(original);
     // name 付きは常駐サービスで、タイムアウトの対象外なので触らない
-    if (input.name !== undefined) return;
-    if (typeof input.command !== "string" || !AWAIT_SCRIPT.test(input.command)) return;
-    if (input.async === true && input.timeout === 0) return;
-    return { input: { ...input, async: true, timeout: 0 } };
+    const awaitJob =
+      input.name === undefined && typeof input.command === "string" && AWAIT_SCRIPT.test(input.command);
+    if (awaitJob && !(input.async === true && input.timeout === 0)) {
+      input = { ...input, async: true, timeout: 0 };
+    }
+    return input === original ? undefined : { input };
   });
 }
