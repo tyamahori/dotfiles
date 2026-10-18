@@ -38,7 +38,9 @@ while read -r local_ref local_sha _remote_ref _remote_sha; do
 	base=${base:-$default_branch}
 
 	git fetch -q "$remote" "$base" 2>/dev/null || continue
-	base_tip=$(git rev-parse "$remote/$base" 2>/dev/null) || continue
+	# FETCH_HEAD, not $remote/$base: a single-branch clone's refspec does not
+	# map other branches, so the remote-tracking ref would not exist.
+	base_tip=$(git rev-parse FETCH_HEAD 2>/dev/null) || continue
 	merge_base=$(git merge-base "$local_sha" "$base_tip" 2>/dev/null) || continue
 
 	if [[ $merge_base != "$base_tip" ]]; then
