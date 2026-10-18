@@ -25,7 +25,7 @@ for arg in "$@"; do
 	--check) mode=check ;;
 	--apply) mode=apply ;;
 	-h | --help)
-		sed -n '2,16p' "$0" | cut -c3-
+		sed -n '2,17p' "$0" | cut -c3-
 		exit 0
 		;;
 	*) skills+=("$arg") ;;
