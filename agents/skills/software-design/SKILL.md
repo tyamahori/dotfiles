@@ -25,6 +25,13 @@ one is a defect, not a design choice. When the existing convention is the
 problem, change it in its own commit with the reason in the body, or record
 an ADR; never introduce the new style piecemeal.
 
+Before changing code that looks wrong, find out why it is that way: its
+Why-not comment, then `git blame` or `git log -L` to the commit that
+introduced it and that commit's body, then the linked PR or issue. "Nothing
+found" is a finding; report it instead of inventing a reason. Before
+proposing the change, list what must be preserved, what changes, what stays
+untouched, and which risks remain unverified.
+
 ## Design norms
 
 Each norm ends with the question to ask of the code you are about to write.
@@ -111,6 +118,18 @@ calling out so a timeout after the effect applied can be resolved. *What
 happens when two of these run at once, or the call times out after the
 effect applied?*
 
+**Re-runs converge; writers do not share.** A state-mutating step must reach
+the same end state when it runs twice or after the previous run crashed at
+any point: read the current state, compare it with the goal, apply only the
+difference. Anything a run leaves behind (lock, temp file, half-written
+record, claimed job) must be recognisable as stale by the next run; write to
+a temp path and rename into place. Before adding a lock, ask whether the
+concurrent actors need one shared write target at all: give each its own
+file, key, or branch and merge when reading. Serialize (lock, single writer,
+compare-and-swap) only when one shared target is a real invariant;
+instructions and conventions are not concurrency control. *What happens if
+this runs twice, crashed halfway, or two actors write at once?*
+
 ## Gate before writing
 
 Answer each in one line; a blank answer means the design is not ready.
@@ -120,6 +139,27 @@ Answer each in one line; a blank answer means the design is not ready.
 3. Where does untrusted data enter, and what type does it become?
 4. What must always hold, and which site enforces it?
 5. What does failure look like to the caller?
+
+## Sketch the shape before filling it in
+
+For a new public interface, or a boundary with no precedent in the
+repository:
+
+1. Write the call site first, the few lines a caller will write; then the
+   types and signatures, with bodies that throw "not implemented". The
+   sketch is the contract.
+2. When the boundary is expensive to reverse and more than one shape is
+   viable, sketch at least two structurally different ones (one function vs
+   a stateful type, push vs pull), not two variants of one. Choose with the
+   gate questions above and record why the other lost: in the ADR's
+   Alternatives when the decision warrants one, otherwise in the commit body.
+   Otherwise sketch the neighbouring convention once.
+3. While filling in the bodies, scrap the sketch and redesign when any of
+   these appears: the same workaround in unrelated call sites; an `any`, a
+   forced cast, or an argument the sketch did not have; a lock on state the
+   sketch said was not shared; callers that must know the internal
+   initialisation order; the same mismatch in two independent places. One
+   occurrence is friction, not a reason to scrap.
 
 ## Refactoring
 
@@ -137,9 +177,12 @@ Behaviour change and refactoring never share a commit.
    extract function, move function, inline, introduce parameter object,
    replace conditional with polymorphism: one per step. Use the language
    server for renames and `structural-edit` for repeated shape changes; hand
-   edits miss call sites.
+   edits miss call sites. After a rename, search strings, docs, and config
+   for the old name; the language server does not see them.
 4. **Commit each green step** (`refactor:` subject, the reason in the body).
-   Tests break in an unexpected way: revert the step, do not debug it.
+   Tests break in an unexpected way: revert the step, do not debug it. A
+   green step that does not make the code easier to read is not worth
+   keeping either; revert it.
 5. **Fix behaviour afterwards** in a separate commit, updating the
    characterisation test to the intended behaviour.
 
@@ -155,6 +198,8 @@ Smell to move, for the smells that matter:
 | Nested conditionals | Guard clauses, early return |
 | Comment explaining what the next lines do | Rename or extract until the comment is redundant |
 | Interface, hook, or option nobody uses | Delete |
+| Caller imports another module's internals | Export a public entry point; import only that |
+| Two lists kept in sync by hand | Derive one from the other |
 
 ## Design docs
 
@@ -250,4 +295,6 @@ Architecture* (dependency rule); Raymond, *The Art of Unix Programming*
 Feathers, *Working Effectively with Legacy Code*; Nygard's ADR format;
 Lynch, "How to Write an Effective Software Design Document"
 (refactoringenglish.com); addyosmani/agent-skills
-`api-and-interface-design` and `documentation-and-adrs`.
+`api-and-interface-design` and `documentation-and-adrs`; poteto's pstack
+(`cursor/plugins`: `architect`, `why`, `principle-make-operations-idempotent`,
+`principle-separate-before-serializing-shared-state`).
