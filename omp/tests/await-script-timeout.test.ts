@@ -29,6 +29,20 @@ test("short sync checks and named services are left alone", () => {
   expect(call({ command: "echo ok; sleep 300" })).toBeUndefined();
 });
 
+test("commands that only name an await script stay synchronous", () => {
+  for (const command of [
+    "shellcheck agents/skills/github-pr-respond/scripts/await-pr-change.sh",
+    "git add scripts/await-pr-change.sh",
+    "chmod +x ./await-pr-change.sh",
+    'git commit -m "fix await-pr-change.sh typo"',
+  ]) {
+    expect(call({ command })).toBeUndefined();
+  }
+  // ...while running it after another command still counts.
+  const chained = "cd ~/repo && ./scripts/await-pr-change.sh o r 1";
+  expect(call({ command: chained })?.input).toEqual({ command: chained, async: true, timeout: 0 });
+});
+
 test("named finite jobs drop name and ready instead of being rejected", () => {
   const cases: [Record<string, unknown>, Record<string, unknown>][] = [
     [

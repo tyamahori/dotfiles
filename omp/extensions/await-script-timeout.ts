@@ -26,7 +26,18 @@ type ExtensionHandlerApi = {
   ): void;
 };
 
-const AWAIT_SCRIPT = /(^|[\s/;&|("'])await-[\w-]+\.sh(\s|$|[;&|)"'])/;
+// スクリプトを実行する位置(行頭か ; & | ( の直後。bash などの前置きは可)の
+// await-*.sh だけを対象にする。git add・shellcheck・コミットメッセージのように
+// 名前に触れるだけのコマンドまで、タイムアウトなしの async にしないため。
+function runsAwaitScript(command: string): boolean {
+  return command.split(/[;&|(\n]/).some((segment) => {
+    const words = segment.trim().replace(/^(?:(?:bash|sh|zsh|exec|nohup)\s+)+/, "");
+    const quote = words[0];
+    const script =
+      quote === '"' || quote === "'" ? words.slice(1, words.indexOf(quote, 1)) : words.split(/\s/, 1)[0];
+    return /(?:^|\/)await-[\w-]+\.sh$/.test(script);
+  });
+}
 
 // bash が拒否するのは name と async: true、または数値の timeout の組だけで、
 // name と async: false は常駐サービスとして通る(2026-10-18 に実ツールで確認)。
@@ -47,7 +58,7 @@ export default function awaitScriptTimeout(pi: ExtensionHandlerApi): void {
     let input = dropServiceArgs(original);
     // name 付きは常駐サービスで、タイムアウトの対象外なので触らない
     const awaitJob =
-      input.name === undefined && typeof input.command === "string" && AWAIT_SCRIPT.test(input.command);
+      input.name === undefined && typeof input.command === "string" && runsAwaitScript(input.command);
     if (awaitJob && !(input.async === true && input.timeout === 0)) {
       input = { ...input, async: true, timeout: 0 };
     }
