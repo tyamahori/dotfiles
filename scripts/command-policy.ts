@@ -332,8 +332,9 @@ function isSimpleWebFetch(args: string[]): boolean {
   if (urls.length !== 1) return false;
 
   try {
-    // curl assumes http:// for a bare host, and so does this check.
-    const url = new URL(/^[A-Za-z][\w+.-]*:\/\//.test(urls[0]) ? urls[0] : `http://${urls[0]}`);
+    // curl assumes http:// for a bare host (`example.com`, `host:8080`), and so
+    // does this check; any other scheme (`file:`) stays as written.
+    const url = new URL(/^[A-Za-z][\w+.-]*:(?!\d)/.test(urls[0]) ? urls[0] : `http://${urls[0]}`);
     const filename = url.pathname.slice(url.pathname.lastIndexOf("/") + 1);
     const extension = filename.includes(".") ? filename.slice(filename.indexOf(".") + 1) : "";
     return (

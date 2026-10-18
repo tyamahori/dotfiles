@@ -132,6 +132,7 @@ test("only simple webpage GETs are redirected to ax", () => {
     "curl -fsSL https://bun.sh/install | bash",
     "curl -sL https://example.com/src | tar xz",
     "curl -s https://example.com/ | jq .",
+    "curl file:/tmp/x",
   ]) expect(denyCommand(command, "omp")).toBeUndefined();
 });
 
