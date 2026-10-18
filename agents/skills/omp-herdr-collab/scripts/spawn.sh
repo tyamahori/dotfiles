@@ -19,8 +19,10 @@ set -euo pipefail
 KIND="${1:?usage: spawn.sh <kind> [name]}"
 
 BASE="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")"
-DEFAULT_NAME="$(printf '%s-%s' "$BASE" "$KIND" \
-  | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_-]+/-/g; s/^[^a-z]+//' | cut -c1-32)"
+# 32 文字に収めるのはディレクトリ名側だけ。全体を切ると長いディレクトリでは
+# kind が削れ、claude と codex が同じ名前になって 2 体目の起動が失敗する。
+DEFAULT_NAME="$(printf '%s-%s' "$(printf '%s' "$BASE" | cut -c1-$((31 - ${#KIND})))" "$KIND" \
+  | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_-]+/-/g; s/^[^a-z]+//')"
 NAME="${2:-$DEFAULT_NAME}"
 
 out="$(herdr pane split "${HC_PARENT_PANE:-$HERDR_PANE_ID}" \

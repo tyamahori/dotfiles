@@ -7,7 +7,7 @@ set -euo pipefail
 [ "${HERDR_ENV:-}" = 1 ] || { echo "despawn.sh: not inside a herdr pane (HERDR_ENV != 1)" >&2; exit 1; }
 T="${1:?usage: despawn.sh <target>}"
 
-if [[ "$T" =~ ^w[0-9]+:p[0-9]+$ ]]; then
+if [[ "$T" =~ ^w[0-9A-Za-z]+:p[0-9A-Za-z]+$ ]]; then
   PANE="$T"
 else
   # pipefail: agent get exits 1 for an unknown/exited agent; fall through to the message below.
