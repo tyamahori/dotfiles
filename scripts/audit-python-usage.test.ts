@@ -33,3 +33,24 @@ test("a same-day --save rerun diffs against the previous day's snapshot, not its
     rmSync(home, { force: true, recursive: true });
   }
 }, 60_000);
+
+// +14 and -12 hours: at any moment at least one of them is on a different date than UTC.
+test.each(["Pacific/Kiritimati", "Etc/GMT+12"])("the snapshot is named by the local date in %s", (tz) => {
+  const home = mkdtempSync(join(tmpdir(), "audit-python-usage-"));
+  try {
+    const projects = join(home, "projects");
+    mkdirSync(projects);
+    const env = {
+      ...process.env,
+      HOME: home,
+      TZ: tz,
+      UV_CACHE_DIR: process.env.UV_CACHE_DIR ?? join(homedir(), ".cache/uv"),
+      UV_PYTHON_INSTALL_DIR: process.env.UV_PYTHON_INSTALL_DIR ?? join(homedir(), ".local/share/uv/python"),
+    };
+    const r = Bun.spawnSync(["uv", "run", "--script", script, "--save", "--projects-dir", projects], { env });
+    const local = Bun.spawnSync(["date", "+%Y-%m-%d"], { env }).stdout.toString().trim();
+    expect(r.stderr.toString()).toContain(`python-usage-audit/${local}.json`);
+  } finally {
+    rmSync(home, { force: true, recursive: true });
+  }
+}, 60_000);

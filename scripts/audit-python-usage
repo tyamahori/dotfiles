@@ -286,7 +286,9 @@ def print_delta(previous, current, previous_name):
 
 def save_snapshot(snapshot):
     SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
-    target = SNAPSHOT_DIR / f"{datetime.now(UTC):%Y-%m-%d}.json"
+    # Local date, like the `date +%Y-%m-%d` stamp in python-skill-review: with UTC
+    # a rerun before 09:00 JST took today's snapshot as the previous one.
+    target = SNAPSHOT_DIR / f"{datetime.now():%Y-%m-%d}.json"
     # Today's own file is skipped so a same-day rerun diffs against the real
     # previous snapshot instead of reporting "no change" against itself.
     existing = [p for p in sorted(SNAPSHOT_DIR.glob("????-??-??.json")) if p != target]
