@@ -1,7 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { join, relative } from "node:path";
 import handoffSwitch from "../extensions/handoff-switch";
 
 type ToolResult = {
@@ -106,6 +106,19 @@ test("rejects handoff tools without a TUI or a saved note", async () => {
   expect(missingResult.content[0].text).toContain(join(noteDir, "missing.md"));
   expect(commandNotifications).toMatchObject([{ level: "error" }]);
   expect(commandNotifications[0].message).toContain(join(noteDir, "missing.md"));
+});
+
+test("accepts a memo path written with ~/, as the read and write tools do", async () => {
+  const tilde = `~/${relative(homedir(), note)}`;
+  const result = await handoffHarness().tool().execute(
+    "tool",
+    { path: tilde },
+    new AbortController().signal,
+    () => {},
+    { cwd: noteDir, hasUI: true },
+  );
+  expect(result.isError).toBeUndefined();
+  expect(result.details?.path).toBe(note);
 });
 
 test("injects the switch command only after the agent becomes idle", async () => {

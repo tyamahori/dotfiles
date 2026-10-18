@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, spyOn, test, type Mock } from "bun:test"
 import * as childProcess from "node:child_process";
 import type { SpawnSyncReturns } from "node:child_process";
 import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import denyCommands from "../extensions/deny-commands";
 import denyEnvReads, { isEnvPath } from "../extensions/deny-env-reads";
@@ -72,6 +72,12 @@ test("keeps write nullish precedence and ignores non-local paths", () => {
     toolName: "write",
     input: { path: "memory://scratch/file.ts" },
   })).toEqual([]);
+});
+
+test("expands a leading ~ the way the write and edit tools do", () => {
+  expect(editedPaths({ toolName: "write", input: { path: "~/notes/a.md" } })).toEqual([join(homedir(), "notes/a.md")]);
+  expect(editedPaths({ toolName: "edit", input: "[~/b.ts#ABCD]" })).toEqual([join(homedir(), "b.ts")]);
+  expect(editedPaths({ toolName: "write", input: { path: "notes/~a.md" } })).toEqual(["notes/~a.md"]);
 });
 
 test("extracts edit sources and move targets in stable order", () => {

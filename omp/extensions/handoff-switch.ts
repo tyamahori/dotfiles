@@ -7,7 +7,11 @@
 // そのため ctx.ui.custom で TUI インスタンスを取り、injectDebugInput("\r") で
 // 人が Enter を押したのと同じ経路に乗せている。
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+import { homedir } from "node:os";
 import { resolve } from "node:path";
+
+// The read/write tools expand a leading ~, so agents pass memo paths that way.
+const memoPath = (cwd: string, path: string) => resolve(cwd, path.replace(/^~(?=\/|$)/, homedir()));
 
 const COMMAND = "handoff-switch";
 
@@ -26,7 +30,7 @@ export default function handoffSwitch(pi: ExtensionAPI): void {
       if (!ctx.hasUI) {
         return { content: [{ type: "text", text: "有人 TUI セッションではないので切り替えない" }], isError: true };
       }
-      const path = resolve(ctx.cwd, params.path);
+      const path = memoPath(ctx.cwd, params.path);
       if (!(await Bun.file(path).exists())) {
         return { content: [{ type: "text", text: `引き継ぎメモが見つからない: ${path}` }], isError: true };
       }
@@ -58,7 +62,7 @@ export default function handoffSwitch(pi: ExtensionAPI): void {
   pi.registerCommand(COMMAND, {
     description: "空セッションへ切り替え、引き継ぎメモを読み込ませる: /handoff-switch <path>",
     handler: async (args, ctx) => {
-      const path = resolve(ctx.cwd, args.trim());
+      const path = memoPath(ctx.cwd, args.trim());
       if (!args.trim() || !(await Bun.file(path).exists())) {
         ctx.ui.notify(`handoff-switch: 引き継ぎメモが見つからない: ${path}`, "error");
         return;

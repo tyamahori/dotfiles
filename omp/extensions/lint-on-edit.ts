@@ -88,7 +88,10 @@ export function editedPaths(event: ToolEvent): string[] {
     }
   }
 
-  return [...paths].filter((path) => !URI_OR_SELECTOR.test(path));
+  // write/edit expand a leading ~ themselves; the hooks get the real path.
+  return [...paths]
+    .filter((path) => !URI_OR_SELECTOR.test(path))
+    .map((path) => path.replace(/^~(?=\/|$)/, homedir()));
 }
 
 export default function lintOnEdit(pi: ExtensionApi): void {
