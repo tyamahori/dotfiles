@@ -76,3 +76,15 @@ test("exhausted auto-retry notifies an error stop; a successful retry does not",
   expect(lines[0]).toContain("OMP エラー停止");
   expect(lines[0]).toContain("503 overloaded");
 });
+
+test("a non-retryable error that merely contains 500 still notifies the stop", () => {
+  const stop = (errorMessage: string) => [
+    ["agent_start", {}],
+    ["agent_end", { messages: [{ role: "assistant", stopReason: "error", errorMessage, content: [] }] }],
+  ] as [string, unknown][];
+  const lines = toasts(stop("400 invalid_request_error: max_tokens: 64500 > 64000"));
+  expect(lines).toHaveLength(1);
+  expect(lines[0]).toContain("OMP エラー停止");
+  // A real 5xx is left to auto-retry.
+  expect(toasts(stop("500 internal server error"))).toEqual([]);
+});

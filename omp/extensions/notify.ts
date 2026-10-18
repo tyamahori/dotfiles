@@ -24,8 +24,14 @@ const IS_DARWIN = process.platform === "darwin";
 // Same set herdr-omp-agent-state.ts (herdr-managed, keeps its own copy) uses:
 // an agent_end carrying one of these errors is followed by an automatic
 // retry, not a finished turn.
-const retryableErrorPattern =
-  /overloaded|provider.?returned.?error|rate.?limit|too many requests|429|500|502|503|504|service.?unavailable|server.?error|internal.?error|network.?error|connection.?error|connection.?refused|connection.?lost|websocket.?closed|websocket.?error|other side closed|fetch failed|upstream.?connect|reset before headers|socket hang up|ended without|http2 request did not get a response|timed? out|timeout|terminated|retry delay/i;
+const retryableErrorPatterns = [
+  /\b(?:429|50[0234])\b/,
+  /overloaded|rate.?limit|too many requests|service.?unavailable/i,
+  /provider.?returned.?error|server.?error|internal.?error|network.?error/i,
+  /connection.?(?:error|refused|lost)|websocket.?(?:closed|error)|other side closed/i,
+  /fetch failed|upstream.?connect|reset before headers|socket hang up|ended without/i,
+  /http2 request did not get a response|timed? out|timeout|terminated|retry delay/i,
+];
 
 type Rec = Record<string, unknown>;
 
@@ -244,7 +250,7 @@ export default function (pi: ExtensionHandlerApi): void {
     if (assistant?.stopReason === "error") {
       const errorMessage = asString(assistant.errorMessage) ?? "";
       // Auto-retry re-runs the turn; notifying here would be a false stop.
-      if (retryableErrorPattern.test(errorMessage)) return;
+      if (retryableErrorPatterns.some((pattern) => pattern.test(errorMessage))) return;
       void notify("attention", "OMP エラー停止", (errorMessage || "エラーで停止しました").slice(0, 120));
       return;
     }
