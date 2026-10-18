@@ -24,6 +24,9 @@ test.each([
   ["stays quiet when only the failed command's own text has the signature", { input: { command: "git grep 'communication with agent failed'" }, content: [{ type: "text", text: "" }], isError: true }, 0],
   ["steers on a push run through cd and -C", { input: { command: "cd repo && git -C /tmp/r push" }, content: locked, isError: true }, 1],
   ["stays quiet when git show prints a doc quoting the signature", { input: { command: "git show HEAD:docs/push.md" }, content: locked, isError: true }, 0],
+  ["steers on a push behind env and -c options", { input: { command: "GIT_TRACE=1 git -c core.sshCommand=ssh push" }, content: locked, isError: true }, 1],
+  ["steers on submodule update", { input: { command: "git submodule update --init" }, content: locked, isError: true }, 1],
+  ["stays quiet on a remote listing", { input: { command: "git remote -v" }, content: locked, isError: true }, 0],
 ])("%s", (_name, event, expected) => {
   expect(steersFor(event)).toBe(expected);
 });
