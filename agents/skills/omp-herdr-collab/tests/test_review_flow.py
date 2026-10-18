@@ -586,6 +586,20 @@ class ReviewFlowTest(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(expected_error, result.stderr)
 
+    def test_review_request_treats_bare_claude_model_names_as_one_family(self) -> None:
+        cases = [("opus", "sonnet"), ("claude-opus-5.5", "fable-5.1"), ("Opus 5.5", "haiku")]
+        for implementer_model, reviewer_model in cases:
+            with self.subTest(pair=(implementer_model, reviewer_model)), tempfile.TemporaryDirectory() as temporary:
+                candidate = review_request(Path(temporary))
+                content = candidate.read_text(encoding="utf-8")
+                content = content.replace("implementer-model: codex", f"implementer-model: {implementer_model}")
+                content = content.replace("reviewer-model: claude", f"reviewer-model: {reviewer_model}")
+                candidate.write_text(content, encoding="utf-8")
+
+                result = self.invoke("validate-message", str(candidate))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("same-family review requires", result.stderr)
+
     def test_scaffold_copies_request_values_and_resolves_output(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)

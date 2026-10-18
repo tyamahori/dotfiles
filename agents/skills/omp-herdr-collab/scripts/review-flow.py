@@ -62,6 +62,11 @@ STATUS_HINTS = {
 }
 MODEL_FAMILY_ALIASES = {
     "claude": "claude",
+    # Claude model names written without the "claude" prefix.
+    "opus": "claude",
+    "sonnet": "claude",
+    "haiku": "claude",
+    "fable": "claude",
     "codex": "codex",
     "openai": "codex",
     "gpt": "codex",
