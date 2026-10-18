@@ -85,7 +85,7 @@ $findings"
   hadolint) findings=$(hadolint --failure-threshold style --format tty "$file" 2>&1 | head -c 4000) || true ;;
   sqruff)
     out=$(sqruff lint "$file" 2>&1) && rc=0 || rc=$?
-    [ "$rc" -eq 0 ] && findings="" || findings=$(printf '%s' "$out" | head -c 4000)
+    [ "$rc" -eq 0 ] || findings=$(printf '%s' "$out" | head -c 4000) || true
     ;;
   # Also enforces this repo's long-form-only Compose Specification policy
   # (scripts/compose-canonical-check) alongside dclint's style rules.
@@ -95,14 +95,14 @@ $findings"
     if command -v yq >/dev/null; then
       canonical=$("$HOME/dotfiles/scripts/compose-canonical-check" "$file" 2>&1) || true
     fi
-    findings=$(printf '%s\n%s' "$findings" "$canonical" | sed '/^$/d' | head -c 4000)
+    findings=$(printf '%s\n%s' "$findings" "$canonical" | sed '/^$/d' | head -c 4000) || true
     ;;
 esac
 if [ "$extra_linter" = zizmor ]; then
   # zizmor prints "No findings to report" even with --quiet; only a non-zero
   # exit means findings (or a parse error worth showing).
   if ! extra_findings=$(zizmor --quiet --offline "$file" 2>&1); then
-    findings=$(printf '%s\n%s' "$findings" "$extra_findings" | sed '/^$/d' | head -c 4000)
+    findings=$(printf '%s\n%s' "$findings" "$extra_findings" | sed '/^$/d' | head -c 4000) || true
   fi
 fi
 [ -n "$findings" ] || exit 0
