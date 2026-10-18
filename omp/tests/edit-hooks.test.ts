@@ -179,6 +179,15 @@ test("isEnvPath matches .env-style paths, selectors, and grep path lists, not ne
   expect(isEnvPath("arc.zip:notes.txt")).toBe(false);
 });
 
+test("isEnvPath blocks glob basenames that can match .env files, not unrelated globs", () => {
+  for (const path of ["/tmp/x/.env*", ".e*", "{.env,x}", "src/.ENV*", "*.env", "a/[.]env"]) {
+    expect(isEnvPath(path)).toBe(true);
+  }
+  for (const path of ["src/**/*.ts", "*.md", "{a,b}", "[ab]c"]) {
+    expect(isEnvPath(path)).toBe(false);
+  }
+});
+
 test("blocks read/grep on .env paths and leaves other tools and paths alone", () => {
   let handler: Hook | undefined;
   denyEnvReads({
