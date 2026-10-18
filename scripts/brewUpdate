@@ -6,11 +6,14 @@
 # upgrade, then clean only when no process still uses an old omp keg.
 stale_omp_executable() {
 	local current_omp=$1
-	local command executable processes
+	local command executable processes mapped
 
 	if ! processes=$(ps -Ao command=); then
 		return 2
 	fi
+	# A session started through PATH shows argv[0] as plain `omp`, so also read
+	# the executable each omp process maps (lsof prints nothing when none run).
+	mapped=$(lsof -nP -c omp -a -d txt -Fn 2>/dev/null | sed -n 's/^n//p')
 	while IFS= read -r command; do
 		command=${command#"${command%%[![:space:]]*}"}
 		executable=${command%%[[:space:]]*}
@@ -22,7 +25,8 @@ stale_omp_executable() {
 			fi
 			;;
 		esac
-	done <<<"$processes"
+	done <<<"$processes
+$mapped"
 	return 1
 }
 
