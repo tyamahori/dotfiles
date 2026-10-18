@@ -45,7 +45,6 @@ class Session:
     assistant_messages: int = 0
     tools: Counter[str] = field(default_factory=Counter)
     tool_errors: int = 0
-    interruptions: int = 0
     compactions: int = 0
     total_tokens: int = 0
     input_tokens: int = 0
@@ -127,16 +126,16 @@ def read_session(path: Path) -> Session | None:
             elif kind == "turn_context":
                 current.cwd = current.cwd or payload.get("cwd", "")
                 current.model = payload.get("model") or current.model
-            elif kind == "event_msg" and subtype == "user_message":
-                value = clean_prompt(text_from_message(payload))
-                if value and not value.startswith("# AGENTS.md instructions"):
-                    current.prompts.append(value)
-            elif kind == "event_msg" and subtype == "agent_message":
-                current.assistant_messages += 1
-            elif kind == "event_msg" and subtype == "user_message_interrupted":
-                current.interruptions += 1
-            elif kind == "event_msg" and subtype == "context_compacted":
-                current.compactions += 1
+            elif kind == "event_msg" and subtype == "item_completed":
+                item = payload.get("item") or {}
+                if item.get("type") == "UserMessage":
+                    value = clean_prompt(text_from_message(item))
+                    if value and not value.startswith("# AGENTS.md instructions"):
+                        current.prompts.append(value)
+                elif item.get("type") == "AgentMessage":
+                    current.assistant_messages += 1
+                elif item.get("type") == "ContextCompaction":
+                    current.compactions += 1
             elif kind == "event_msg" and subtype == "token_count":
                 usage = (payload.get("info") or {}).get("total_token_usage") or {}
                 if usage:
