@@ -9,4 +9,4 @@ else
 	root=/
 fi
 
-sudo du --si -xct 1000000000 "$root" | tee >(grep -vFe $'*\t' > ~/Desktop/DiskSpace.txt) | sort -nr > ~/Desktop/SortedDiskSpace.txt
+sudo du --si -xct 1000000000 "$root" | tee >(grep -vFe $'*\t' > ~/Desktop/DiskSpace.txt) | sort -hr > ~/Desktop/SortedDiskSpace.txt
