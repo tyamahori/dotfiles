@@ -2,7 +2,8 @@
 # Machine-global pre-commit check: validate staged JSON with jq and require
 # canonical jq --sort-keys formatting for the tracked Claude, Codex, and OMP
 # configuration files. JSONC dialects (*.jsonc, tsconfig/jsconfig, .vscode,
-# devcontainer) are skipped; one commit escapes with --no-verify.
+# devcontainer, biome, turbo, eslintrc) are skipped; one commit escapes with
+# --no-verify.
 set -euo pipefail
 
 repo_root=$(git rev-parse --show-toplevel)
@@ -14,6 +15,7 @@ trap 'rm -f "$staged" "$formatted"' EXIT
 while IFS= read -r -d '' file; do
 	case "$file" in
 	*.jsonc | tsconfig*.json | */tsconfig*.json | jsconfig*.json | */jsconfig*.json | .vscode/*.json | */.vscode/*.json | devcontainer.json | */devcontainer.json | .devcontainer/*.json | */.devcontainer/*.json) continue ;;
+	.devcontainer.json | */.devcontainer.json | biome.json | */biome.json | turbo.json | */turbo.json | .eslintrc.json | */.eslintrc.json) continue ;;
 	*.json) ;;
 	*) continue ;;
 	esac

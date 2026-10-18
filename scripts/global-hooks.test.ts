@@ -43,6 +43,17 @@ test("pre-commit-json needs jq only when JSON is staged", () => {
   expect(blocked.status).toBe(1);
 });
 
+test("pre-commit-json skips JSONC config files that allow comments", () => {
+  dir = mkdtempSync(join(tmpdir(), "global-hooks-"));
+  sh(dir, "git init -q");
+  for (const name of [".devcontainer.json", "biome.json", "app/turbo.json", ".eslintrc.json"]) {
+    mkdirSync(join(dir, "app"), { recursive: true });
+    writeFileSync(join(dir, name), '// comment\n{"a": 1}\n');
+  }
+  sh(dir, "git add -A");
+  expect(sh(dir, `${checks}/pre-commit-json`).status).toBe(0);
+});
+
 test("pre-push-base-freshness blocks a stale fork in a single-branch clone", () => {
   dir = mkdtempSync(join(tmpdir(), "global-hooks-"));
   const bin = join(dir, "bin");
