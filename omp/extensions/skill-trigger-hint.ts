@@ -49,8 +49,10 @@ export function triggeredSkills(event: ToolEvent): string[] {
 }
 
 export default function skillTriggerHint(pi: ExtensionApi): void {
-  // 読んだ Skill と案内済みの Skill。どちらもセッション(プロセス)単位。
+  // 読んだ Skill と案内済みの Skill。/new や /resume で文脈が替わると読んだ Skill も
+  // 文脈から消えるので、セッション切替で空にする。
   const done = new Set<string>();
+  pi.on("session_switch", () => done.clear());
 
   pi.on("tool_call", (event) => {
     if (event.toolName === "read") {

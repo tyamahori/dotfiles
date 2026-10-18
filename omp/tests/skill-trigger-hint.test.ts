@@ -18,15 +18,19 @@ test.each([
 });
 
 function harness() {
-  let handler: (event: { toolName: string; input: unknown }) => void = () => {};
+  const handlers: Record<string, (event: { toolName?: string; input?: unknown }) => void> = {};
   const sent: string[] = [];
   skillTriggerHint({
-    on: (_event, h) => {
-      handler = h as typeof handler;
+    on: (event, h) => {
+      handlers[event] = h;
     },
     sendUserMessage: (content) => sent.push(content),
   });
-  return { call: (toolName: string, input: unknown) => handler({ toolName, input }), sent };
+  return {
+    call: (toolName: string, input: unknown) => handlers.tool_call({ toolName, input }),
+    switchSession: () => handlers.session_switch({}),
+    sent,
+  };
 }
 
 test("hints each skill once per session", () => {
@@ -42,4 +46,12 @@ test("stays silent for a skill already read in the session", () => {
   h.call("read", { path: "skill://efficient-python" });
   h.call("bash", { command: "uv run a.py" });
   expect(h.sent).toEqual([]);
+});
+
+test("hints again after switching to a session that has not read the skill", () => {
+  const h = harness();
+  h.call("read", { path: "skill://efficient-python" });
+  h.switchSession();
+  h.call("bash", { command: "uv run a.py" });
+  expect(h.sent).toHaveLength(1);
 });
