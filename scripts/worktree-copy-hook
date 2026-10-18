@@ -12,7 +12,7 @@ payload=$(cat)
 cmd=$(jq -r '.tool_input.command // empty' <<<"$payload")
 cwd=$(jq -r '.cwd // "."' <<<"$payload")
 
-printf '%s' "$cmd" | grep -Eq 'git[^;&|]*[[:space:]]worktree[[:space:]]+add([[:space:]]|$)' || exit 0
+grep -Eq 'git[^;&|]*[[:space:]]worktree[[:space:]]+add([[:space:]]|$)' <<<"$cmd" || exit 0
 command -v git >/dev/null 2>&1 || exit 0
 
 copy="$HOME/dotfiles/scripts/worktree-include-copy"

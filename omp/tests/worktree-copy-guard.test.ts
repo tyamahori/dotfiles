@@ -109,3 +109,8 @@ test("git -C with an unexpanded $PWD or ~ still sweeps the real repository", () 
   expect(realHook('git -C "$PWD" worktree add ../wt', (repo) => repo).copied).toBe(true);
   expect(realHook("git -C ~/work/repo worktree add ../wt", () => tmpdir()).copied).toBe(true);
 });
+
+test("a worktree add inside a command over 64KB still sweeps", () => {
+  const command = `git worktree add ../wt\n${"# padding\n".repeat(20_000)}`;
+  expect(realHook(command, (repo) => repo).copied).toBe(true);
+});
