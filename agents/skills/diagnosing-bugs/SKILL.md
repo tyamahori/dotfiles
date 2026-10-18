@@ -132,7 +132,7 @@ Report the baseline, the final value with the percent change, attempts kept and 
 6. Did the work happen inside what you counted? Unawaited promises, unread generators, timeouts, and a time window or filter that silently drops records all yield numbers for work that never ran.
 7. Does it matter? A micro-benchmark result also gets an end-to-end run of what the user waits for, at production-sized data and concurrency, and is reported as a share of that time.
 
-Lead with the verdict: better, worse, no measurable difference, or inconclusive. Call it inconclusive when you cannot name the limiter or could not check 4 and 6, and name the gap. A one-run ballpark the user asked for still needs 4 and 6, and says it is one run.
+Lead with the verdict: better, worse, no measurable difference, or inconclusive. Call it inconclusive when you cannot name the limiter, could not check 4 and 6, or could not tune a side left on defaults, and name the gap; narrowing the claim to "faster as configured" does not answer which to adopt. A one-run ballpark the user asked for still needs 4 and 6, and says it is one run.
 
 ## Phase 5: Fix + regression test
 
