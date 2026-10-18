@@ -574,17 +574,18 @@ Claude Code・Codex・Copilot CLI のフック実行には、`scripts/devbox` �
 
 | 対象 | 代替手段 | 適用する CLI |
 | --- | --- | --- |
-| 素の `python` / `python3` | `uv run` / `uvx` | 三 CLI |
+| 素の `python` / `python3` | `uv run` / `uvx` | 四 CLI |
 | shell による閲覧・検索 | 専用の Read / Grep / Glob 系ツール | Claude Code、OMP |
-| 単純な `curl` の Web 取得 | `ax`（最初に `~/.agents/skills/ax/SKILL.md` を読む） | 三 CLI |
-| `brew upgrade` | `scripts/brewUpdate` | 三 CLI |
-| `.env` 系資格情報ファイルの shell 経由の閲覧 | 読ませない（代替なし） | 三 CLI |
-| `--draft` なしの `gh pr create` | `--draft` を付けて再実行 | 三 CLI |
-| `brew install` / `npm i -g` / `pip install` / `go install` / `cargo install` などの場当たり導入 | 所有ファイル（`~/.Brewfile`、`devbox/devbox.json`、`scripts/python`、`scripts/apps`）へ追記して所有スクリプトを実行 | 三 CLI |
-| `git add -A` / `.` / `-u`、`git commit -a` | 変更したパスを明示して `git add` | 三 CLI |
-| `--ff-only` なしの `git pull` | `git pull --ff-only` | 三 CLI |
+| 単純な `curl` の Web 取得 | `ax`（最初に `~/.agents/skills/ax/SKILL.md` を読む） | 四 CLI |
+| `brew upgrade` | `scripts/brewUpdate` | 四 CLI |
+| `.env` 系資格情報ファイルの shell 経由の閲覧 | 読ませない（代替なし） | 四 CLI |
+| `--draft` なしの `gh pr create` | `--draft` を付けて再実行 | 四 CLI |
+| `brew install` / `npm i -g` / `pip install` / `go install` / `cargo install` などの場当たり導入 | 所有ファイル（`~/.Brewfile`、`devbox/devbox.json`、`scripts/python`、`scripts/apps`）へ追記して所有スクリプトを実行 | 四 CLI |
+| `git add -A` / `.` / `-u`、`git commit -a` | 変更したパスを明示して `git add` | 四 CLI |
+| 本文のない `git commit -m "subject"`（commit-msg-why が拒否するもの） | 本文付きで `git commit -F -` | 四 CLI |
+| `--ff-only` なしの `git pull` | `git pull --ff-only` | 四 CLI |
 | `sed -i` / `perl -pi` | `edit` / `write`、一括なら `ast_edit` | Claude Code、OMP |
-| `hunk diff --watch` | ユーザーに起動を頼み、`hunk-review` で操作 | 三 CLI |
+| `hunk diff --watch` | ユーザーに起動を頼み、`hunk-review` で操作 | 四 CLI |
 | Herdr の pane 内（`HERDR_ENV=1`）での素の `git worktree add` | `herdr worktree create` / `herdr worktree open` | OMP |
 
 ルール表とは別に、同じフック経路で `scripts/pr-template-check.ts` が `gh pr create --body` / `--body-file` を検査します。
