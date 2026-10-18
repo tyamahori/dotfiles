@@ -39,6 +39,7 @@ type UsageRow = {
   account?: string;
   limitId: string;
   pct: number;
+  resetsAt?: number | null;
 };
 type Model = { provider?: string; id?: string };
 type SessionStart = (event: unknown, ctx: unknown) => Promise<void> | void;
@@ -70,7 +71,8 @@ function seedUsage(rows: UsageRow[]): void {
       "INSERT INTO usage_history (provider, account_key, limit_id, used_fraction, resets_at, recorded_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
     );
     for (const row of rows) {
-      insert.run(row.provider, row.account ?? null, row.limitId, row.pct / 100, Date.now() + 60 * 60 * 1000, ++recordedAt);
+      const resetsAt = row.resetsAt === undefined ? Date.now() + 60 * 60 * 1000 : row.resetsAt;
+      insert.run(row.provider, row.account ?? null, row.limitId, row.pct / 100, resetsAt, ++recordedAt);
     }
   } finally {
     fixture.close();
@@ -171,5 +173,24 @@ test("leaves the model unchanged when the local rescue is unavailable", async ()
 
   expect(guard.selected).toEqual([]);
   expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+test("an unused Claude account (null reset) keeps the local rescue off", async () => {
+  seedUsage([
+    { provider: "anthropic", account: "oauth|account:a|org:org-p", limitId: "anthropic:7d", pct: 99 },
+    { provider: "anthropic", account: "oauth|account:b|org:org-t", limitId: "anthropic:7d", pct: 0, resetsAt: null },
+    { provider: "openai-codex", limitId: "openai-codex:primary", pct: 99 },
+  ]);
+  const guard = usageHarness(
+    () => ({ provider: "anthropic", id: "claude-sonnet-5" }),
+    (spec) => (spec === "ollama/qwen3.6:35b-mlx" ? { provider: "ollama", id: "qwen3.6:35b-mlx" } : undefined),
+  );
+  const fetch = blockNetwork();
+  fetch.mockResolvedValue(new Response(JSON.stringify({ models: [{ name: "qwen3.6:35b-mlx" }] })));
+
+  await guard.sessionStart();
+
+  expect(fetch).not.toHaveBeenCalled();
+  expect(guard.selected).toEqual([]);
 });
 

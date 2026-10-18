@@ -128,8 +128,8 @@ function latestUsedPct(
 	for (const row of rows) {
 		if (
 			row.provider !== provider ||
-			row.resetsAt === null ||
-			row.resetsAt <= Date.now() ||
+			// NULL reset = unused pool (see latestUsageRows), still a valid account.
+			(row.resetsAt !== null && row.resetsAt <= Date.now()) ||
 			(prefix ? !row.limitId.toLowerCase().startsWith(prefix) : row.limitId.toLowerCase() !== filter)
 		) {
 			continue;
