@@ -9,4 +9,8 @@ else
 	root=/
 fi
 
+# Authenticate first: a failed sudo would otherwise truncate the last reports.
+# Headless Linux has no ~/Desktop.
+sudo -v || exit 1
+mkdir -p ~/Desktop
 sudo du --si -xct 1000000000 "$root" | tee >(grep -vFe $'*\t' > ~/Desktop/DiskSpace.txt) | sort -hr > ~/Desktop/SortedDiskSpace.txt
