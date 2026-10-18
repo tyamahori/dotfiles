@@ -42,6 +42,8 @@
 
 2026-10 には poteto の pstack（`cursor/plugins`）を再検討した。Claude Code プラグイン版でも多モデルのパネルは Claude 単独に縮み、原則と playbook の大半は ponytail・`test-design`・`software-design`・`diagnosing-bugs` と重なるため、導入は見送った。代わりに、手元にない部分を既存 skill の節として取り込んだ。最初に `blast-radius` を `adversarial-verification` の「波及範囲」観点に、hillclimb playbook と `attack-the-premise` を `diagnosing-bugs` に入れた。続けて、`benchmark-checklist` と `explain-the-number` を `diagnosing-bugs` の「Vet the number」節と `agent-usage-review` の診断に、poteto-mode の「観測できる問いは聞かずに試す」を `task-briefing` に、`correct` の「二度起きたら一クラス」「過去の実例で落ちることを確かめる」を本書の「形式化のサイクルを回す」に、playbook の手順を todo へそのまま写す運用を共有指示の「Skills to load first」に入れた。`create-verification-skill` と `maintain-verification-skill` だけは置き場所になる既存 skill がないため、一つの skill にまとめて新設した。
 
+三回目は、uehaj の Zenn 記事「[【メモ】pstack (Claude Code 移植版pstack-claude) のスタック構成とオーケストレーションを読む](https://zenn.dev/uehaj/articles/claude-code-pstack-structure-memo)」で残りを洗い直した。poteto-mode の「読んだ原則だけを根拠に挙げる」「直しや再試行は統合したスコープで新しい subagent に渡す」と、`principle-never-block-on-the-human` の「戻せる作業は進めてから見せ、代わりに決めた既定は報告する」を共有指示に入れた。`principle-encode-lessons-in-structure` の強度の順と「構造で直したら文章は症状として削る」は本書の「形式化のサイクルを回す」に、`show-me-your-work` は置き場所がないため skill として新設した。記事のコメントで勧められていた Matt Pocock の `grill-with-docs` は、中身の `grilling` がすでに `grill-me` に入っているので、もう一方の `domain-modeling`（用語集と ADR）だけを `grill-me` の一節として足した。orchestrate playbook とモデルの振り分けは、単一ホストで Herdr が担う部分と重なるため入れていない。
+
 ## 追加するときの判断
 
 新しい規範を書きたくなったら、まず既存の skill の節として足せないかを見る。毎ターン読ませたい一行ポインタだけを `agents/global-instructions.md` に置き、手順や判断基準は skill、導入・運用の手順は `docs/` に書く。skill を増やしたら `scripts/link` を実行して各ホストの skills ディレクトリへ symlink し、`omp -p --no-session "read skill://<name>"` で新しいセッションから読めることを確かめる。
