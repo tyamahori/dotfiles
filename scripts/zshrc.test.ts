@@ -30,3 +30,16 @@ test.skipIf(!zsh)("a completion cache follows a nix store update (new path, mtim
   expect(run("2")).toBe("#compdef tool v2\n");
 });
 
+test.skipIf(!zsh)("a shell without starship or a tty starts without errors from them", () => {
+  const home = join(dir, "home");
+  const bin = join(dir, "only-fzf");
+  mkdirSync(home);
+  mkdirSync(bin);
+  const fzf = Bun.which("fzf");
+  if (fzf) symlinkSync(fzf, join(bin, "fzf"));
+  writeFileSync(join(home, ".zshrc"), readFileSync(zshrc));
+  const r = Bun.spawnSync([zsh!, "-i", "-c", "exit"], { env: { HOME: home, PATH: `${bin}:/usr/bin:/bin`, TERM: "dumb" } });
+  const err = r.stderr.toString();
+  expect(err).not.toContain("starship");
+  expect(err).not.toContain("can't change option: zle");
+});

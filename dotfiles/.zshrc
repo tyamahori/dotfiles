@@ -102,7 +102,8 @@ if (( $+commands[bat] )); then
   export FZF_CTRL_T_OPTS="--preview 'bat --color=always --style=numbers --decorations=always --line-range=:200 {}'"
   export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 fi
-(( $+commands[fzf] )) && source <(fzf --zsh)
+# tty の無い `zsh -i -c` では、fzf が options を戻す eval で "can't change option: zle" を出す。
+(( $+commands[fzf] )) && [[ -t 0 ]] && source <(fzf --zsh)
 
 # Tab の所有者を fzf-tab にし、autosuggestions が widget を包む前に読み込む。
 if (( $+commands[fzf] )) && [[ -r "$_fzf_tab" ]]; then
@@ -261,7 +262,7 @@ export PATH="$PATH:${HOME}/.jbcontext/bin"
 
 # reload 時に ZLE widget のラッパーを重ねず、終了状態の取得を使用率更新より先に行う。
 add-zsh-hook -d precmd _agent_usage_precmd
-(( $+functions[prompt_starship_precmd] )) || eval "$(starship init zsh)"
+(( $+functions[prompt_starship_precmd] )) || { (( $+commands[starship] )) && eval "$(starship init zsh)"; }
 add-zsh-hook precmd _agent_usage_precmd
 
 # zsh-syntax-highlighting はウィジェットをラップするため、Kiro post block を除き最後に読み込む。
