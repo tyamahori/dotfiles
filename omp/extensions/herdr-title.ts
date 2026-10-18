@@ -30,7 +30,8 @@ export default function (pi: ExtensionHandlerApi): void {
     if (typeof text !== "string") return;
     // Codepoint-safe truncation ([...s] splits by codepoint, not UTF-16 unit).
     const title = [...text.replace(/\s+/g, " ").trim()].slice(0, 60).join("");
-    if (!title || title.startsWith("/")) return; // slash commands are not tasks
+    // Slash commands (/model, /skill:x) are not tasks; a prompt opening with an absolute path is.
+    if (!title || /^\/[\w:-]+(?:\s|$)/.test(title)) return;
     execFile(
       herdrBin,
       [
