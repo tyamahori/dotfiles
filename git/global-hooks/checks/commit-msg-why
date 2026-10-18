@@ -24,7 +24,8 @@ fi
 
 subject=
 has_body=false
-while IFS= read -r line; do
+# `|| [[ -n $line ]]` keeps a last line that has no trailing newline (editors may omit it).
+while IFS= read -r line || [[ -n $line ]]; do
 	if [[ ${line:0:1} == "$comment_char" ]]; then
 		if [[ $line == *' >8 '* ]]; then
 			break # scissors line: everything below is the commit -v diff
