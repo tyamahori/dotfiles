@@ -29,14 +29,14 @@ function fixtureHome(): { home: string; payload: string } {
 
 // The guard resolves the hook from homedir() at load time, which Bun only
 // takes from the HOME the process started with.
-function notificationsAfter(event: { toolName: string; command: string; isError?: boolean }): string[] {
+function notificationsAfter(event: { toolName: string; command: string; cwd?: string; isError?: boolean }): string[] {
   const driver = `
     const { default: install } = await import(${JSON.stringify(extension)});
     const notes = [];
     let handler;
     install({ on: (name, fn) => { if (name === "tool_result") handler = fn; } });
     handler(
-      { toolName: ${JSON.stringify(event.toolName)}, input: { command: ${JSON.stringify(event.command)} }, isError: ${event.isError ?? false} },
+      { toolName: ${JSON.stringify(event.toolName)}, input: { command: ${JSON.stringify(event.command)}, cwd: ${JSON.stringify(event.cwd ?? null)} ?? undefined }, isError: ${event.isError ?? false} },
       { cwd: "/work/repo", ui: { notify: (message) => notes.push(message) } },
     );
     console.log(JSON.stringify(notes));
@@ -52,6 +52,14 @@ test("a successful raw worktree add runs the copy hook with the session cwd and 
 
   expect(notificationsAfter({ toolName: "bash", command })).toEqual(["copied 2 files"]);
   expect(JSON.parse(readFileSync(payload, "utf8"))).toEqual({ cwd: "/work/repo", tool_input: { command } });
+});
+
+test("the bash call's own cwd, resolved against the session cwd, is what the hook inspects", () => {
+  const { payload } = fixtureHome();
+  const command = "git worktree add ../wt -b topic";
+
+  notificationsAfter({ toolName: "bash", command, cwd: "../other" });
+  expect(JSON.parse(readFileSync(payload, "utf8")).cwd).toBe("/work/other");
 });
 
 test("failed adds, other worktree subcommands, and other tools do not run the hook", () => {

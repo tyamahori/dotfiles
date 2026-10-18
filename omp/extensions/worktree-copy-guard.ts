@@ -7,7 +7,7 @@
 
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 const HOOK = join(homedir(), "dotfiles/scripts/worktree-copy-hook");
 const WORKTREE_ADD = /git[^;&|]*\sworktree\s+add(\s|$)/;
@@ -47,7 +47,8 @@ export default function (pi: ExtensionHandlerApi): void {
     const result = spawnSync(HOOK, [], {
       encoding: "utf8",
       input: JSON.stringify({
-        cwd: ctx?.cwd || process.cwd(),
+        // The bash tool's own cwd overrides the session cwd for that call.
+        cwd: resolve(ctx?.cwd || process.cwd(), typeof record?.cwd === "string" ? record.cwd : "."),
         tool_input: { command },
       }),
       maxBuffer: 1024 * 1024,
