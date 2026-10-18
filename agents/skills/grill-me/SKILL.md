@@ -1,6 +1,6 @@
 ---
 name: grill-me
-description: ユーザーが「grillして」「徹底的に質問して」「設計の穴を突いて」「ストレステストして」と明示したときだけ使う。通常のタスク受付には適用しない。合意済みのブリーフィング・計画・設計判断を依存関係に沿って問い直し、実装前に前提とトレードオフを固める。
+description: ユーザーが「grillして」「徹底的に質問して」「設計の穴を突いて」「ストレステストして」「grill-with-docs」「用語と ADR を残しながら詰めて」と明示したときだけ使う。通常のタスク受付には適用しない。合意済みのブリーフィング・計画・設計判断を依存関係に沿って問い直し、実装前に前提とトレードオフを固める。docs 付きで頼まれたら、決まった用語を GLOSSARY.md に、戻しにくい決定を ADR に、その場で書く。
 ---
 
 # grill-me
@@ -71,12 +71,35 @@ frontier が一問だけの場合や、回答によって後続が大きく変�
 将来ありうる要求を想像して枝を増やさない。
 「徹底的に」は、結果やリスクを変えない仮定まで列挙することを意味しない。
 
+## docs 付きで頼まれたとき（grill-with-docs）
+
+「grill-with-docs」や「用語と ADR も残して」と頼まれたら、質問の進め方は同じまま、決まったことをリポジトリに書き残す。依頼がなければ書かない。
+
+用語は、決まった時点で `GLOSSARY.md` へ一語ずつ書く。終了時にまとめて書くと、決めた言い回しが要約で丸まる。ルートに `GLOSSARY-MAP.md` があれば、それが指す文脈ごとの `GLOSSARY.md` に書く。どちらもなければ、最初の用語が決まったときにルートへ作る。
+
+- 一つの概念に複数の語があれば一つを選び、ほかを `_Avoid_:` に並べる。
+- 定義は1〜2文で、それが何であるかを書く。何をするかは書かない。
+- そのプロジェクト固有の語だけを載せる。timeout やエラー型のような一般的なプログラミング概念は載せない。
+- 実装の詳細、仕様、メモは書かない。用語集以外の用途に使わない。
+
+```md
+**Invoice**:
+A request for payment sent to a customer after delivery.
+_Avoid_: Bill, payment request
+```
+
+質問中にも用語集を使う。ユーザーの使う語が既存の定義とずれていたら、その場で指摘する。曖昧な語には正確な候補を出し、境界は具体的な場面を作って確かめる。ユーザーの説明とコードの振る舞いが食い違えば、それも指摘する。
+
+ADR は、戻すのに費用がかかる、文脈なしでは意外に見える、実際に代替案と比べて選んだ、の三つがそろう決定にだけ提案する。一つでも欠ければ書かない。多くのセッションで ADR はゼロ件になる。書くときは `software-design` の「ADRs」節に従い、置き場所と番号はリポジトリの既存の慣習に合わせる。
+
+用語集にも ADR にも入らない決定は、会話にしか残らない。終了時に更新するブリーフィングへ、後の実装に必要なものを漏らさず書く。
+
 ## 終了条件
 
 成果物またはリスクを変えうる未決定ノードがなくなったら、`task-briefing` の `references/checklist.md` を読み、同じテンプレートでブリーフィングを更新する。
 別形式の詳細設計書は作らない。
 主要な意思決定、棄却した案、残存リスクは、後の実装判断に必要なものだけブリーフィングへ添える。
-ファイルへの保存や ADR の作成は、ユーザーの依頼またはリポジトリの既存 workflow が求める場合に限る。
+ファイルへの保存や ADR の作成は、docs 付きの依頼、ユーザーの個別の依頼、またはリポジトリの既存 workflow が求める場合に限る。
 
 更新したブリーフィングを提示し、共通理解に達したか確認する。
 ユーザーが確認するまで、実装、ファイル編集、issue 作成、PR 作成へ進まない。
@@ -85,7 +108,10 @@ frontier が一問だけの場合や、回答によって後続が大きく変�
 ## 参考
 
 設計ツリーと frontier の発想は、Matt Pocock の `grill-me` と `grilling` を参考にしている。
+docs 付きの手順は、同じく `grill-with-docs` が呼び出す `domain-modeling` の用語集と ADR の規律を、この skill の一節として取り込んだ。
 この版では、既存の `task-briefing` との接続、ラウンド当たりの質問数、検討範囲、終了時の成果物を、この dotfiles の運用に合わせて定めている。
 
 - https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me
 - https://github.com/mattpocock/skills/tree/main/skills/productivity/grilling
+- https://github.com/mattpocock/skills/tree/main/skills/engineering/grill-with-docs
+- https://github.com/mattpocock/skills/tree/main/skills/engineering/domain-modeling
