@@ -17,12 +17,14 @@ staged=$(mktemp)
 formatted=$(mktemp)
 trap 'rm -f "$staged" "$formatted"' EXIT
 while IFS= read -r -d '' file; do
-	git show ":$file" >"$staged"
 	case "$file" in
 	*.jsonc | tsconfig*.json | */tsconfig*.json | jsconfig*.json | */jsconfig*.json | .vscode/*.json | */.vscode/*.json | devcontainer.json | */devcontainer.json | .devcontainer/*.json | */.devcontainer/*.json) continue ;;
 	*.json) ;;
 	*) continue ;;
 	esac
+	# A staged symlink's blob is its target path, not JSON.
+	[[ $(git ls-files -s -- "$file") == 120000\ * ]] && continue
+	git show ":$file" >"$staged"
 	if ! err=$(jq empty "$staged" 2>&1); then
 		printf '%s\n' "$err" >&2
 		failed=1
