@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import ruleTable from "../agents/command-rules.json";
 
-type Client = "claude" | "codex" | "omp";
+type Client = "claude" | "codex" | "omp" | "copilot";
 type CommandMatch = {
   executables: string[];
   subcommand?: string;
@@ -18,7 +18,7 @@ type CommandMatch = {
 
 type Rule = {
   id: string;
-  matcher: "command" | "curl-web-fetch" | "git-commit-subject-only";
+  matcher: "command" | "curl-web-fetch" | "git-commit-subject-only" | "search-allowlist";
   commands: CommandMatch[];
   excludeAfterPipe?: boolean;
   clients: Client[];
@@ -208,6 +208,41 @@ function operandsMatch(args: string[], skip: number, pattern: RegExp): boolean {
   return operands.length > 0 && operands.every((word) => pattern.test(word));
 }
 
+// Flags that cannot widen what a search reads or prints: no -e/-f (a pattern
+// can then hide a file operand), no -r/-R/-L (recursion, rg's symlink follow),
+// and the context/max-count flags only with an attached number (`-A2`).
+const SAFE_SHORT_FLAGS = /^-(?:[ivncowxFqsHhl]+|[ABCm]\d+)$/;
+const SAFE_LONG_FLAGS: Record<string, true> = {
+  "--ignore-case": true,
+  "--invert-match": true,
+  "--line-number": true,
+  "--count": true,
+  "--only-matching": true,
+  "--word-regexp": true,
+  "--line-regexp": true,
+  "--fixed-strings": true,
+  "--quiet": true,
+  "--silent": true,
+  "--files-with-matches": true,
+};
+
+// Allowlist for the `search-allowlist` matcher: a post-pipe filter whose one
+// operand is the pattern (it reads stdin), or a file-names-only `-l` search.
+function isSafeSearch(args: string[], followsPipe: boolean, hasRedirection: boolean): boolean {
+  if (hasRedirection) return false;
+  const operands: string[] = [];
+  let listOnly = false;
+  for (const argument of args) {
+    if (!argument.startsWith("-")) {
+      operands.push(argument);
+      continue;
+    }
+    if (!SAFE_SHORT_FLAGS.test(argument) && !Object.hasOwn(SAFE_LONG_FLAGS, argument)) return false;
+    if (argument === "--files-with-matches" || /^-[^-]*l/.test(argument)) listOnly = true;
+  }
+  return (followsPipe && operands.length === 1) || (listOnly && operands.length > 0);
+}
+
 function commandIndex(words: string[]): number {
   let index = 0;
   while (/^[A-Za-z_]\w*=/.test(words[index] ?? "")) index += 1;
@@ -321,6 +356,12 @@ export function denyCommand(command: string, client: Client): string | undefined
     if (rule.requireEnv && Object.entries(rule.requireEnv).some(([name, value]) => process.env[name] !== value)) continue;
     const matched = parsed.segments.some(({ words, followsPipe }) => {
       if (rule.excludeAfterPipe && followsPipe) return false;
+      if (rule.matcher === "search-allowlist") {
+        // Any word naming a searcher counts, so `env`, `command`, `xargs`,
+        // `sudo`, and absolute paths cannot hide it.
+        const at = words.findIndex((word) => rule.commands[0].executables.includes(word.slice(word.lastIndexOf("/") + 1)));
+        return at !== -1 && !(at === 0 && isSafeSearch(words.slice(1), followsPipe, parsed.hasRedirection));
+      }
       const index = commandIndex(words);
       return rule.commands.some((match) =>
         match.executables.includes(words[index]) &&

@@ -36,6 +36,14 @@
       }
     },
     {
+      "id": "copilot-shell-search",
+      "matcher": "search-allowlist",
+      "commands": [{ "executables": ["grep", "egrep", "fgrep", "zgrep", "rg", "ugrep", "ag", "ack"] }],
+      "clients": ["copilot"],
+      "replacement": { "type": "native-tool" },
+      "reason": "Shell grep/rg is blocked for Copilot on this machine: a directory search can pull `.env`-style credential files into context. Find candidate files with `rg -l <pattern> <dir>` (file names only), then search those files with the grep tool. A pipeline filter such as `git log | grep -i fix` (one pattern, simple flags, no redirection) is also allowed."
+    },
+    {
       "id": "curl-web-fetch",
       "matcher": "curl-web-fetch",
       "clients": ["claude", "codex", "omp"],

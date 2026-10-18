@@ -559,7 +559,7 @@ guard の切り替えは利用枠ごとに一度だけなので、`/model` で�
 
 - Claude Code: `claude/settings.json` の `permissions.deny` に `Read(//**/*.env)` と `Read(//**/.env.*)` を設定済みです。Claude 公式の deny 優先順位により、同じ設定内の `Read(~/.config/**)` などの allow より必ず優先されます。この deny は Read 本体に加えて Edit・Write、Grep・Glob、および Claude Code が認識する `cat`/`head`/`tail`/`sed`/`tee` の bash 呼び出しとリダイレクト先にも及びます。
 - OMP: `omp/extensions/deny-env-reads.ts` が `read`/`grep` ツールを同じファイル名パターンで拒否します。`glob` はファイル名列挙のみなので対象外です。
-- Copilot CLI: `scripts/deny-command-hook.ts` が `view`/`grep`/`rg` ツールのパスを OMP と同じファイル名パターンで拒否します。Copilot の grep はディレクトリを `paths` に、対象ファイルを `glob` に渡すことがあります（copilot 1.0.91 で採取）。そこで glob は、`env` が単独の語として現れるもの（`env/*.ts` のような `env/` ディレクトリ部分は除く）に加え、`.env`・`.env.local`・`.env.production`・`.env.development`・`.env.test`・`credentials.env` に実際の glob 解釈で一致するものも拒否します。`[.]e[n]v` や `.{e,x}{n,x}{v,x}` のような書き換えもこれで塞がります。一方、`*`・`**/*`・`*.*` のような広い glob も拒否されるため、agent には必要なファイル種別へ絞るよう理由文で伝えます。残る抜け道は四つです。glob を付けないディレクトリ検索、`**/env/**` のような glob、上記以外の名前（`.env.staging` など）を文字クラスや brace で書き換えた glob、そして `*.staging` のように `.env.<拡張子>` に一致してしまう拡張子 glob です。いずれも ripgrep が無視しない `.env` を読めてしまいます。
+- Copilot CLI: `scripts/deny-command-hook.ts` が `view`/`grep`/`rg` ツールで、OMP と同じファイル名パターンに当たるパスを拒否します。symlink はリンク先の実体でも判定します。Copilot の grep はディレクトリを `paths` に、対象ファイルを `glob` に渡すことがあります（copilot 1.0.91 で採取）。`[.]e[n]v` や `.{e,x}{n,x}{v,x}.staging` のような glob はどんなファイル名照合もすり抜けるため、grep/rg は `.env` でない通常ファイルを明示した検索だけを通します。ディレクトリ、存在しないパス、パス指定なしの検索は、glob に関係なく拒否します。bash の `grep`/`rg` も同じ抜け道になるため、Copilot 専用の `copilot-shell-search` ルールが許可リスト方式で拒否します。通すのは、ファイル名だけを出す `-l` 検索と、パイプ途中でパターンだけを受け取るフィルタです。どちらも `-e`/`-f`/`-r`/`-L` や `--` などの許可外フラグ、リダイレクトがあれば拒否します。`env`/`xargs`/`sudo`/`git grep`/絶対パス経由の呼び出しも拒否します。
 - 四 CLI 共通: `agents/command-rules.json` の `env-file-read` ルールが `cat`/`head`/`tail`/`less`/`more`/`strings`/`od`/`xxd`/`base64`/`tee` の bash 呼び出しを拒否します（Copilot CLI は Codex 向けのルールを使います）。Codex には Claude Code のような native Read ツールがなく shell 経由の読み取りしか手段がないため、この bash ルールが Codex にとって唯一の防御層です。
 
 `grep`/`rg`/`awk`/`sed` は検索パターン引数と誤検知するため `env-file-read` の対象から外しています。
@@ -568,15 +568,16 @@ Python/Node の一行スクリプトがファイルを直接開く、絶対パ�
 
 ### 代替ツールのルールを追加する
 
-三 CLI 共通のルール表は `agents/command-rules.json` です。
+四 CLI 共通のルール表は `agents/command-rules.json` です。
 Claude Code と Codex は `scripts/deny-command-hook.ts`、OMP は `omp/extensions/deny-commands.ts` を通じて、同じ `scripts/command-policy.ts` の判定を使います。
-Copilot CLI も `scripts/link` が `~/.copilot/hooks/dotfiles.json` に置く preToolUse フックから同じスクリプトを呼び、Codex 向けのルールと文面を使います。
+Copilot CLI も `scripts/link` が `~/.copilot/hooks/dotfiles.json` に置く preToolUse フックから同じスクリプトを呼び、Codex 向けのルールと文面に加えて、`copilot` client 専用のルールを使います。
 Claude Code・Codex・Copilot CLI のフック実行には、`scripts/devbox` で導入する Bun が必要です。
 
 | 対象 | 代替手段 | 適用する CLI |
 | --- | --- | --- |
 | 素の `python` / `python3` | `uv run` / `uvx` | 四 CLI |
 | shell による閲覧・検索 | 専用の Read / Grep / Glob 系ツール | Claude Code、OMP |
+| shell の `grep` / `rg` / `ugrep` など（`-l` 検索とパイプ途中のフィルタは除く） | `rg -l` で候補を出し、grep ツールでファイルを明示して検索 | Copilot CLI |
 | 単純な `curl` の Web 取得 | `ax`（最初に `~/.agents/skills/ax/SKILL.md` を読む） | 四 CLI |
 | `brew upgrade` | `scripts/brewUpdate` | 四 CLI |
 | `.env` 系資格情報ファイルの shell 経由の閲覧 | 読ませない（代替なし） | 四 CLI |
@@ -646,7 +647,7 @@ omp-review --help
 | OMP にだけ追加する常設指示 | `omp/APPEND_SYSTEM.md` |
 | OMP extension | `omp/extensions/` |
 | 行動で必要になる Skill の案内 | `omp/extensions/skill-trigger-hint.ts` |
-| 三 CLI の代替ツール誘導ルール | `agents/command-rules.json` |
+| 四 CLI の代替ツール誘導ルール | `agents/command-rules.json` |
 | plugin と version | `scripts/omp-plugins` |
 | authored skill | `agents/skills/<name>/SKILL.md` |
 | 学習レビューの起動方法 | `scripts/omp-learning-review` |

@@ -1,3 +1,6 @@
+import { existsSync, realpathSync, statSync } from "node:fs";
+import { homedir } from "node:os";
+import { resolve } from "node:path";
 import { isEnvPath } from "../omp/extensions/deny-env-reads.ts";
 import { denyCommand } from "./command-policy.ts";
 import { missingTemplateHeadings, templateReason } from "./pr-template-check.ts";
@@ -27,36 +30,35 @@ type HookClient = "claude" | "codex" | "copilot";
 
 const COPILOT_READ_TOOLS: Record<string, true> = { view: true, grep: true, rg: true };
 const COPILOT_ENV_READ_REASON =
-  "`.env`-style credential files are blocked from the view/grep tools, including grep globs that can match one (`*`, `*.*`, `{.env,...}`). These files hold plaintext secrets — don't load one into context unless the user explicitly asked you to inspect that exact file. Narrow the glob to the file types the task needs.";
+  "`.env`-style credential files are blocked from the view/grep tools. These files hold plaintext secrets — don't load one into context unless the user explicitly asked you to inspect that exact file.";
+const COPILOT_GREP_SCOPE_REASON =
+  "The grep/rg tools only search explicitly listed regular files on this machine: a directory, a missing path, or no path at all can pull `.env`-style credential files into context whatever the glob says. List the specific files to search in `path`/`paths`.";
 
-// Mirrors omp/extensions/deny-env-reads.ts for Copilot's native readers. grep
-// can reach an .env file through a directory in `paths` plus a `glob` filter
-// (captured from copilot 1.0.91). A glob can name the file through
-// alternatives or classes (`{.env,.env.local}`, `[.]env`) that a filename
-// match misses, so any glob with `env` as a standalone word is refused. An
-// `env/` directory segment does not single out a credential file; it widens
-// the search no more than passing that directory without a glob.
-// ponytail: filename heuristic; a directory search without a glob, or with a
-// glob like `**/env/**`, still reads .env files that ripgrep does not ignore.
-const ENV_GLOB = /(?:^|[^A-Z\d])env(?:[^A-Z\d/]|$)/i;
-
-// Spellings such as `[.]e[n]v` or `.{e,x}{n,x}{v,x}` have no `env` word, so the
-// glob is also evaluated against common credential file names. Wildcards like
-// `*` match them too and are refused; the reason text tells the agent to narrow.
-const ENV_PROBES = [".env", ".env.local", ".env.production", ".env.development", ".env.test", "credentials.env"]
-  .flatMap((name) => [name, `dir/${name}`]);
-
-function copilotEnvRead(args: unknown): string | undefined {
+// Mirrors omp/extensions/deny-env-reads.ts for Copilot's native readers, by
+// name and by symlink target. grep/rg is limited to explicit regular files
+// because no glob can be shown to exclude every .env name: copilot 1.0.91 sent
+// the directory in `paths` and the file in `glob`, and globs such as `[.]e[n]v`
+// or `.{e,x}{n,x}{v,x}.staging` defeat any filename match.
+function copilotEnvRead(toolName: string, args: unknown, cwd: unknown): string | undefined {
   if (!isPlainObject(args)) throw new Error("hook input toolArgs must be a JSON object");
   const targets = [args.path, args.paths].flat().filter((value): value is string => typeof value === "string");
-  const glob = typeof args.glob === "string" ? args.glob : "";
-  const globHitsEnv = glob !== "" && (ENV_GLOB.test(glob) || ENV_PROBES.some((name) => new Bun.Glob(glob).match(name)));
-  return targets.some(isEnvPath) || globHitsEnv ? COPILOT_ENV_READ_REASON : undefined;
+  if (targets.some(isEnvPath)) return COPILOT_ENV_READ_REASON;
+  if (toolName !== "view" && targets.length === 0) return COPILOT_GREP_SCOPE_REASON;
+  const base = typeof cwd === "string" ? cwd : process.cwd();
+  for (const target of targets) {
+    const absolute = resolve(base, target.replace(/^~(?=\/|$)/, homedir()));
+    const real = existsSync(absolute) ? realpathSync(absolute) : undefined;
+    if (real !== undefined && isEnvPath(real)) return COPILOT_ENV_READ_REASON;
+    if (toolName !== "view" && (real === undefined || !statSync(real).isFile())) return COPILOT_GREP_SCOPE_REASON;
+  }
+  return undefined;
 }
 
 function commandReason(command: string, client: HookClient, cwd: unknown): string | undefined {
-  // Copilot is a shell-only agent like Codex; it shares Codex's rule set and wording.
-  const reason = denyCommand(command, client === "copilot" ? "codex" : client);
+  // Copilot shares Codex's rule set and wording, plus its own rules for the
+  // shell paths its native tools already cover.
+  const reason =
+    client === "copilot" ? (denyCommand(command, "codex") ?? denyCommand(command, "copilot")) : denyCommand(command, client);
   if (reason) return reason;
   const missing = missingTemplateHeadings(command, typeof cwd === "string" ? cwd : process.cwd());
   return missing.length > 0 ? templateReason(missing) : undefined;
@@ -84,7 +86,7 @@ export function denyCommandHook(client: HookClient, payload: string) {
   if (typeof command === "string") {
     reason = commandReason(command, client, input.cwd);
   } else if (copilotReader) {
-    reason = copilotEnvRead(copilotArgs);
+    reason = copilotEnvRead(copilotTool, copilotArgs, input.cwd);
   } else if (typeof input.tool_name === "string") {
     reason = slackNoticeViolation(input.tool_name, toolInput);
   }
