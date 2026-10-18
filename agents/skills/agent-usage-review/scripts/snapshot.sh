@@ -640,6 +640,56 @@ else
 	echo "- 取得不能: \`$OMP_SESSIONS\` がない。"
 fi
 
+# 1 行 = 1 件の失敗信号（class と集計キー用の session パス）。本文は出力しない。
+omp_failure_records() {
+	local rules="$REPO_ROOT/agents/command-rules.json"
+	[ -d "$OMP_SESSIONS" ] && [ -f "$rules" ] || return
+	find "$OMP_SESSIONS" -name '*.jsonl' -newermt "$CUTOFF" -print0 2>/dev/null |
+		while IFS= read -r -d '' file; do
+			jq -r --arg session "$file" --argjson cutoff_epoch "$CUTOFF_EPOCH" --slurpfile table "$rules" '
+				def epoch: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+				# 拒否理由の先頭 50 字で照合し、文面の後半を直しても過去分を数え続ける
+				($table[0].rules | map({id, prefix: ((.reasons.omp // .reason // "")[0:50])}) | map(select(.prefix != ""))) as $denials
+				| select((try (.timestamp | epoch) catch 0) >= $cutoff_epoch)
+				| select(.type == "message")
+				| .message as $m
+				| ($m.content | if type == "array" then map(.text? // "") | join(" ") else (. // "" | tostring) end) as $text
+				| (
+					if $m.role == "toolResult" and $m.toolName == "bash" then
+						if ($text | startswith("Service mode does not accept")) then "bash-service-mode"
+						else ($denials[] | .prefix as $p | select($text | startswith($p)) | "deny:" + .id)
+						end
+					elif $m.role == "user" and ($text | startswith("[lint-on-edit] ")) then
+						($text | capture("^\\[lint-on-edit\\] (?<linter>[^ ]+)").linter) as $linter
+						| ("lint:" + $linter), ([$text | scan("\\[(SC[0-9]+)\\]")[0]] | unique[] | "lint:" + $linter + ":" + .)
+					elif $m.role == "user" and ($text | startswith("[fail-fast]")) then "fail-fast"
+					elif $m.role == "developer" and ($text | test("You stopped with [0-9]+ incomplete todo")) then "incomplete-todo"
+					else empty
+					end
+				)
+				| [., $session] | @tsv
+			' "$file" 2>/dev/null
+		done
+}
+
+echo
+echo "### 繰り返し失敗 (OMP)"
+echo
+echo '> 拒否 hook（ルール id 別）、lint-on-edit（linter と shellcheck code 別）、fail-fast、bash の service mode 拒否、未完了 todo の差し戻しを、指定期間全体で数える。7 日の期間で sessions が 2 以上の class は機械化の候補として扱う（docs/software-engineering.md「形式化のサイクルを回す」）。Claude Code と Codex は未集計。'
+echo
+echo 'class	events	sessions'
+OMP_FAILURES="$(
+	omp_failure_records | awk -F '\t' '
+		{ events[$1]++; if (!seen[$1 SUBSEP $2]++) sessions[$1]++ }
+		END { for (k in events) printf "%s\t%d\t%d\n", k, events[k], sessions[k] }
+	' | sort -t $'\t' -k3,3nr -k2,2nr -k1,1
+)"
+if [ -n "$OMP_FAILURES" ]; then
+	printf '%s\n' "$OMP_FAILURES"
+else
+	echo "(none)"
+fi
+
 echo
 echo
 echo "### Always-loaded instruction footprint"

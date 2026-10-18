@@ -41,7 +41,7 @@ snapshot に会話本文や認証情報を混ぜない。
 ローカル診断では session ID、費用、ローカルパスを扱い、必要なら journal に記録する。
 これらの固有値は public なコミット、共有物、会話への貼り付けから除く。
 
-出力は日次合計（モデル別）、コスト上位セッション、警告フラグ、cache 構成、ターン別 context 増分、大きな tool result、スキル発火シグナル、常駐指示と外部記憶のサイズを含む。
+出力は日次合計（モデル別）、コスト上位セッション、警告フラグ、cache 構成、ターン別 context 増分、大きな tool result、スキル発火シグナル、繰り返し失敗、常駐指示と外部記憶のサイズを含む。
 
 合計は [ccusage](https://github.com/ryoppippi/ccusage)（Claude、Codex、Grok、Qwen 対応）、警告フラグは raw JSONL、OMP 固有指標は `~/.omp/stats.db` と session event の集計で得る。
 
@@ -65,6 +65,9 @@ Claude の assistant レコードは 1 つの API message が content block ご�
 skill listing、会話内の名前への言及、tool result に含まれる skill 本文は数えない。
 出力するのは agent、skill 名、発火回数、該当セッション数、シグナル種別だけとし、会話本文、tool 引数、ファイルパス、session ID は出力しない。
 Codex と OMP の `skill_file_read` は読込の証拠であり、手順を最後まで実行した証拠ではない。
+
+「繰り返し失敗 (OMP)」は、拒否 hook のルール id、lint-on-edit の linter と shellcheck code、fail-fast、bash の service mode 拒否、未完了 todo の差し戻しを class ごとに数える。
+数は指定期間全体の合計である。7 日の期間で 2 セッション以上に出た class は、規則の文面を足す前に機械化（自動補正、除外、ルールの範囲変更）を検討する。手順は `docs/software-engineering.md` の「形式化のサイクルを回す」に従う。
 
 ## 診断の読込経路
 
