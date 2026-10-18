@@ -203,7 +203,7 @@ function writesStdoutToFile(redirection: OperatorToken, target: string): boolean
   return redirection.value !== ">&" || !/^(?:\d+|-)$/.test(target);
 }
 
-function segments(command: string): Segment[] {
+export function segments(command: string): Segment[] {
   const result: Segment[] = [];
   let words: string[] = [];
   let followsPipe = false;

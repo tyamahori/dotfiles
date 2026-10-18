@@ -1,13 +1,16 @@
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
+import { segments } from "./command-policy.ts";
 
 // `gh pr create --body` skips the repo's PR template, so agents that pass a
 // body silently drop its sections. This finds the template headings missing
-// from the body. ponytail: substring match on the raw command text, not a
-// shell parser — a body passed as `"$VAR"` reads as missing every heading;
-// the deny reason tells the agent to inline it or use --body-file.
+// from the body. Flags are read from the `gh pr create` segment's words, so a
+// commit message or echo that only mentions the phrase, or a body that
+// contains `-w`, does not count. ponytail: the heading match runs on the raw
+// command text, not the expanded body — a body passed as `"$VAR"` reads as
+// missing every heading; the deny reason tells the agent to inline it or use
+// --body-file.
 
-const CREATE = /(^|[\s;&|(])gh\s+pr\s+create(\s|$)/;
 const TEMPLATES = [
   ".github/pull_request_template.md",
   ".github/PULL_REQUEST_TEMPLATE.md",
@@ -16,31 +19,53 @@ const TEMPLATES = [
   "docs/pull_request_template.md",
   "docs/PULL_REQUEST_TEMPLATE.md",
 ];
+// A heading whose first non-blank line is this marker may be left out.
+const OPTIONAL_MARKER = "<!-- pr-template:optional -->";
 
-function bodyText(command: string, cwd: string): string | undefined {
+/** Arguments after `gh pr create`, allowing leading VAR=value assignments; undefined when absent. */
+function createArguments(command: string): string[] | undefined {
+  for (const { words } of segments(command)) {
+    const start = words.findIndex((word) => !/^[A-Za-z_]\w*=/.test(word));
+    if (start >= 0 && words[start] === "gh" && words[start + 1] === "pr" && words[start + 2] === "create") {
+      return words.slice(start + 3);
+    }
+  }
+  return undefined;
+}
+
+function bodyText(args: string[], command: string, cwd: string): string | undefined {
   // gh fills the body from the template itself with these flags.
-  if (/\s(?:--fill\S*|--template|-T|--web|-w)(?:[\s=]|$)/.test(command)) return undefined;
-  const file = /\s(?:--body-file|-F)(?:\s+|=)(['"]?)([^'"\s]+)\1/.exec(command);
-  if (file) {
-    if (file[2] === "-") return undefined;
-    const path = isAbsolute(file[2]) ? file[2] : join(cwd, file[2]);
+  if (args.some((arg) => /^(?:--fill\S*|--template|-T|--web|-w)(?:=|$)/.test(arg))) return undefined;
+  const fileIndex = args.findIndex((arg) => /^(?:--body-file|-F)(?:=|$)/.test(arg));
+  if (fileIndex >= 0) {
+    const flag = args[fileIndex];
+    const file = flag.includes("=") ? flag.slice(flag.indexOf("=") + 1) : args[fileIndex + 1];
+    if (!file || file === "-") return undefined;
+    const path = isAbsolute(file) ? file : join(cwd, file);
     return existsSync(path) ? readFileSync(path, "utf8") : undefined;
   }
-  return /\s(?:--body|-b)(?:[\s=]|$)/.test(command) ? command : undefined;
+  return args.some((arg) => /^(?:--body|-b)(?:=|$)/.test(arg)) ? command : undefined;
+}
+
+function requiredHeadings(template: string): string[] {
+  const lines = template.split("\n");
+  return lines.flatMap((line, index) => {
+    if (!/^#{1,6}\s+\S/.test(line)) return [];
+    const next = lines.slice(index + 1).find((candidate) => candidate.trim() !== "");
+    if (next?.trim() === OPTIONAL_MARKER) return [];
+    return [line.replace(/^#+\s+/, "").trim()];
+  });
 }
 
 /** Template headings absent from a `gh pr create` body; empty when nothing to check. */
 export function missingTemplateHeadings(command: string, cwd: string): string[] {
-  if (!CREATE.test(command)) return [];
   const template = TEMPLATES.map((name) => join(cwd, name)).find((path) => existsSync(path));
   if (!template) return [];
-  const body = bodyText(command, cwd);
+  const args = createArguments(command);
+  if (!args) return [];
+  const body = bodyText(args, command, cwd);
   if (body === undefined) return [];
-  return readFileSync(template, "utf8")
-    .split("\n")
-    .filter((line) => /^#{1,6}\s+\S/.test(line))
-    .map((line) => line.replace(/^#+\s+/, "").trim())
-    .filter((heading) => !body.includes(heading));
+  return requiredHeadings(readFileSync(template, "utf8")).filter((heading) => !body.includes(heading));
 }
 
 export function templateReason(missing: string[]): string {
