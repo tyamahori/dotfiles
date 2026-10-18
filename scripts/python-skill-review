@@ -4,6 +4,14 @@
 # land in a dated markdown file, a human applies them to the skill.
 set -euo pipefail
 export PATH="$HOME/.local/bin:$HOME/.nix-profile/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+notify() { osascript -e "display notification \"$1\" with title \"python-skill-review\"" || true; }
+# Under launchd a failed run is otherwise silent: set -e exits without a word.
+# EXIT, not ERR: bash 3.2 skips the ERR trap when a `| while` pipeline fails.
+on_exit() {
+	local rc=$?
+	((rc == 0)) || notify "レビューが失敗しました（exit ${rc}）${INPUT:+。入力: ${INPUT/#$HOME/~}}"
+}
+trap on_exit EXIT
 # launchd env has no devbox profile, and uv lives there — without this the
 # audit script's uv shebang fails inside the headless session; devbox itself
 # is /usr/local/bin on one machine, ~/.nix-profile/bin on the other
@@ -88,12 +96,10 @@ efficient-python スキルの四半期レビューを実行する。ファイル
 - 次回レビューまでに人間が判断すべきこと（あれば）
 PROMPT
 
-# Under launchd a failed or empty session is otherwise silent: set -e would
-# exit before the notification, and an empty file looks like a report.
+# An empty file looks like a report, so it fails too.
 if ((status != 0)) || [[ ! -s $REPORT ]]; then
 	rm -f "$REPORT"
-	osascript -e "display notification \"レビューが失敗しました（exit $status）。入力: ${INPUT/#$HOME/~}\" with title \"python-skill-review\"" || true
-	exit 1
+	exit $((status ? status : 1))
 fi
 
-osascript -e "display notification \"レポート: ${REPORT/#$HOME/~}\" with title \"python-skill-review\"" || true
+notify "レポート: ${REPORT/#$HOME/~}"
