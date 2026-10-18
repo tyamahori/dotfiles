@@ -32,6 +32,8 @@ jobs:
           echo "bec91903368ec57668c70c87cf9e382b227b3978001339ae8597d0a93328672e  $RUNNER_TEMP/sqruff.tgz" | sha256sum -c -
           tar xzf "$RUNNER_TEMP/sqruff.tgz" -C "$bin"
           echo "$bin" >>"$GITHUB_PATH"
+          # Same version devbox.lock resolves locally; pipx puts it in ~/.local/bin.
+          pipx install semgrep==1.179.0
           bun install --frozen-lockfile --cwd tools/dclint
 
       # Smoke-tests placement on a fresh Linux home; it also creates the
