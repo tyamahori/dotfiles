@@ -1518,6 +1518,22 @@ class ReviewFlowTest(unittest.TestCase):
             self.assertIn("no live agent for: gone", result.stderr)
             self.assertNotIn("pane close", (root / "herdr.log").read_text(encoding="utf-8"))
 
+    def test_send_still_delivers_when_own_agent_lookup_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            body = root / "body.md"
+            body.write_text("[FYI] lookup fallback\n", encoding="utf-8")
+            # agent get for the sender's own pane exits 1, as herdr does outside an agent pane.
+            environment = self.fake_herdr_environment(root, failed_target="test-pane")
+            result = self.invoke_send(
+                "--root", str(root), "--flow", "from-fallback", "--to", "reviewer-a",
+                "--tag", "fyi", "--body", str(body), env=environment,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((root / ".agent-msgs" / "from-fallback" / "01-fyi.md").exists())
+            self.assertIn("agent prompt reviewer-a", (root / "herdr.log").read_text(encoding="utf-8"))
+
     def test_send_fans_out_one_ledger_file_to_both_reviewers(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
