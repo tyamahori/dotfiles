@@ -30,9 +30,17 @@ const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 // 場合だけ使う(あれば使う)。chainに入れないのは、停止中でもretry budget
 // を浪費する上、利用枠なし=常にeligible扱いでreserve帯から降格するため。
 // ollama の公式形式 `127.0.0.1:11434` はスキームが無く、そのままでは fetch が Invalid URL を投げて「ollama不在」扱いになる。
+// ollama はスキーム無しの値だけ既定ポートを 11434 とする(`http://host` は 80)ので、それに合わせる。
 const OLLAMA_HOST = (() => {
-	const host = process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434";
-	return host.includes("://") ? host : `http://${host}`;
+	const host = process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
+	if (host.includes("://")) return host;
+	try {
+		const url = new URL(`http://${host}`);
+		url.port ||= "11434";
+		return url.origin;
+	} catch {
+		return `http://${host}`; // 不正値は従来どおり probe 側の失敗として扱う
+	}
 })();
 const LOCAL_RESCUE_MODEL = "ollama/qwen3.6:35b-mlx";
 const DEPLETED_PCT = 98;

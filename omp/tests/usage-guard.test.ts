@@ -214,15 +214,20 @@ test("a logged-out Claude organisation at low usage does not mask depleted pools
   expect(guard.selected).toEqual([local]);
 });
 
-test("an OLLAMA_HOST without a scheme is queried over http", async () => {
+// Ollama's own parsing: no scheme means http and port 11434; an explicit http:// keeps port 80.
+test.each([
+  ["127.0.0.1:11434", "http://127.0.0.1:11434/api/tags"],
+  ["127.0.0.1", "http://127.0.0.1:11434/api/tags"],
+  ["http://127.0.0.1", "http://127.0.0.1/api/tags"],
+])("OLLAMA_HOST=%s is probed at %s", async (host, probed) => {
   seedUsage([
     { provider: "anthropic", account: "oauth|account:a|org:org-p", limitId: "anthropic:7d", pct: 99 },
     { provider: "openai-codex", limitId: "openai-codex:primary", pct: 99 },
   ]);
   const saved = process.env.OLLAMA_HOST;
-  process.env.OLLAMA_HOST = "127.0.0.1:11434";
+  process.env.OLLAMA_HOST = host;
   // A static import cannot work: OLLAMA_HOST is read when the module initializes, so load a fresh copy.
-  const { default: freshGuard } = await import("../extensions/anthropic-usage-guard.ts?scheme");
+  const { default: freshGuard } = await import(`../extensions/anthropic-usage-guard.ts?host=${host}`);
   if (saved === undefined) delete process.env.OLLAMA_HOST;
   else process.env.OLLAMA_HOST = saved;
   const guard = usageHarness(
@@ -235,6 +240,6 @@ test("an OLLAMA_HOST without a scheme is queried over http", async () => {
 
   await guard.sessionStart();
 
-  expect(String(fetch.mock.calls[0]?.[0])).toBe("http://127.0.0.1:11434/api/tags");
+  expect(String(fetch.mock.calls[0]?.[0])).toBe(probed);
 });
 
