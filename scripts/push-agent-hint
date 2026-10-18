@@ -6,14 +6,18 @@
 # remotes and SSH config; this hook replaced the always-loaded rule). Wired
 # for Claude Code and Codex (Bash matcher). OMP does not call this script:
 # omp/extensions/ssh-agent-hint.ts reimplements the same match in-process, so
-# change the signature or the advice in both places.
+# change the signature, the command match, or the advice in both places.
 set -euo pipefail
 
 payload=$(cat)
 cmd=$(jq -r '.tool_input.command // empty' <<<"$payload")
-# A here-string, not a pipe: grep -q exits at the first match, and printf
-# writing a long command into the closed pipe fails the pipeline under pipefail.
-grep -Eq '(^|[^A-Za-z0-9_])(git|ssh)([^A-Za-z0-9_]|$)' <<<"$cmd" || exit 0
+# Only commands that reach the SSH agent, in command position. Any git
+# command was too wide: Codex's PostToolUse carries no exit status, so
+# `git show` of a file quoting the signature (this repo's own docs) blocked
+# with a false lock diagnosis. A here-string, not a pipe: grep -q exits at the
+# first match, and printf writing a long command into the closed pipe fails
+# the pipeline under pipefail.
+grep -Eq '(^|[;&|(])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(ssh|scp|sftp|git([[:space:]]+(-[Cc][[:space:]]+[^[:space:]]+|-[^[:space:]]+))*[[:space:]]+(push|pull|fetch|clone|ls-remote|remote[[:space:]]+(update|show|prune)|submodule[[:space:]]+update))([[:space:]]|$)' <<<"$cmd" || exit 0
 
 out=$(jq -r '[.tool_response // empty, .error // empty] | tostring' <<<"$payload" 2>/dev/null) || exit 0
 printf '%s' "$out" | grep -qi 'communication with agent failed' || exit 0

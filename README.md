@@ -526,9 +526,11 @@ extensions in `omp/extensions/`:
   `worktree-include-copy` automatically after a raw `git worktree add`
   (see "Worktree-local files" below).
 - **locked-1Password hint** — `scripts/push-agent-hint` intercepts
-  `communication with agent failed` on git/ssh commands and feeds back that
-  the only fix is unlocking 1Password, so agents stop misdiagnosing it as a
-  network or SSH-config problem.
+  `communication with agent failed` on commands that reach the SSH agent
+  (`git push`/`pull`/`fetch`/`clone`/`ls-remote`, `ssh`/`scp`/`sftp`) and feeds
+  back that the only fix is unlocking 1Password, so agents stop misdiagnosing
+  it as a network or SSH-config problem. Other git commands are ignored, so
+  showing a file that quotes the message does not trigger it.
 - **session hygiene** — `scripts/session-hygiene-hook` (Claude Code and
   Codex `SessionStart`) warns on day-crossing resumes, hour-idle
   large-transcript resumes, and from the second compaction of a session

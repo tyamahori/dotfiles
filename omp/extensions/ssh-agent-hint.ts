@@ -22,7 +22,11 @@ type ExtensionHandlerApi = {
 };
 
 const SIGNATURE = /communication with agent failed/i;
-const GIT_OR_SSH = /(^|[^A-Za-z0-9_])(git|ssh)([^A-Za-z0-9_]|$)/;
+// SSH エージェントに触れるコマンドだけを、コマンド位置で拾う。git 全般では、
+// シグネチャを本文に含む文書を git show で表示したコマンドでも発火した
+// （isError の判定だけでは防げなかった）。scripts/push-agent-hint と同じ判定。
+const SSH_COMMAND =
+  /(^|[;&|(])\s*(?:[A-Za-z_]\w*=\S*\s+)*(?:ssh|scp|sftp|git(?:\s+(?:-[Cc]\s+\S+|-\S+))*\s+(?:push|pull|fetch|clone|ls-remote|remote\s+(?:update|show|prune)|submodule\s+update))(?:\s|$)/m;
 
 export default function (pi: ExtensionHandlerApi): void {
   pi.on("tool_result", (event) => {
@@ -33,7 +37,7 @@ export default function (pi: ExtensionHandlerApi): void {
         : undefined;
     const command =
       typeof record?.command === "string" ? record.command : "";
-    if (!GIT_OR_SSH.test(command)) return;
+    if (!SSH_COMMAND.test(command)) return;
     // 結果ペイロードの形はランタイム都合で揺れるため、結果側(content/details)を
     // まるごと文字列化してシグネチャを探す。input はコマンド文字列そのもので、
     // シグネチャを grep する成功コマンドまで拾ってしまうので含めない。
