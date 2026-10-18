@@ -161,6 +161,10 @@ test("isEnvPath matches .env-style paths, selectors, and grep path lists, not ne
   expect(isEnvPath(".env.local")).toBe(true);
   expect(isEnvPath("src/.env:1-20")).toBe(true);
   expect(isEnvPath("secrets.env?q=key")).toBe(true);
+  expect(isEnvPath(".env:1-5:raw")).toBe(true);
+  expect(isEnvPath("a/credentials.env:raw:5-9")).toBe(true);
+  expect(isEnvPath("local://secrets.env:1-5")).toBe(true);
+  expect(isEnvPath("config.env.example:1-5:raw")).toBe(false);
   expect(isEnvPath("src/**/*.ts; .env")).toBe(true);
   expect(isEnvPath("config.env.example")).toBe(false);
   expect(isEnvPath("notes.environment")).toBe(false);

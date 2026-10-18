@@ -12,9 +12,10 @@ const ENV_FILE_PATTERN = /(?:^|\/)(?:\.env(?:\..+)?|[^/]*\.env)$/;
 function isEnvPath(raw: string): boolean {
   return raw.split(";").some((segment) => {
     const noQuery = segment.trim().split("?")[0];
-    const lastSlash = noQuery.lastIndexOf("/");
-    const lastColon = noQuery.lastIndexOf(":");
-    const noSelector = lastColon > lastSlash ? noQuery.slice(0, lastColon) : noQuery;
+    // Selectors chain (`.env:1-5:raw`), so cut at the first colon after the
+    // last slash; colons before it belong to URI schemes like `local://`.
+    const selectorStart = noQuery.indexOf(":", noQuery.lastIndexOf("/") + 1);
+    const noSelector = selectorStart === -1 ? noQuery : noQuery.slice(0, selectorStart);
     return ENV_FILE_PATTERN.test(noSelector) || ENV_FILE_PATTERN.test(noQuery);
   });
 }
