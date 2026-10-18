@@ -31,9 +31,21 @@ test("checks only a real gh pr create segment and ignores flag-like body text", 
   }
   expect(missingTemplateHeadings("gh pr create --draft --body '## Summary\nrun npm test -w pkg'", repo)).toEqual(["Test plan"]);
   expect(missingTemplateHeadings("GH_REPO=o/r gh pr create --draft --body '## Summary'", repo)).toEqual(["Test plan"]);
+  for (const command of ["time gh pr create --body x", "if true; then gh pr create --body x; fi", "{ gh pr create --body x; }"]) {
+    expect(missingTemplateHeadings(command, repo)).toEqual(["Summary", "Test plan"]);
+  }
   expect(missingTemplateHeadings(`gh pr create --draft --body "$(cat <<'EOF'\n## Summary\nx\nEOF\n)"`, repo)).toEqual(["Test plan"]);
   expect(missingTemplateHeadings(`echo "## Test plan"; gh pr create --draft --body "## Summary"`, repo)).toEqual(["Test plan"]);
   expect(missingTemplateHeadings("gh pr create --draft --body='## Summary\n## Test plan'", repo)).toEqual([]);
+});
+
+test("reads a --body-file under ~/ from the home directory the shell expands it to", () => {
+  writeFileSync(join(repo, "home-body.md"), "just text\n");
+  // homedir() is fixed at startup, so HOME has to be set for a fresh process.
+  const script = `import { missingTemplateHeadings } from ${JSON.stringify(join(import.meta.dir, "pr-template-check.ts"))};
+console.log(JSON.stringify(missingTemplateHeadings("gh pr create --body-file ~/home-body.md", ${JSON.stringify(repo)})));`;
+  const child = Bun.spawnSync(["bun", "-e", script], { env: { ...process.env, HOME: repo } });
+  expect(JSON.parse(child.stdout.toString())).toEqual(["Summary", "Test plan"]);
 });
 
 test("does not require sections the template marks optional", () => {

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
-import { segments } from "./command-policy.ts";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
+import { commandIndex, segments } from "./command-policy.ts";
 
 // `gh pr create --body` skips the repo's PR template, so agents that pass a
 // body silently drop its sections. This finds the template headings missing
@@ -22,11 +23,11 @@ const TEMPLATES = [
 // A heading whose first non-blank line is this marker may be left out.
 const OPTIONAL_MARKER = "<!-- pr-template:optional -->";
 
-/** Arguments after `gh pr create`, allowing leading VAR=value assignments; undefined when absent. */
+/** Arguments after `gh pr create`, skipping assignments and shell prefixes (`time`, `then`, `{`); undefined when absent. */
 function createArguments(command: string): string[] | undefined {
   for (const { words } of segments(command)) {
-    const start = words.findIndex((word) => !/^[A-Za-z_]\w*=/.test(word));
-    if (start >= 0 && words[start] === "gh" && words[start + 1] === "pr" && words[start + 2] === "create") {
+    const start = commandIndex(words);
+    if (words[start] === "gh" && words[start + 1] === "pr" && words[start + 2] === "create") {
       return words.slice(start + 3);
     }
   }
@@ -41,7 +42,8 @@ function bodyText(args: string[], command: string, cwd: string): string | undefi
     const flag = args[fileIndex];
     const file = flag.includes("=") ? flag.slice(flag.indexOf("=") + 1) : args[fileIndex + 1];
     if (!file || file === "-") return undefined;
-    const path = isAbsolute(file) ? file : join(cwd, file);
+    // The shell expands `~/`, so read the same file it would.
+    const path = resolve(cwd, file.replace(/^~(?=\/|$)/, homedir()));
     return existsSync(path) ? readFileSync(path, "utf8") : undefined;
   }
   const bodyIndex = args.findIndex((arg) => /^(?:--body|-b)(?:=|$)/.test(arg));

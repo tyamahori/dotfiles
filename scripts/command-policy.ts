@@ -299,7 +299,7 @@ function isSafeSearch(args: string[], followsPipe: boolean, redirected: boolean)
 
 const SHELL_PREFIXES = new Set(["!", "{", "do", "elif", "else", "if", "then", "time", "until", "while"]);
 
-function commandIndex(words: string[]): number {
+export function commandIndex(words: string[]): number {
   let index = 0;
   while (SHELL_PREFIXES.has(words[index]) || /^[A-Za-z_]\w*=/.test(words[index] ?? "")) index += 1;
   if (words[index] === "command") index += 1;
