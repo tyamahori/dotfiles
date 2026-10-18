@@ -7,6 +7,9 @@
 // - agent_start: セッションのターンが始まるたびに acquire (TTL 4h で再確保)。
 // - session_stop: メインセッションが自動継続しないと確定した時点で release。
 //   subagent セッションでは発火しない (OMP 仕様) ため、このフックは main session 専用。
+// - agent_end: hasUI のないセッション (subagent・ヘッドレス) の release。subagent は
+//   session_stop も session_shutdown も出さないので、ここで外さないと終了後も
+//   TTL の 4h まで hold が残る。main session は自動継続があるので外さない。
 // - session_shutdown: 異常終了時の安全網として release を二重化 (release は冪等)。
 //
 // CLI パスは ~/.local/bin 配下(adrafinil の標準インストール先)。--tool omp
@@ -20,6 +23,7 @@ const TOOL = "omp";
 const TTL_SECONDS = 4 * 60 * 60;
 
 type Ctx = {
+  hasUI?: boolean;
   sessionManager?: { getSessionId?: () => string | undefined };
 };
 
@@ -61,6 +65,13 @@ export default function adrafinilExtension(pi: ExtensionHandlerApi): void {
   });
 
   pi.on("session_stop", (_event, ctx) => {
+    const key = resolveSessionKey(ctx);
+    if (!key) return;
+    runAdrafinil(["release", key, "--tool", TOOL]);
+  });
+
+  pi.on("agent_end", (_event, ctx) => {
+    if (ctx?.hasUI === true) return;
     const key = resolveSessionKey(ctx);
     if (!key) return;
     runAdrafinil(["release", key, "--tool", TOOL]);
