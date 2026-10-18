@@ -28,15 +28,23 @@ cdpath=("$HOME" "$HOME/project")
 #
 # CLI 補完のキャッシュ。毎起動の eval はツールの起動コスト（omp は ~1秒）が
 # 乗るため、バイナリが更新されたときだけ再生成して fpath に載せる。
+# 更新は実体パスの変化か mtime で見る。nix store の実体は mtime が 1970 固定で、
+# 更新するとパスだけが変わる。パスは compinit が読まない .<cmd>.src に置く。
 # omp の補完本体は実行時に `omp __complete` を呼ぶ薄いラッパなので陳腐化しない。
 _comp_cache_dir="$HOME/.zsh/completions"
 _cache_completion() {
   local cmd=$1; shift
   command -v "$cmd" >/dev/null 2>&1 || return 0
-  local out="$_comp_cache_dir/_$cmd"
-  if [[ ! -f "$out" || "${$(command -v "$cmd"):A}" -nt "$out" ]]; then
+  local out="$_comp_cache_dir/_$cmd" src="$_comp_cache_dir/.$cmd.src"
+  local bin="${$(command -v "$cmd"):A}" prev=
+  [[ -f "$src" ]] && prev="$(<"$src")"
+  if [[ ! -f "$out" || "$prev" != "$bin" || "$bin" -nt "$out" ]]; then
     mkdir -p "$_comp_cache_dir"
-    command "$@" > "$out" 2>/dev/null || rm -f "$out"
+    if command "$@" > "$out" 2>/dev/null; then
+      print -r -- "$bin" > "$src"
+    else
+      rm -f "$out"
+    fi
   fi
 }
 _cache_completion omp omp completions zsh
