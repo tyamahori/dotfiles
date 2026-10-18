@@ -30,7 +30,10 @@ INPUT="$STATE_DIR/review-input-$stamp.md"
 # Today's own snapshot is skipped so a same-day rerun keeps the real window.
 prev="$(find "$STATE_DIR" -maxdepth 1 -name '????-??-??.json' ! -name "$stamp.json" | sort | tail -n 1)"
 if [[ -n $prev ]]; then
-	days=$((($(date -j -f %Y-%m-%d "$stamp" +%s) - $(date -j -f %Y-%m-%d "$(basename "$prev" .json)" +%s)) / 86400))
+	# -f without a time fills it from the clock; two calls straddling a second
+	# would drop a day from the window.
+	midnight() { date -j -f '%Y-%m-%d %H:%M:%S' "$1 00:00:00" +%s; }
+	days=$((($(midnight "$stamp") - $(midnight "$(basename "$prev" .json)")) / 86400))
 else
 	days=90
 fi
