@@ -131,6 +131,8 @@ function latestUsedPct(
 	const perAccount = new Map<string, number>();
 	for (const row of rows) {
 		if (
+			// ログアウト済みの組織は omp が選べず、ウィジェットも隠す。低い値が実際の枯渇を隠さないよう除外する。
+			row.kind === "gone" ||
 			row.provider !== provider ||
 			// NULL reset = unused pool (see latestUsageRows), still a valid account.
 			(row.resetsAt !== null && row.resetsAt <= Date.now()) ||

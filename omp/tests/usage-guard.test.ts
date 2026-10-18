@@ -141,7 +141,7 @@ test("shows one widget line per logged-in Claude organisation, then Codex", asyn
 
 test("uses the local rescue only when both pools are depleted and ollama serves qwen", async () => {
   seedUsage([
-    { provider: "anthropic", limitId: "anthropic:7d:fable", pct: 99 },
+    { provider: "anthropic", account: "oauth|account:a|org:org-p", limitId: "anthropic:7d:fable", pct: 99 },
     { provider: "openai-codex", limitId: "openai-codex:primary", pct: 99 },
   ]);
   const local = { provider: "ollama", id: "qwen3.6:35b-mlx" };
@@ -160,7 +160,7 @@ test("uses the local rescue only when both pools are depleted and ollama serves 
 
 test("leaves the model unchanged when the local rescue is unavailable", async () => {
   seedUsage([
-    { provider: "anthropic", limitId: "anthropic:7d:fable", pct: 99 },
+    { provider: "anthropic", account: "oauth|account:a|org:org-p", limitId: "anthropic:7d:fable", pct: 99 },
     { provider: "openai-codex", limitId: "openai-codex:primary", pct: 99 },
   ]);
   const guard = usageHarness(
@@ -193,6 +193,25 @@ test("an unused Claude account (null reset) keeps the local rescue off", async (
 
   expect(fetch).not.toHaveBeenCalled();
   expect(guard.selected).toEqual([]);
+});
+
+test("a logged-out Claude organisation at low usage does not mask depleted pools", async () => {
+  seedUsage([
+    { provider: "anthropic", account: "oauth|account:a|org:org-p", limitId: "anthropic:7d", pct: 99 },
+    { provider: "anthropic", account: "oauth|account:a|org:org-gone", limitId: "anthropic:7d", pct: 5 },
+    { provider: "openai-codex", limitId: "openai-codex:primary", pct: 99 },
+  ]);
+  const local = { provider: "ollama", id: "qwen3.6:35b-mlx" };
+  const guard = usageHarness(
+    () => ({ provider: "anthropic", id: "claude-sonnet-5" }),
+    (spec) => (spec === "ollama/qwen3.6:35b-mlx" ? local : undefined),
+  );
+  const fetch = blockNetwork();
+  fetch.mockResolvedValue(new Response(JSON.stringify({ models: [{ name: "qwen3.6:35b-mlx" }] })));
+
+  await guard.sessionStart();
+
+  expect(guard.selected).toEqual([local]);
 });
 
 test("an OLLAMA_HOST without a scheme is queried over http", async () => {
