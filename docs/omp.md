@@ -558,7 +558,7 @@ guard の切り替えは利用枠ごとに一度だけなので、`/model` で�
 `.env`・`.env.local`・`credentials.env` のような平文の資格情報ファイルを、agent に読み込ませない仕組みです。CLI ごとに層が異なります。
 
 - Claude Code: `claude/settings.json` の `permissions.deny` に `Read(//**/*.env)` と `Read(//**/.env.*)` を設定済みです。Claude 公式の deny 優先順位により、同じ設定内の `Read(~/.config/**)` などの allow より必ず優先されます。この deny は Read 本体に加えて Edit・Write、Grep・Glob、および Claude Code が認識する `cat`/`head`/`tail`/`sed`/`tee` の bash 呼び出しとリダイレクト先にも及びます。
-- OMP: `omp/extensions/deny-env-reads.ts` が `read`/`grep` ツールを同じファイル名パターンで拒否します。`glob` はファイル名列挙のみなので対象外です。
+- OMP: `omp/extensions/deny-env-reads.ts` が `read`/`grep` ツールを同じファイル名パターンで拒否します。照合は大文字小文字を区別せず（APFS では `.ENV` で `.env` が開けるため）、`arc.zip:.env.local` のようなアーカイブ内メンバーも対象です。symlink はリンク先の実体でも判定します。`glob` はファイル名列挙のみなので対象外です。ディレクトリや glob を渡した `grep` は Copilot と違って制限しません。OMP の grep は既定でディレクトリ検索に使うため、制限するとツールの主用途が使えなくなります。
 - Copilot CLI: `scripts/deny-command-hook.ts` が `view`/`grep`/`rg` ツールで、OMP と同じファイル名パターンに当たるパスを拒否します。symlink はリンク先の実体でも判定します。Copilot の grep はディレクトリを `paths` に、対象ファイルを `glob` に渡すことがあります（copilot 1.0.91 で採取）。`[.]e[n]v` や `.{e,x}{n,x}{v,x}.staging` のような glob はどんなファイル名照合もすり抜けるため、grep/rg は `.env` でない通常ファイルを明示した検索だけを通します。ディレクトリ、存在しないパス、パス指定なしの検索は、glob に関係なく拒否します。bash の `grep`/`rg` も同じ抜け道になるため、Copilot 専用の `copilot-shell-search` ルールが許可リスト方式で拒否します。通すのは、ファイル名だけを出す `-l` 検索と、パイプ途中でパターンだけを受け取るフィルタです。どちらも `-e`/`-f`/`-r`/`-L` や `--` などの許可外フラグ、リダイレクトがあれば拒否します。`env`/`xargs`/`sudo`/`git grep`/絶対パス経由の呼び出しも拒否します。
 - 四 CLI 共通: `agents/command-rules.json` の `env-file-read` ルールが `cat`/`head`/`tail`/`less`/`more`/`strings`/`od`/`xxd`/`base64`/`tee` の bash 呼び出しを拒否します（Copilot CLI は Codex 向けのルールを使います）。Codex には Claude Code のような native Read ツールがなく shell 経由の読み取りしか手段がないため、この bash ルールが Codex にとって唯一の防御層です。
 

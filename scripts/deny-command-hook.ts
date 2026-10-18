@@ -42,13 +42,12 @@ const COPILOT_GREP_SCOPE_REASON =
 function copilotEnvRead(toolName: string, args: unknown, cwd: unknown): string | undefined {
   if (!isPlainObject(args)) throw new Error("hook input toolArgs must be a JSON object");
   const targets = [args.path, args.paths].flat().filter((value): value is string => typeof value === "string");
-  if (targets.some(isEnvPath)) return COPILOT_ENV_READ_REASON;
-  if (toolName !== "view" && targets.length === 0) return COPILOT_GREP_SCOPE_REASON;
   const base = typeof cwd === "string" ? cwd : process.cwd();
+  if (targets.some((target) => isEnvPath(target, base))) return COPILOT_ENV_READ_REASON;
+  if (toolName !== "view" && targets.length === 0) return COPILOT_GREP_SCOPE_REASON;
   for (const target of targets) {
     const absolute = resolve(base, target.replace(/^~(?=\/|$)/, homedir()));
     const real = existsSync(absolute) ? realpathSync(absolute) : undefined;
-    if (real !== undefined && isEnvPath(real)) return COPILOT_ENV_READ_REASON;
     if (toolName !== "view" && (real === undefined || !statSync(real).isFile())) return COPILOT_GREP_SCOPE_REASON;
   }
   return undefined;

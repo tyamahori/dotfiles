@@ -65,7 +65,7 @@
       "commands": [
         {
           "executables": ["cat", "head", "tail", "less", "more", "strings", "od", "xxd", "base64", "tee"],
-          "anyArgPattern": "(?:^|/)(?:\\.env(?:\\..+)?|[^/]*\\.env)$"
+          "anyArgPattern": "(?:^|/)(?:\\.[eE][nN][vV](?:\\..+)?|[^/]*\\.[eE][nN][vV])$"
         }
       ],
       "clients": ["claude", "codex", "omp"],

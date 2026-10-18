@@ -7,16 +7,25 @@
  * that opens the file itself (e.g. `read_text(".env")` in a Python one-liner)
  * still gets through; see docs/omp.md.
  */
-const ENV_FILE_PATTERN = /(?:^|\/)(?:\.env(?:\..+)?|[^/]*\.env)$/;
+import { realpathSync } from "node:fs";
+import { homedir } from "node:os";
+import { resolve } from "node:path";
 
-function isEnvPath(raw: string): boolean {
+// Case-insensitive: APFS is, so `.ENV` opens `.env`.
+const ENV_FILE_PATTERN = /(?:^|\/)(?:\.env(?:\..+)?|[^/]*\.env)$/i;
+
+function isEnvPath(raw: string, cwd = process.cwd()): boolean {
   return raw.split(";").some((segment) => {
     const noQuery = segment.trim().split("?")[0];
-    // Selectors chain (`.env:1-5:raw`), so cut at the first colon after the
-    // last slash; colons before it belong to URI schemes like `local://`.
-    const selectorStart = noQuery.indexOf(":", noQuery.lastIndexOf("/") + 1);
-    const noSelector = selectorStart === -1 ? noQuery : noQuery.slice(0, selectorStart);
-    return ENV_FILE_PATTERN.test(noSelector) || ENV_FILE_PATTERN.test(noQuery);
+    // Selectors (`.env:1-5:raw`) and archive members (`a.zip:.env.local`)
+    // follow colons, as do URI schemes (`local://`): test every part.
+    if (noQuery.split(":").some((part) => ENV_FILE_PATTERN.test(part))) return true;
+    // A symlink can give a credential file an innocent name.
+    try {
+      return ENV_FILE_PATTERN.test(realpathSync(resolve(cwd, noQuery.split(":")[0].replace(/^~(?=\/|$)/, homedir()))));
+    } catch {
+      return false;
+    }
   });
 }
 
@@ -30,7 +39,7 @@ type ToolCallResult = { block: true; reason: string } | undefined;
 interface ExtensionApi {
   on(
     event: "tool_call",
-    handler: (event: ToolCallEvent) => ToolCallResult,
+    handler: (event: ToolCallEvent, ctx?: { cwd?: string }) => ToolCallResult,
   ): void;
 }
 
@@ -38,11 +47,11 @@ const REASON =
   "`.env`-style credential files are blocked from the read/grep tools. These files hold plaintext secrets — don't load one into context unless the user explicitly asked you to inspect that exact file.";
 
 export default function denyEnvReads(pi: ExtensionApi) {
-  pi.on("tool_call", (event) => {
+  pi.on("tool_call", (event, ctx) => {
     if (event.toolName !== "read" && event.toolName !== "grep") return;
     const path = event.input?.path;
     if (typeof path !== "string") return;
-    if (isEnvPath(path)) return { block: true, reason: REASON };
+    if (isEnvPath(path, ctx?.cwd || process.cwd())) return { block: true, reason: REASON };
   });
 }
 

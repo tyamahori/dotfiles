@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, expect, spyOn, test, type Mock } from "bun:test";
 import * as childProcess from "node:child_process";
 import type { SpawnSyncReturns } from "node:child_process";
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import denyCommands from "../extensions/deny-commands";
 import denyEnvReads, { isEnvPath } from "../extensions/deny-env-reads";
 import japaneseProse from "../extensions/japanese-prose";
@@ -169,6 +172,11 @@ test("isEnvPath matches .env-style paths, selectors, and grep path lists, not ne
   expect(isEnvPath("config.env.example")).toBe(false);
   expect(isEnvPath("notes.environment")).toBe(false);
   expect(isEnvPath("README.md")).toBe(false);
+  expect(isEnvPath("zz/.ENV")).toBe(true);
+  expect(isEnvPath("Credentials.Env:1-5")).toBe(true);
+  expect(isEnvPath("arc.zip:.env.local")).toBe(true);
+  expect(isEnvPath("arc.zip:.env.local:1-5")).toBe(true);
+  expect(isEnvPath("arc.zip:notes.txt")).toBe(false);
 });
 
 test("blocks read/grep on .env paths and leaves other tools and paths alone", () => {
@@ -182,6 +190,17 @@ test("blocks read/grep on .env paths and leaves other tools and paths alone", ()
   expect(handler?.({ toolName: "read", input: { path: "README.md" } })).toBeUndefined();
   expect(handler?.({ toolName: "glob", input: { path: ".env" } })).toBeUndefined();
   expect(handler?.({ toolName: "read", input: {} })).toBeUndefined();
+
+  const dir = mkdtempSync(join(tmpdir(), "env-link-"));
+  try {
+    writeFileSync(join(dir, ".env"), "TOKEN=x\n");
+    symlinkSync(".env", join(dir, "link.txt"));
+    writeFileSync(join(dir, "plain.txt"), "x\n");
+    expect(handler?.({ toolName: "read", input: { path: "link.txt:1-5" } }, { cwd: dir })).toMatchObject({ block: true });
+    expect(handler?.({ toolName: "read", input: { path: "plain.txt" } }, { cwd: dir })).toBeUndefined();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("blocks a failed Japanese prose hook once, then recovers", () => {
