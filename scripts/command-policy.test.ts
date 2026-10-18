@@ -199,6 +199,7 @@ test("subject-only commits are denied before the hooks run; any possible body pa
     "git commit --message='fix parser'",
     "git -C repo commit --amend -m 'fix parser'",
     "cd repo && git commit -m \"fix parser\"",
+    "git commit -S -m 'fix parser'",
   ]) {
     expect(denyCommand(command, "omp")).toBeDefined();
   }
@@ -215,6 +216,10 @@ test("subject-only commits are denied before the hooks run; any possible body pa
     "git commit --fixup HEAD~1",
     "git commit",
     "git log -m 'not a commit'",
+    "git commit -s -m 'fix parser'",
+    "git commit -sm 'fix parser'",
+    "git commit --signoff -m 'fix parser'",
+    "git commit --trailer 'Fixes: #1' -m 'fix parser'",
   ]) {
     expect(denyCommand(command, "omp")).toBeUndefined();
   }

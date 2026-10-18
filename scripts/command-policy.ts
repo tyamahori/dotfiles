@@ -369,14 +369,14 @@ function isSubjectOnlyCommit(args: string[]): boolean {
 // One `git commit` argument: "exempt" ends the scan (commit-msg-why passes it
 // too), "next" means the following argument is a message.
 function commitArgument(argument: string): "exempt" | "next" | { message: string } | undefined {
-  if (/^--(?:file|reuse-message|reedit-message|fixup|squash|no-verify|template|edit)(?:=|$)/.test(argument)) return "exempt";
+  if (/^--(?:file|reuse-message|reedit-message|fixup|squash|no-verify|template|edit|signoff|trailer)(?:=|$)/.test(argument)) return "exempt";
   if (argument === "--message") return "next";
   if (argument.startsWith("--message=")) return { message: argument.slice("--message=".length) };
   if (!/^-[A-Za-z]/.test(argument)) return undefined;
   // A short-option cluster ends at the first letter that takes a value.
   for (let offset = 1; offset < argument.length; offset += 1) {
     const letter = argument[offset];
-    if ("FCctne".includes(letter)) return "exempt"; // message file, reused message, template, --no-verify, editor
+    if ("FCctnes".includes(letter)) return "exempt"; // message file, reused message, template, --no-verify, editor, signoff trailer
     if (letter === "m") return offset + 1 < argument.length ? { message: argument.slice(offset + 1) } : "next";
   }
   return undefined;
