@@ -200,6 +200,8 @@ Smell to move, for the smells that matter:
 | Interface, hook, or option nobody uses | Delete |
 | Caller imports another module's internals | Export a public entry point; import only that |
 | Two lists kept in sync by hand | Derive one from the other |
+| Second boolean that must agree with the first (`loading` and `error`) | One state field whose values are the legal combinations |
+| Modules named after steps (read, parse, write) that all know one format | Split by the decision each hides, not by execution order |
 
 ## Design docs
 
