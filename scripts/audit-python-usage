@@ -286,14 +286,16 @@ def print_delta(previous, current, previous_name):
 
 def save_snapshot(snapshot):
     SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
-    existing = sorted(SNAPSHOT_DIR.glob("????-??-??.json"))
+    target = SNAPSHOT_DIR / f"{datetime.now(UTC):%Y-%m-%d}.json"
+    # Today's own file is skipped so a same-day rerun diffs against the real
+    # previous snapshot instead of reporting "no change" against itself.
+    existing = [p for p in sorted(SNAPSHOT_DIR.glob("????-??-??.json")) if p != target]
     previous = None
     if existing:
         try:
             previous = json.loads(existing[-1].read_text())
         except ValueError:
             pass
-    target = SNAPSHOT_DIR / f"{datetime.now(UTC):%Y-%m-%d}.json"
     target.write_text(json.dumps(snapshot, indent=2) + "\n")
     print(f"saved {target}", file=sys.stderr)
     if previous:
