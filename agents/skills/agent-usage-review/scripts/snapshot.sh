@@ -173,7 +173,11 @@ echo
 echo "## 日次合計 (agent 別)"
 echo
 echo 'date	model	fresh_input	cache_read	cache_write	output	raw_total	cache_read_share	cost'
-$CCUSAGE daily --since "$SINCE" --json 2>/dev/null | jq -r '
+# jq は空入力でも 0 で終わるため、パイプの `||` では ccusage の失敗を拾えない。先に出力を受ける。
+CCUSAGE_DAILY="$($CCUSAGE daily --since "$SINCE" --json 2>/dev/null)"
+if [ -z "$CCUSAGE_DAILY" ]; then
+	echo "(取得不能: \`$CCUSAGE daily\` が出力を返さない)"
+elif ! printf '%s\n' "$CCUSAGE_DAILY" | jq -r '
 	.daily[]
 	| .period as $d
 	| .modelBreakdowns // [] | .
@@ -185,21 +189,25 @@ $CCUSAGE daily --since "$SINCE" --json 2>/dev/null | jq -r '
 		| ($fresh + $cr + $cw) as $seen
 		| "\($d)\t\(.modelName // "?")\t\($fresh)\t\($cr)\t\($cw)\t\($out)\t\($seen + $out)\t\(if $seen > 0 then ($cr * 100 / $seen | round) else 0 end)%\t$\((.cost // 0) * 100 | round / 100)"
 	)
-	| .[]' 2>/dev/null ||
+	| .[]' 2>/dev/null; then
 	$CCUSAGE daily --since "$SINCE" 2>/dev/null | grep -v '^\s*$'
+fi
 
 echo
 echo "## コスト上位セッション"
 echo
 echo 'agent	session	fresh_input	cache_read	cache_write	output	cache_read_share	cost'
-$CCUSAGE session --since "$SINCE" --json 2>/dev/null | jq -r '
+CCUSAGE_SESSION="$($CCUSAGE session --since "$SINCE" --json 2>/dev/null)"
+if [ -z "$CCUSAGE_SESSION" ] || ! printf '%s\n' "$CCUSAGE_SESSION" | jq -r '
 	.session
 	| sort_by(-.totalCost) | .[0:8][]
 	| (.inputTokens // 0) as $fresh
 	| (.cacheReadTokens // 0) as $cr
 	| (.cacheCreationTokens // 0) as $cw
 	| ($fresh + $cr + $cw) as $seen
-	| "\(.agent)\t\(.period)\t\($fresh)\t\($cr)\t\($cw)\t\(.outputTokens // 0)\t\(if $seen > 0 then ($cr * 100 / $seen | round) else 0 end)%\t$\((.totalCost // 0) * 100 | round / 100)"'
+	| "\(.agent)\t\(.period)\t\($fresh)\t\($cr)\t\($cw)\t\(.outputTokens // 0)\t\(if $seen > 0 then ($cr * 100 / $seen | round) else 0 end)%\t$\((.totalCost // 0) * 100 | round / 100)"' 2>/dev/null; then
+	echo "(取得不能: \`$CCUSAGE session\` が出力を返さない)"
+fi
 
 echo
 echo "## 警告フラグ: Claude セッション"

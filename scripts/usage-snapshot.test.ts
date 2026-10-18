@@ -193,3 +193,26 @@ test("snapshot prints a fallback when jbcontext analyze yields no summary lines"
     rmSync(home, { recursive: true, force: true });
   }
 }, 60_000);
+
+test("snapshot marks the ccusage sections unavailable when ccusage prints nothing", () => {
+  const scratch = resolve(root, ".agent-msgs/scratch");
+  mkdirSync(scratch, { recursive: true });
+  const home = mkdtempSync(resolve(scratch, "usage-snapshot-"));
+  const bin = resolve(home, "bin");
+  mkdirSync(bin);
+  symlinkSync(Bun.which("jq")!, resolve(bin, "jq"));
+  writeFileSync(resolve(bin, "ccusage"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+
+  try {
+    const run = spawnSync(Bun.which("bash")!, [snapshot, "--days", "7"], {
+      env: { HOME: home, PATH: `${bin}:/usr/bin:/bin`, LC_ALL: "C" },
+      encoding: "utf8",
+    });
+    expect(run.status).toBe(0);
+    const body = (heading: string) => run.stdout.split(heading)[1].split("\n## ")[0].trim().split("\n").slice(1);
+    expect(body("## 日次合計 (agent 別)")).toEqual(["(取得不能: `ccusage daily` が出力を返さない)"]);
+    expect(body("## コスト上位セッション")).toEqual(["(取得不能: `ccusage session` が出力を返さない)"]);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+}, 60_000);
