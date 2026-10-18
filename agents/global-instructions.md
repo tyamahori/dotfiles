@@ -98,6 +98,8 @@ the criteria.
   output or archify diagrams.
 - PR review in Japanese: `github-pr-review`; comments on your own PR:
   `github-pr-respond`.
+- Long, unattended, or fully handed-over work the user reviews later:
+  `show-me-your-work`.
 - A model pin changed in `claude/settings.json`, `codex/config.toml`, or
   `omp/config.yml`: `model-migration-review` against official sources; apply
   only approved changes and record the result in its journal.
@@ -170,7 +172,8 @@ challenges for the user.
 
 Put by-products under `<git toplevel>/.agent-msgs/` (globally ignored):
 `scratch/`, `screenshots/`, `handoff/` (`YYYY-MM-DD-<topic>.md` unless the
-repo defines a location), `plans/`, or `<flow>/` for `omp-herdr-collab`.
+repo defines a location), `plans/`, `decisions/`, or `<flow>/` for
+`omp-herdr-collab`.
 
 Right after plan approval, before touching other files, copy the full plan
 (OMP `local://<slug>-plan.md`, Claude Code `~/.claude/plans/<slug>.md`,

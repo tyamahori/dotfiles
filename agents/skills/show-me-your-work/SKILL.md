@@ -1,0 +1,65 @@
+---
+name: show-me-your-work
+description: 長時間・放置前提・全面委任の作業で、判断を1行ずつ TSV に残し、終了時に transcript と突き合わせ、別モデル系統に読ませて Attention 節を付けるときに使う。「任せる」「寝る」「終わるまで止まらないで」と言われた作業、複数フェーズの自律作業、後でまとめて見直される作業が対象。短い対話作業には使わない。
+---
+
+# show-me-your-work
+
+ユーザーが後から作業を信用できるように、判断の記録を一つ残す。ユーザーが見ていない間に下した判断は、この記録と最後の報告でしか確かめられない。
+
+## 形式
+
+TSV を一つ、判断ごとに1行。セルは1行に収め、タブと改行を入れない。根拠は文章ではなく指し先にする。
+
+| 列 | 中身 |
+|---|---|
+| `ts` | ISO8601（`date -u +%FT%TZ`） |
+| `phase` | フェーズや作業の流れの名前 |
+| `decision` | 何を選んだか、何をしたか |
+| `why` | 理由。skill や原則が決め手なら、その名前ではなく中身を書く |
+| `evidence` | コミット SHA、PR 番号、`file:line`、ログやスクリーンショットのパス |
+| `result` | 結果。`tests green`、`reverted`、`open`、`INCONCLUSIVE` など |
+
+```
+ts	phase	decision	why	evidence	result
+2026-10-18T01:02:00Z	frame	対象を数えてから始めた。設定ファイル14件	長い作業の規模を先に知りたかった	.agent-msgs/scratch/inventory.txt	未決事項2件を発見
+2026-10-18T01:40:00Z	migrate	旧キーを残さず一括で置き換えた	呼び出し元が全部この repo 内にあり、互換層が要らない	commit 3a9f1c2	bun test green
+2026-10-18T02:15:00Z	migrate	subagent の差分を捨てた	要約は成功だったが実ファイルのテストが落ちていた	worktree reset	reverted、指示を絞って再委譲
+```
+
+1行は `printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" <phase> <decision> <why> <evidence> <result> >> <log>` で足す。ファイルが空なら先にヘッダー行を書く。
+
+記録するのは分岐点と区切りだけにする。選んだ分岐、検証結果つきで終えた単位、引き返しとそのきっかけ、見つけた阻害要因、ユーザーに代わって下した判断。自明な操作は書かない。ループする作業は1周1行。
+
+## 置き場所
+
+既定は `.agent-msgs/decisions/<task-slug>.tsv`（グローバルに ignore 済み）。commit するのは、ユーザーが求めたとき、またはレビュアーが記録なしでは結果を信用できない規模の作業のときだけにし、置き場所はそのリポジトリの慣習に合わせる。handoff メモを書くときは、このログのパスを入れる。
+
+## 規則
+
+- 追記のみ。誤った判断は消さず、それを上書きする新しい行を足す。
+- 別のセッションが同じログの続きを書くときは、最初の行の `phase` を `start` にし、`evidence` に自分のセッション ID を書く。`start` はほかの意味に使わない。
+- 根拠は、使い捨てのコマンドより commit 済みのスクリプトの出力を優先する。
+
+## 終了前の監査
+
+返す前に、自分の transcript とログを突き合わせる。読むのは自分のセッションだけにする（OMP は `history://<id>`、Claude Code は `~/.claude/projects/<project>/<session>.jsonl`、Codex は `~/.codex/sessions/` の該当ファイル）。ほかのセッションを横断して読まない。
+
+- 各行が実際の判断か行動に対応しているか。
+- 各行の根拠が開けて、書いたとおりのことを示しているか。
+- 作業を左右した分岐・引き返し・捨てた案が記録から漏れていないか。漏れていれば足す。
+
+直すのはログであって、話の筋ではない。監査でも行を編集・削除せず、正しい内容の行を足して上書きする。
+
+## 別モデル系統のレビュー
+
+作業したのと別のモデル系統に、ログと transcript を読ませる。自己レビューでは代わりにならない。やり直しではなく、ユーザーが注意すべき点を拾わせる。OMP では `task` の `model` に別系統を指定し（Claude が作業したなら Codex 系）、ほかのホストからは `omp-herdr-collab` で渡す。
+
+- 根拠が弱い、またはない判断
+- transcript に証拠がないまま済んだことになっている検証
+- 振り返ると危うい判断（早すぎる、スコープが膨らんでいる、症状を覆っている）
+- ざっと読んだだけでは見落とす点
+
+この skill を使った作業の最終報告は「Attention」節で終える。最初の行に `reviewed by <model>`、続けて指摘ごとに該当行や場面を指す。指摘がなければ「No flags」と書く。
+
+出典: poteto の pstack（`cursor/plugins`）の [`show-me-your-work`](https://github.com/cursor/plugins/tree/main/pstack/skills/show-me-your-work) を、この環境の `.agent-msgs/` と OMP・Herdr のレビュー経路に合わせた。

@@ -21,6 +21,7 @@
 | 複雑タスクの工程（調査 → 計画 → 独立レビュー → 証拠つき納品） | `sureforge` | 複数ファイル・複数段階の実装 |
 | バグ診断（仮説と再現、根本原因の証拠、同じ前提の修正が二度失敗したら前提を検証する）と指標の改善（一変更ずつ計測して残すか戻す Hillclimb、測った数値を報告前に検める） | `diagnosing-bugs`（vendoring して節を追加）、共有指示の「Root-cause claims need reproduction」 | 障害・不具合・性能劣化、数値を目標まで改善するとき、測った数値を報告するとき |
 | アプリ固有の検証手順（起動・Doctor・操作・証拠・後片付けと機能の地図を、対象リポジトリの project-local skill として生成・保守する） | `create-verification-skill`、汎用のブラウザ経路は `browser-verify` | 振る舞いを証明する手順がスクリプト化されていないアプリ |
+| 判断の記録（判断ごとの TSV、transcript との突き合わせ、別モデル系統の Attention 節） | `show-me-your-work` | 長時間・放置前提・全面委任の作業 |
 | レビュー（変更種別ごとの必須質問、fresh context での反証、差分の外への波及範囲、Copilot 事前確認、過剰設計の摘出、ローカル差分の証拠つきレビュー） | `github-pr-review`、`evidence-code-review`、`adversarial-verification`、`copilot-preflight`、`ponytail-review` / `ponytail-audit`、OMP の `reviewer` / `security-reviewer` | PR の前後 |
 | 構造的な編集（rename、参照列挙、codemod） | 共有指示の「Structural edits」、`structural-edit`、OMP `lsp` / `ast_edit` | 複数箇所に及ぶ書き換え |
 | 言語別のスクリプト作法 | `efficient-python`、`efficient-ts-js` | スクリプトを書く・実行する前 |
