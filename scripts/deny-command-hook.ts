@@ -27,7 +27,7 @@ type HookClient = "claude" | "codex" | "copilot";
 
 const COPILOT_READ_TOOLS = new Set(["view", "grep", "rg"]);
 const COPILOT_ENV_READ_REASON =
-  "`.env`-style credential files are blocked from the view/grep tools, including grep globs that can match one (`*`, `*.*`, `{.env,...}`). These files hold plaintext secrets — don't load one into context unless the user explicitly asked you to inspect that exact file. Narrow the glob to the extensions you need (e.g. `*.ts`).";
+  "`.env`-style credential files are blocked from the view/grep tools, including grep globs that can match one (`*`, `*.*`, `{.env,...}`). These files hold plaintext secrets — don't load one into context unless the user explicitly asked you to inspect that exact file. Narrow the glob to the file types the task needs.";
 
 // Mirrors omp/extensions/deny-env-reads.ts for Copilot's native readers. grep
 // can reach an .env file through a directory in `paths` plus a `glob` filter
