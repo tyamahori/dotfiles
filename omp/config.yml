@@ -11,6 +11,7 @@ modelRoles:
   default: anthropic/claude-opus-5-5
   web: web/google
   tiny: local/lfm2.5-350m
+  widget: anthropic/claude-haiku-5-5
 retry:
   fallbackChains:
     openai-codex/gpt-6-astra:
@@ -120,6 +121,8 @@ dev:
   autoqaConsent: granted
 composer:
   shape: pi
+tui:
+  completeScrollback: true
 browser:
   screenshotDir: .agent-msgs/screenshots
 security:
