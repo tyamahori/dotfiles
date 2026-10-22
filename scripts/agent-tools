@@ -35,6 +35,8 @@ fi
 #   via the tree URL.
 # - typesafe-ai: TypeSafe (Jev) API guidance for the machine-global Jev helpers
 #   (docs/jev.md); the Claude plugin form is not used so it is not listed twice.
+# - imozuru: source-chasing research into unfamiliar fields; the Claude plugin
+#   form is not used so Codex and OMP get the same copy.
 global_skills=(
 	"archify tt-a1i/archify"
 	"frontend-design anthropics/skills"
@@ -44,6 +46,7 @@ global_skills=(
 	"evidence-code-review https://github.com/akkie76/code-review-skills/tree/main/dist/claude-code"
 	"typesafe-ai typesafe-ai/skills"
 	"find-skills vercel-labs/skills"
+	"imozuru MaryCache/imozuru"
 	"api-security-testing usestrix/strix"
 	"application-security-testing usestrix/strix"
 	"ci-security-scanning-with-strix usestrix/strix"
