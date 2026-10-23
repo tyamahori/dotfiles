@@ -57,3 +57,6 @@ jobs:
 
       - name: bun test
         run: bun test ./scripts/*.test.ts ./omp/tests/*.test.ts
+
+      - name: omp-herdr-collab review-flow tests
+        run: agents/skills/omp-herdr-collab/tests/test_review_flow.py
