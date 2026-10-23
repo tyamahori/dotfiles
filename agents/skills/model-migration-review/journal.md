@@ -1,6 +1,19 @@
 # model migration journal
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
+## 2026-10-24 widget ロールの追加（未 ack 差分）
+
+- 契機: post-commit hook が `omp.modelRoles.widget: (none) -> anthropic/claude-haiku-5-5`
+  を報告した。pin は 75167d3（10-21）で追加され、ack されていなかった。
+- 照合: 新しいのはロールのキーだけで、モデルは smol / commit と同じ
+  `claude-haiku-5-5`。公式資料との照合は 2026-10-09 のエントリで済んでおり、
+  新たに取得した資料はない。
+- 提案: 変更提案なし。
+- 検証: 新規プロセスの `omp config get modelRoles --json` が widget に
+  `anthropic/claude-haiku-5-5` を返した。その後 `scripts/model-pins ack` を実行し、
+  `check` の exit 0 を確かめた。
+- 1週間後: なし（モデルの変更がないため）。
+
 ## 2026-10-17 未 ack 差分の再照合と Codex 正本の Astra 復帰
 
 - 契機: commit 時の hook が8件の差分を報告(`codex.model`、
