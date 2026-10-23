@@ -262,6 +262,11 @@ export PATH="$PATH:${HOME}/.jbcontext/bin"
 # cd 自体を zoxide にする（通常のパスは従来どおり、それ以外は訪問履歴から飛ぶ）。
 (( $+commands[zoxide] )) && eval "$(zoxide init zsh --cmd cd)"
 
+# precmd/chpwd フックは環境変数と違い子シェルへ継承されないので、
+# 非 login の対話シェル向けにここでも張る（.zprofile は `zsh -lc 'cd x && …'` 用。
+# direnv の hook は登録済みなら足さない）。
+(( $+commands[direnv] )) && eval "$(direnv hook zsh)"
+
 # reload 時に ZLE widget のラッパーを重ねず、終了状態の取得を使用率更新より先に行う。
 add-zsh-hook -d precmd _agent_usage_precmd
 (( $+functions[prompt_starship_precmd] )) || { (( $+commands[starship] )) && eval "$(starship init zsh)"; }
