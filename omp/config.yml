@@ -129,3 +129,7 @@ security:
   enabled: true
 features:
   unexpectedStopDetection: smart
+claudeResets:
+  autoRedeem: "yes"
+codexResets:
+  autoRedeem: "no"
