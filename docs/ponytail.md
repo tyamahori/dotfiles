@@ -50,7 +50,7 @@
 | --- | --- | --- |
 | Claude Code | `/ponytail lite`, `/ponytail-review`, `/ponytail:ponytail-audit` | `/ponytail` と `/ponytail-review` は UserPromptSubmit フック（`hooks/ponytail-mode-tracker.js`）が素の形と `/ponytail:` 名前空間つきの両方を受ける。audit / debt / gain / help はスキルなので `/ponytail:ponytail-audit` のように名前空間つきで呼ぶ |
 | Codex | `$ponytail-review` | Codex CLI のスキル呼び出しは `$`（`@` は ChatGPT 側の記法で、CLI ではファイル参照）。`/skills` で一覧が出る |
-| OMP | `/skill:ponytail-review` | `omp/config.yml` の `enabledProviders: [claude]` が前提。18.1.5 以降の回帰で外すと `Unknown skill` になる（upstream [#10743](https://github.com/can1357/oh-my-pi/issues/10743)、修正が入ったら外せる） |
+| OMP | `/skill:ponytail-review` | OMP の plugin 登録（`~/.omp/plugins`）から読むので、`enabledProviders` の指定は要らない（18.1.5〜18.1.8 の回帰 upstream [#10743](https://github.com/can1357/oh-my-pi/issues/10743) は修正済み） |
 
 ## 各ホストでの動き方
 
