@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { resolve } from "node:path";
 import ruleTable from "../agents/command-rules.json";
 
@@ -306,6 +307,15 @@ export function commandIndex(words: string[]): number {
   return index;
 }
 
+// `/usr/bin/python3` and `/tmp/python3` run the same kind of tool as
+// `python3`. Only this repo's own scripts (`scripts/python` installs Python)
+// merely share a name with a guarded tool.
+function executableName(word = ""): string {
+  const name = word.slice(word.lastIndexOf("/") + 1);
+  if (name === word) return name;
+  return resolve(word.replace(/^~(?=\/)/, homedir())).startsWith(`${repoRoot}/scripts/`) ? word : name;
+}
+
 // git's global options that take the next word as their value; every other
 // leading option (`-P`, `--no-pager`, `-C<path>`, `--git-dir=<path>`) stands
 // alone. Other tools keep the subcommand right after the executable: their
@@ -313,7 +323,7 @@ export function commandIndex(words: string[]): number {
 const GIT_VALUE_OPTIONS = new Set(["-C", "-c", "--exec-path", "--git-dir", "--work-tree", "--namespace", "--config-env", "--super-prefix"]);
 
 function subcommandMatches(words: string[], index: number, subcommand: string): boolean {
-  if (words[index] !== "git") return words[index + 1] === subcommand;
+  if (executableName(words[index]) !== "git") return words[index + 1] === subcommand;
   let cursor = index + 1;
   while (cursor < words.length) {
     const option = words[cursor];
@@ -417,7 +427,7 @@ function replacementAvailable(rule: Pick<Rule, "replacement">): boolean {
 const PAGE_READERS = new Set(["awk", "cat", "grep", "head", "less", "more", "rg", "sed", "tail"]);
 
 function outputIsRead(next: Segment | undefined): boolean {
-  return !next?.followsPipe || PAGE_READERS.has(next.words[commandIndex(next.words)]);
+  return !next?.followsPipe || PAGE_READERS.has(executableName(next.words[commandIndex(next.words)]));
 }
 
 function globMatchesSample(word: string, samples: string[] | undefined): boolean {
@@ -442,8 +452,9 @@ export function denyCommand(command: string, client: Client): string | undefined
         return at !== -1 && !(at === 0 && isSafeSearch(words.slice(1), followsPipe, redirected));
       }
       const index = commandIndex(words);
+      const executable = executableName(words[index]);
       return rule.commands.some((match) =>
-        match.executables.includes(words[index]) &&
+        match.executables.includes(executable) &&
         (!match.subcommand || subcommandMatches(words, index, match.subcommand)) &&
         (!match.nextArgPattern || match.nextArgPattern.test(words[index + 1] ?? "")) &&
         (!match.anyArgPattern || words.slice(index + 1).some((word) => match.anyArgPattern!.test(word) || globMatchesSample(word, match.anyArgGlobSamples))) &&

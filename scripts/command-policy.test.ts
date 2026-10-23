@@ -38,6 +38,17 @@ test("Python pipelines are denied while read filters and write-mode cat stay all
   expect(denyCommand("grep value file", "omp")).toContain("glob");
 });
 
+test("an absolute or relative path to the executable is matched by its name", () => {
+  which.mockReturnValue("/available/replacement");
+  for (const command of ["/usr/bin/python3 -c 1", "/tmp/python3 -c 1", "/opt/homebrew/bin/brew upgrade", "/bin/cat README.md", "/usr/bin/git -C . commit -m fix", "git log | /usr/bin/grep fix > /dev/null; /bin/sleep 30"]) {
+    expect(denyCommand(command, "omp")).toBeDefined();
+  }
+  const installer = `${import.meta.dir}/python`;
+  for (const command of [installer, installer.replace(Bun.env.HOME!, "~"), "scripts/python", "./bin/python-lint src"]) {
+    expect(denyCommand(command, "omp")).toBeUndefined();
+  }
+});
+
 test("redirections count per command, and only stdout sent to a file makes a reader write-mode", () => {
   which.mockReturnValue("/available/replacement");
   for (const command of [
