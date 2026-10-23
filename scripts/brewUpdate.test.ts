@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -24,4 +24,36 @@ test("a session launched as plain `omp` on an old keg blocks brew cleanup", () =
   expect(stale("omp --allow-home\n", "p42\nn/c/Cellar/omp/1/bin/omp\n")).toEqual({ status: 0, out: "/c/Cellar/omp/1/bin/omp" });
   expect(stale("omp --allow-home\n", "p42\nn/c/Cellar/omp/2/bin/omp\n").status).toBe(1);
   expect(stale("/c/Cellar/omp/1/bin/omp worker\n", "").status).toBe(0);
+});
+
+// The whole script against stubs: a copy beside stub siblings, and stub
+// brew/uname/ps/lsof/omp. FAIL names the one step that exits 3.
+test.each([
+  ["Darwin", "none", 0, true],
+  ["Darwin", "upgrade", 3, false],
+  ["Darwin", "python", 3, true],
+  ["Linux", "omp", 3, false],
+])("on %s, a failing %s step sets exit %i (brew cleanup ran: %p)", (os, fail, status, cleaned) => {
+  const home = mkdtempSync(join(dir, "home-"));
+  const scripts = join(home, "scripts");
+  const bin = join(home, ".local/bin");
+  mkdirSync(scripts);
+  mkdirSync(bin, { recursive: true });
+  copyFileSync(resolve(import.meta.dir, "brewUpdate"), join(scripts, "brewUpdate"));
+  const stub = (path: string, body: string) => writeFileSync(path, `#!/bin/bash\n${body}\n`, { mode: 0o755 });
+  for (const name of ["skill-sync", "tool-release-review"]) stub(join(scripts, name), "exit 0");
+  stub(join(scripts, "python"), '[ "$FAIL" = python ] && exit 3; exit 0');
+  stub(join(bin, "omp"), '[ "$FAIL" = omp ] && exit 3; exit 0');
+  stub(join(bin, "brew"), 'echo "$*" >>"$HOME/brew.log"; [ "$FAIL" = "$1" ] && exit 3; exit 0');
+  stub(join(bin, "uname"), 'echo "$OS"');
+  for (const name of ["ps", "lsof"]) stub(join(bin, name), "exit 0");
+
+  const result = Bun.spawnSync(["/bin/bash", join(scripts, "brewUpdate")], {
+    env: { HOME: home, PATH: `${bin}:/usr/bin:/bin`, OS: os, FAIL: fail },
+    timeout: 10_000,
+  });
+  expect(result.exitCode).toBe(status);
+  const log = existsSync(join(home, "brew.log")) ? readFileSync(join(home, "brew.log"), "utf8") : "";
+  expect(log.includes("cleanup")).toBe(cleaned);
+  if (fail === "upgrade" || fail === "omp") expect(result.stderr.toString()).toContain("brewUpdate: ");
 });

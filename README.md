@@ -767,6 +767,8 @@ This command does not schedule updates or upgrade Homebrew/Devbox packages.
 The interactive `brewup` alias invokes `scripts/brewUpdate`. It defers
 `brew cleanup` when a running OMP session still uses an old Cellar executable.
 Close those OMP sessions and rerun the script to finish cleanup.
+If `brew update`/`brew upgrade` (or `omp update` on Linux) fails, the script
+still runs the remaining steps, then exits with the first failure's status.
 
 ## Optional / Manual steps
 

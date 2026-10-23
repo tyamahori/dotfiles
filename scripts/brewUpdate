@@ -30,6 +30,10 @@ $mapped"
 	return 1
 }
 
+# Later steps still run after a failed update (a partial upgrade still needs
+# its release review), but the first failure's status becomes the exit status.
+status=0
+
 # Homebrew is macOS-only here; on Linux the herdr skill refresh below is still
 # worth running, so skip just the brew half.
 if [ "$(uname)" = Darwin ]; then
@@ -56,6 +60,9 @@ if [ "$(uname)" = Darwin ]; then
 			brew cleanup
 			;;
 		esac
+	else
+		status=$?
+		echo "brewUpdate: brew update/upgrade failed (exit $status); skipped brew cleanup" >&2
 	fi
 	# upgrade never reconciles against the Brewfile; surface drift here.
 	brew bundle check --file "$HOME/.Brewfile" >/dev/null ||
@@ -64,7 +71,10 @@ else
 	echo "brewUpdate: skipping brew (macOS only)" >&2
 	# Linux OMP is the upstream binary (scripts/apps), which brew never sees.
 	if [ -x "$HOME/.local/bin/omp" ]; then
-		"$HOME/.local/bin/omp" update
+		"$HOME/.local/bin/omp" update || {
+			status=$?
+			echo "brewUpdate: omp update failed (exit $status)" >&2
+		}
 	fi
 fi
 
@@ -85,4 +95,8 @@ fi
 # repo's config and notify. Applying is deliberate: tool-release-review --apply.
 "$(dirname "$0")/tool-release-review" || echo "brewUpdate: tool-release-review failed" >&2
 
-"$(dirname "$0")/python"
+"$(dirname "$0")/python" || {
+	python_status=$?
+	[ "$status" -ne 0 ] || status=$python_status
+}
+exit "$status"
