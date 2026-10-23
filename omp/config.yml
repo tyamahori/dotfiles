@@ -110,7 +110,8 @@ skills:
     - claude/plannotator
     - agents/plannotator
 # claude: ~/.claude/skills (e.g. jbcontext's context-search) are foreign
-# user-scope skills and load only when opted in (codex: see commit 9e02a1f).
+# user-scope skills and load only when opted in.
+# codex: subagent roles and fallback chains target openai-codex (9e02a1f).
 enabledProviders:
   - claude
   - codex
