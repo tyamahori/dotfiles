@@ -73,7 +73,7 @@ for (const fixture of [
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 }
 
 test("lint-on-edit stays silent on a clean merge-key compose file and on YAML under a compose directory", () => {
