@@ -18,7 +18,14 @@ STATE_DIR="$HOME/.local/state/agent-usage"
 mkdir -p "$STATE_DIR"
 REPORT="$STATE_DIR/weekly-$(date +%Y-%m-%d).md"
 
-bash "$HOME/dotfiles/agents/skills/agent-usage-review/scripts/snapshot.sh" --days "$DAYS" >"$REPORT"
+snapshot_status=0
+bash "$HOME/dotfiles/agents/skills/agent-usage-review/scripts/snapshot.sh" --days "$DAYS" >"$REPORT" || snapshot_status=$?
+if [ "$snapshot_status" -ne 0 ]; then
+	echo "agent-usage-weekly: snapshot failed (exit $snapshot_status)" >&2
+	osascript -e 'display notification "利用量の計測に失敗しました。~/.local/state/agent-usage/launchd.log を確認してください。" with title "agent-usage 週次"' ||
+		echo "agent-usage-weekly: failure notification could not be delivered" >&2
+	exit "$snapshot_status"
+fi
 
 # OMP 節の値だけを拾う。取れなかった値は "?" にして通知自体は必ず出す。
 cost=$(awk -F'\t' '

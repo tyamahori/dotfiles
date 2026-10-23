@@ -359,6 +359,9 @@ omp-review --days 7
 `~/.local/state/agent-usage/weekly-YYYY-MM-DD.md` に保存し、OMP の費用・
 compaction 回数・churn 率を macOS 通知で知らせます。気になる週は
 `omp-review --days 7` を実行します。
+計測が失敗した場合は集計値を通知せず、失敗通知とともに
+`~/.local/state/agent-usage/launchd.log` の確認を案内します。
+計測失敗時の通知も失敗した場合、ジョブは元の計測処理の終了コードで終了します。
 
 ### モデルピンを見直す
 
