@@ -20,7 +20,12 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
 
       # scripts/audit-python-usage.test.ts runs the script through uv, as everything Python here does.
+      # Dependencies live in PEP 723 headers, so key the uv cache on those files.
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          cache-dependency-glob: |
+            agents/skills/**/*.py
+            scripts/audit-python-usage
 
       # The lint hooks under test skip silently when their linter is missing, so
       # install the ones the runner image lacks (shellcheck, yq, docker are preinstalled).
