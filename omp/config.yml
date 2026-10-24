@@ -1,5 +1,3 @@
-# slow (reviewer overrides) and advisor stay on Codex: cross-family review
-# and second opinions for Claude-authored work.
 modelRoles:
   vision: anthropic/claude-sonnet-5-5
   smol: anthropic/claude-haiku-5-5
@@ -67,22 +65,23 @@ task:
   enableLsp: true
 compaction:
   thresholdTokens: 160000
-  # snapcompact omitted: with the fixed 160k trigger it kept ~88% of tokens
-  # (median, 185 runs) and re-fired within minutes; LLM methods halve context.
-  methodOrder: [remote, handoff, shake, soft]
+  methodOrder:
+    - remote
+    - handoff
+    - shake
+    - soft
 lsp:
   diagnosticsOnEdit: true
 prewalk:
   auto: suggest
 tools:
-  # builtins inlines built-in device schemas (lsp, ast_edit, debug) so they are
-  # callable without a docs read; MCP devices stay catalog-only.
   xdevDocs: builtins
 advisor:
   enabled: true
-  # Per-turn review catches drift mid-task; it re-reads the whole context, so
-  # advisor usage is higher than agent-end (final-yield only).
-  reviewMode: turn
+  # Final-yield review only. Per-turn review (measured 2026-10-24: 7 days,
+  # 6314 advisor calls, 857 injections) delivered 88% of findings 5+ turns
+  # late (median 24), too late to correct drift mid-task.
+  reviewMode: agent-end
 checkpoint:
   enabled: true
 display:
@@ -101,17 +100,9 @@ skills:
     - upgrade-php
     - freee-api-skill
     - mcp-builder
-    # Namespaced duplicates from other providers. codex/terminal-browser is the
-    # Codex flavor (escalated-permission advice wrong for OMP); the bare default
-    # flavor stays. The bare plannotator is the OMP plugin copy
-    # (@plannotator/pi-extension); the claude/ and agents/ copies are the
-    # installer's Claude Code and Codex variants and lag behind it.
     - codex/terminal-browser
     - claude/plannotator
     - agents/plannotator
-# claude: ~/.claude/skills (e.g. jbcontext's context-search) are foreign
-# user-scope skills and load only when opted in.
-# codex: subagent roles and fallback chains target openai-codex (9e02a1f).
 enabledProviders:
   - claude
   - codex
@@ -135,4 +126,4 @@ features:
 claudeResets:
   autoRedeem: "yes"
 codexResets:
-  autoRedeem: "no"
+  autoRedeem: "yes"

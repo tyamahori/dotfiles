@@ -238,7 +238,7 @@ omp config get retry.fallbackChains --json
 | `slow` | 重い推論 |
 | `vision` | 画像確認 |
 | `commit` | commit 文面 |
-| `advisor` | メインセッションの補助レビュー。`advisor.reviewMode: turn` でターンごとに動く（`agent-end` にすると最終応答時だけになり、利用量が減る）。止めるときは `/advisor off` |
+| `advisor` | メインセッションの補助レビュー。`advisor.reviewMode: agent-end` で最終応答の前だけ動く。`turn` にするとターンごとに動くが、指摘が届くのは大半が 5 ターン以上あとで、利用量も増える。止めるときは `/advisor off` |
 
 ### モデルや退避先を見直す
 
