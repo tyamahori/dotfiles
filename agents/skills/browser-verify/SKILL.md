@@ -35,6 +35,18 @@ terminal-browser は実ブラウザのフレームをターミナルセルへ再
 - 終わったら、その作業のセッションやタブだけを閉じる。`close-all` や他の作業の
   セッションを閉じる操作は使わない。
 
+## fetch がブロックされたとき
+
+`read` や `ax` の取得が、認証の確認・bot 判定・登録の案内で本文を返さないときは、
+次の順で試す。どの段でも、ログイン・登録・cookie の承認・challenge の解決は代行しない。
+
+1. 同じ URL を headless（OMP は native `browser`、Claude Code / Codex は `playwright-cli`）で
+   開き、描画後の DOM を読む。
+2. headless でも止められたら、確認を挟まずに別窓 Chrome（下記 CLI の `--headed`）で開き直す。
+   headless だけを止めるサイトがある。
+3. それでも本文が出なければ、試した経路と表示された内容を報告して止める。ログイン済みの
+   セッションが要るなら、relay などは明示的な同意を得てから使う。
+
 ## Playwright CLI を使う
 
 公式の `playwright-cli` skill を読み、必要な操作の引数だけ
