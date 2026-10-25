@@ -385,6 +385,6 @@
     "type": "command"
   },
   "switchModelsOnFlag": false,
-  "theme": "auto",
+  "theme": "dark",
   "tui": "fullscreen"
 }
