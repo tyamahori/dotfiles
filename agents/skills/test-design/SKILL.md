@@ -43,9 +43,13 @@ reading or mutating the code reveals nothing. Derive viewpoints from the
 contract (ticket, spec, the inputs and environments a caller can actually
 produce), not from the branches the code already has.
 
-For new behaviour and bug fixes, walk every row and mark it *test*, *not
-applicable* (with a one-line reason), or *out of scope*; the depth table
-after it decides how many *test* rows a kind of code needs:
+For new behaviour and bug fixes, first place the code in the depth table
+after the viewpoints, then walk every row and mark it *test*, *covered
+elsewhere* (naming the upstream or existing test that covers it), *not
+applicable* (with a one-line reason), or *out of scope*. A row that applies
+but sits outside the code's depth is *covered elsewhere*, never *not
+applicable*; if no test covers it yet, it is *test*, written at the layer
+whose depth includes it:
 
 | Viewpoint | Ask |
 | --- | --- |
@@ -90,7 +94,8 @@ the reply, then proceed.
   vocabulary: would be a change detector or a copy of the implementation;
   trivial; left to an integration test or a manual check; covered by tests
   of upstream logic; covered by an existing test; out of scope for this
-  change. Viewpoint rows marked *not applicable* or *out of scope* go here.
+  change. Viewpoint rows marked *covered elsewhere*, *not applicable*, or
+  *out of scope* go here.
 
 Repeat both lists in the final report and mark any item that changed during
 implementation.
