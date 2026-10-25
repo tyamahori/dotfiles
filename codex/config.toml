@@ -39,6 +39,11 @@ notifications = false
 command = "playwright-mcp"
 args = ["--browser", "chrome", "--headless", "--isolated", "--output-dir", ".agent-msgs/screenshots/playwright-mcp"]
 
+# 1Password Environments MCP (needs Settings > Developer > "Integrate with MCP
+# clients" in the desktop app). Claude registers the same command at user scope.
+[mcp_servers.1password]
+command = "1password-mcp"
+
 # Not here: `[[skills.config]]` (per-skill enable/disable). Codex ignores that
 # array in the system layer (verified 0.153.2: it only takes effect in
 # ~/.codex/config.toml), so scripts/link appends the one entry we need there.
