@@ -2,10 +2,12 @@
 name: test-design
 description: >
   Load before writing, changing, or deleting tests, before adding a mock or
-  test helper, and when deciding whether a change needs a test at all. Which
-  tests earn their place, the viewpoint walk that finds missing cases, what
-  to assert, the test-double ladder, characterisation tests before
-  refactoring, property-based tests, and the mutation check.
+  test helper, before the first edit of any change to code, scripts, hooks,
+  or config, and when deciding whether a change needs a test at all. Which
+  tests earn their place, the viewpoint walk that finds missing cases, how
+  deep to test each kind of code, the behaviour list written before
+  implementing, what to assert, the test-double ladder, characterisation
+  tests before refactoring, property-based tests, and the mutation check.
 ---
 
 # test-design
@@ -42,7 +44,8 @@ contract (ticket, spec, the inputs and environments a caller can actually
 produce), not from the branches the code already has.
 
 For new behaviour and bug fixes, walk every row and mark it *test*, *not
-applicable* (with a one-line reason), or *out of scope*:
+applicable* (with a one-line reason), or *out of scope*; the depth table
+after it decides how many *test* rows a kind of code needs:
 
 | Viewpoint | Ask |
 | --- | --- |
@@ -57,13 +60,56 @@ applicable* (with a one-line reason), or *out of scope*:
 | Scale | Zero, one, many, more than fits in memory or on one page. |
 | Sibling paths | Other callers and entry points that reach the changed code. |
 
-Report the rows marked *not applicable* or *out of scope* with the change,
-so a reviewer can dispute an omission instead of never seeing it.
+How deep the walk goes depends on the kind of code:
 
-When a bug escapes, add the viewpoint that would have caught it to this
-table in the same change as the fix: a new row, or a sharper question in an
-existing one. Phrase it generically; this file is public. The table is the
-record of what has been missed before.
+| Code | Depth |
+| --- | --- |
+| Domain logic, algorithms, parsers, validation | Every applicable row, thoroughly: boundaries, decision tables, state transitions. Bugs here are cheap to test and spread downstream. |
+| Orchestration (controllers, use cases, command entry points, glue calling several parts) | One representative happy path, plus failures that appear only when the parts are combined (a later step fails after an earlier one succeeded). Do not re-test value ranges the logic's own tests cover. |
+| Presentation (CLI output, formatting) | Structure only (headers, column order, row count); values belong to the tests of the code that computes them. Move input validation into a pure function and test it there. |
+| Trivial code | None (see the table above). |
+| Logic tangled with many dependencies | Split it first (pure logic out, a thin shell around the I/O), then test each part at its depth. Needing many mocks to reach one rule is the signal. |
+
+When a bug escapes, add the viewpoint that would have caught it to the
+viewpoint table in the same change as the fix: a new row, or a sharper
+question in an existing one. Phrase it generically; this file is public.
+The viewpoint table is the record of what has been missed before.
+
+## Write the behaviour list before implementing
+
+The walk's result is for a human to check before any code exists, where a
+wrong or missing behaviour is cheapest to catch. For every change to code,
+scripts, hooks, or config (prose has no behaviour), write two lists before
+the first edit. A plan holds them when there is one; otherwise show them in
+the reply, then proceed.
+
+- **Behaviours to confirm**: one item per behaviour, each naming the test
+  that will confirm it. For a refactoring, the behaviours that must stay
+  unchanged.
+- **Behaviours deliberately not confirmed**: each with one reason from this
+  vocabulary: would be a change detector or a copy of the implementation;
+  trivial; left to an integration test or a manual check; covered by tests
+  of upstream logic; covered by an existing test; out of scope for this
+  change. Viewpoint rows marked *not applicable* or *out of scope* go here.
+
+Repeat both lists in the final report and mark any item that changed during
+implementation.
+
+Write each item so that someone who knows the domain but not the code can
+judge it. Test names and comments follow the same rules.
+
+- One sentence stating what the user or caller does and what must then
+  happen. One behaviour per item; split an item that carries several
+  conditions.
+- The user's words, not the code's: no variable name, internal data
+  structure, or test term as subject or predicate. Name code, if needed, in
+  parentheses after the sentence. Define a coined term or abbreviation at
+  first use.
+- In Japanese, end on a verb, not a noun or `=true`, and keep the subject
+  and particles.
+
+Not `auth middleware coverage for public routes`, but
+「ログアウトしている利用者が公開ページを開くと、ログインを求められずに表示される。」
 
 ## Name the break before writing the body
 
@@ -188,4 +234,8 @@ Sources: obra/superpowers `test-driven-development/writing-good-tests.md`
 (name the break, mock gates, mutation check); addyosmani/agent-skills
 `test-driven-development` (discover the stack first, real over fake over
 stub over mock, DAMP); Feathers, *Working Effectively with Legacy Code*
-(characterisation tests).
+(characterisation tests); Khorikov, *Unit Testing Principles, Practices, and
+Patterns* (邦訳『単体テストの考え方/使い方』; depth by kind of code); 市川裕也
+「AIがテストを書く中で、『あるべき仕様』を単体テストで担保するために工夫して
+みていること」, future-architect.github.io/articles/20260615a (behaviour
+list before implementing, exclusion vocabulary, readable behaviour items).

@@ -77,8 +77,9 @@ stays listed with `skip: <reason>`. In read-only review sessions
 the criteria.
 
 - Module boundary, interface, error policy, data model, refactor beyond a
-  rename, or an ADR: `software-design`. Writing, changing, or deleting tests:
-  `test-design`.
+  rename, or an ADR: `software-design`. Writing, changing, or deleting tests,
+  or planning any change to code, scripts, hooks, or config (its behaviour
+  list comes before the first edit): `test-design`.
 - Framing that needs discussion: `task-briefing`.
 - Japanese prose the user reads as a document (docs, reports, minutes, emails,
   PR descriptions, articles): `natural-japanese`, plus
