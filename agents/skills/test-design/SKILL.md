@@ -3,9 +3,9 @@ name: test-design
 description: >
   Load before writing, changing, or deleting tests, before adding a mock or
   test helper, and when deciding whether a change needs a test at all. Which
-  tests earn their place, what to assert, the test-double ladder,
-  characterisation tests before refactoring, property-based tests, and the
-  mutation check.
+  tests earn their place, the viewpoint walk that finds missing cases, what
+  to assert, the test-double ladder, characterisation tests before
+  refactoring, property-based tests, and the mutation check.
 ---
 
 # test-design
@@ -21,8 +21,8 @@ read two neighbouring test files before writing one.
 
 | Change | Test |
 | --- | --- |
-| Bug fix | One reproduction that fails before the fix and passes after. Check sibling callers of the fixed function; if they had the same bug, the reproduction covers them or gets a row. |
-| New behaviour | One test per observable contract: the happy path, each boundary (empty, one, max, off-by-one), each error the caller must handle. |
+| Bug fix | One reproduction that fails before the fix and passes after. Check sibling callers of the fixed function; if they had the same bug, the reproduction covers them or gets a row. Each other viewpoint marked *test* in the walk below gets a test too. |
+| New behaviour | One test per observable contract: the happy path, each boundary (empty, one, max, off-by-one), each error the caller must handle, each viewpoint marked *test* in the walk below. |
 | Refactoring | No new tests. If the code has none, characterisation tests first (below), then refactor, then change behaviour in a separate commit. |
 | Public interface change | Existing tests updated to the new contract; a migration-path test only if consumers can hit both shapes at once. |
 | Script, hook, skill, config | Run it against controlled input and assert output, exit code, or side effect. Never assert that the source contains a line. |
@@ -32,6 +32,38 @@ read two neighbouring test files before writing one.
 Scratch checks (a throwaway script proving a change) need not be kept. Keep
 a test when the repository keeps tests for that kind of change, sized like
 its neighbours.
+
+## Walk the viewpoints before choosing tests
+
+A missed viewpoint is the bug no test, review, or mutation check catches:
+when nobody thought of a case, the code has no branch for it either, so
+reading or mutating the code reveals nothing. Derive viewpoints from the
+contract (ticket, spec, the inputs and environments a caller can actually
+produce), not from the branches the code already has.
+
+For new behaviour and bug fixes, walk every row and mark it *test*, *not
+applicable* (with a one-line reason), or *out of scope*:
+
+| Viewpoint | Ask |
+| --- | --- |
+| Input domain | Equivalence classes and their boundaries; null, empty, whitespace, very long, non-ASCII, negative, duplicate, unsorted, malformed. |
+| State | Each state the target can be in when called: first run, already done, half-finished after a failure. Invalid transitions. The same operation twice (double submit, retry, re-running an idempotent script). |
+| Combination | Conditions that change the outcome together: a decision table when two or more flags or inputs interact. |
+| Time | Timezone and DST, month end and leap day, expiry exactly at the boundary, a clock that moved backwards. |
+| Dependencies | Each way a dependency fails: missing, timeout, partial or out-of-order response, permission denied, rate limit. |
+| Concurrency | Two callers at once, a write racing a read, re-entry. |
+| Authority | Unauthenticated, unauthorised, another tenant's or user's resource. |
+| Environment | OS and version differences, a tool missing from PATH, absent or old-format config and data. |
+| Scale | Zero, one, many, more than fits in memory or on one page. |
+| Sibling paths | Other callers and entry points that reach the changed code. |
+
+Report the rows marked *not applicable* or *out of scope* with the change,
+so a reviewer can dispute an omission instead of never seeing it.
+
+When a bug escapes, add the viewpoint that would have caught it to this
+table in the same change as the fix: a new row, or a sharper question in an
+existing one. Phrase it generically; this file is public. The table is the
+record of what has been missed before.
 
 ## Name the break before writing the body
 
@@ -140,7 +172,8 @@ each realistic mutation: wrong constant or argument, wrong branch handler,
 missing state change or side effect, empty or default return, missing
 validation of zero, empty, nil, unauthorised, or malformed input. A mutation
 nothing catches marks the behaviour unprotected or the test tautological;
-fix one or the other before yielding.
+fix one or the other before yielding. The check covers only code that
+exists; a case with no branch at all is the viewpoint walk's job.
 
 ## Delete these on sight
 

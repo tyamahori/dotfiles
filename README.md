@@ -620,8 +620,9 @@ dependency, or scheduled audit. Token/session savings have not yet been measured
 modules, dependency direction, invariants, one error policy, when to
 abstract), the refactoring procedure, and the ADR template with its
 placement rule; `agents/skills/test-design/SKILL.md` decides which tests a
-change needs, what to assert, test doubles, characterisation and
-property-based tests, and the mutation check. Shared instructions point at
+change needs, walks a viewpoint table for missing cases, what to assert,
+test doubles, characterisation and property-based tests, and the mutation
+check. Shared instructions point at
 both; `docs/software-engineering.md` maps every engineering norm on this
 machine to its file and explains why they were authored rather than
 vendored.
