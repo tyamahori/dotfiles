@@ -52,7 +52,7 @@ applicable* (with a one-line reason), or *out of scope*:
 | Time | Timezone and DST, month end and leap day, expiry exactly at the boundary, a clock that moved backwards. |
 | Dependencies | Each way a dependency fails: missing, timeout, partial or out-of-order response, permission denied, rate limit. |
 | Concurrency | Two callers at once, a write racing a read, re-entry. |
-| Authority | Unauthenticated, unauthorised, another tenant's or user's resource. |
+| Authority | Both directions for every actor the feature serves, logged out and the lowest role included: allowed actors still succeed, the rest are refused (unauthenticated, unauthorised, another tenant's or user's resource). After an auth or middleware change, run each feature it now covers as a logged-out visitor. Escaped once: an auth change made a feature meant for logged-out visitors require login, and no test ran logged out. |
 | Environment | OS and version differences, a tool missing from PATH, absent or old-format config and data. |
 | Scale | Zero, one, many, more than fits in memory or on one page. |
 | Sibling paths | Other callers and entry points that reach the changed code. |
