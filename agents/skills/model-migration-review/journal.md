@@ -1,6 +1,23 @@
 # model migration journal
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
+## 2026-10-27 Codex 正本を gpt-6.1-sol / low へ（再）
+
+- 契機: 週次 usage review で、user 層 `~/.codex/config.toml` の `gpt-6.1-sol` /
+  `low` が、10-17 に正本へ戻した `gpt-6-astra` / `medium` を上書きしていると判明。
+  Codex の rollout は 10-19 以降すべて sol / low。ユーザーが 3 択から正本を
+  実効値へ揃える判断をした。判定: 判断。公式資料は 10-05 エントリの取得分から
+  変わっておらず、新たに取得した資料はない。
+- 照合: ack の記録ファイルの mtime は 10-09 で、10-17 と 10-24 の ack は反映されて
+  いなかった（巻き戻りは 09-11・09-18・09-29・10-17 に続き 5 回目、原因は未特定）。
+  そのため check は widget と codex 2 行を差分として報告した。
+- 変更: `codex/config.toml` の `model` を `gpt-6.1-sol`、`model_reasoning_effort`
+  を `low` に戻した。
+- 検証: 新規 `codex exec -s read-only` が `model: gpt-6.1-sol` / `reasoning effort: low`
+  で応答。`scripts/model-pins ack` で mtime が 10-27 07:49 になり、check は exit 0。
+- 1週間後: レビュー品質の代用指標がない（capm review-rounds は窓内をほぼ拾わない）。
+  ack ファイルの mtime が 10-27 のまま残っているかを確認する。
+
 ## 2026-10-24 widget ロールの追加（未 ack 差分）
 
 - 契機: post-commit hook が `omp.modelRoles.widget: (none) -> anthropic/claude-haiku-5-5`

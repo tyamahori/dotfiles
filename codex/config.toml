@@ -11,10 +11,10 @@
 # ~/.codex/rules/. scripts/link checks the /etc symlink and prints the sudo
 # command when it is missing.
 
-model = "gpt-6-astra"
-# Matches the user-layer /model choice (~/.codex/config.toml, 2026-10-15) so
-# the canonical pin and the effective value agree.
-model_reasoning_effort = "medium"
+model = "gpt-6.1-sol"
+# Matches the user-layer /model choice (~/.codex/config.toml, in effect since
+# 2026-10-19) so the canonical pin and the effective value agree.
+model_reasoning_effort = "low"
 service_tier = "default"
 
 # Keep workspace isolation while routing approval requests to auto-review.
