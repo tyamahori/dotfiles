@@ -55,6 +55,12 @@ omp --resume
 omp -p --no-session "このリポジトリのテストコマンドを調べて"
 ```
 
+`AGENTS.md` や `CLAUDE.md` などのコンテキストファイルの影響を除いて確かめたい場合は、`--no-context-files` を足します（`--add-dir` のルートやサブエージェントの分も読みません）。
+
+```bash
+omp -p --no-session --no-context-files "依頼"
+```
+
 ファイルを最初の依頼へ添える場合は、パスの先頭に `@` を付けます。
 
 ```bash
