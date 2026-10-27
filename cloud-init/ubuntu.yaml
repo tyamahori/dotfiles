@@ -2,7 +2,7 @@
 # Ubuntu 24.04 cloud-init for OrbStack VM
 #
 # Usage:
-#   orb create -c cloud-init/ubuntu.yaml ubuntu:24.04 dev
+#   orb create --isolated --forward-ssh-agent -c cloud-init/ubuntu.yaml ubuntu:24.04 dev
 #
 # System packages come from here; everything per user, Docker CE included,
 # runs the same ./scripts/setup as macOS (Nix, Devbox, Claude Code / Codex,
