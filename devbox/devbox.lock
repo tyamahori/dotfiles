@@ -1623,6 +1623,10 @@
         }
       }
     },
+    "path:./semgrep#semgrep": {
+      "last_modified": "1970-01-01T00:00:00Z",
+      "resolved": "path:./semgrep#semgrep"
+    },
     "php@latest": {
       "last_modified": "2026-10-08T19:21:32Z",
       "resolved": "github:NixOS/nixpkgs/8edc0c72e3a38faf5434e40d1f19431125fe4b30#php85",
@@ -1810,56 +1814,6 @@
             }
           ],
           "store_path": "/nix/store/76d8ldwj26p9am8yb82sygyrxmgwxixi-ruff-0.16.10"
-        }
-      }
-    },
-    "semgrep@latest": {
-      "last_modified": "2026-10-08T19:21:32Z",
-      "resolved": "github:NixOS/nixpkgs/8edc0c72e3a38faf5434e40d1f19431125fe4b30#semgrep",
-      "source": "devbox-search",
-      "version": "1.179.0",
-      "systems": {
-        "aarch64-darwin": {
-          "outputs": [
-            {
-              "name": "out",
-              "path": "/nix/store/5i2wh7zczs003si9m9pdpmpghv5ldn2l-python3.14-semgrep-1.179.0",
-              "default": true
-            },
-            {
-              "name": "dist",
-              "path": "/nix/store/2am7g7m5lk3qm7vr6zgdqviv8khpa4wr-python3.14-semgrep-1.179.0-dist"
-            }
-          ],
-          "store_path": "/nix/store/5i2wh7zczs003si9m9pdpmpghv5ldn2l-python3.14-semgrep-1.179.0"
-        },
-        "aarch64-linux": {
-          "outputs": [
-            {
-              "name": "out",
-              "path": "/nix/store/dq1gr0vac3apl98rdgqzz80ci017nk5i-python3.14-semgrep-1.179.0",
-              "default": true
-            },
-            {
-              "name": "dist",
-              "path": "/nix/store/ddb7xbzahg1yaparyjzj3lijqjg7v4l8-python3.14-semgrep-1.179.0-dist"
-            }
-          ],
-          "store_path": "/nix/store/dq1gr0vac3apl98rdgqzz80ci017nk5i-python3.14-semgrep-1.179.0"
-        },
-        "x86_64-linux": {
-          "outputs": [
-            {
-              "name": "out",
-              "path": "/nix/store/3k1mlxfbbf7v1qq7jj8ld3acw9dksq6v-python3.14-semgrep-1.179.0",
-              "default": true
-            },
-            {
-              "name": "dist",
-              "path": "/nix/store/1psjxxbw7r1v0s546lrb4hrs049hpqcd-python3.14-semgrep-1.179.0-dist"
-            }
-          ],
-          "store_path": "/nix/store/3k1mlxfbbf7v1qq7jj8ld3acw9dksq6v-python3.14-semgrep-1.179.0"
         }
       }
     },

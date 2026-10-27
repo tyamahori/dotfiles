@@ -741,7 +741,7 @@ git add -- <files you chose>
 ./scripts/brewUpdate
 
 # Bump devbox global packages; commit devbox/devbox.lock afterwards
-devbox global update
+(cd "$(devbox global path)" && devbox global update)
 
 # Reapply OMP plugins and managed links after `omp update`
 omp-apply
@@ -749,6 +749,27 @@ omp-apply
 # Visualize disk usage on the desktop
 ./scripts/clean
 ```
+
+Semgrep uses the local flake in `devbox/semgrep`: its CLI still imports
+`FastMCP`, so it selects nixpkgs' `mcp_1` instead of the incompatible MCP 2.x.
+The package's existing build tests remain enabled. Update its pinned nixpkgs
+input from the repository root, then apply it:
+
+```bash
+nix flake update --flake path:./devbox/semgrep
+./scripts/devbox
+```
+
+`scripts/devbox` copies this flake into the global project because Nix pure
+evaluation rejects an external directory symlink. Edit the repository copy,
+not the installed copy. Remove the override once the upstream Semgrep package
+selects a compatible MCP dependency.
+Run `devbox global update` from the global project directory as shown above;
+Devbox resolves local-flake metadata relative to the caller's directory.
+Devbox may rewrite this package's `resolved` field in `devbox/devbox.lock`
+to an absolute local path during an update. Keep that field as
+`path:./semgrep#semgrep` before committing; `devbox/semgrep/flake.lock` pins
+the actual upstream source.
 
 `./scripts/sync` never runs `git add`: stage exactly the files you want synced
 first. It refuses to run while `docs/ops` has staged changes (unstage the

@@ -26,6 +26,10 @@ for file in devbox.json devbox.lock; do
 	ln -sfn "$repo_root/devbox/$file" "$global_dir/$file"
 done
 
+# Nix pure evaluation rejects a flake directory symlink outside its source.
+mkdir -p "$global_dir/semgrep"
+cp "$repo_root/devbox/semgrep/"{flake.nix,flake.lock} "$global_dir/semgrep/"
+
 devbox global install
 eval "$(devbox global shellenv)"
 
