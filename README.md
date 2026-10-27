@@ -703,7 +703,7 @@ contract, tags/templates, lifecycle, validator, and Herdr transport live in
 Reproduces this dev environment in an OrbStack Linux VM via cloud-init.
 
 ```bash
-orb create --isolated --forward-ssh-agent -c cloud-init/ubuntu.yaml ubuntu:24.04 dev
+orb create --isolated --isolate-network --forward-ssh-agent -c cloud-init/ubuntu.yaml ubuntu:24.04 dev
 orb shell dev   # default user inherits from the macOS host
 ```
 
