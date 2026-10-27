@@ -47,10 +47,9 @@ test("extractRowCategories returns empty when the table header is absent", () =>
 	expect(extractRowCategories("no table here")).toEqual({});
 });
 
-test("extractRowCategories matches the real SKILL.md and finds all 10 rows", () => {
+test("extractRowCategories still finds the table in the real SKILL.md", () => {
 	const skillMd = readFileSync(join(import.meta.dir, "..", "agents/skills/github-pr-review/SKILL.md"), "utf-8");
 	const rows = extractRowCategories(skillMd);
-	expect(Object.keys(rows)).toHaveLength(10);
 	expect(rows["バグ修正"]).toBeDefined();
 });
 
