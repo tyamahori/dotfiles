@@ -784,9 +784,16 @@ in two layers. devbox's profile precedes `/opt/homebrew/bin` in PATH, so a
 duplicate silently shadows the brew copy and forks behavior.
 
 - **System (no reinstall)** — OS-bundled network/TLS commands: `curl`, `git`.
-  Apple's curl is a SecureTransport build that reads the Keychain trust
-  store; nix/brew curls carry their own CA bundles and behave differently
-  behind corporate/MITM CAs.
+  macOS CLI clients can read `/etc/ssl/cert.pem` rather than Keychain's
+  revocation policy. For the eMudhra incident, follow
+  [Apple's CLI mitigation](https://support.apple.com/en-us/149555);
+  check again after macOS updates, which can replace that bundle.
+  With Determinate Nix on macOS, select an updated CA bundle using
+  `ssl-cert-file` in both `~/.config/nix/nix.conf` and
+  `/var/root/.config/nix/nix.conf` (for the daemon), then restart the daemon.
+  The global profile's `etc/ssl/certs/ca-bundle.crt` follows its installed
+  `nss-cacert` package; it does not include private Keychain CAs.
+  `nix.custom.conf` cannot override the later generated `ssl-cert-file`.
 - **`devbox/devbox.json`** (`scripts/devbox`) — cross-platform language
   toolchains and reproducible CLIs via `devbox global`, pinned for every
   platform in `devbox/devbox.lock`. Default for anything a project or CI also
