@@ -317,5 +317,6 @@ gh api repos/<owner>/<repo>/pulls/<N>/files --paginate --jq '.[] | .filename as 
 ```
 
 `--paginate` を忘れない。既定では30ファイルで切れるため、大きい PR では検証漏れが
-そのまま 422 になる。patch を持たないファイル（バイナリ、巨大な diff）にはアンカー
-できない。diff が触っていない箇所への言及はサマリに書く。
+そのまま 422 になる。patch が返らないファイル（バイナリ、巨大な diff）はこの検査では
+範囲を出せないので、アンカーするなら `git diff <base.sha> <head.sha> -- <path>` の
+ハンク見出しで行を確かめる。diff が触っていない箇所への言及はサマリに書く。
