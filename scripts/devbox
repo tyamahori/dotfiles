@@ -29,6 +29,15 @@ done
 devbox global install
 eval "$(devbox global shellenv)"
 
+# nixpkgs can lag security releases. Bun uses its upstream binary instead.
+export PATH="$HOME/.bun/bin:$PATH"
+if [ ! -x "$HOME/.bun/bin/bun" ]; then
+	installer="$(mktemp)"
+	trap 'rm -f "$installer"' EXIT
+	curl -fsSL https://bun.com/install -o "$installer"
+	BUN_INSTALL="$HOME/.bun" SHELL=/bin/sh bash "$installer"
+fi
+
 # Hook-local Node dependencies are locked with the dotfiles and installed only
 # after bun is available from the global toolchain above.
 bun install --frozen-lockfile --cwd "$script_dir/../tools/japanese-prose-lint"

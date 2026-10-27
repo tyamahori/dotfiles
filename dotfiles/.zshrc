@@ -24,7 +24,7 @@ cdpath=("$HOME" "$HOME/project")
 
 # 補完。fpath は前にある方が優先。devbox の nix profile は
 # `devbox global shellenv` が PATH にしか載せないので、そこにある
-# gh/jj/uv/pnpm/bun/aws/gcloud/task の補完は明示しないと一切効かない。
+# gh/jj/uv/pnpm/aws/gcloud/task の補完は明示しないと一切効かない。
 #
 # CLI 補完のキャッシュ。毎起動の eval はツールの起動コスト（omp は ~1秒）が
 # 乗るため、バイナリが更新されたときだけ再生成して fpath に載せる。

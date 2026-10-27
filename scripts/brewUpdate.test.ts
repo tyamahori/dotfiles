@@ -32,6 +32,7 @@ test.each([
   ["Darwin", "none", 0, true],
   ["Darwin", "upgrade", 3, false],
   ["Darwin", "python", 3, true],
+  ["Darwin", "bun", 3, true],
   ["Linux", "omp", 3, false],
 ])("on %s, a failing %s step sets exit %i (brew cleanup ran: %p)", (os, fail, status, cleaned) => {
   const home = mkdtempSync(join(dir, "home-"));
@@ -39,11 +40,13 @@ test.each([
   const bin = join(home, ".local/bin");
   mkdirSync(scripts);
   mkdirSync(bin, { recursive: true });
+  mkdirSync(join(home, ".bun/bin"), { recursive: true });
   copyFileSync(resolve(import.meta.dir, "brewUpdate"), join(scripts, "brewUpdate"));
   const stub = (path: string, body: string) => writeFileSync(path, `#!/bin/bash\n${body}\n`, { mode: 0o755 });
   for (const name of ["skill-sync", "tool-release-review"]) stub(join(scripts, name), "exit 0");
   stub(join(scripts, "python"), '[ "$FAIL" = python ] && exit 3; exit 0');
   stub(join(bin, "omp"), '[ "$FAIL" = omp ] && exit 3; exit 0');
+  stub(join(home, ".bun/bin/bun"), '[ "$FAIL" = bun ] && exit 3; exit 0');
   stub(join(bin, "brew"), 'echo "$*" >>"$HOME/brew.log"; [ "$FAIL" = "$1" ] && exit 3; exit 0');
   stub(join(bin, "uname"), 'echo "$OS"');
   for (const name of ["ps", "lsof"]) stub(join(bin, name), "exit 0");

@@ -18,7 +18,7 @@ cd ~/project/dotfiles
 `scripts/setup` runs the following in order:
 
 1. `scripts/init` — install Homebrew (macOS), Nix, and Devbox
-2. `scripts/devbox` — link `devbox/devbox.json` and `devbox/devbox.lock` into devbox global, install the pinned packages (including `gh` and the Copilot CLI), and install lockfile-pinned dependencies for local hooks
+2. `scripts/devbox` — link `devbox/devbox.json` and `devbox/devbox.lock` into devbox global, install the pinned packages (including `gh` and the Copilot CLI), install Bun from its official distribution, and install lockfile-pinned dependencies for local hooks
 3. `scripts/apps` — macOS: install the repository Brewfile; Linux: install Claude Code from Anthropic's signed apt repository (latest channel), Docker CE from Docker's signed apt repository (adding you to the `docker` group), and Ghostty from the Ubuntu archive when the release ships it (26.04 and later; skipped on the 24.04 VM) (asks for sudo), Codex with npm, OMP with its upstream installer, and `ax` from its upstream release binary. It stops if the Docker snap is installed: remove it first with `sudo snap remove --purge docker` (this deletes the snap's images and volumes), because its AppArmor profile can block dockerd's DNS lookups so every pull fails
 4. `scripts/python` — install the latest CPython via `uv`, register it as the global `python` / `python3`, and install or upgrade the debugpy and Strix CLI tools
 5. `scripts/link` — local placement only: create the stable `~/dotfiles` alias, symlink dotfiles, shared instructions, runtime adapters, and OMP configuration, set this repo's `core.hooksPath`, and load launchd jobs (macOS). It also writes files derived from what is installed: the herdr skill and agent-state hook scripts (from the `herdr` binary), and the Codex `skills.config` entry; on Linux it removes the Ghostty GL wrapper and desktop entry that older links generated. It never touches the network, so it is safe to rerun after any pull
@@ -792,11 +792,15 @@ duplicate silently shadows the brew copy and forks behavior.
   platform in `devbox/devbox.lock`. Default for anything a project or CI also
   pins. Add or remove with `devbox global add/rm` (the files are symlinked, so
   the repo copies change); restrict OS-specific packages with `--platform`.
+- **Official Bun** (`scripts/devbox`) — install to `~/.bun/bin` from
+  `https://bun.com/install` so security updates do not wait for nixpkgs.
+  `scripts/brewUpdate` updates it with `bun upgrade`. Do not add Bun back
+  to Devbox or Homebrew.
 - **`~/.Brewfile`** (`scripts/apps`) — macOS-integrated tools and casks:
   anything touching Keychain, launchd, notifications, or a GUI.
-  `homebrew/brew.env` lists the devbox-owned CLIs in
+  `homebrew/brew.env` lists CLIs owned by other layers in
   `HOMEBREW_FORBIDDEN_FORMULAE`, so brew refuses to install a duplicate; keep
-  it in sync when adding a devbox package that also exists as a formula.
+  it in sync when adding a non-Homebrew tool that also exists as a formula.
 - **Linux** — the Brewfile's CLI formulae (zsh plugins, ripgrep, fd, jaq,
   ast-grep, hunk, and so on) are devbox packages restricted with
   `--platform x86_64-linux,aarch64-linux`, so macOS keeps the brew copy. apt

@@ -2,7 +2,6 @@
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.16.0/.schema/devbox.schema.json",
   "packages": {
     "go":                   "latest",
-    "bun":                  "latest",
     "cmake":                "latest",
     "gnumake":              "latest",
     "go-task":              "latest",
@@ -121,6 +120,10 @@
       "platforms": ["x86_64-linux", "aarch64-linux"]
     },
     "zsh-syntax-highlighting": {
+      "version":   "latest",
+      "platforms": ["x86_64-linux", "aarch64-linux"]
+    },
+    "unzip": {
       "version":   "latest",
       "platforms": ["x86_64-linux", "aarch64-linux"]
     }

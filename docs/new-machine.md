@@ -155,7 +155,8 @@ sleepwatcher本体はBrewfileで入るが、サービスの起動は手動：`br
 | 確認 | コマンド | 期待する結果 |
 |---|---|---|
 | python | `zsh -lc 'which python'` | `~/.local/bin/python` |
-| devbox層 | `zsh -lc 'which go bun uv'` | devboxプロファイル配下のパス |
+| devbox層 | `zsh -lc 'which go uv'` | devboxプロファイル配下のパス |
+| Bun公式配布版 | `zsh -lc 'which bun'` | `~/.bun/bin/bun` |
 | brew bundle | `brew bundle check --file dotfiles/.Brewfile` | 依存が満たされている |
 | リンク | `ls -l ~/dotfiles ~/.claude/CLAUDE.md` | 本リポジトリを指すsymlink |
 | SSH | `ssh -T git@github.com` | 1Password承認の後に認証成功 |

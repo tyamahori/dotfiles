@@ -95,6 +95,13 @@ fi
 # repo's config and notify. Applying is deliberate: tool-release-review --apply.
 "$(dirname "$0")/tool-release-review" || echo "brewUpdate: tool-release-review failed" >&2
 
+if [ -x "$HOME/.bun/bin/bun" ]; then
+	"$HOME/.bun/bin/bun" upgrade || {
+		bun_status=$?
+		[ "$status" -ne 0 ] || status=$bun_status
+	}
+fi
+
 "$(dirname "$0")/python" || {
 	python_status=$?
 	[ "$status" -ne 0 ] || status=$python_status

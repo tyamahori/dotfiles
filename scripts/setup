@@ -6,8 +6,8 @@ SCRIPT_DIR="$(cd -P "$(dirname "$0")" && pwd)"
 # Each step runs as a child, so PATH set inside a step never reaches the later
 # ones, and on a fresh machine .zprofile is not linked yet. Expose here the
 # install locations later steps need: nix for devbox and init re-runs, the user
-# bins where apps puts npm CLIs and omp (Linux) and uv puts python.
-export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:/nix/var/nix/profiles/default/bin:$PATH"
+# bins where apps puts npm CLIs and omp (Linux), uv puts python, and Bun installs.
+export PATH="$HOME/.bun/bin:$HOME/.local/bin:$HOME/.npm-global/bin:/nix/var/nix/profiles/default/bin:$PATH"
 
 "${SCRIPT_DIR}/init"
 if [ -x /opt/homebrew/bin/brew ]; then
