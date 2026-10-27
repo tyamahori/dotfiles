@@ -10,7 +10,6 @@
 - [この dotfiles でのモデル運用](#この-dotfiles-でのモデル運用)
 - [設定を変更する](#設定を変更する)
 - [困ったとき](#困ったとき)
-- [Jev の補助機能](#jev-の補助機能)
 
 ## まず使う
 
@@ -447,17 +446,6 @@ omp config get memory.backend --json
 omp config get autolearn.enabled --json
 omp config get retry.usageReservePct --json
 ```
-
-## Jev の補助機能
-
-TypeSafe（Jev）の systemone API を使う machine-global な補助機能です。日常操作では
-意識する必要はありません。
-
-| 機能 | 種類 |
-| --- | --- |
-| Jev PR-review lens shadow | 任意で呼ぶ CLI（`github-pr-review` Skill から利用） |
-
-[詳細と効果測定](jev.md)
 
 ## OMP 本体を更新する
 

@@ -33,8 +33,8 @@ fi
 # - evidence-code-review: local diff review; PR delivery stays with
 #   github-pr-review. The package lives under dist/, which the CLI only finds
 #   via the tree URL.
-# - typesafe-ai: TypeSafe (Jev) API guidance for the machine-global Jev helpers
-#   (docs/jev.md); the Claude plugin form is not used so it is not listed twice.
+# - typesafe-ai: TypeSafe (Jev) API guidance; the Claude plugin form is not
+#   used so it is not listed twice.
 # - imozuru: source-chasing research into unfamiliar fields; the Claude plugin
 #   form is not used so Codex and OMP get the same copy.
 global_skills=(
