@@ -19,4 +19,6 @@ uv python install --default --preview-features python-install-default
 # scripts/devbox; there is no uv-managed equivalent, so debugpy lives here.
 uv tool install --upgrade debugpy
 
-uv tool install --upgrade strix-agent
+# Pinned below the default CPython: litellm's fastuuid ships no 3.15 wheel and
+# its PyO3 build rejects 3.15. Drop --python once a 3.15 wheel exists.
+uv tool install --upgrade --python 3.14 strix-agent
