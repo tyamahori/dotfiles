@@ -771,6 +771,12 @@ to an absolute local path during an update. Keep that field as
 `path:./semgrep#semgrep` before committing; `devbox/semgrep/flake.lock` pins
 the actual upstream source.
 
+On aarch64-linux (arm64 OrbStack VMs) the package is excluded via
+`excluded_platforms`: nixpkgs' patchelf aborts on the prebuilt `semgrep-core`
+there (`Assertion splitIndex == -1 failed`), which fails the whole
+`devbox global install`. The pre-commit check skips itself when `semgrep` is
+absent. Drop the exclusion once that build succeeds on aarch64-linux.
+
 `./scripts/sync` never runs `git add`: stage exactly the files you want synced
 first. It refuses to run while `docs/ops` has staged changes (unstage the
 journal entries first) or while the index has unmerged paths, and it only

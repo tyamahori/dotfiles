@@ -19,7 +19,9 @@
     "gh":                     "latest",
     "awscli2":                "latest",
     "github-copilot-cli":     "latest",
-    "path:./semgrep#semgrep": "",
+    "path:./semgrep#semgrep": {
+      "excluded_platforms": ["aarch64-linux"]
+    },
     "ruff":                   "latest",
     "actionlint":             "latest",
     "zizmor":                 "latest",
