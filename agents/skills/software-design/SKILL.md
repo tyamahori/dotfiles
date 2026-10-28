@@ -252,6 +252,19 @@ What each section must do:
 - **Open issues** each state the problem, the options, a proposed answer,
   and the immediate next step. When resolved, move the entry to **Resolved
   issues** with the decision on top and the original discussion kept.
+- **Implementation plan**, when the doc carries one, is its own section
+  after the design, so reviewers judge what and why before how; the design
+  sections stay at the altitude of interfaces and data flow, with no
+  pseudocode or helper names. The plan passes the zero-decision test: a
+  fresh session that never saw the conversation can execute it without
+  choosing a schema, an API shape, a dependency, or how to handle a new
+  edge case. It names the files to create, change, or delete, the change in
+  each, the test cases, and phases that each leave the build green. A
+  choice still open goes under Open issues, not into a vague step ("update
+  the auth service").
+- **Governed code** names the files and symbols the design describes, so a
+  later reader can check the doc against the code. When they diverge, a
+  human decides which one changes.
 
 Diagrams come from an editable source kept next to the doc (`archify` on
 this machine), never a photographed whiteboard. Use the repository's
@@ -309,4 +322,5 @@ Lynch, "How to Write an Effective Software Design Document"
 `api-and-interface-design` and `documentation-and-adrs`; poteto's pstack
 (`cursor/plugins`: `architect`, `why`, `principle-make-operations-idempotent`,
 `principle-separate-before-serializing-shared-state`,
-`principle-minimize-reader-load`).
+`principle-minimize-reader-load`); google/elephant-goldfish-model
+(implementation-readiness and zoom-out standards, drift report).
