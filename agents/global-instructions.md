@@ -211,6 +211,12 @@ Without a Git toplevel, skip the copy and say so.
   Check the final body before sending; prefer an existing guarded wrapper.
 - Google Calendar: include `primary`, `kazuki.tamahori@gmail.com`, and
   `tyamahori@gmail.com` by default.
+- Before work that runs unattended for more than a few minutes (parallel
+  subagents, long gates, CI or review waits), even inside one turn, hold the
+  Mac awake with Adrafinil `keep_awake` when the host exposes it (realistic
+  `minutes`, or the job's `pid`) and `release_awake` when it ends; without
+  the tool, tell the user to keep the lid open. A closed lid otherwise sleeps
+  the Mac and stalls every agent on DNS errors (measured).
 
 ## Review surfaces
 

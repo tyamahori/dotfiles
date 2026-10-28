@@ -95,3 +95,15 @@ underlines, CSS grew from 6KB to 49KB inline, and the build added 22MB of
 dependencies. Text content was byte-identical; readability was not better.
 
 Mechanized: no — design judgment call; can't structurally distinguish a "reading document" page from a "mock app" page.
+
+## Hold the Mac awake during unattended agent work
+
+2026-10-28: three parallel subagents stalled for about 52 minutes when the
+Mac entered sleep on battery while the main session was waiting on them.
+`pmset -g log` showed the sleep and the lid-open wake; every agent's model
+requests failed with `getaddrinfo ENOTFOUND` throughout, and the last error
+was logged within a second of the wake. Retry backoff had grown to about 17
+minutes by then. No work was lost, only wall time.
+
+Mechanized: no — depends on the host exposing the Adrafinil MCP tool and on
+the agent judging that the work will run unattended.
