@@ -34,7 +34,8 @@ for (const fixture of [
     name: "Compose short-form syntax",
     file: "compose.yaml",
     hook: "pre-commit-compose-canonical",
-    clean: "name: lint-check2\nservices:\n  app:\n    image: alpine:3.21\n    volumes:\n      - type: bind\n        source: ./data\n        target: /var/lib/data\n",
+    clean:
+      "name: lint-check2\nservices:\n  app:\n    image: alpine:3.21\n    volumes:\n      - type: bind\n        source: ./data\n        target: /var/lib/data\n",
     bad: "name: lint-check2\nservices:\n  app:\n    image: alpine:3.21\n    volumes:\n      - ./data:/var/lib/data\n",
     rule: "short-form volumes",
   },
@@ -45,7 +46,9 @@ for (const fixture of [
     const cwd = mkdtempSync(resolve(scratch, "container-lint-"));
     const run = (args: string[], input?: string) => {
       const result = spawnSync(args[0], args.slice(1), {
-        cwd, input, encoding: "utf8",
+        cwd,
+        input,
+        encoding: "utf8",
       });
       if (result.error) throw result.error;
       return result;
@@ -54,7 +57,10 @@ for (const fixture of [
       expect(run(["git", "init", "--quiet"]).status).toBe(0);
       const file = resolve(cwd, fixture.file);
       const payload = JSON.stringify({ tool_input: { file_path: file } });
-      for (const [content, blocked] of [[fixture.bad, true], [fixture.clean, false]] as const) {
+      for (const [content, blocked] of [
+        [fixture.bad, true],
+        [fixture.clean, false],
+      ] as const) {
         writeFileSync(file, content);
         expect(run(["git", "add", "--", fixture.file]).status).toBe(0);
         const edit = run([resolve(root, "scripts/lint-on-edit")], payload);
@@ -81,7 +87,8 @@ test("lint-on-edit stays silent on a clean merge-key compose file and on YAML un
   mkdirSync(scratch, { recursive: true });
   const cwd = mkdtempSync(resolve(scratch, "container-lint-"));
   const files = {
-    "compose.yaml": "x-common: &common\n  image: alpine:3.21\nname: lint-merge\nservices:\n  a:\n    <<: *common\n  b:\n    <<: *common\n",
+    "compose.yaml":
+      "x-common: &common\n  image: alpine:3.21\nname: lint-merge\nservices:\n  a:\n    <<: *common\n  b:\n    <<: *common\n",
     "compose/prometheus.yml": "global:\n  scrape_interval: 15s\n",
   };
   try {

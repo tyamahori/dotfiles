@@ -34,22 +34,15 @@ type ExtensionContext = {
 };
 
 type ExtensionApi = {
-  on(
-    event: string,
-    handler: (event: ToolEvent, ctx: ExtensionContext | undefined) => void,
-  ): void;
-  sendUserMessage?: (
-    content: string,
-    options?: { deliverAs?: "steer" | "followUp" },
-  ) => unknown;
+  on(event: string, handler: (event: ToolEvent, ctx: ExtensionContext | undefined) => void): void;
+  sendUserMessage?: (content: string, options?: { deliverAs?: "steer" | "followUp" }) => unknown;
 };
 
 function unquote(path: string): string {
   const trimmed = path.trim();
   if (
     trimmed.length >= 2 &&
-    ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-      (trimmed.startsWith("'") && trimmed.endsWith("'")))
+    ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'")))
   ) {
     return trimmed.slice(1, -1);
   }
@@ -60,10 +53,7 @@ function unquote(path: string): string {
 // harmless to report and one parser serves lint-on-edit and japanese-prose.
 export function editedPaths(event: ToolEvent): string[] {
   const toolName = typeof event.toolName === "string" ? event.toolName : "";
-  const record =
-    event.input !== null && typeof event.input === "object"
-      ? (event.input as UnknownRecord)
-      : undefined;
+  const record = event.input !== null && typeof event.input === "object" ? (event.input as UnknownRecord) : undefined;
   const paths = new Set<string>();
 
   if (toolName === "write" && record) {
@@ -81,17 +71,13 @@ export function editedPaths(event: ToolEvent): string[] {
     }
   }
   if (toolName === "apply_patch") {
-    for (const match of patch.matchAll(
-      /^\*\*\* (?:Update File|Add File|Delete File|Move to): (.+)$/gm,
-    )) {
+    for (const match of patch.matchAll(/^\*\*\* (?:Update File|Add File|Delete File|Move to): (.+)$/gm)) {
       paths.add(unquote(match[1]));
     }
   }
 
   // write/edit expand a leading ~ themselves; the hooks get the real path.
-  return [...paths]
-    .filter((path) => !URI_OR_SELECTOR.test(path))
-    .map((path) => path.replace(/^~(?=\/|$)/, homedir()));
+  return [...paths].filter((path) => !URI_OR_SELECTOR.test(path)).map((path) => path.replace(/^~(?=\/|$)/, homedir()));
 }
 
 export default function lintOnEdit(pi: ExtensionApi): void {
@@ -110,10 +96,7 @@ export default function lintOnEdit(pi: ExtensionApi): void {
       if (result.error || result.status !== 0 || !stdout) continue;
       try {
         const decision = JSON.parse(stdout) as UnknownRecord;
-        if (
-          decision.decision === "block" &&
-          typeof decision.reason === "string"
-        ) {
+        if (decision.decision === "block" && typeof decision.reason === "string") {
           pi.sendUserMessage?.(`[lint-on-edit] ${decision.reason}`, {
             deliverAs: "steer",
           });

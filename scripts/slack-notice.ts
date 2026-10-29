@@ -7,11 +7,11 @@ export const SLACK_NOTICE = "[自動投稿です。玉堀の秘書システム�
 
 // Posting tools only. Drafts land in the user's composer and are sent by the
 // user, so they are not "posted on my behalf".
-const WRITE_TOOL = /slack.*(?:send_message|schedule_message|post_message|update_message|chat_?(?:post|update))(?!_draft)/i;
+const WRITE_TOOL =
+  /slack.*(?:send_message|schedule_message|post_message|update_message|chat_?(?:post|update))(?!_draft)/i;
 const BODY_FIELDS = ["message", "text", "markdown_text", "body", "content"];
 
-export const SLACK_NOTICE_REASON =
-  `Slack posts made on the user's behalf must end exactly with ${SLACK_NOTICE} (no trailing text or whitespace). Append it to the message body and retry.`;
+export const SLACK_NOTICE_REASON = `Slack posts made on the user's behalf must end exactly with ${SLACK_NOTICE} (no trailing text or whitespace). Append it to the message body and retry.`;
 
 /** Denial reason when a Slack write tool call lacks the closing notice. */
 export function slackNoticeViolation(toolName: string, input: unknown): string | undefined {

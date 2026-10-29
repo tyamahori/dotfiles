@@ -49,9 +49,15 @@ test("named finite jobs drop name and ready instead of being rejected", () => {
       { command: "gh pr checks 1 --watch", name: "checks", async: true, ready: {} },
       { command: "gh pr checks 1 --watch", async: true },
     ],
-    [{ command: "make test", name: "t", timeout: 600 }, { command: "make test", timeout: 600 }],
+    [
+      { command: "make test", name: "t", timeout: 600 },
+      { command: "make test", timeout: 600 },
+    ],
     // name を外した後に await-*.sh の規則が当たる
-    [{ command: "bash await-event.sh", name: "w", async: true }, { command: "bash await-event.sh", async: true, timeout: 0 }],
+    [
+      { command: "bash await-event.sh", name: "w", async: true },
+      { command: "bash await-event.sh", async: true, timeout: 0 },
+    ],
   ];
   for (const [input, want] of cases) expect(call(input)?.input).toEqual(want);
 });

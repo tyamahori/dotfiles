@@ -7,11 +7,7 @@ import { missingTemplateHeadings, templateReason } from "./pr-template-check.ts"
 import { slackNoticeViolation } from "./slack-notice.ts";
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    Object.getPrototypeOf(value) === Object.prototype
-  );
+  return typeof value === "object" && value !== null && Object.getPrototypeOf(value) === Object.prototype;
 }
 
 function toolCommand(toolInput: unknown): string | undefined {
@@ -57,7 +53,9 @@ function commandReason(command: string, client: HookClient, cwd: unknown): strin
   // Copilot shares Codex's rule set and wording, plus its own rules for the
   // shell paths its native tools already cover.
   const reason =
-    client === "copilot" ? (denyCommand(command, "codex") ?? denyCommand(command, "copilot")) : denyCommand(command, client);
+    client === "copilot"
+      ? (denyCommand(command, "codex") ?? denyCommand(command, "copilot"))
+      : denyCommand(command, client);
   if (reason) return reason;
   const missing = missingTemplateHeadings(command, typeof cwd === "string" ? cwd : process.cwd());
   return missing.length > 0 ? templateReason(missing) : undefined;

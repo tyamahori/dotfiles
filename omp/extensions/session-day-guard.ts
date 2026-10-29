@@ -32,14 +32,8 @@ type Ctx = {
 };
 
 type ExtensionHandlerApi = {
-  on(
-    event: string,
-    handler: (event: unknown, ctx: Ctx | undefined) => void | Promise<void>,
-  ): void;
-  sendUserMessage?: (
-    content: string,
-    options?: { deliverAs?: "steer" | "followUp" | "aside" },
-  ) => unknown;
+  on(event: string, handler: (event: unknown, ctx: Ctx | undefined) => void | Promise<void>): void;
+  sendUserMessage?: (content: string, options?: { deliverAs?: "steer" | "followUp" | "aside" }) => unknown;
 };
 
 function localDate(date: Date): string {
@@ -68,9 +62,7 @@ const IDLE_MS = 60 * 60 * 1000;
 const LARGE_BYTES = 5_000_000;
 
 /** ブランチ内エントリの最古・最新時刻。 */
-function branchRange(
-  ctx: Ctx | undefined,
-): { first: number; last: number } | undefined {
+function branchRange(ctx: Ctx | undefined): { first: number; last: number } | undefined {
   const branch = ctx?.sessionManager?.getBranch?.();
   if (!Array.isArray(branch)) return undefined;
   let range: { first: number; last: number } | undefined;
@@ -143,9 +135,7 @@ export default function (pi: ExtensionHandlerApi): void {
     const today = localDate(new Date());
     if (!start || start >= today || nudgedDates.has(today)) return;
     nudgedDates.add(today);
-    ctx.ui?.notify?.(
-      `session-day-guard: 日付を跨いだ(${start} 開始)。この依頼の後、手仕舞いを提案する`,
-    );
+    ctx.ui?.notify?.(`session-day-guard: 日付を跨いだ(${start} 開始)。この依頼の後、手仕舞いを提案する`);
     try {
       pi.sendUserMessage?.(
         `[session-day-guard] このセッションは ${start} に開始し、今日は ${today}。` +

@@ -12,7 +12,18 @@ afterEach(() => {
 });
 
 function git(repo: string, ...args: string[]): void {
-  const result = Bun.spawnSync(["git", "-C", repo, "-c", "core.hooksPath=/dev/null", "-c", "user.name=t", "-c", "user.email=t@t", ...args]);
+  const result = Bun.spawnSync([
+    "git",
+    "-C",
+    repo,
+    "-c",
+    "core.hooksPath=/dev/null",
+    "-c",
+    "user.name=t",
+    "-c",
+    "user.email=t@t",
+    ...args,
+  ]);
   if (result.exitCode !== 0) throw new Error(result.stderr.toString());
 }
 

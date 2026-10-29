@@ -8,9 +8,11 @@ type Hook = (event: unknown, ctx: unknown) => void;
 let spawn: Mock<typeof childProcess.spawnSync>;
 
 beforeEach(() => {
-  spawn = spyOn(childProcess, "spawnSync").mockReturnValue(
-    { stdout: "", stderr: "", status: 0 } as SpawnSyncReturns<string>,
-  );
+  spawn = spyOn(childProcess, "spawnSync").mockReturnValue({
+    stdout: "",
+    stderr: "",
+    status: 0,
+  } as SpawnSyncReturns<string>);
 });
 
 afterEach(() => {
@@ -19,7 +21,11 @@ afterEach(() => {
 
 function hooks(): Map<string, Hook> {
   const registered = new Map<string, Hook>();
-  adrafinil({ on(event, handler) { registered.set(event, handler as Hook); } });
+  adrafinil({
+    on(event, handler) {
+      registered.set(event, handler as Hook);
+    },
+  });
   return registered;
 }
 

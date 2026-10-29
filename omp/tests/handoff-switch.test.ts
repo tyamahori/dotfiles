@@ -74,21 +74,13 @@ function handoffHarness(onMessage?: () => void) {
 
 test("rejects handoff tools without a TUI or a saved note", async () => {
   const noUi = handoffHarness();
-  const noUiResult = await noUi.tool().execute(
-    "tool",
-    { path: "handoff.md" },
-    new AbortController().signal,
-    () => {},
-    { cwd: noteDir, hasUI: false },
-  );
+  const noUiResult = await noUi
+    .tool()
+    .execute("tool", { path: "handoff.md" }, new AbortController().signal, () => {}, { cwd: noteDir, hasUI: false });
   const missingNote = handoffHarness();
-  const missingResult = await missingNote.tool().execute(
-    "tool",
-    { path: "missing.md" },
-    new AbortController().signal,
-    () => {},
-    { cwd: noteDir, hasUI: true },
-  );
+  const missingResult = await missingNote
+    .tool()
+    .execute("tool", { path: "missing.md" }, new AbortController().signal, () => {}, { cwd: noteDir, hasUI: true });
   const commandNotifications: { level: string; message: string }[] = [];
   await missingNote.command().handler("missing.md", {
     cwd: noteDir,
@@ -110,58 +102,53 @@ test("rejects handoff tools without a TUI or a saved note", async () => {
 
 test("accepts a memo path written with ~/, as the read and write tools do", async () => {
   const tilde = `~/${relative(homedir(), note)}`;
-  const result = await handoffHarness().tool().execute(
-    "tool",
-    { path: tilde },
-    new AbortController().signal,
-    () => {},
-    { cwd: noteDir, hasUI: true },
-  );
+  const result = await handoffHarness()
+    .tool()
+    .execute("tool", { path: tilde }, new AbortController().signal, () => {}, { cwd: noteDir, hasUI: true });
   expect(result.isError).toBeUndefined();
   expect(result.details?.path).toBe(note);
 });
 
 test("injects the switch command only after the agent becomes idle", async () => {
   const handoff = handoffHarness();
-  const result = await handoff.tool().execute(
-    "tool",
-    { path: "handoff.md" },
-    new AbortController().signal,
-    () => {},
-    { cwd: noteDir, hasUI: true },
-  );
+  const result = await handoff
+    .tool()
+    .execute("tool", { path: "handoff.md" }, new AbortController().signal, () => {}, { cwd: noteDir, hasUI: true });
   let poll: (() => unknown) | undefined;
   let cleared = false;
   let idle = false;
   const editor: string[] = [];
   const injected: string[] = [];
   let customCalls = 0;
-  handoff.agentEnd()({}, {
-    clearTimer() {
-      cleared = true;
-    },
-    cwd: noteDir,
-    hasUI: true,
-    isIdle: () => idle,
-    setInterval(callback: () => unknown) {
-      poll = callback;
-      return "timer";
-    },
-    ui: {
-      custom: async (
-        render: (tui: unknown, theme: unknown, keys: unknown, done: (value: unknown) => void) => unknown,
-      ) => {
-        customCalls++;
-        const tui = { injectDebugInput: (bytes: string) => injected.push(bytes) };
-        let captured: unknown;
-        render(tui, undefined, undefined, (value) => {
-          captured = value;
-        });
-        return captured;
+  handoff.agentEnd()(
+    {},
+    {
+      clearTimer() {
+        cleared = true;
       },
-      setEditorText: (text: string) => editor.push(text),
+      cwd: noteDir,
+      hasUI: true,
+      isIdle: () => idle,
+      setInterval(callback: () => unknown) {
+        poll = callback;
+        return "timer";
+      },
+      ui: {
+        custom: async (
+          render: (tui: unknown, theme: unknown, keys: unknown, done: (value: unknown) => void) => unknown,
+        ) => {
+          customCalls++;
+          const tui = { injectDebugInput: (bytes: string) => injected.push(bytes) };
+          let captured: unknown;
+          render(tui, undefined, undefined, (value) => {
+            captured = value;
+          });
+          return captured;
+        },
+        setEditorText: (text: string) => editor.push(text),
+      },
     },
-  });
+  );
 
   await poll?.();
   expect(result.isError).toBeUndefined();

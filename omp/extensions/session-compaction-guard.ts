@@ -16,14 +16,8 @@ type Ctx = {
 };
 
 type ExtensionHandlerApi = {
-  on(
-    event: string,
-    handler: (event: unknown, ctx: Ctx | undefined) => void | Promise<void>,
-  ): void;
-  sendUserMessage?: (
-    content: string,
-    options?: { deliverAs?: "steer" | "followUp" | "aside" },
-  ) => unknown;
+  on(event: string, handler: (event: unknown, ctx: Ctx | undefined) => void | Promise<void>): void;
+  sendUserMessage?: (content: string, options?: { deliverAs?: "steer" | "followUp" | "aside" }) => unknown;
 };
 
 export default function (pi: ExtensionHandlerApi): void {
@@ -70,10 +64,7 @@ export default function (pi: ExtensionHandlerApi): void {
       const repeatedReminder =
         `[session-compaction-guard] 自動コンパクションが${autoCompactionEnds}回完了したが、セッション移行が未完了。` +
         "現在の依頼を完了して引き継ぎメモを保存し、handoff_switch ツールを呼ぶこと。新しい無関係な依頼をこのセッションで始めないこと。";
-      pi.sendUserMessage?.(
-        autoCompactionEnds === 2 ? firstReminder : repeatedReminder,
-        { deliverAs: "aside" },
-      );
+      pi.sendUserMessage?.(autoCompactionEnds === 2 ? firstReminder : repeatedReminder, { deliverAs: "aside" });
     } catch {
       // 通知済みなので、注入に失敗しても現在の依頼は続行する。
     }
@@ -85,7 +76,8 @@ export default function (pi: ExtensionHandlerApi): void {
     const input = event as { source?: string; text?: string };
     const text = input.text?.trimStart() ?? "";
     // handoff-switch.ts は /handoff-switch を interactive 入力として注入する。
-    if (input.source !== "interactive" || /^\/(?:new|quit|q|exit|resume|drop|handoff-switch)(?:\s|$)/.test(text)) return;
+    if (input.source !== "interactive" || /^\/(?:new|quit|q|exit|resume|drop|handoff-switch)(?:\s|$)/.test(text))
+      return;
 
     try {
       ctx.ui?.notify?.(

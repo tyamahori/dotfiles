@@ -24,19 +24,13 @@ type ExtensionContext = {
   cwd?: string;
 };
 
-type StopResult =
-  | { decision: "block"; reason: string }
-  | { continue: true; additionalContext: string }
-  | undefined;
+type StopResult = { decision: "block"; reason: string } | { continue: true; additionalContext: string } | undefined;
 
 type ExtensionApi = {
   on(event: string, handler: (event: ToolEvent, ctx: ExtensionContext) => unknown): void;
 };
 
-function runHook(
-  script: string,
-  payload: UnknownRecord,
-): { stdout: string; error?: string } {
+function runHook(script: string, payload: UnknownRecord): { stdout: string; error?: string } {
   const result = spawnSync(script, [], {
     encoding: "utf8",
     env: { ...process.env, JAPANESE_PROSE_RUNTIME: "omp" },

@@ -9,7 +9,8 @@ afterEach(() => {
   home = undefined;
 });
 
-const report = "model\tagent_type\tcalls\ta\tb\tc\td\te\tf\tcost\nmodel\tmain\t1\t0\t0\t0\t0\t0\t0\t3.50\n\n- compaction: 2 / handoff: 1\n- cacheWrite >50k の応答: 30/100 tokens (30%).\n";
+const report =
+  "model\tagent_type\tcalls\ta\tb\tc\td\te\tf\tcost\nmodel\tmain\t1\t0\t0\t0\t0\t0\t0\t3.50\n\n- compaction: 2 / handoff: 1\n- cacheWrite >50k の応答: 30/100 tokens (30%).\n";
 
 test.each([
   [0, 0],
@@ -22,11 +23,23 @@ test.each([
   mkdirSync(bin, { recursive: true });
   mkdirSync(snapshotDir, { recursive: true });
   writeFileSync(join(home, "input.md"), report);
-  writeFileSync(join(snapshotDir, "snapshot.sh"), '#!/bin/bash\ncat "$HOME/input.md"\nif [ "$SNAPSHOT_STATUS" -ne 0 ]; then echo "snapshot unavailable" >&2; fi\nexit "$SNAPSHOT_STATUS"\n');
-  writeFileSync(join(bin, "osascript"), '#!/bin/bash\nprintf "%s\\n" "$@" > "$HOME/notification"\nexit "$NOTIFICATION_STATUS"\n', { mode: 0o755 });
+  writeFileSync(
+    join(snapshotDir, "snapshot.sh"),
+    '#!/bin/bash\ncat "$HOME/input.md"\nif [ "$SNAPSHOT_STATUS" -ne 0 ]; then echo "snapshot unavailable" >&2; fi\nexit "$SNAPSHOT_STATUS"\n',
+  );
+  writeFileSync(
+    join(bin, "osascript"),
+    '#!/bin/bash\nprintf "%s\\n" "$@" > "$HOME/notification"\nexit "$NOTIFICATION_STATUS"\n',
+    { mode: 0o755 },
+  );
 
   const result = Bun.spawnSync(["/bin/bash", join(import.meta.dir, "agent-usage-weekly")], {
-    env: { HOME: home, PATH: "/usr/bin:/bin", SNAPSHOT_STATUS: String(snapshotStatus), NOTIFICATION_STATUS: String(notificationStatus) },
+    env: {
+      HOME: home,
+      PATH: "/usr/bin:/bin",
+      SNAPSHOT_STATUS: String(snapshotStatus),
+      NOTIFICATION_STATUS: String(notificationStatus),
+    },
     timeout: 10_000,
   });
   expect(result.exitCode).toBe(snapshotStatus);

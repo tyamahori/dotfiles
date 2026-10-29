@@ -25,15 +25,26 @@ test("sonar-project.properties continuations, spaced keys, and a final line with
     mkdirSync(repo);
     Bun.spawnSync(["git", "init", "-q", repo]);
     writeFileSync(join(repo, "untracked.txt"), "");
-    writeFileSync(join(repo, "sonar-project.properties"), "sonar.exclusions=gen/**,\\\n    vendor/**\nsonar.projectKey = my-key");
+    writeFileSync(
+      join(repo, "sonar-project.properties"),
+      "sonar.exclusions=gen/**,\\\n    vendor/**\nsonar.projectKey = my-key",
+    );
 
     const r = Bun.spawnSync([script], {
       cwd: repo,
-      env: { HOME: home, PATH: `${bin}:/usr/bin:/bin`, DOTFILES_ROOT: join(home, "dotfiles"), SONAR_HOST_URL: "http://sonar.test", SONAR_TOKEN: "t" },
+      env: {
+        HOME: home,
+        PATH: `${bin}:/usr/bin:/bin`,
+        DOTFILES_ROOT: join(home, "dotfiles"),
+        SONAR_HOST_URL: "http://sonar.test",
+        SONAR_TOKEN: "t",
+      },
     });
 
     expect(r.stdout.toString()).toContain("passed (my-key)");
-    expect(readFileSync(join(home, "args"), "utf8")).toContain("-Dsonar.exclusions=gen/**,vendor/**,sonar-project.properties,untracked.txt\n");
+    expect(readFileSync(join(home, "args"), "utf8")).toContain(
+      "-Dsonar.exclusions=gen/**,vendor/**,sonar-project.properties,untracked.txt\n",
+    );
   } finally {
     rmSync(home, { force: true, recursive: true });
   }

@@ -17,7 +17,10 @@ test("an unreachable upstream reports exit 2 instead of dying with git's code", 
   mkdirSync(join(dir, "scripts"));
   cpSync(script, join(dir, "scripts/skill-sync"));
   mkdirSync(join(dir, "agents/skills/x"), { recursive: true });
-  writeFileSync(join(dir, "agents/skills/x/.openskills.json"), JSON.stringify({ repoUrl: join(dir, "missing"), commit: "abc" }));
+  writeFileSync(
+    join(dir, "agents/skills/x/.openskills.json"),
+    JSON.stringify({ repoUrl: join(dir, "missing"), commit: "abc" }),
+  );
   Bun.spawnSync(["git", "init", "-q"], { cwd: dir });
 
   const result = Bun.spawnSync([join(dir, "scripts/skill-sync"), "--check"], { cwd: dir });
@@ -28,7 +31,9 @@ test("an unreachable upstream reports exit 2 instead of dying with git's code", 
 test("--apply of a whole-repo skill (subpath .) does not vendor the upstream .git", () => {
   dir = mkdtempSync(join(tmpdir(), "skill-sync-"));
   const git = (cwd: string, ...args: string[]) =>
-    Bun.spawnSync(["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "core.hooksPath=/dev/null", ...args], { cwd });
+    Bun.spawnSync(["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "core.hooksPath=/dev/null", ...args], {
+      cwd,
+    });
   const upstream = join(dir, "up");
   mkdirSync(upstream);
   writeFileSync(join(upstream, "SKILL.md"), "# x\n");

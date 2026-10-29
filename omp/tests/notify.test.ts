@@ -58,7 +58,12 @@ function toasts(events: [string, unknown][]): string[] {
 const finished = { messages: [{ role: "assistant", content: [{ type: "text", text: "終わった" }] }] };
 
 test("agent_end that will continue is not a completion toast", () => {
-  expect(toasts([["agent_start", {}], ["agent_end", { ...finished, willContinue: true }]])).toEqual([]);
+  expect(
+    toasts([
+      ["agent_start", {}],
+      ["agent_end", { ...finished, willContinue: true }],
+    ]),
+  ).toEqual([]);
   // The continuation's own end still notifies.
   const lines = toasts([
     ["agent_start", {}],
@@ -78,10 +83,11 @@ test("exhausted auto-retry notifies an error stop; a successful retry does not",
 });
 
 test("a non-retryable error that merely contains 500 still notifies the stop", () => {
-  const stop = (errorMessage: string) => [
-    ["agent_start", {}],
-    ["agent_end", { messages: [{ role: "assistant", stopReason: "error", errorMessage, content: [] }] }],
-  ] as [string, unknown][];
+  const stop = (errorMessage: string) =>
+    [
+      ["agent_start", {}],
+      ["agent_end", { messages: [{ role: "assistant", stopReason: "error", errorMessage, content: [] }] }],
+    ] as [string, unknown][];
   const lines = toasts(stop("400 invalid_request_error: max_tokens: 64500 > 64000"));
   expect(lines).toHaveLength(1);
   expect(lines[0]).toContain("OMP エラー停止");

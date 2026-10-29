@@ -38,7 +38,9 @@ test.skipIf(!zsh)("a shell without starship or a tty starts without errors from 
   const fzf = Bun.which("fzf");
   if (fzf) symlinkSync(fzf, join(bin, "fzf"));
   writeFileSync(join(home, ".zshrc"), readFileSync(zshrc));
-  const r = Bun.spawnSync([zsh!, "-i", "-c", "exit"], { env: { HOME: home, PATH: `${bin}:/usr/bin:/bin`, TERM: "dumb" } });
+  const r = Bun.spawnSync([zsh!, "-i", "-c", "exit"], {
+    env: { HOME: home, PATH: `${bin}:/usr/bin:/bin`, TERM: "dumb" },
+  });
   const err = r.stderr.toString();
   expect(err).not.toContain("starship");
   expect(err).not.toContain("can't change option: zle");

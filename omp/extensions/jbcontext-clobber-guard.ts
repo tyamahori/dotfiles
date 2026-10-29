@@ -14,11 +14,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 const REPO = join(homedir(), "dotfiles");
-const WATCHED = [
-  "agents/global-instructions.md",
-  "claude/settings.json",
-  "codex/hooks.json",
-];
+const WATCHED = ["agents/global-instructions.md", "claude/settings.json", "codex/hooks.json"];
 
 type Ctx = {
   hasUI?: boolean;
@@ -26,10 +22,7 @@ type Ctx = {
 };
 
 type ExtensionHandlerApi = {
-  on(
-    event: string,
-    handler: (event: unknown, ctx: Ctx | undefined) => void,
-  ): void;
+  on(event: string, handler: (event: unknown, ctx: Ctx | undefined) => void): void;
 };
 
 let checked = false;
@@ -39,11 +32,10 @@ export default function (pi: ExtensionHandlerApi): void {
     if (checked || !ctx?.hasUI) return;
     checked = true;
     if (!existsSync(join(REPO, ".git"))) return;
-    const result = spawnSync(
-      "git",
-      ["-C", REPO, "status", "--porcelain", "--", ...WATCHED],
-      { encoding: "utf8", timeout: 5_000 },
-    );
+    const result = spawnSync("git", ["-C", REPO, "status", "--porcelain", "--", ...WATCHED], {
+      encoding: "utf8",
+      timeout: 5_000,
+    });
     if (result.error || result.status !== 0) return;
     const dirty = result.stdout.trim();
     if (!dirty) return;
