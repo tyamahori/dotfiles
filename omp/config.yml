@@ -75,6 +75,7 @@ lsp:
   diagnosticsOnEdit: true
 prewalk:
   auto: suggest
+  from: "@plan"
   into: "@task"
 tools:
   xdevDocs: builtins
