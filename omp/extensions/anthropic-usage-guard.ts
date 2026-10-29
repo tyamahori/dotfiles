@@ -119,11 +119,16 @@ function latestUsageRows(): UsageRow[] {
   }
 }
 
+/** `anthropic:7d%` のように末尾が % なら前方一致、それ以外は完全一致（大文字小文字は無視）。 */
+function limitMatches(limitId: string, filter: string): boolean {
+  const id = limitId.toLowerCase();
+  const wanted = filter.toLowerCase();
+  return wanted.endsWith("%") ? id.startsWith(wanted.slice(0, -1)) : id === wanted;
+}
+
 /** filter に合う枠の使用率（整数%）。アカウント毎に最大を取り、
  *  アカウント間では最小（omp 本体が選べる最も余裕のあるアカウント）を返す。 */
 function latestUsedPct(rows: UsageRow[], provider: string, limitFilter: string): number | null {
-  const filter = limitFilter.toLowerCase();
-  const prefix = filter.endsWith("%") ? filter.slice(0, -1) : undefined;
   const perAccount = new Map<string, number>();
   for (const row of rows) {
     if (
@@ -132,7 +137,7 @@ function latestUsedPct(rows: UsageRow[], provider: string, limitFilter: string):
       row.provider !== provider ||
       // NULL reset = unused pool (see latestUsageRows), still a valid account.
       (row.resetsAt !== null && row.resetsAt <= Date.now()) ||
-      (prefix ? !row.limitId.toLowerCase().startsWith(prefix) : row.limitId.toLowerCase() !== filter)
+      !limitMatches(row.limitId, limitFilter)
     ) {
       continue;
     }
@@ -204,6 +209,20 @@ function updateWidget(ctx: Ctx | undefined, rows: UsageRow[]): void {
   }
 }
 
+/** ollama が応答し、spec のモデルが pull 済みなら true。 */
+async function ollamaHasModel(spec: string): Promise<boolean> {
+  const wantedId = spec.split("/", 2)[1];
+  try {
+    const res = await fetch(`${OLLAMA_HOST}/api/tags`, { signal: AbortSignal.timeout(1000) });
+    if (!res.ok) return false;
+    const tags = (await res.json()) as { models?: { name?: string }[] };
+    return tags.models?.some((m) => m.name === wantedId) ?? false;
+  } catch {
+    // ollama不在は正常系: 何もせず従来どおり枠リセットを待つ。
+    return false;
+  }
+}
+
 export default function (pi: ExtensionHandlerApi): void {
   pi.setLabel?.("Usage Guard");
 
@@ -234,19 +253,7 @@ export default function (pi: ExtensionHandlerApi): void {
       return;
     }
     if (rescuedThisWindow || ctx.models?.current()?.provider === "ollama") return;
-
-    const wantedId = LOCAL_RESCUE_MODEL.split("/", 2)[1];
-    try {
-      const res = await fetch(`${OLLAMA_HOST}/api/tags`, {
-        signal: AbortSignal.timeout(1000),
-      });
-      if (!res.ok) return;
-      const tags = (await res.json()) as { models?: { name?: string }[] };
-      if (!tags.models?.some((m) => m.name === wantedId)) return;
-    } catch {
-      // ollama不在は正常系: 何もせず従来どおり枠リセットを待つ。
-      return;
-    }
+    if (!(await ollamaHasModel(LOCAL_RESCUE_MODEL))) return;
 
     const target = await ctx.models?.resolve(LOCAL_RESCUE_MODEL);
     if (target && (await pi.setModel(target))) {
