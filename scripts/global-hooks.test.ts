@@ -115,3 +115,63 @@ test.each([
   expect(r.out).toContain("machine-local pattern");
   expect(r.status).toBe(1);
 });
+
+// lib/baseline.bash with a stub tool reporting each line of file `f` that holds
+// a tab as a finding: key and description are its tab-separated fields, and
+// the position columns are filled in as real tools' output has them.
+const baselineLib = resolve(import.meta.dir, "../git/global-hooks/lib/baseline.bash");
+const stubTool = `rows() { out=$(awk -F'\\t' 'NF > 1 { print FILENAME "\\t" FNR "\\t" FNR "\\t" $1 "\\t" $2 }' "$@"); [[ -z $out ]] && return 0; printf '%s\\n' "$out"; return 1; }`;
+
+// Repo whose HEAD holds `committed` (nothing committed when null), then `staged` is staged.
+function baselineRun(committed: string | null, staged: string, tool = stubTool, prelude = ":") {
+  dir = mkdtempSync(join(tmpdir(), "global-hooks-"));
+  sh(dir, "git init -q && git config user.email t@t && git config user.name t");
+  if (committed !== null) {
+    writeFileSync(join(dir, "f"), committed);
+    sh(dir, "git add f && git commit -q -m seed -m 'fixture for baseline_check, not a real change'");
+  }
+  writeFileSync(join(dir, "f"), staged);
+  sh(dir, "git add f");
+  return sh(dir, `source ${baselineLib}; ${tool}; ${prelude}; baseline_check rows f`);
+}
+
+test("a commit that only shifts an existing finding passes", () => {
+  expect(baselineRun("old\tOLD\n", "\nold\tOLD\n").status).toBe(0);
+});
+
+test("a commit that adds a finding is blocked and only that finding is reported", () => {
+  const r = baselineRun("old\tOLD\n", "old\tOLD\nnew\tNEW\n");
+  expect(r.status).toBe(1);
+  expect(r.out).toContain("NEW");
+  expect(r.out).not.toContain("OLD");
+});
+
+test("a commit that adds a second copy of an existing finding is blocked", () => {
+  expect(baselineRun("old\tOLD\n", "old\tOLD\nold\tOLD\n").status).toBe(1);
+});
+
+test("every finding in a file with no committed version is blocked", () => {
+  expect(baselineRun(null, "old\tOLD\n").status).toBe(1);
+});
+
+test("a commit that moves a finding to another line is blocked", () => {
+  expect(baselineRun("flag\tF\nplain\nplain2\n", "plain\nplain2\nflag\tF\n").status).toBe(1);
+});
+
+test("a commit is blocked when no temporary directory can be created for the baseline", () => {
+  const r = baselineRun("old\tOLD\n", "\nold\tOLD\n", stubTool, "mktemp() { return 1; }");
+  expect(r.status).toBe(1);
+  expect(r.out).toContain("temporary directory");
+});
+
+test("a tool that fails with output that is not a finding is blocked even when HEAD fails the same way", () => {
+  const r = baselineRun("old\tOLD\n", "old\tOLD\n", `rows() { echo 'node: bad option'; return 1; }`);
+  expect(r.status).toBe(1);
+  expect(r.out).toContain("bad option");
+});
+
+test("a tool failure is blocked and its output shown", () => {
+  const r = baselineRun("old\tOLD\n", "old\tOLD\n", `rows() { echo boom; return 2; }`);
+  expect(r.status).toBe(1);
+  expect(r.out).toContain("boom");
+});
