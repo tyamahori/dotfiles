@@ -227,7 +227,10 @@ test.each([
   const saved = process.env.OLLAMA_HOST;
   process.env.OLLAMA_HOST = host;
   // A static import cannot work: OLLAMA_HOST is read when the module initializes, so load a fresh copy.
-  const { default: freshGuard } = await import(`../extensions/anthropic-usage-guard.ts?host=${host}`);
+  // The query is encoded: a "/" in it would make Bun resolve the module's relative imports from the wrong directory.
+  const { default: freshGuard } = await import(
+    `../extensions/anthropic-usage-guard.ts?host=${encodeURIComponent(host)}`
+  );
   if (saved === undefined) delete process.env.OLLAMA_HOST;
   else process.env.OLLAMA_HOST = saved;
   const guard = usageHarness(

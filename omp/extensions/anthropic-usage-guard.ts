@@ -20,6 +20,7 @@
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { getAgentDir } from "@oh-my-pi/pi-utils";
+import { type HasUiNotify, safeNotify } from "../lib/ui.ts";
 
 // getAgentDir() は --profile / OMP_PROFILE / XDG を解決済みの agent dir を返す。
 // ~/.omp/agent 固定だと team プロファイルでも既定プロファイルの枠を監視してしまう。
@@ -47,10 +48,8 @@ const DEPLETED_PCT = 98;
 
 type Model = { provider?: string; id?: string };
 
-type Ctx = {
-  hasUI?: boolean;
+type Ctx = HasUiNotify & {
   ui?: {
-    notify?: (message: string, level?: string) => void;
     setWidget?: (key: string, content?: string[], opts?: { placement?: "aboveEditor" | "belowEditor" }) => void;
   };
   models?: {
@@ -205,15 +204,6 @@ function updateWidget(ctx: Ctx | undefined, rows: UsageRow[]): void {
   }
 }
 
-function notify(ctx: Ctx | undefined, message: string): void {
-  if (!ctx?.hasUI) return;
-  try {
-    ctx.ui?.notify?.(message, "warning");
-  } catch {
-    // UI通知の失敗はモデル切替を巻き戻さない。
-  }
-}
-
 export default function (pi: ExtensionHandlerApi): void {
   pi.setLabel?.("Usage Guard");
 
@@ -229,7 +219,7 @@ export default function (pi: ExtensionHandlerApi): void {
     }
     if (codexNotifiedThisWindow) return;
     codexNotifiedThisWindow = true;
-    notify(
+    safeNotify(
       ctx,
       `usage-guard: Codex 週次枠 ${pct}% 使用（残り${100 - pct}% ≤ ${USAGE_RESERVE_PCT}%）。退避は retry.fallbackChains が処理`,
     );
@@ -261,7 +251,7 @@ export default function (pi: ExtensionHandlerApi): void {
     const target = await ctx.models?.resolve(LOCAL_RESCUE_MODEL);
     if (target && (await pi.setModel(target))) {
       rescuedThisWindow = true;
-      notify(
+      safeNotify(
         ctx,
         `usage-guard: 両pool枯渇（Anthropic ${anthropicPct}% / Codex ${codexPct}%）→ ローカル ${LOCAL_RESCUE_MODEL} へ退避。戻すには /model`,
       );
