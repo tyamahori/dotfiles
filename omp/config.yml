@@ -76,6 +76,9 @@ prewalk:
   auto: suggest
 tools:
   xdevDocs: builtins
+  xdevNotices: false
+  restrictedFolders:
+    - ~/.ssh
 advisor:
   enabled: true
   # Final-yield review only. Per-turn review (measured 2026-10-24: 7 days,
