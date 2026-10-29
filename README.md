@@ -206,6 +206,28 @@ Current checks:
   unrelated commits from entering a PR. Network or GitHub failures skip the
   check because the intended base cannot be established.
 
+The whole-file checks (semgrep, zizmor, dclint, compose canonical, compose
+config, hadolint, sqruff) block only findings the commit adds. When one fails,
+`git/global-hooks/lib/baseline.bash` re-runs the same tool on the staged files
+as committed at `HEAD` (real blobs, plus their tool config and, for Compose
+config, the whole `HEAD` tree) and blocks a finding if it touches a line the
+commit adds, or if the staged files have more findings with its rule and
+flagged text than `HEAD` has. So an unrelated edit to a file with old findings
+commits, while a new, copied, moved, or rewritten finding blocks. Every step
+that cannot complete (temporary directory, extraction, diff, tool run,
+unrecognized tool output) blocks with the tool's output; `docker compose
+config` gets a placeholder for each missing `${VAR:?}` variable so validation
+reaches the rest of the file. Without `jq`, zizmor, hadolint, and sqruff fall
+back to blocking on every finding.
+
+Residual cases that still need `--no-verify`: a finding on a line the commit
+edits blocks even when only the line's formatting changed (the first line of a
+Compose file carries file-level dclint findings); a new or renamed file
+reports all its findings; an old finding whose flagged text the commit changes
+is new; and compose canonical and compose config report no line positions, so
+swapping one finding for another with the same file, service, and field (or
+the same diagnostic text) is not noticed.
+
 Genuinely exceptional commits bypass all checks with `git commit --no-verify`.
 This repository sets a local `core.hooksPath`, so it wires the same checks
 through `git/hooks/commit-msg` and `git/hooks/pre-push` (symlinks) and a

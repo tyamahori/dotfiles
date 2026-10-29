@@ -7,7 +7,12 @@
 # as its directory's project (default discovery merges both); a variant such
 # as compose.prod.yaml is layered on that directory's base file, the usual
 # `-f base -f variant` pairing, or validated alone when there is no base.
-# One commit escapes with --no-verify.
+# Errors the same project already has in HEAD do not block (lib/baseline.bash),
+# e.g. a stray unknown key; only errors the commit adds do. Required
+# `${VAR:?}` variables a project's launcher script sets would stop validation
+# at the first one, so each missing one gets a placeholder value and the
+# project is validated again; a project that cannot be validated to the end
+# blocks. One commit escapes with --no-verify.
 # ponytail: validates the working tree, not the index (see pre-commit-semgrep).
 set -euo pipefail
 
@@ -16,39 +21,90 @@ docker compose version >/dev/null 2>&1 || exit 0
 
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
-seen=$'\n'
-failed=0
+targets=()
 while IFS= read -r -d '' file; do
 	[[ -f $file ]] || continue
-	name=${file##*/}
-	dir=$(dirname "$file")
-	case $name in
-	compose.yaml | compose.yml | docker-compose.yaml | docker-compose.yml | \
-		compose.override.yaml | compose.override.yml | \
-		docker-compose.override.yaml | docker-compose.override.yml)
-		key=$dir
-		args=()
-		;;
-	compose*.yml | compose*.yaml | docker-compose*.yml | docker-compose*.yaml)
-		key=$file
-		args=()
-		for base in compose.yaml compose.yml docker-compose.yaml docker-compose.yml; do
-			[[ -f $dir/$base ]] && args=(-f "$base") && break
-		done
-		args+=(-f "$name")
-		;;
-	*) continue ;;
+	case "${file##*/}" in
+	compose*.yml | compose*.yaml | docker-compose*.yml | docker-compose*.yaml) targets+=("$file") ;;
 	esac
-	[[ $seen == *$'\n'"$key"$'\n'* ]] && continue
-	seen+="$key"$'\n'
-	# ${args[@]+...}: bash 3.2 (macOS /bin/bash) treats an empty array as unset.
-	if ! log=$(cd "$dir" && docker compose ${args[@]+"${args[@]}"} config --quiet 2>&1); then
-		printf '%s: %s\n' "$key" "$log" >&2
-		failed=1
-	fi
 done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+((${#targets[@]})) || exit 0
 
-if ((failed)); then
+# Run `docker compose config` in the current directory, giving each variable
+# it reports as required-but-missing a placeholder, so schema validation
+# reaches the rest of the project. Prints the final log; status 2 when the
+# validation never completes.
+config_run() {
+	local n log var
+	for ((n = 0; n < 20; n++)); do
+		log=$(docker compose "$@" config --quiet 2>&1) && return 0
+		var=$(printf '%s\n' "$log" | sed -n 's/.*required variable \([A-Za-z_][A-Za-z0-9_]*\) is missing a value.*/\1/p' | sed 1q)
+		if [[ -z $var ]]; then
+			printf '%s\n' "$log"
+			return 1
+		fi
+		export "$var=1"
+	done
+	printf '%s\n' "$log"
+	return 2
+}
+
+# Each row is one error line, prefixed by its project; warnings (variable
+# defaults) are not findings. The row has no position and the whole line,
+# with this run's absolute directory removed (it differs between the working
+# tree and the HEAD snapshot), is the key.
+config_rows() (
+	root=$PWD
+	rootp=$(pwd -P)
+	seen=$'\n'
+	failed=0
+	for file in "$@"; do
+		name=${file##*/}
+		dir=$(dirname "$file")
+		case $name in
+		compose.yaml | compose.yml | docker-compose.yaml | docker-compose.yml | \
+			compose.override.yaml | compose.override.yml | \
+			docker-compose.override.yaml | docker-compose.override.yml)
+			key=$dir
+			args=()
+			;;
+		*)
+			key=$file
+			args=()
+			for base in compose.yaml compose.yml docker-compose.yaml docker-compose.yml; do
+				[[ -f $dir/$base ]] && args=(-f "$base") && break
+			done
+			args+=(-f "$name")
+			;;
+		esac
+		[[ $seen == *$'\n'"$key"$'\n'* ]] && continue
+		seen+="$key"$'\n'
+		# ${args[@]+...}: bash 3.2 (macOS /bin/bash) treats an empty array as unset.
+		rc=0
+		log=$(cd "$dir" && config_run ${args[@]+"${args[@]}"}) || rc=$?
+		((rc == 0)) && continue
+		((rc == 2)) && { printf '%s\n' "$log"; exit 2; }
+		printf '%s\n' "$log" | awk -v k="$key" -v r1="$root/" -v r2="$rootp/" '
+			function strip(s, p,   i) {
+				while ((i = index(s, p)) > 0) s = substr(s, 1, i - 1) substr(s, i + length(p))
+				return s
+			}
+			/level=warning/ { next }
+			NF { l = strip(strip($0, r1), r2); gsub(/[\t\r]+/, " ", l); printf "%s\t-\t-\t%s\t%s: %s\n", k, k ": " l, k, l; n++ }
+			END { if (!n) printf "%s\t-\t-\t%s\t%s: validation failed without a diagnostic\n", k, k ": no diagnostic", k }'
+		failed=1
+	done
+	exit "$failed"
+)
+
+# The baseline run needs the whole project from HEAD (base, override,
+# env_file, extends targets, parent-relative paths), so take the whole tree.
+# shellcheck disable=SC2034 # read by baseline_check in the sourced lib
+BASELINE_EXTRA=(.)
+
+# shellcheck disable=SC1091 # lib/baseline.bash is linted on its own
+source "$(dirname "$(readlink -f "$0")")/../lib/baseline.bash"
+if ! baseline_check config_rows "${targets[@]}"; then
 	echo "pre-commit: docker compose config rejected staged Compose files." >&2
 	echo "Fix them, or commit with --no-verify." >&2
 	exit 1

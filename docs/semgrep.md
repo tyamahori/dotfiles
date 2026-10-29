@@ -97,6 +97,7 @@ machine-globalのgit hook（`git/global-hooks/checks/pre-commit-semgrep`）が�
 エージェントの完了手順に頼らず、手動commitでも、指摘があるfileはcommitできない。
 rule解決はgateと同じで、repoの`.semgrep.yaml`が優先、なければdotfilesのdefault rulesetにfallbackする。
 意図的に通す場合は`--no-verify`で1回だけbypassする。
+コミットが追加した指摘だけがブロック対象になる。失敗時にHEAD版のstaged fileを同じruleで再検査し、追加された行に触れる指摘、またはruleと該当コード片が同じ指摘のHEAD側の件数を超える分を新規として扱う。行番号だけが動いた既存の指摘は通るが、別の場所へ移した指摘は追加行になるためブロックされる（`git/global-hooks/lib/baseline.bash`）。HEADに存在しない新規・リネームのfileは全指摘が対象になる。一時dirの作成・HEADの取り出し・差分取得・ツール実行のどれかが失敗した場合も、ブロックして出力を示す。
 検査対象はstaged fileのworking tree版であり、index版ではない。
 
 ## エラーから復旧する

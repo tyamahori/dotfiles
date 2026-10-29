@@ -6,6 +6,11 @@
 # the machine-global default ruleset applies. The Compose security rules run
 # in addition either way. A repo opts out of the default with a committed
 # `rules: []` config; one commit escapes with --no-verify.
+# Findings already present in HEAD do not block (lib/baseline.bash): the
+# staged and HEAD copies are scanned separately; a finding blocks when it
+# touches a line the commit adds or exceeds HEAD's count of that rule and
+# matched source text, so a mount line the commit did not touch passes while
+# an added or moved one blocks. Needs jq; without it every finding blocks.
 # ponytail: scans the working-tree version of staged files, not the index —
 # fine for a lint gate; switch to a temp-index checkout if it ever matters.
 set -euo pipefail
@@ -30,12 +35,30 @@ done < <(git diff --cached --name-only --diff-filter=ACMR -z)
 ((${#targets[@]})) || exit 0
 
 # --metrics=off keeps the scan local (see scripts/semgrep-quality-gate).
-# Captured instead of --quiet: --quiet also swallows rule-file parse errors
-# (exit 7 with zero output), which would fail every commit undiagnosably.
-log=$(mktemp)
-trap 'rm -f "$log"' EXIT
-if ! semgrep scan --config "$config" --config "$DOTFILES_ROOT/semgrep/security-compose.yaml" --metrics=off --error -- "${targets[@]}" >"$log" 2>&1; then
-	cat "$log" >&2
+# Output is captured instead of --quiet: --quiet also swallows rule-file parse
+# errors (exit 7 with zero output), which would fail every commit undiagnosably.
+# Exit status: 0 clean, 1 findings (tab-separated rows on stdout, see
+# lib/baseline.bash), 2 tool failure (its log on stdout). Semgrep prefixes rule
+# ids with the config's path relative to the scan directory, which differs
+# between the working tree and the HEAD snapshot, so only the last dotted
+# segment of the id is the key.
+semgrep_rows() (
+	json=$(mktemp) && log=$(mktemp) || exit 2
+	trap 'rm -f "$json" "$log"' EXIT
+	rc=0
+	semgrep scan --config "$config" --config "$DOTFILES_ROOT/semgrep/security-compose.yaml" --metrics=off --error --json-output "$json" -- "$@" >"$log" 2>&1 || rc=$?
+	((rc == 0)) && exit 0
+	if ((rc == 1)) && command -v jq >/dev/null && rows=$(jq -r '.results[] | [.path, (.start.line | tostring), (.end.line | tostring), (.check_id | split(".") | last), "\(.path):\(.start.line): \(.check_id): \(.extra.message | gsub("[\t\r\n]+"; " "))"] | @tsv' "$json"); then
+		printf '%s\n' "$rows"
+		exit 1
+	fi
+	cat "$log"
+	exit 2
+)
+
+# shellcheck disable=SC1091 # lib/baseline.bash is linted on its own
+source "$(dirname "$(readlink -f "$0")")/../lib/baseline.bash"
+if ! baseline_check semgrep_rows "${targets[@]}"; then
 	echo "pre-commit: semgrep failed for staged files (rules: $config + semgrep/security-compose.yaml)." >&2
 	echo "Fix findings, add '# nosemgrep: <rule id>' with a reason, or commit with --no-verify." >&2
 	exit 1
