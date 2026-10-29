@@ -22,7 +22,8 @@ const JS_COMMAND = /^(bun (--no-install )?(run|-e)|node -e)(\s|$)/;
 const BROWSER_CALL = /\bbrowser\.open\s*\(/;
 const TEST_PATH = /(\.test\.|\.spec\.|_test\.|(^|\/)tests?\/|(^|\/)test_[^/]*\.py$)/;
 // TS/JS の形(関数の大きさ、class を使う場面、型の最小化)は software-design の TS 節、
-// 型の規律と実行・検証の手順は efficient-ts-js にあり、書くときは両方が要る。
+// 型の規律と実行・検証の手順は efficient-ts-js にある。テストの形は test-design が
+// 受け持つので software-design は外すが、テストも TS/JS なので efficient-ts-js は要る。
 const TS_JS_PATH = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
 
 function bashSkills(command: string): string[] {
@@ -49,8 +50,9 @@ export function triggeredSkills(event: ToolEvent): string[] {
   else if (event.toolName === "eval") skills = evalSkills(input);
   const paths = editedPaths(event);
   if (paths.some((path) => TEST_PATH.test(path))) skills.push("test-design");
-  if (paths.some((path) => TS_JS_PATH.test(path) && !TEST_PATH.test(path)))
-    skills.push("software-design", "efficient-ts-js");
+  const tsJsPaths = paths.filter((path) => TS_JS_PATH.test(path));
+  if (tsJsPaths.some((path) => !TEST_PATH.test(path))) skills.push("software-design");
+  if (tsJsPaths.length > 0) skills.push("efficient-ts-js");
   return skills;
 }
 
