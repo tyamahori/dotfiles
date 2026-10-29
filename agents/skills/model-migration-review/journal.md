@@ -1,6 +1,31 @@
 # model migration journal
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
+## 2026-10-30 Codex 正本を gpt-6.1-sol / low → gpt-6.1-terra / medium へ
+
+- 契機: ユーザーが `codex/config.toml` の `model` を terra に変え、push 前に
+  レビューを指示した。`scripts/model-pins check` が `codex.model` の差分を報告。
+- 収集した公式資料(取得日 2026-10-30、取得失敗なし):
+  https://developers.openai.com/api/docs/models/gpt-6.1-terra.md 、
+  https://developers.openai.com/api/docs/models/gpt-6.1-sol.md 、
+  https://developers.openai.com/api/docs/guides/latest-model.md 。
+  公式の位置づけは、Sol が複雑なコーディング向け、Terra が視覚・computer use・
+  文章向け。Terra の推奨開始 effort は medium。単価は $2/$10 → $1/$5(/1M)。
+- 照合: user 層 `~/.codex/config.toml` が sol / low のままで正本を上書きしており、
+  正本だけ変えても実効値は sol だった。`codex/config.toml` のコメントも実態と
+  ずれていた。OMP の `retry.fallbackChains` と `docs/omp.md` の `gpt-6.1-sol` は
+  Codex CLI の pin と別なので対象外。スクリプトに `codex exec -m` 等の上書きはない。
+- 提案と承認:
+  - 正本を terra にする(コード用途は公式が Sol を勧める点を提示)。判定: 判断。承認。
+  - user 層を terra に揃える。判定: 判断。承認。
+  - effort を low → medium(Terra の推奨開始値)。判定: 判断。ユーザーが medium を選択。
+  - コメントを実態に合わせて更新。判定: 機械的。承認。
+- 検証: 新規 `codex exec -s read-only` が `model: gpt-6.1-terra` /
+  `reasoning effort: medium` で応答。`scripts/model-pins ack` 後に check は exit 0。
+- 1週間後: sol / low の期間と比べ、Codex 週次枠の消費と cross-review の見落とし・
+  指摘の有用度を見る。悪化していれば sol / low へ戻す案を出す。ack の記録ファイルの
+  mtime が巻き戻っていないかも確認する。
+
 ## 2026-10-30 OMP advisor を gpt-5.6-terra → gpt-6.1-terra へ
 
 - 契機: ユーザーが `omp/config.yml` の `modelRoles.advisor` を変え、a8ee026 で

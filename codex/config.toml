@@ -11,10 +11,11 @@
 # ~/.codex/rules/. scripts/link checks the /etc symlink and prints the sudo
 # command when it is missing.
 
-model = "gpt-6.1-sol"
-# Matches the user-layer /model choice (~/.codex/config.toml, in effect since
-# 2026-10-19) so the canonical pin and the effective value agree.
-model_reasoning_effort = "low"
+model = "gpt-6.1-terra"
+# Matches the user-layer choice (~/.codex/config.toml, aligned 2026-10-30) so
+# the canonical pin and the effective value agree. medium is Terra's official
+# starting effort.
+model_reasoning_effort = "medium"
 service_tier = "default"
 
 # Keep workspace isolation while routing approval requests to auto-review.
