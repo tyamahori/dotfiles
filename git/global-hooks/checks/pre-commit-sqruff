@@ -1,5 +1,7 @@
 #!/bin/bash
 # Match the edit-time check so manual commits enforce the same policy.
+# Findings already in HEAD do not block (lib/baseline.bash); needs jq to tell
+# new from old, without it every finding blocks.
 set -euo pipefail
 
 command -v sqruff >/dev/null || exit 0
@@ -14,4 +16,23 @@ while IFS= read -r -d '' file; do
 done < <(git diff --cached --name-only --diff-filter=ACMR -z)
 ((${#targets[@]})) || exit 0
 
-sqruff lint -- "${targets[@]}"
+command -v jq >/dev/null || exec sqruff lint -- "${targets[@]}"
+
+# Row: file, line range, key (rule and message; the baseline adds the flagged text).
+sqruff_rows() (
+	rc=0
+	out=$(sqruff lint -f json -- "$@" 2>&1) || rc=$?
+	((rc == 0)) && exit 0
+	if ((rc == 1)) && rows=$(jq -r 'to_entries[] | .key as $f | .value[] | [$f, (.range.start.line | tostring), (.range.end.line | tostring), "\(.code) \(.message | gsub("[\t\r\n]+"; " "))", "\($f):\(.range.start.line) \(.code) \(.message | gsub("[\t\r\n]+"; " "))"] | @tsv' <<<"$out" 2>/dev/null); then
+		printf '%s\n' "$rows"
+		exit 1
+	fi
+	printf '%s\n' "$out"
+	exit 2
+)
+
+# shellcheck source-path=SCRIPTDIR source=../lib/baseline.bash
+source "$(dirname "$(readlink -f "$0")")/../lib/baseline.bash"
+# shellcheck disable=SC2034 # read by baseline_check in the sourced lib
+BASELINE_EXTRA=(.sqruff .sqlfluff)
+baseline_check sqruff_rows "${targets[@]}"

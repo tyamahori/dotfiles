@@ -1,7 +1,10 @@
 #!/bin/bash
 # Machine-global pre-commit check: audit staged GitHub Actions workflows with
 # zizmor. Like the other staged-file checks, this reads the working-tree
-# versions of staged paths; one commit escapes with --no-verify.
+# versions of staged paths; findings already present in HEAD do not block
+# (lib/baseline.bash), so only what the commit adds is reported; one commit
+# escapes with --no-verify. Needs jq to tell new from old; without it every
+# finding blocks.
 set -euo pipefail
 
 command -v zizmor >/dev/null || exit 0
@@ -19,8 +22,45 @@ done < <(git diff --cached --name-only --diff-filter=ACMR -z)
 
 ((${#workflows[@]})) || exit 0
 
-if ! zizmor --quiet --offline "${workflows[@]}"; then
-	echo "pre-commit: zizmor found GitHub Actions security issues in staged workflows." >&2
+if ! command -v jq >/dev/null; then
+	zizmor --quiet --offline "${workflows[@]}" || {
+		echo "pre-commit: zizmor found GitHub Actions security issues in staged workflows." >&2
+		echo "Fix the findings or commit with --no-verify." >&2
+		exit 1
+	}
+	exit 0
+fi
+
+# Row: file, flagged line range, key (rule, annotation, flagged snippet; not
+# its position), description. A finding without a numeric position gets "?",
+# which lib/baseline.bash rejects, so it blocks rather than slipping through.
+# shellcheck disable=SC2016
+zizmor_jq='def ln(x): if (x | type) == "number" then (x + 1 | tostring) else "?" end;
+	.[] | (.locations | map(select(.symbolic.kind == "Primary")) | first) as $p
+	| ($p.symbolic.key | .Local.verbatim_path // tojson) as $path
+	| [$path, ln($p.concrete.location.start_point.row), ln($p.concrete.location.end_point.row),
+		"\(.ident) \($p.symbolic.annotation) " + (($p.symbolic.feature_kind | objects | .Subfeature.fragment | select(. != null) | tojson) // $p.concrete.feature | gsub("[\t\r\n]+"; " ")),
+		"\($path):\(ln($p.concrete.location.start_point.row)): [\(.ident)] \(.desc) (\($p.symbolic.annotation))"] | @tsv'
+
+zizmor_rows() (
+	rc=0
+	out=$(zizmor --quiet --offline --format json "$@" 2>&1) || rc=$?
+	((rc == 0)) && exit 0
+	# 10+ means findings; anything else (parse failure, no inputs) is a tool error.
+	if ((rc >= 10)) && rows=$(jq -r "$zizmor_jq" <<<"$out" 2>/dev/null); then
+		printf '%s\n' "$rows"
+		exit 1
+	fi
+	printf '%s\n' "$out"
+	exit 2
+)
+
+# shellcheck source-path=SCRIPTDIR source=../lib/baseline.bash
+source "$(dirname "$(readlink -f "$0")")/../lib/baseline.bash"
+# shellcheck disable=SC2034 # read by baseline_check in the sourced lib
+BASELINE_EXTRA=(.github/zizmor.yml .github/zizmor.yaml zizmor.yml zizmor.yaml)
+if ! baseline_check zizmor_rows "${workflows[@]}"; then
+	echo "pre-commit: zizmor found GitHub Actions security issues the staged workflows add." >&2
 	echo "Fix the findings or commit with --no-verify." >&2
 	exit 1
 fi
