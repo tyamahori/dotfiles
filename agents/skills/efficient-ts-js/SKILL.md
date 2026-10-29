@@ -8,9 +8,13 @@ description: >
 
 # efficient-ts-js
 
-Goal: correct generated scripts with fewer setup steps, failed invocations, and
-context re-reads. Savings are a goal, not a measured result. Harness tool and
-permission rules take precedence over the recipes below.
+Goal: readable, correct generated scripts with fewer setup steps, failed
+invocations, and context re-reads. Savings are a goal, not a measured result.
+Harness tool and permission rules take precedence over the recipes below.
+This skill covers running and verifying code; how code that outlives one run
+is shaped (function size, when a class, the smallest parameter type) is in the
+"TypeScript and JavaScript" section of `software-design`. Read both before
+writing such code.
 
 ## Choose the execution path once
 
@@ -74,16 +78,26 @@ changing module modes to silence an error. Use `import type` for type-only impor
 
 1. Use the existing lint/typecheck/test commands for a project. Do not invoke
    `tsc file.ts` expecting it to use the project's tsconfig.
-2. For a standalone file, use installed `oxlint --format=unix ./script.ts`
-   and resolve relevant findings. Dotfiles already runs oxlint through
-   `scripts/lint-on-edit`; do not repeat a successful unchanged-file check.
-   Lint is not type checking; state when only lint and runtime were checked.
-3. Exercise the real entry point on a small fixture. Assert the useful result
+2. Lint. Inside a git work tree, `scripts/lint-on-edit` lints each edited file
+   as the pre-commit check does: the repository's own lint config, else this
+   dotfiles' `.oxlintrc.json` readability limits, and only findings the edit
+   adds. Its result is the lint check. Fix a size or complexity finding by
+   splitting the decision as `software-design` describes, never with a
+   suppression comment. Run `oxlint --format=unix ./script.ts` by hand only
+   where the hook does not reach (a file written through a shell, or outside
+   any repository): by hand it also reports a file's old findings inside a
+   repository, and applies only oxlint's defaults outside one. Lint is not
+   type checking; state when only lint and runtime were checked.
+3. Format with the repository's formatter, passing explicit file paths only
+   (`biome format --write a.ts b.ts`), never a directory or `.`: Biome follows
+   symlinks out of the repository and rewrites files under `$HOME`. The
+   dotfiles pre-commit rejects unformatted staged TS/JS.
+4. Exercise the real entry point on a small fixture. Assert the useful result
    and one plausible failure (malformed input, nonzero child exit, or an async
    boundary). Keep a regression test only for behavior worth maintaining;
    reuse the existing runner, or `node:assert/strict` for a scratch check.
    Do not install TypeScript or a test framework merely to bless a throwaway.
-4. Print one compact structured result, not an entire dataset or secret-bearing
+5. Print one compact structured result, not an entire dataset or secret-bearing
    environment. Keep bulky evidence in scratch files. After a failure, use the
    error to change the failing step; do not restart the whole workflow or retry
    the same invocation unchanged. Remove scratch artifacts after verification.
