@@ -25,20 +25,19 @@ function capturedExtension(): CapturedExtension {
   const messages: CapturedExtension["messages"] = [];
   return {
     api: {
-      on(event, handler) { hooks.set(event, handler); },
-      sendUserMessage(content, options) { messages.push({ content, options }); },
+      on(event, handler) {
+        hooks.set(event, handler);
+      },
+      sendUserMessage(content, options) {
+        messages.push({ content, options });
+      },
     },
     hooks,
     messages,
   };
 }
 
-function hookResult(
-  stdout = "",
-  status = 0,
-  stderr = "",
-  error?: Error,
-): SpawnSyncReturns<string> {
+function hookResult(stdout = "", status = 0, stderr = "", error?: Error): SpawnSyncReturns<string> {
   return { stdout, stderr, status, error } as SpawnSyncReturns<string>;
 }
 
@@ -56,22 +55,30 @@ afterEach(() => {
 });
 
 test("keeps write nullish precedence and ignores non-local paths", () => {
-  expect(editedPaths({
-    toolName: "write",
-    input: { path: "preferred.ts", file_path: "fallback.ts" },
-  })).toEqual(["preferred.ts"]);
-  expect(editedPaths({
-    toolName: "write",
-    input: { path: null, file_path: "fallback.ts" },
-  })).toEqual(["fallback.ts"]);
-  expect(editedPaths({
-    toolName: "write",
-    input: { path: "", file_path: "fallback.ts" },
-  })).toEqual([""]);
-  expect(editedPaths({
-    toolName: "write",
-    input: { path: "memory://scratch/file.ts" },
-  })).toEqual([]);
+  expect(
+    editedPaths({
+      toolName: "write",
+      input: { path: "preferred.ts", file_path: "fallback.ts" },
+    }),
+  ).toEqual(["preferred.ts"]);
+  expect(
+    editedPaths({
+      toolName: "write",
+      input: { path: null, file_path: "fallback.ts" },
+    }),
+  ).toEqual(["fallback.ts"]);
+  expect(
+    editedPaths({
+      toolName: "write",
+      input: { path: "", file_path: "fallback.ts" },
+    }),
+  ).toEqual([""]);
+  expect(
+    editedPaths({
+      toolName: "write",
+      input: { path: "memory://scratch/file.ts" },
+    }),
+  ).toEqual([]);
 });
 
 test("expands a leading ~ the way the write and edit tools do", () => {
@@ -81,36 +88,47 @@ test("expands a leading ~ the way the write and edit tools do", () => {
 });
 
 test("extracts edit sources and move targets in stable order", () => {
-  expect(editedPaths({
-    toolName: "edit",
-    input: {
-      input: "[source.ts#ABCD]\nMV 'destination.ts'\n[source.ts#ABCD]\nMV \"other file.ts\"\n[file.ts:20#BEEF]",
-      patch: "[ignored.ts#1234]",
-      command: "[also-ignored.ts#5678]",
-    },
-  })).toEqual(["source.ts", "destination.ts", "other file.ts"]);
+  expect(
+    editedPaths({
+      toolName: "edit",
+      input: {
+        input: "[source.ts#ABCD]\nMV 'destination.ts'\n[source.ts#ABCD]\nMV \"other file.ts\"\n[file.ts:20#BEEF]",
+        patch: "[ignored.ts#1234]",
+        command: "[also-ignored.ts#5678]",
+      },
+    }),
+  ).toEqual(["source.ts", "destination.ts", "other file.ts"]);
 });
 
 test("extracts every apply_patch dialect and rejects malformed boundaries", () => {
-  expect(editedPaths({
-    toolName: "apply_patch",
-    input: "*** Begin Patch\n*** Update File: src/existing.ts\n*** Add File: 'new file.ts'\n*** Delete File: deleted.ts\n*** Update File: file.ts:10\n*** Move to: \"renamed.ts\"\n*** End Patch",
-  })).toEqual(["src/existing.ts", "new file.ts", "deleted.ts", "renamed.ts"]);
-  expect(editedPaths({
-    toolName: "edit",
-    input: "[valid.ts#ABCD]\n[lowercase.ts#abcd]\n[trailing.ts#BEEF] extra\nMV \nMV https://example.com/file.ts",
-  })).toEqual(["valid.ts"]);
+  expect(
+    editedPaths({
+      toolName: "apply_patch",
+      input:
+        "*** Begin Patch\n*** Update File: src/existing.ts\n*** Add File: 'new file.ts'\n*** Delete File: deleted.ts\n*** Update File: file.ts:10\n*** Move to: \"renamed.ts\"\n*** End Patch",
+    }),
+  ).toEqual(["src/existing.ts", "new file.ts", "deleted.ts", "renamed.ts"]);
+  expect(
+    editedPaths({
+      toolName: "edit",
+      input: "[valid.ts#ABCD]\n[lowercase.ts#abcd]\n[trailing.ts#BEEF] extra\nMV \nMV https://example.com/file.ts",
+    }),
+  ).toEqual(["valid.ts"]);
 });
 
 test("uses string wrappers in input, patch, command order", () => {
-  expect(editedPaths({
-    toolName: "edit",
-    input: { input: 1, patch: "[patch.ts#ABCD]", command: "[command.ts#BEEF]" },
-  })).toEqual(["patch.ts"]);
-  expect(editedPaths({
-    toolName: "edit",
-    input: { input: null, patch: false, command: "[command.ts#BEEF]" },
-  })).toEqual(["command.ts"]);
+  expect(
+    editedPaths({
+      toolName: "edit",
+      input: { input: 1, patch: "[patch.ts#ABCD]", command: "[command.ts#BEEF]" },
+    }),
+  ).toEqual(["patch.ts"]);
+  expect(
+    editedPaths({
+      toolName: "edit",
+      input: { input: null, patch: false, command: "[command.ts#BEEF]" },
+    }),
+  ).toEqual(["command.ts"]);
 });
 
 test("steers only from a valid blocking lint result after a successful local edit", () => {
@@ -118,15 +136,10 @@ test("steers only from a valid blocking lint result after a successful local edi
   const extension = capturedExtension();
   lintOnEdit(extension.api as never);
 
-  extension.hooks.get("tool_result")?.(
-    { toolName: "write", input: { path: "src/file.ts" } },
-    { cwd: "/project" },
-  );
+  extension.hooks.get("tool_result")?.({ toolName: "write", input: { path: "src/file.ts" } }, { cwd: "/project" });
 
   expect(spawn).toHaveBeenCalledTimes(1);
-  expect(extension.messages).toEqual([
-    { content: "[lint-on-edit] fix lint", options: { deliverAs: "steer" } },
-  ]);
+  expect(extension.messages).toEqual([{ content: "[lint-on-edit] fix lint", options: { deliverAs: "steer" } }]);
 });
 
 test("does not leave stale lint steering after failed or invalid hook results", () => {
@@ -147,19 +160,21 @@ test("does not leave stale lint steering after failed or invalid hook results", 
   result?.({ toolName: "write", input: { path: "third.ts" } }, { cwd: "/project" });
 
   expect(spawn).toHaveBeenCalledTimes(4);
-  expect(extension.messages).toEqual([
-    { content: "[lint-on-edit] keep this", options: { deliverAs: "steer" } },
-  ]);
+  expect(extension.messages).toEqual([{ content: "[lint-on-edit] keep this", options: { deliverAs: "steer" } }]);
 });
 
 test("denies managed commands and allows harmless OMP bash input", async () => {
   which.mockReturnValue("/available/replacement");
   let handler: Hook | undefined;
   denyCommands({
-    on(_event, registered) { handler = registered as Hook; },
+    on(_event, registered) {
+      handler = registered as Hook;
+    },
   } as never);
 
-  await expect(handler?.({ toolName: "bash", input: { command: "python3 app.py" } })).resolves.toMatchObject({ block: true });
+  await expect(handler?.({ toolName: "bash", input: { command: "python3 app.py" } })).resolves.toMatchObject({
+    block: true,
+  });
   await expect(handler?.({ toolName: "bash", input: { command: "printf '%s' ok" } })).resolves.toBeUndefined();
   await expect(handler?.({ toolName: "read", input: { command: "python3 app.py" } })).resolves.toBeUndefined();
 });
@@ -197,10 +212,14 @@ test("isEnvPath blocks glob basenames that can match .env files, not unrelated g
 test("blocks read/grep on .env paths and leaves other tools and paths alone", () => {
   let handler: Hook | undefined;
   denyEnvReads({
-    on(_event, registered) { handler = registered as Hook; },
+    on(_event, registered) {
+      handler = registered as Hook;
+    },
   } as never);
 
-  expect(handler?.({ toolName: "read", input: { path: "~/.config/jev/credentials.env" } })).toMatchObject({ block: true });
+  expect(handler?.({ toolName: "read", input: { path: "~/.config/jev/credentials.env" } })).toMatchObject({
+    block: true,
+  });
   expect(handler?.({ toolName: "grep", input: { path: "src; .env" } })).toMatchObject({ block: true });
   expect(handler?.({ toolName: "read", input: { path: "README.md" } })).toBeUndefined();
   expect(handler?.({ toolName: "glob", input: { path: ".env" } })).toBeUndefined();
@@ -211,7 +230,9 @@ test("blocks read/grep on .env paths and leaves other tools and paths alone", ()
     writeFileSync(join(dir, ".env"), "TOKEN=x\n");
     symlinkSync(".env", join(dir, "link.txt"));
     writeFileSync(join(dir, "plain.txt"), "x\n");
-    expect(handler?.({ toolName: "read", input: { path: "link.txt:1-5" } }, { cwd: dir })).toMatchObject({ block: true });
+    expect(handler?.({ toolName: "read", input: { path: "link.txt:1-5" } }, { cwd: dir })).toMatchObject({
+      block: true,
+    });
     expect(handler?.({ toolName: "read", input: { path: "plain.txt" } }, { cwd: dir })).toBeUndefined();
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -223,10 +244,7 @@ test("blocks a failed Japanese prose hook once, then recovers", () => {
   japaneseProse(extension.api as never);
   spawn.mockReturnValue(hookResult("", 1, "hook failed"));
 
-  extension.hooks.get("tool_call")?.(
-    { toolName: "write", input: { path: "note.md" } },
-    { cwd: "/project" },
-  );
+  extension.hooks.get("tool_call")?.({ toolName: "write", input: { path: "note.md" } }, { cwd: "/project" });
   const stop = extension.hooks.get("session_stop");
   expect(stop?.({}, { cwd: "/project" })).toMatchObject({ decision: "block" });
   expect(stop?.({}, { cwd: "/project" })).toBeUndefined();

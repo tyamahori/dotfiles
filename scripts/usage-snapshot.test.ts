@@ -59,7 +59,10 @@ test("snapshot counts repeated failures per client, class, and session from all 
   });
   jsonl(".omp/agent/sessions/s.jsonl", [
     ompMessage("toolResult", reason("brew-upgrade", "omp"), "bash"),
-    ompMessage("user", "[lint-on-edit] shellcheck found issues in the file you just edited — fix them now:\nx.sh:1:6: note: Double quote [SC2086]"),
+    ompMessage(
+      "user",
+      "[lint-on-edit] shellcheck found issues in the file you just edited — fix them now:\nx.sh:1:6: note: Double quote [SC2086]",
+    ),
   ]);
 
   // Only jq and the base system: ccusage, omp, and jbcontext stay out of the
@@ -99,12 +102,19 @@ test("snapshot counts days spanned by human input in local time, not UTC", () =>
   const home = mkdtempSync(resolve(scratch, "usage-snapshot-"));
   // A JST calendar day two days ago, inside the --days 7 window.
   const day = new Date(Date.now() - 2 * 86_400_000).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
-  const next = new Date(Date.parse(`${day}T12:00:00+09:00`) + 86_400_000).toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+  const next = new Date(Date.parse(`${day}T12:00:00+09:00`) + 86_400_000).toLocaleDateString("sv-SE", {
+    timeZone: "Asia/Tokyo",
+  });
   const at = (date: string, time: string) => new Date(`${date}T${time}:00+09:00`).toISOString();
   const session = (name: string, first: string, second: string) => {
     const path = resolve(home, `.claude/projects/p/${name}.jsonl`);
     mkdirSync(dirname(path), { recursive: true });
-    const human = (timestamp: string) => ({ type: "user", timestamp, origin: { kind: "human" }, message: { content: "hi" } });
+    const human = (timestamp: string) => ({
+      type: "user",
+      timestamp,
+      origin: { kind: "human" },
+      message: { content: "hi" },
+    });
     const rows = [
       human(first),
       { type: "assistant", timestamp: first, message: { id: `${name}-1`, model: "m", usage: { input_tokens: 10 } } },
@@ -128,7 +138,10 @@ test("snapshot counts days spanned by human input in local time, not UTC", () =>
     });
     expect(run.status).toBe(0);
     const section = run.stdout.split("## 警告フラグ: Claude セッション")[1].split("\n## ")[0];
-    const flagged = section.split("\n").filter((line) => line.includes("\tdays=")).map((line) => line.split("\t").slice(0, 2).join("\t"));
+    const flagged = section
+      .split("\n")
+      .filter((line) => line.includes("\tdays="))
+      .map((line) => line.split("\t").slice(0, 2).join("\t"));
     expect(flagged).toEqual(["crosses-local-midnight\tdays=2"]);
   } finally {
     rmSync(home, { recursive: true, force: true });
@@ -144,7 +157,11 @@ test("snapshot reports a failed stats freshness check when stats.db cannot be qu
   mkdirSync(sessions, { recursive: true });
   writeFileSync(
     resolve(sessions, "s.jsonl"),
-    JSON.stringify({ type: "message", timestamp: now, message: { role: "assistant", content: [{ type: "text", text: "hi" }] } }) + "\n",
+    JSON.stringify({
+      type: "message",
+      timestamp: now,
+      message: { role: "assistant", content: [{ type: "text", text: "hi" }] },
+    }) + "\n",
   );
   // The freshness query reads tool_calls too; a DB without it makes sqlite3 fail.
   const db = resolve(home, ".omp/stats.db");
@@ -179,7 +196,9 @@ test("snapshot prints a fallback when jbcontext analyze yields no summary lines"
   mkdirSync(bin);
   symlinkSync(Bun.which("jq")!, resolve(bin, "jq"));
   // Plain-text mode prints nothing the summary filter matches; --json-output fails.
-  writeFileSync(resolve(bin, "jbcontext"), '#!/bin/sh\ncase "$*" in *--json-output*) exit 1;; esac\necho unrelated\n', { mode: 0o755 });
+  writeFileSync(resolve(bin, "jbcontext"), '#!/bin/sh\ncase "$*" in *--json-output*) exit 1;; esac\necho unrelated\n', {
+    mode: 0o755,
+  });
 
   try {
     const run = spawnSync(Bun.which("bash")!, [snapshot, "--days", "7"], {

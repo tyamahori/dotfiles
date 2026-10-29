@@ -79,10 +79,16 @@ test("pre-push-base-freshness blocks a stale fork in a single-branch clone", () 
   writeFileSync(join(bin, "gh"), "#!/bin/sh\necho feature-a\n");
   chmodSync(join(bin, "gh"), 0o755);
   const git = "git -c user.name=t -c user.email=t@example.com";
-  sh(dir, `git init -q --bare -b main remote.git && git clone -q remote.git seed 2>/dev/null && cd seed &&
+  sh(
+    dir,
+    `git init -q --bare -b main remote.git && git clone -q remote.git seed 2>/dev/null && cd seed &&
     ${git} commit -q --allow-empty -m root && git push -q origin main &&
-    git switch -q -c feature-a && ${git} commit -q --allow-empty -m a1 && git push -q origin feature-a`);
-  sh(dir, "git clone -q --single-branch --branch main remote.git work && cd work && git fetch -q origin feature-a && git switch -q -c stacked FETCH_HEAD");
+    git switch -q -c feature-a && ${git} commit -q --allow-empty -m a1 && git push -q origin feature-a`,
+  );
+  sh(
+    dir,
+    "git clone -q --single-branch --branch main remote.git work && cd work && git fetch -q origin feature-a && git switch -q -c stacked FETCH_HEAD",
+  );
   sh(join(dir, "seed"), `${git} commit -q --allow-empty -m a2 && git push -q origin feature-a`);
 
   const sha = sh(join(dir, "work"), "git rev-parse HEAD").out.trim();
@@ -96,10 +102,7 @@ test("pre-push-base-freshness blocks a stale fork in a single-branch clone", () 
 });
 
 // git/hooks/pre-commit is this repo's own hook; run a copy whose global hand-off is stubbed.
-test.each([
-  ["the last pattern of a patterns file without a trailing newline", "secretproject\nother", "mentions other thing\n"],
-  ["an added line that starts with ++", "secretproject\n", "++ secretproject\n"],
-])("dotfiles pre-commit blocks %s", (_case, patterns, added) => {
+function dotfilesHookRepo() {
   dir = mkdtempSync(join(tmpdir(), "global-hooks-"));
   mkdirSync(join(dir, "git/hooks"), { recursive: true });
   mkdirSync(join(dir, "git/global-hooks"));
@@ -107,13 +110,38 @@ test.each([
   writeFileSync(join(dir, "git/global-hooks/pre-commit"), "#!/bin/sh\nexit 0\n");
   chmodSync(join(dir, "git/hooks/pre-commit"), 0o755);
   chmodSync(join(dir, "git/global-hooks/pre-commit"), 0o755);
-  writeFileSync(join(dir, "git/sensitive-patterns.local"), patterns);
-  writeFileSync(join(dir, "notes.md"), added);
-  sh(dir, "git init -q && git add notes.md");
+  sh(dir, "git init -q");
+  return dir;
+}
 
-  const r = sh(dir, "git/hooks/pre-commit");
+test.each([
+  ["the last pattern of a patterns file without a trailing newline", "secretproject\nother", "mentions other thing\n"],
+  ["an added line that starts with ++", "secretproject\n", "++ secretproject\n"],
+])("dotfiles pre-commit blocks %s", (_case, patterns, added) => {
+  const repo = dotfilesHookRepo();
+  writeFileSync(join(repo, "git/sensitive-patterns.local"), patterns);
+  writeFileSync(join(repo, "notes.md"), added);
+  sh(repo, "git add notes.md");
+
+  const r = sh(repo, "git/hooks/pre-commit");
   expect(r.out).toContain("machine-local pattern");
   expect(r.status).toBe(1);
+});
+
+// The staged TS/JS is judged by this repo's biome.json (space indent).
+test.each<[string, string, number]>([
+  ["passes formatted TS/JS", "export const a = 1;\n", 0],
+  ["blocks unformatted TS/JS", "export const a=1\n", 1],
+])("dotfiles pre-commit %s", (_case, source, status) => {
+  const repo = dotfilesHookRepo();
+  writeFileSync(join(repo, "biome.json"), readFileSync(resolve(checks, "../../../biome.json")));
+  mkdirSync(join(repo, "src dir"));
+  writeFileSync(join(repo, "src dir/a.ts"), source);
+  sh(repo, "git add 'src dir/a.ts'");
+
+  const r = sh(repo, "git/hooks/pre-commit");
+  expect(r.status).toBe(status);
+  if (status) expect(r.out).toContain("biome format --write src\\ dir/a.ts");
 });
 
 // lib/baseline.bash with a stub tool reporting each line of file `f` that holds
@@ -174,4 +202,46 @@ test("a tool failure is blocked and its output shown", () => {
   const r = baselineRun("old\tOLD\n", "old\tOLD\n", `rows() { echo boom; return 2; }`);
   expect(r.status).toBe(1);
   expect(r.out).toContain("boom");
+});
+
+// checks/pre-commit-oxlint in a repo whose HEAD holds `committed`, then `staged` is staged.
+function oxlintRun(committed: Record<string, string>, staged: Record<string, string>) {
+  dir = mkdtempSync(join(tmpdir(), "global-hooks-"));
+  sh(dir, "git init -q && git config user.email t@t && git config user.name t");
+  for (const [name, content] of Object.entries(committed)) writeFileSync(join(dir, name), content);
+  sh(dir, `git add -- ${Object.keys(committed).join(" ")} && git commit -q -m seed -m 'oxlint fixture'`);
+  for (const [name, content] of Object.entries(staged)) writeFileSync(join(dir, name), content);
+  sh(dir, `git add -- ${Object.keys(staged).join(" ")}`);
+  return sh(dir, join(checks, "pre-commit-oxlint"));
+}
+
+// More than 4 parameters breaks the dotfiles readability rules and no oxlint default.
+const fiveParams = (name: string) => `export function ${name}(a, b, c, d, e) {\n  return a + b + c + d + e;\n}\n`;
+
+test("pre-commit-oxlint passes a commit that leaves a committed finding as it was", () => {
+  const r = oxlintRun({ "a.ts": fiveParams("old") }, { "a.ts": fiveParams("old") + "export const ok = 1;\n" });
+  expect(r.status).toBe(0);
+});
+
+test("pre-commit-oxlint blocks a commit that adds a finding", () => {
+  const r = oxlintRun({ "a.ts": fiveParams("old") }, { "a.ts": fiveParams("old") + fiveParams("added") });
+  expect(r.status).toBe(1);
+  expect(r.out).toContain("a.ts:4 ");
+});
+
+test("pre-commit-oxlint leaves the dotfiles rules out of a repo with its own ESLint config", () => {
+  const r = oxlintRun(
+    { "eslint.config.js": "export default [];\n", "a.ts": "export const ok = 1;\n" },
+    { "a.ts": fiveParams("added") },
+  );
+  expect(r.status).toBe(0);
+});
+
+// complexity is 1 + one per branch; the finding sits on the function header.
+const branchy = (branches: number) =>
+  `export function f(x) {\n${Array.from({ length: branches }, (_, i) => `  if (x === ${i}) return ${i};\n`).join("")}  return -1;\n}\n`;
+
+test("pre-commit-oxlint treats a finding whose number changed as the committed one", () => {
+  const r = oxlintRun({ "a.ts": branchy(12) }, { "a.ts": branchy(11) });
+  expect(r.status).toBe(0);
 });

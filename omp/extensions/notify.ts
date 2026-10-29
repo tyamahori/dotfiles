@@ -142,11 +142,16 @@ async function notify(kind: "done" | "attention", title: string, message: string
 
   if (IS_DARWIN) {
     await run(TERMINAL_NOTIFIER, [
-      "-group", group,
-      "-title", title,
-      "-subtitle", subtitle,
-      "-message", message,
-      "-activate", bundle,
+      "-group",
+      group,
+      "-title",
+      title,
+      "-subtitle",
+      subtitle,
+      "-message",
+      message,
+      "-activate",
+      bundle,
     ]);
   } else {
     // notify-send has no subtitle field, so the location line joins the body.
@@ -264,7 +269,11 @@ export default function (pi: ExtensionHandlerApi): void {
     if (!rootSession) return;
     const detail = asRecord(event);
     if (detail?.success !== false) return;
-    void notify("attention", "OMP エラー停止", (asString(detail.finalError) || "リトライが尽きて停止しました").slice(0, 120));
+    void notify(
+      "attention",
+      "OMP エラー停止",
+      (asString(detail.finalError) || "リトライが尽きて停止しました").slice(0, 120),
+    );
   });
 
   pi.on("tool_execution_start", (event, ctx) => {
@@ -277,8 +286,7 @@ export default function (pi: ExtensionHandlerApi): void {
   pi.on("tool_approval_requested", (event, ctx) => {
     if (!activate(ctx)) return;
     const detail = asRecord(event);
-    const message =
-      asString(detail?.reason) ?? `${asString(detail?.toolName) ?? "ツール"} の実行許可が必要です`;
+    const message = asString(detail?.reason) ?? `${asString(detail?.toolName) ?? "ツール"} の実行許可が必要です`;
     void notify("attention", "OMP 許可待ち", message.slice(0, 120));
   });
 }

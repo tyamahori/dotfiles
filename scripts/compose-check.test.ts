@@ -11,7 +11,7 @@ for (const row of [
     name: "compose config validates a variant layered on its base",
     hook: "pre-commit-compose-config",
     // compose.prod.yaml alone has no image, so it is only valid as an overlay.
-    files: { "compose.yaml": base, "compose.prod.yaml": "services:\n  app:\n    environment: {A: \"1\"}\n" },
+    files: { "compose.yaml": base, "compose.prod.yaml": 'services:\n  app:\n    environment: {A: "1"}\n' },
     stage: ["compose.yaml", "compose.prod.yaml"],
     blockedWith: null,
   },

@@ -66,6 +66,22 @@ if [ -n "$extra_linter" ] && ! command -v "$extra_linter" >/dev/null; then
 fi
 [ -n "$linter$extra_linter" ] || exit 0
 
+# TS/JS inside a git work tree is judged as at commit time
+# (git/global-hooks/checks/pre-commit-oxlint): the team's lint config or the
+# dotfiles readability rules, and only findings the edit adds since HEAD, so
+# the old findings of a legacy file do not block every edit to it.
+oxlint_findings() (
+  real=$(readlink -f "$1")
+  root=$(git -C "${real%/*}" rev-parse --show-toplevel 2>/dev/null) || exec oxlint --format=unix "$1"
+  lib=$(dirname "$(readlink -f "$0")")/../git/global-hooks/lib
+  cd "$root"
+  # shellcheck disable=SC1091 # the sourced libs are linted on their own
+  source "$lib/baseline.bash"
+  # shellcheck disable=SC1091
+  source "$lib/oxlint.bash"
+  oxlint_setup && baseline_check oxlint_rows "${real#"$root"/}"
+)
+
 # Never fail the hook itself; findings go back via decision:block.
 findings=
 case "$linter" in
@@ -82,9 +98,7 @@ $findings"
     fi
     ;;
   ruff) findings=$(ruff check --no-cache --quiet --output-format concise "$file" 2>&1 | head -c 4000) || true ;;
-  # Default categories only (correctness-centred, near-zero FP); a project's
-  # own .oxlintrc.json is discovered and wins. Clean files print nothing.
-  oxlint) findings=$(oxlint --format=unix "$file" 2>&1 | head -c 4000) || true ;;
+  oxlint) findings=$(oxlint_findings "$file" 2>&1 | head -c 4000) || true ;;
   actionlint) findings=$(actionlint -no-color "$file" 2>&1 | head -c 4000) || true ;;
   hadolint) findings=$(hadolint --failure-threshold style --format tty "$file" 2>&1 | head -c 4000) || true ;;
   sqruff)

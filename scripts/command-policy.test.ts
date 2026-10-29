@@ -3,7 +3,9 @@ import { resolve } from "node:path";
 import { denyCommand } from "./command-policy";
 
 let which: Mock<typeof Bun.which>;
-beforeEach(() => { which = spyOn(Bun, "which"); });
+beforeEach(() => {
+  which = spyOn(Bun, "which");
+});
 afterEach(() => which.mockRestore());
 
 test("denies executable positions, not quoted prose or script arguments", () => {
@@ -40,7 +42,14 @@ test("Python pipelines are denied while read filters and write-mode cat stay all
 
 test("an absolute or relative path to the executable is matched by its name", () => {
   which.mockReturnValue("/available/replacement");
-  for (const command of ["/usr/bin/python3 -c 1", "/tmp/python3 -c 1", "/opt/homebrew/bin/brew upgrade", "/bin/cat README.md", "/usr/bin/git -C . commit -m fix", "git log | /usr/bin/grep fix > /dev/null; /bin/sleep 30"]) {
+  for (const command of [
+    "/usr/bin/python3 -c 1",
+    "/tmp/python3 -c 1",
+    "/opt/homebrew/bin/brew upgrade",
+    "/bin/cat README.md",
+    "/usr/bin/git -C . commit -m fix",
+    "git log | /usr/bin/grep fix > /dev/null; /bin/sleep 30",
+  ]) {
     expect(denyCommand(command, "omp")).toBeDefined();
   }
   const installer = `${import.meta.dir}/python`;
@@ -62,7 +71,14 @@ test("redirections count per command, and only stdout sent to a file makes a rea
   ]) {
     expect(denyCommand(command, "omp")).toBeDefined();
   }
-  for (const command of ["cat a b > out", "cat a >> out 2>&1", "cat a &> out", "cat <<EOF\nhi\nEOF", "ls |& grep foo", "curl https://example.com/ >page.html"]) {
+  for (const command of [
+    "cat a b > out",
+    "cat a >> out 2>&1",
+    "cat a &> out",
+    "cat <<EOF\nhi\nEOF",
+    "ls |& grep foo",
+    "curl https://example.com/ >page.html",
+  ]) {
     expect(denyCommand(command, "omp")).toBeUndefined();
   }
 });
@@ -112,7 +128,7 @@ test("replacement availability is checked on each invocation", () => {
     expect(denyCommand(command, "omp")).toBeDefined();
   }
   const wrapper = resolve(import.meta.dir, "brewUpdate");
-  which.mockImplementation((command) => command === wrapper ? wrapper : null);
+  which.mockImplementation((command) => (command === wrapper ? wrapper : null));
   expect(denyCommand("brew upgrade", "omp")).toBeDefined();
 });
 
@@ -144,14 +160,21 @@ test("only simple webpage GETs are redirected to ax", () => {
     "curl -sL https://example.com/src | tar xz",
     "curl -s https://example.com/ | jq .",
     "curl file:/tmp/x",
-  ]) expect(denyCommand(command, "omp")).toBeUndefined();
+  ])
+    expect(denyCommand(command, "omp")).toBeUndefined();
 });
 
 test("brew matches the exact upgrade subcommand, not argument text", () => {
   which.mockReturnValue("/available/brewUpdate");
   expect(denyCommand("brew upgrade --cask", "codex")).toBeDefined();
   expect(denyCommand("command brew upgrade omp", "claude")).toBeDefined();
-  for (const command of ["brew update", "brew uses upgrade", "brew upgrades", "brew info upgrade", "echo 'brew upgrade'"]) {
+  for (const command of [
+    "brew update",
+    "brew uses upgrade",
+    "brew upgrades",
+    "brew info upgrade",
+    "echo 'brew upgrade'",
+  ]) {
     expect(denyCommand(command, "omp")).toBeUndefined();
   }
 });
@@ -160,7 +183,13 @@ test("gh pr create is denied unless it opens a draft", () => {
   which.mockReturnValue("/available/gh");
   expect(denyCommand("gh pr create --title t --body b", "claude")).toContain("--draft");
   expect(denyCommand("git push -u origin x && gh pr create --fill", "omp")).toBeDefined();
-  for (const command of ["gh pr create --draft --fill", "gh pr create -d --title t", "gh pr view 3", "gh pr ready 3", "echo 'gh pr create'"]) {
+  for (const command of [
+    "gh pr create --draft --fill",
+    "gh pr create -d --title t",
+    "gh pr view 3",
+    "gh pr ready 3",
+    "echo 'gh pr create'",
+  ]) {
     expect(denyCommand(command, "codex")).toBeUndefined();
   }
 });
@@ -197,20 +226,49 @@ test("grep/awk on .env stay outside this rule; the pattern argument would false-
 });
 
 test("sleeps of 10s or more are denied as polling; short readiness sleeps stay allowed", () => {
-  for (const command of ["sleep 60; gh pr checks 612", "unset GH_TOKEN; sleep 45 && gh run list", "sleep 10", "sleep 1m", "sleep 12.5s", "until gh pr checks 5; do sleep 60; done", "while true; do { time sleep 30; }; done"]) {
+  for (const command of [
+    "sleep 60; gh pr checks 612",
+    "unset GH_TOKEN; sleep 45 && gh run list",
+    "sleep 10",
+    "sleep 1m",
+    "sleep 12.5s",
+    "until gh pr checks 5; do sleep 60; done",
+    "while true; do { time sleep 30; }; done",
+  ]) {
     expect(denyCommand(command, "omp")).toBeDefined();
   }
   expect(denyCommand("sleep 30", "codex")).toContain("--watch");
-  for (const command of ["sleep 2 && curl -sf http://localhost:3000/health", "sleep 9", "sleep 0.5", "echo 'sleep 60'"]) {
+  for (const command of [
+    "sleep 2 && curl -sf http://localhost:3000/health",
+    "sleep 9",
+    "sleep 0.5",
+    "echo 'sleep 60'",
+  ]) {
     expect(denyCommand(command, "claude")).toBeUndefined();
   }
 });
 
 test("global installs are denied; project-local installs and owner scripts stay allowed", () => {
-  for (const command of ["brew install pict", "npm i -g typescript", "pnpm add --global x", "pip install requests", "go install golang.org/x/tools/gopls@latest", "uv tool install ruff", "cargo install ripgrep"]) {
+  for (const command of [
+    "brew install pict",
+    "npm i -g typescript",
+    "pnpm add --global x",
+    "pip install requests",
+    "go install golang.org/x/tools/gopls@latest",
+    "uv tool install ruff",
+    "cargo install ripgrep",
+  ]) {
     expect(denyCommand(command, "codex")).toBeDefined();
   }
-  for (const command of ["npm install", "pnpm add zod", "uv add httpx", "go get ./...", "brew bundle --file ~/.Brewfile", "uv pip install -e .", "brew info pict"]) {
+  for (const command of [
+    "npm install",
+    "pnpm add zod",
+    "uv add httpx",
+    "go get ./...",
+    "brew bundle --file ~/.Brewfile",
+    "uv pip install -e .",
+    "brew info pict",
+  ]) {
     expect(denyCommand(command, "omp")).toBeUndefined();
   }
 });
@@ -219,7 +277,12 @@ test("sweeping git stages are denied; explicit paths are not", () => {
   for (const command of ["git add -A", "git add .", "git add -u", "git commit -am 'msg'", "git commit --all -m x"]) {
     expect(denyCommand(command, "claude")).toBeDefined();
   }
-  for (const command of ["git add src/a.ts docs/b.md", "git add -p src/a.ts", "git commit -m 'add -A flag docs' -m 'why'", "git commit --amend --no-edit"]) {
+  for (const command of [
+    "git add src/a.ts docs/b.md",
+    "git add -p src/a.ts",
+    "git commit -m 'add -A flag docs' -m 'why'",
+    "git commit --amend --no-edit",
+  ]) {
     expect(denyCommand(command, "claude")).toBeUndefined();
   }
 });
@@ -232,7 +295,7 @@ test("subject-only commits are denied before the hooks run; any possible body pa
     "git commit --message 'fix parser'",
     "git commit --message='fix parser'",
     "git -C repo commit --amend -m 'fix parser'",
-    "cd repo && git commit -m \"fix parser\"",
+    'cd repo && git commit -m "fix parser"',
     "git commit -S -m 'fix parser'",
   ]) {
     expect(denyCommand(command, "omp")).toBeDefined();
@@ -260,13 +323,29 @@ test("subject-only commits are denied before the hooks run; any possible body pa
 });
 
 test("remote pulls require effective fast-forward-only", () => {
-  for (const command of ["git pull", "git pull --rebase", "git pull origin main", "git -C repo pull", "git -c pull.ff=false pull"]) {
+  for (const command of [
+    "git pull",
+    "git pull --rebase",
+    "git pull origin main",
+    "git -C repo pull",
+    "git -c pull.ff=false pull",
+  ]) {
     expect(denyCommand(command, "claude")).toBeDefined();
   }
-  for (const command of ["git pull --ff-only", "git pull origin main --ff-only", "git -C repo pull --ff-only", "git -c pull.ff=only pull --ff-only"]) {
+  for (const command of [
+    "git pull --ff-only",
+    "git pull origin main --ff-only",
+    "git -C repo pull --ff-only",
+    "git -c pull.ff=only pull --ff-only",
+  ]) {
     expect(denyCommand(command, "claude")).toBeUndefined();
   }
-  for (const command of ["git pull --ff-only --no-ff", "git pull --no-ff --ff-only", "git pull --ff-only --ff", "git -C repo pull --ff=false --ff-only"]) {
+  for (const command of [
+    "git pull --ff-only --no-ff",
+    "git pull --no-ff --ff-only",
+    "git pull --ff-only --ff",
+    "git -C repo pull --ff=false --ff-only",
+  ]) {
     expect(denyCommand(command, "claude")).toBeDefined();
   }
 });
@@ -310,7 +389,13 @@ test("raw git worktree add is denied for OMP only inside Herdr", () => {
 });
 
 test("in-place shell edits are denied for clients with an edit tool", () => {
-  for (const command of ["sed -i '' 's/a/b/' f", "sed -Ei 's/a/b/' f", "gsed --in-place 's/a/b/' f", "perl -pi -e 's/a/b/' f", "perl -i.bak -pe 1 f"]) {
+  for (const command of [
+    "sed -i '' 's/a/b/' f",
+    "sed -Ei 's/a/b/' f",
+    "gsed --in-place 's/a/b/' f",
+    "perl -pi -e 's/a/b/' f",
+    "perl -i.bak -pe 1 f",
+  ]) {
     expect(denyCommand(command, "omp")).toBeDefined();
   }
   for (const command of ["sed 's/a/b/' f > g", "printf x | sed 's/-i/x/'", "perl -Ilib script.pl"]) {

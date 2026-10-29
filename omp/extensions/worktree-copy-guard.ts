@@ -26,22 +26,15 @@ type Ctx = {
 };
 
 type ExtensionHandlerApi = {
-  on(
-    event: string,
-    handler: (event: ToolEvent, ctx: Ctx | undefined) => void,
-  ): void;
+  on(event: string, handler: (event: ToolEvent, ctx: Ctx | undefined) => void): void;
 };
 
 export default function (pi: ExtensionHandlerApi): void {
   pi.on("tool_result", (event, ctx) => {
     if (event.isError) return;
     if (event.toolName !== "bash") return;
-    const record =
-      event.input !== null && typeof event.input === "object"
-        ? (event.input as UnknownRecord)
-        : undefined;
-    const command =
-      typeof record?.command === "string" ? record.command : "";
+    const record = event.input !== null && typeof event.input === "object" ? (event.input as UnknownRecord) : undefined;
+    const command = typeof record?.command === "string" ? record.command : "";
     if (!WORKTREE_ADD.test(command)) return;
 
     const result = spawnSync(HOOK, [], {

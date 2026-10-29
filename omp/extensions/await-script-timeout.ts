@@ -20,10 +20,7 @@ type UnknownRecord = Record<string, unknown>;
 type ToolCallEvent = { toolName?: unknown; input?: unknown };
 
 type ExtensionHandlerApi = {
-  on(
-    event: "tool_call",
-    handler: (event: ToolCallEvent) => { input: UnknownRecord } | undefined,
-  ): void;
+  on(event: "tool_call", handler: (event: ToolCallEvent) => { input: UnknownRecord } | undefined): void;
 };
 
 // スクリプトを実行する位置(行頭か ; & | ( の直後。bash などの前置きは可)の
@@ -33,8 +30,7 @@ function runsAwaitScript(command: string): boolean {
   return command.split(/[;&|(\n]/).some((segment) => {
     const words = segment.trim().replace(/^(?:(?:bash|sh|zsh|exec|nohup)\s+)+/, "");
     const quote = words[0];
-    const script =
-      quote === '"' || quote === "'" ? words.slice(1, words.indexOf(quote, 1)) : words.split(/\s/, 1)[0];
+    const script = quote === '"' || quote === "'" ? words.slice(1, words.indexOf(quote, 1)) : words.split(/\s/, 1)[0];
     return /(?:^|\/)await-[\w-]+\.sh$/.test(script);
   });
 }
@@ -57,8 +53,7 @@ export default function awaitScriptTimeout(pi: ExtensionHandlerApi): void {
     const original = event.input as UnknownRecord;
     let input = dropServiceArgs(original);
     // name 付きは常駐サービスで、タイムアウトの対象外なので触らない
-    const awaitJob =
-      input.name === undefined && typeof input.command === "string" && runsAwaitScript(input.command);
+    const awaitJob = input.name === undefined && typeof input.command === "string" && runsAwaitScript(input.command);
     if (awaitJob && !(input.async === true && input.timeout === 0)) {
       input = { ...input, async: true, timeout: 0 };
     }

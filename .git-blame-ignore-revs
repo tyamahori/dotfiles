@@ -1,0 +1,3 @@
+# Formatting-only commits; GitHub blame skips them. Locally: git blame --ignore-revs-file .git-blame-ignore-revs
+# style: 管理下の TS/JS を Biome で一括整形した
+be6681a1e8e88c5c7f6ad7ea5c55459eaff41408

@@ -37,7 +37,8 @@ export default function externalCodingAgents(pi: ExtensionAPI) {
       onUpdate?.({ content: [{ type: "text", text: "Running Kiro CLI…" }] });
       const result = await pi.exec("kiro-cli", args, { cwd: ctx.cwd, signal });
       const output = formatOutput(result.stdout, result.stderr);
-      if (result.killed) return { content: [{ type: "text", text: "Kiro CLI was cancelled." }], details: { cancelled: true } };
+      if (result.killed)
+        return { content: [{ type: "text", text: "Kiro CLI was cancelled." }], details: { cancelled: true } };
       if (result.code !== 0) {
         return { content: [{ type: "text", text: output }], details: { exitCode: result.code }, isError: true };
       }
@@ -70,7 +71,8 @@ export default function externalCodingAgents(pi: ExtensionAPI) {
       onUpdate?.({ content: [{ type: "text", text: "Running Grok Build…" }] });
       const result = await pi.exec("grok", args, { cwd: ctx.cwd, signal });
       const output = formatOutput(result.stdout, result.stderr);
-      if (result.killed) return { content: [{ type: "text", text: "Grok Build was cancelled." }], details: { cancelled: true } };
+      if (result.killed)
+        return { content: [{ type: "text", text: "Grok Build was cancelled." }], details: { cancelled: true } };
       if (result.code !== 0) {
         return { content: [{ type: "text", text: output }], details: { exitCode: result.code }, isError: true };
       }

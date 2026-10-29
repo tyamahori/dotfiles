@@ -16,7 +16,12 @@ test("reports template headings missing from an inline or file body", () => {
 });
 
 test("stays silent when gh applies the template itself or there is nothing to check", () => {
-  for (const command of ["gh pr create --draft --fill", "gh pr create --draft -T x", "gh pr create --draft --body-file -", "gh pr view --body x"]) {
+  for (const command of [
+    "gh pr create --draft --fill",
+    "gh pr create --draft -T x",
+    "gh pr create --draft --body-file -",
+    "gh pr view --body x",
+  ]) {
     expect(missingTemplateHeadings(command, repo)).toEqual([]);
   }
   expect(missingTemplateHeadings("gh pr create --draft --body x", tmpdir())).toEqual([]);
@@ -29,13 +34,23 @@ test("checks only a real gh pr create segment and ignores flag-like body text", 
   ]) {
     expect(missingTemplateHeadings(command, repo)).toEqual([]);
   }
-  expect(missingTemplateHeadings("gh pr create --draft --body '## Summary\nrun npm test -w pkg'", repo)).toEqual(["Test plan"]);
+  expect(missingTemplateHeadings("gh pr create --draft --body '## Summary\nrun npm test -w pkg'", repo)).toEqual([
+    "Test plan",
+  ]);
   expect(missingTemplateHeadings("GH_REPO=o/r gh pr create --draft --body '## Summary'", repo)).toEqual(["Test plan"]);
-  for (const command of ["time gh pr create --body x", "if true; then gh pr create --body x; fi", "{ gh pr create --body x; }"]) {
+  for (const command of [
+    "time gh pr create --body x",
+    "if true; then gh pr create --body x; fi",
+    "{ gh pr create --body x; }",
+  ]) {
     expect(missingTemplateHeadings(command, repo)).toEqual(["Summary", "Test plan"]);
   }
-  expect(missingTemplateHeadings(`gh pr create --draft --body "$(cat <<'EOF'\n## Summary\nx\nEOF\n)"`, repo)).toEqual(["Test plan"]);
-  expect(missingTemplateHeadings(`echo "## Test plan"; gh pr create --draft --body "## Summary"`, repo)).toEqual(["Test plan"]);
+  expect(missingTemplateHeadings(`gh pr create --draft --body "$(cat <<'EOF'\n## Summary\nx\nEOF\n)"`, repo)).toEqual([
+    "Test plan",
+  ]);
+  expect(missingTemplateHeadings(`echo "## Test plan"; gh pr create --draft --body "## Summary"`, repo)).toEqual([
+    "Test plan",
+  ]);
   expect(missingTemplateHeadings("gh pr create --draft --body='## Summary\n## Test plan'", repo)).toEqual([]);
 });
 

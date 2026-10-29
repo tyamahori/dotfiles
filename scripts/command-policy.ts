@@ -46,15 +46,17 @@ type RuleTable = { rules: Rule[] };
 
 const rules = (ruleTable as RuleTable).rules.map((rule) => ({
   ...rule,
-  commands: rule.commands.map(({ nextArgPattern, anyArgPattern, noArgPattern, operandPattern, valueFlags, patternFlags, ...match }) => ({
-    ...match,
-    nextArgPattern: nextArgPattern ? new RegExp(nextArgPattern) : undefined,
-    anyArgPattern: anyArgPattern ? new RegExp(anyArgPattern) : undefined,
-    noArgPattern: noArgPattern ? new RegExp(noArgPattern) : undefined,
-    operandPattern: operandPattern ? new RegExp(operandPattern) : undefined,
-    valueFlags: valueFlags ? new RegExp(valueFlags) : undefined,
-    patternFlags: patternFlags ? new RegExp(patternFlags) : undefined,
-  })),
+  commands: rule.commands.map(
+    ({ nextArgPattern, anyArgPattern, noArgPattern, operandPattern, valueFlags, patternFlags, ...match }) => ({
+      ...match,
+      nextArgPattern: nextArgPattern ? new RegExp(nextArgPattern) : undefined,
+      anyArgPattern: anyArgPattern ? new RegExp(anyArgPattern) : undefined,
+      noArgPattern: noArgPattern ? new RegExp(noArgPattern) : undefined,
+      operandPattern: operandPattern ? new RegExp(operandPattern) : undefined,
+      valueFlags: valueFlags ? new RegExp(valueFlags) : undefined,
+      patternFlags: patternFlags ? new RegExp(patternFlags) : undefined,
+    }),
+  ),
 }));
 type CompiledMatch = (typeof rules)[number]["commands"][number];
 const repoRoot = resolve(import.meta.dir, "..");
@@ -258,8 +260,10 @@ export function segments(command: string): Segment[] {
 // not operands; anything else is, including the pattern and a file named `1k`.
 // A pattern given by flag (`-e x`) leaves no pattern operand to skip.
 function operandsMatch(args: string[], match: CompiledMatch): boolean {
-  const skip = args.some((word) => match.patternFlags?.test(word)) ? 0 : match.skipOperands ?? 0;
-  const operands = args.filter((word, at) => !word.startsWith("-") && !match.valueFlags?.test(args[at - 1] ?? "")).slice(skip);
+  const skip = args.some((word) => match.patternFlags?.test(word)) ? 0 : (match.skipOperands ?? 0);
+  const operands = args
+    .filter((word, at) => !word.startsWith("-") && !match.valueFlags?.test(args[at - 1] ?? ""))
+    .slice(skip);
   return operands.length > 0 && operands.every((word) => match.operandPattern!.test(word));
 }
 
@@ -320,7 +324,16 @@ function executableName(word = ""): string {
 // leading option (`-P`, `--no-pager`, `-C<path>`, `--git-dir=<path>`) stands
 // alone. Other tools keep the subcommand right after the executable: their
 // value-taking options (`uv --directory <dir>`) differ per tool.
-const GIT_VALUE_OPTIONS = new Set(["-C", "-c", "--exec-path", "--git-dir", "--work-tree", "--namespace", "--config-env", "--super-prefix"]);
+const GIT_VALUE_OPTIONS = new Set([
+  "-C",
+  "-c",
+  "--exec-path",
+  "--git-dir",
+  "--work-tree",
+  "--namespace",
+  "--config-env",
+  "--super-prefix",
+]);
 
 function subcommandMatches(words: string[], index: number, subcommand: string): boolean {
   if (executableName(words[index]) !== "git") return words[index + 1] === subcommand;
@@ -345,7 +358,8 @@ function isSimpleWebFetch(args: string[]): boolean {
   // Unknown options stay with curl: ax cannot preserve their semantics.
   const urls: string[] = [];
   for (const argument of args) {
-    if (/^-[fsSL]+$/.test(argument) || ["--fail", "--silent", "--show-error", "--location"].includes(argument)) continue;
+    if (/^-[fsSL]+$/.test(argument) || ["--fail", "--silent", "--show-error", "--location"].includes(argument))
+      continue;
     if (argument.startsWith("-")) return false;
     urls.push(argument);
   }
@@ -401,7 +415,12 @@ function isSubjectOnlyCommit(args: string[]): boolean {
 // One `git commit` argument: "exempt" ends the scan (commit-msg-why passes it
 // too), "next" means the following argument is a message.
 function commitArgument(argument: string): "exempt" | "next" | { message: string } | undefined {
-  if (/^--(?:file|reuse-message|reedit-message|fixup|squash|no-verify|template|edit|signoff|trailer)(?:=|$)/.test(argument)) return "exempt";
+  if (
+    /^--(?:file|reuse-message|reedit-message|fixup|squash|no-verify|template|edit|signoff|trailer)(?:=|$)/.test(
+      argument,
+    )
+  )
+    return "exempt";
   if (argument === "--message") return "next";
   if (argument.startsWith("--message=")) return { message: argument.slice("--message=".length) };
   if (!/^-[A-Za-z]/.test(argument)) return undefined;
@@ -442,27 +461,36 @@ export function denyCommand(command: string, client: Client): string | undefined
   const parsed = segments(command);
   for (const rule of rules) {
     if (!rule.clients.includes(client)) continue;
-    if (rule.requireEnv && Object.entries(rule.requireEnv).some(([name, value]) => process.env[name] !== value)) continue;
+    if (rule.requireEnv && Object.entries(rule.requireEnv).some(([name, value]) => process.env[name] !== value))
+      continue;
     const matched = parsed.some(({ words, followsPipe, redirected }, at) => {
       if (rule.excludeAfterPipe && followsPipe) return false;
       if (rule.matcher === "search-allowlist") {
         // Any word naming a searcher counts, so `env`, `command`, `xargs`,
         // `sudo`, and absolute paths cannot hide it.
-        const at = words.findIndex((word) => rule.commands[0].executables.includes(word.slice(word.lastIndexOf("/") + 1)));
+        const at = words.findIndex((word) =>
+          rule.commands[0].executables.includes(word.slice(word.lastIndexOf("/") + 1)),
+        );
         return at !== -1 && !(at === 0 && isSafeSearch(words.slice(1), followsPipe, redirected));
       }
       const index = commandIndex(words);
       const executable = executableName(words[index]);
-      return rule.commands.some((match) =>
-        match.executables.includes(executable) &&
-        (!match.subcommand || subcommandMatches(words, index, match.subcommand)) &&
-        (!match.nextArgPattern || match.nextArgPattern.test(words[index + 1] ?? "")) &&
-        (!match.anyArgPattern || words.slice(index + 1).some((word) => match.anyArgPattern!.test(word) || globMatchesSample(word, match.anyArgGlobSamples))) &&
-        (!match.noArgPattern || !words.slice(index + 1).some((word) => match.noArgPattern!.test(word))) &&
-        (!match.operandPattern || !operandsMatch(words.slice(index + 1), match)) &&
-        (!match.requireNoRedirection || !redirected) &&
-        (rule.matcher !== "curl-web-fetch" || (!redirected && outputIsRead(parsed[at + 1]) && isSimpleWebFetch(words.slice(index + 1)))) &&
-        (rule.matcher !== "git-commit-subject-only" || isSubjectOnlyCommit(words.slice(words.indexOf("commit", index) + 1)))
+      return rule.commands.some(
+        (match) =>
+          match.executables.includes(executable) &&
+          (!match.subcommand || subcommandMatches(words, index, match.subcommand)) &&
+          (!match.nextArgPattern || match.nextArgPattern.test(words[index + 1] ?? "")) &&
+          (!match.anyArgPattern ||
+            words
+              .slice(index + 1)
+              .some((word) => match.anyArgPattern!.test(word) || globMatchesSample(word, match.anyArgGlobSamples))) &&
+          (!match.noArgPattern || !words.slice(index + 1).some((word) => match.noArgPattern!.test(word))) &&
+          (!match.operandPattern || !operandsMatch(words.slice(index + 1), match)) &&
+          (!match.requireNoRedirection || !redirected) &&
+          (rule.matcher !== "curl-web-fetch" ||
+            (!redirected && outputIsRead(parsed[at + 1]) && isSimpleWebFetch(words.slice(index + 1)))) &&
+          (rule.matcher !== "git-commit-subject-only" ||
+            isSubjectOnlyCommit(words.slice(words.indexOf("commit", index) + 1))),
       );
     });
     if (!matched || !replacementAvailable(rule)) continue;

@@ -15,10 +15,7 @@ type ToolEvent = {
 
 type ExtensionHandlerApi = {
   on(event: string, handler: (event: ToolEvent, ctx: unknown) => void): void;
-  sendUserMessage?: (
-    content: string,
-    options?: { deliverAs?: "steer" | "followUp" },
-  ) => unknown;
+  sendUserMessage?: (content: string, options?: { deliverAs?: "steer" | "followUp" }) => unknown;
 };
 
 const SIGNATURE = /communication with agent failed/i;
@@ -59,12 +56,8 @@ function isSshCommand(command: string): boolean {
 export default function (pi: ExtensionHandlerApi): void {
   pi.on("tool_result", (event) => {
     if (event.toolName !== "bash" || event.isError !== true) return;
-    const record =
-      event.input !== null && typeof event.input === "object"
-        ? (event.input as UnknownRecord)
-        : undefined;
-    const command =
-      typeof record?.command === "string" ? record.command : "";
+    const record = event.input !== null && typeof event.input === "object" ? (event.input as UnknownRecord) : undefined;
+    const command = typeof record?.command === "string" ? record.command : "";
     if (!isSshCommand(command)) return;
     // 結果ペイロードの形はランタイム都合で揺れるため、結果側(content/details)を
     // まるごと文字列化してシグネチャを探す。input はコマンド文字列そのもので、

@@ -27,6 +27,7 @@
     "zizmor":                 "latest",
     "gitleaks":               "latest",
     "oxlint":                 "latest",
+    "biome":                  "latest",
     "delve":                  "latest",
     "git-absorb":             "latest",
     "hyperfine":              "latest",

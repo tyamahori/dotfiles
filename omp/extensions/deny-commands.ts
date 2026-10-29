@@ -10,10 +10,7 @@ interface ToolCallEvent {
 type ToolCallResult = { block: true; reason: string } | undefined;
 
 interface ExtensionApi {
-  on(
-    event: "tool_call",
-    handler: (event: ToolCallEvent, ctx?: { cwd?: string }) => Promise<ToolCallResult>,
-  ): void;
+  on(event: "tool_call", handler: (event: ToolCallEvent, ctx?: { cwd?: string }) => Promise<ToolCallResult>): void;
 }
 
 export default function denyCommands(pi: ExtensionApi) {

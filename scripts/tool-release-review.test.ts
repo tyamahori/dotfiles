@@ -1,5 +1,15 @@
 import { expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -45,7 +55,9 @@ function sandbox(claude: string, reviewed: string) {
   symlinkSync(Bun.which("jq")!, join(bin, "jq"));
   writeFileSync(join(state, "reviewed.json"), reviewed);
   const run = (...args: string[]) =>
-    Bun.spawnSync([script, ...args], { env: { HOME: home, PATH: `${bin}:/usr/bin:/bin`, TOOL_RELEASE_REVIEW_PANE: "off" } });
+    Bun.spawnSync([script, ...args], {
+      env: { HOME: home, PATH: `${bin}:/usr/bin:/bin`, TOOL_RELEASE_REVIEW_PANE: "off" },
+    });
   return { home, state, run };
 }
 
@@ -61,7 +73,10 @@ test("a failing --ack keeps the reviewed baseline", () => {
 
 test("a tool that disappeared moves the baseline without a review", () => {
   // claude would fail the run if asked to review.
-  const { home, state, run } = sandbox('[ "$1" = --version ] && { echo "2.0.0 (Claude Code)"; exit 0; }\nexit 1', '{"claude":"2.0.0","codex":"1.0.0"}');
+  const { home, state, run } = sandbox(
+    '[ "$1" = --version ] && { echo "2.0.0 (Claude Code)"; exit 0; }\nexit 1',
+    '{"claude":"2.0.0","codex":"1.0.0"}',
+  );
   try {
     expect(run().exitCode).toBe(0);
     expect(JSON.parse(readFileSync(join(state, "reviewed.json"), "utf8"))).toEqual({ claude: "2.0.0" });

@@ -11,7 +11,10 @@ test.each([
   ["eval", { language: "js", code: "const tab = await browser.open('x')" }, ["efficient-ts-js", "browser-verify"]],
   ["write", { path: "omp/tests/a.test.ts" }, ["test-design"]],
   ["write", { path: "pkg/test_util.py" }, ["test-design"]],
-  ["write", { path: "omp/extensions/a.ts" }, []],
+  ["write", { path: "omp/extensions/a.ts" }, ["software-design"]],
+  ["edit", { input: "[scripts/lib/b.mjs#ABCD]\nPUT 1.=1:\n+x" }, ["software-design"]],
+  ["write", { path: "pkg/util.py" }, []],
+  ["write", { path: "docs/notes.md" }, []],
   ["edit", { input: "[scripts/link.test.ts#ABCD]\nPUT 1.=1:\n+x" }, ["test-design"]],
 ])("%s %o triggers %o", (toolName, input, want) => {
   expect(triggeredSkills({ toolName, input })).toEqual(want);

@@ -30,7 +30,14 @@ function runSubagentProcess(extraEnv: Record<string, string> = {}): string[] {
     handlers.agent_end?.({}, { hasUI: false });
   `;
   Bun.spawnSync([process.execPath, "-e", driver], {
-    env: { PATH: "/usr/bin:/bin", TMPDIR: root, HERDR_ENV: "1", HERDR_PANE_ID: "w1:1", HERDR_BIN_PATH: herdr, ...extraEnv },
+    env: {
+      PATH: "/usr/bin:/bin",
+      TMPDIR: root,
+      HERDR_ENV: "1",
+      HERDR_PANE_ID: "w1:1",
+      HERDR_BIN_PATH: herdr,
+      ...extraEnv,
+    },
   });
   return existsSync(log) ? readFileSync(log, "utf8").split("\n").filter(Boolean).slice(before) : [];
 }

@@ -24,6 +24,7 @@ pre-commit)
 	"$hook_dir/checks/pre-commit-compose-canonical" "$@"
 	"$hook_dir/checks/pre-commit-compose-config" "$@"
 	"$hook_dir/checks/pre-commit-hadolint" "$@"
+	"$hook_dir/checks/pre-commit-oxlint" "$@"
 	"$hook_dir/checks/pre-commit-json" "$@"
 	"$hook_dir/checks/pre-commit-sqruff" "$@"
 	;;

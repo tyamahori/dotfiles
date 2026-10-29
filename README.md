@@ -52,7 +52,12 @@ machine-local state) — follow [`docs/new-machine.md`](docs/new-machine.md).
 blocks staged UUIDs, dollar-denominated measurements, and absolute `$HOME/`
 paths. Add machine-specific project or customer names to the gitignored
 `git/sensitive-patterns.local`, one literal string per line. Intentional public
-content can bypass the guard with `git commit --no-verify`. The post-merge hook
+content can bypass the guard with `git commit --no-verify`. The same hook
+checks staged TS/JS against `biome.json` (Biome formatter, installed via devbox
+global) and prints the `biome format --write` command for the files to fix.
+Pass Biome file paths only, never `.` or a directory: it follows symlinks out
+of the repository (scratch links into `$HOME`) and rewrites what it finds there.
+The post-merge hook
 runs `scripts/link` when a pull changes `agents/` or `omp/`, reruns
 `scripts/agent-tools` when it changes, and says when running OMP sessions need
 a restart.
@@ -193,6 +198,17 @@ Current checks:
 - **pre-commit hadolint** (`checks/pre-commit-hadolint`) — lints staged
   `Dockerfile`, `Dockerfile.*`, and `*.Dockerfile` files, including shell
   commands in `RUN`. All severities fail (`--failure-threshold style`).
+- **pre-commit oxlint** (`checks/pre-commit-oxlint`) — lints staged TS/JS with
+  oxlint, the same way lint on edit does (`lib/oxlint.bash`). A repository that
+  tracks its own lint config (`.oxlintrc.json`, `oxlint.config.ts`,
+  `eslint.config.*`, `.eslintrc*`, `biome.json(c)`) keeps it: its oxlint config
+  applies, or oxlint's correctness defaults when the team lints with another
+  tool. Every other repository gets this dotfiles' `.oxlintrc.json`
+  readability rules (complexity 10, nesting depth 3, 60-line functions,
+  4 parameters, no `any`, no non-null assertions, no `@ts-` comment
+  suppressions; test files may have long functions and non-null assertions).
+  Warnings fail too. Numbers in the message do not count, so a complexity that
+  drops from 12 to 11 is still the committed finding.
 - **pre-commit sqruff** (`checks/pre-commit-sqruff`) — lints staged `*.sql`
   files with [sqruff](https://github.com/quarylabs/sqruff) (ansi dialect by
   default; a repo's own `.sqruff`/`.sqlfluff` config wins).
@@ -207,7 +223,7 @@ Current checks:
   check because the intended base cannot be established.
 
 The whole-file checks (semgrep, zizmor, dclint, compose canonical, compose
-config, hadolint, sqruff) block only findings the commit adds. When one fails,
+config, hadolint, oxlint, sqruff) block only findings the commit adds. When one fails,
 `git/global-hooks/lib/baseline.bash` re-runs the same tool on the staged files
 as committed at `HEAD` (real blobs, plus their tool config and, for Compose
 config, the whole `HEAD` tree) and blocks a finding if it touches a line the
@@ -217,7 +233,7 @@ commits, while a new, copied, moved, or rewritten finding blocks. Every step
 that cannot complete (temporary directory, extraction, diff, tool run,
 unrecognized tool output) blocks with the tool's output; `docker compose
 config` gets a placeholder for each missing `${VAR:?}` variable so validation
-reaches the rest of the file. Without `jq`, zizmor, hadolint, and sqruff fall
+reaches the rest of the file. Without `jq`, zizmor, hadolint, oxlint, and sqruff fall
 back to blocking on every finding.
 
 Residual cases that still need `--no-verify`: a finding on a line the commit
@@ -515,6 +531,10 @@ extensions in `omp/extensions/`:
   SQL) and feeds findings back for an immediate fix.
   Hadolint reports all severities; dclint permits no warnings, including
   ordering/style rules. Project configs and inline rule exceptions still apply.
+  TS/JS inside a git work tree is judged like the pre-commit oxlint check: the
+  same config choice, and only findings the edit adds since `HEAD` come back,
+  so editing a legacy file is not blocked by its old findings. Outside a git
+  work tree oxlint reports every finding under its defaults.
   `scripts/compose-canonical-check` has no opt-out: it rejects short-form
   `build`, `ports`, `volumes`, `environment`, `env_file`, `depends_on`,
   `networks`, `secrets`, and `configs`, in favor of the Compose

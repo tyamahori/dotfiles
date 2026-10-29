@@ -33,7 +33,10 @@ mkdirSync(lists);
 writeFileSync(join(lists, "claude-code.list"), "");
 writeFileSync(join(lists, "docker.sources"), "");
 const script = join(dir, "apps");
-writeFileSync(script, readFileSync(resolve(import.meta.dir, "apps"), "utf8").replaceAll("/etc/apt/sources.list.d", lists));
+writeFileSync(
+  script,
+  readFileSync(resolve(import.meta.dir, "apps"), "utf8").replaceAll("/etc/apt/sources.list.d", lists),
+);
 
 function run(env: Record<string, string>) {
   writeFileSync(log, "");
