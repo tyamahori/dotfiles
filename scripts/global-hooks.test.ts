@@ -203,3 +203,45 @@ test("a tool failure is blocked and its output shown", () => {
   expect(r.status).toBe(1);
   expect(r.out).toContain("boom");
 });
+
+// checks/pre-commit-oxlint in a repo whose HEAD holds `committed`, then `staged` is staged.
+function oxlintRun(committed: Record<string, string>, staged: Record<string, string>) {
+  dir = mkdtempSync(join(tmpdir(), "global-hooks-"));
+  sh(dir, "git init -q && git config user.email t@t && git config user.name t");
+  for (const [name, content] of Object.entries(committed)) writeFileSync(join(dir, name), content);
+  sh(dir, `git add -- ${Object.keys(committed).join(" ")} && git commit -q -m seed -m 'oxlint fixture'`);
+  for (const [name, content] of Object.entries(staged)) writeFileSync(join(dir, name), content);
+  sh(dir, `git add -- ${Object.keys(staged).join(" ")}`);
+  return sh(dir, join(checks, "pre-commit-oxlint"));
+}
+
+// More than 4 parameters breaks the dotfiles readability rules and no oxlint default.
+const fiveParams = (name: string) => `export function ${name}(a, b, c, d, e) {\n  return a + b + c + d + e;\n}\n`;
+
+test("pre-commit-oxlint passes a commit that leaves a committed finding as it was", () => {
+  const r = oxlintRun({ "a.ts": fiveParams("old") }, { "a.ts": fiveParams("old") + "export const ok = 1;\n" });
+  expect(r.status).toBe(0);
+});
+
+test("pre-commit-oxlint blocks a commit that adds a finding", () => {
+  const r = oxlintRun({ "a.ts": fiveParams("old") }, { "a.ts": fiveParams("old") + fiveParams("added") });
+  expect(r.status).toBe(1);
+  expect(r.out).toContain("a.ts:4 ");
+});
+
+test("pre-commit-oxlint leaves the dotfiles rules out of a repo with its own ESLint config", () => {
+  const r = oxlintRun(
+    { "eslint.config.js": "export default [];\n", "a.ts": "export const ok = 1;\n" },
+    { "a.ts": fiveParams("added") },
+  );
+  expect(r.status).toBe(0);
+});
+
+// complexity is 1 + one per branch; the finding sits on the function header.
+const branchy = (branches: number) =>
+  `export function f(x) {\n${Array.from({ length: branches }, (_, i) => `  if (x === ${i}) return ${i};\n`).join("")}  return -1;\n}\n`;
+
+test("pre-commit-oxlint treats a finding whose number changed as the committed one", () => {
+  const r = oxlintRun({ "a.ts": branchy(12) }, { "a.ts": branchy(11) });
+  expect(r.status).toBe(0);
+});

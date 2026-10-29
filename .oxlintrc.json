@@ -1,0 +1,22 @@
+{
+  "ignorePatterns": ["omp/extensions/herdr-omp-agent-state.ts"],
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.test.js", "**/*.spec.ts", "**/*.spec.tsx", "**/*.spec.js"],
+      "rules": {
+        "eslint/max-lines-per-function": "off",
+        "typescript/no-non-null-assertion": "off"
+      }
+    }
+  ],
+  "rules": {
+    "eslint/complexity": ["error", { "max": 10 }],
+    "eslint/max-depth": ["error", { "max": 3 }],
+    "eslint/max-lines-per-function": ["error", { "max": 60, "skipBlankLines": true, "skipComments": true }],
+    "eslint/max-params": ["error", { "max": 4 }],
+    "eslint/no-empty": "error",
+    "typescript/ban-ts-comment": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-non-null-assertion": "error"
+  }
+}

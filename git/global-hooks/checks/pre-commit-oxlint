@@ -1,0 +1,28 @@
+#!/bin/bash
+# Match the edit-time check (scripts/lint-on-edit) so manual commits enforce
+# the same policy: the team's lint config when the repository has one, the
+# dotfiles readability rules otherwise (lib/oxlint.bash). Findings already in
+# HEAD do not block (lib/baseline.bash); needs jq to tell new from old, without
+# it every finding blocks.
+set -euo pipefail
+
+command -v oxlint >/dev/null || exit 0
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+targets=()
+while IFS= read -r -d '' file; do
+	[[ -f $file ]] || continue
+	case $file in
+	*.ts | *.tsx | *.mts | *.cts | *.js | *.jsx | *.mjs | *.cjs) targets+=("$file") ;;
+	esac
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+((${#targets[@]})) || exit 0
+
+lib=$(dirname "$(readlink -f "$0")")/../lib
+# shellcheck disable=SC1091 # the sourced libs are linted on their own
+source "$lib/baseline.bash"
+# shellcheck disable=SC1091
+source "$lib/oxlint.bash"
+oxlint_setup
+command -v jq >/dev/null || exec oxlint ${OXLINT_ARGS[@]+"${OXLINT_ARGS[@]}"} --deny-warnings -- "${targets[@]}"
+baseline_check oxlint_rows "${targets[@]}"
