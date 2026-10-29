@@ -144,6 +144,9 @@ config of its own, `scripts/lint-on-edit` and the pre-commit oxlint check
 count the size limits from this dotfiles' `.oxlintrc.json` (complexity 10,
 nesting depth 3, 60-line functions, 4 parameters, no `any`, no non-null
 assertion, no `@ts-` suppression) and block only findings an edit adds.
+Type discipline (discriminated unions closed by a `never` check, `satisfies`,
+type guards that check what their name claims) and how to run and verify
+TS/JS are in `efficient-ts-js`.
 
 - **Functional core, imperative shell.** Decisions are pure functions over
   plain data (rows, snapshots, parsed input) that return a value or a
