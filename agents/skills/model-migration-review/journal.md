@@ -1,6 +1,35 @@
 # model migration journal
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
+## 2026-10-30 OMP advisor を gpt-5.6-terra → gpt-6.1-terra へ
+
+- 契機: ユーザーが `omp/config.yml` の `modelRoles.advisor` を変え、a8ee026 で
+  コミットした。pre-commit hook がジャーナル未記入を警告。同じコミットの
+  `retry.rateLimitWalksChain` と `prewalk.into` は pin ではないため対象外。
+- 収集した公式資料(取得日 2026-10-30):
+  https://developers.openai.com/api/docs/models/gpt-6.1-terra.md 、
+  https://developers.openai.com/api/docs/models/gpt-5.6-terra.md 、
+  https://developers.openai.com/api/docs/guides/latest-model.md 。
+  6.1 Terra は effort none〜max(既定 medium)、tool 呼び出しは Responses API 必須。
+  5.6 Terra からの移行は同じ effort で代表的な作業を比べるよう勧めている。
+  API 単価は入力 $2 → $1、出力 $12 → $5(/1M)。取得失敗なし。
+- 照合: `gpt-5.6-terra` への参照は journal と `docs/ops/` 以外に残っていない。
+  advisor に effort の指定はなく、`retry.fallbackChains` に terra の項目もない。
+  `docs/omp.md` のロール表はモデル名を書いていないので変更不要。
+  advisor の `reviewMode: agent-end` は 10-24 の実測に基づく規範で、モデルの癖への
+  回避策ではないため残す。OMP の `openai-codex` カタログは 6.1 Terra を
+  context 500K、effort low〜max と表示する(公式は 1.05M、none も可)。
+  OMP 側の上限であり設定で触る箇所はない。
+- 提案: 指示・設定の変更提案なし。計測待ち 1 件(下の「1週間後」)。
+- 検証: 新規プロセスの `omp config get modelRoles --json` が advisor に
+  `openai-codex/gpt-6.1-terra` を返した。`omp -p --no-session --model
+  openai-codex/gpt-6.1-terra` が応答した。その後 `scripts/model-pins ack`。
+  稼働中の OMP セッションは再起動するまで旧 advisor のまま。
+- 1週間後: 10-24 の基準(7 日で advisor 呼び出し 6314 回、注入 857 回)と
+  `agent-usage-weekly` で比べる。見るのは advisor の呼び出し数・注入数、
+  Codex 週次枠の消費、指摘の有用度。注入数が大きく増えるか有用度が落ちたら
+  gpt-5.6-terra へ戻す案を出す。
+
 ## 2026-10-27 Codex 正本を gpt-6.1-sol / low へ（再）
 
 - 契機: 週次 usage review で、user 層 `~/.codex/config.toml` の `gpt-6.1-sol` /
