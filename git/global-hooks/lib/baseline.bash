@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Sourced by the pre-commit checks that lint whole files (semgrep, zizmor,
 # dclint, hadolint, sqruff, the Compose checks). A staged file with a
 # violation the commit did not touch must not block the commit, while a

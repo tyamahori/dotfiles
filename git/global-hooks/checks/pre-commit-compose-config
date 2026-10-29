@@ -102,7 +102,7 @@ config_rows() (
 # shellcheck disable=SC2034 # read by baseline_check in the sourced lib
 BASELINE_EXTRA=(.)
 
-# shellcheck source-path=SCRIPTDIR source=../lib/baseline.bash
+# shellcheck disable=SC1091 # lib/baseline.bash is linted on its own
 source "$(dirname "$(readlink -f "$0")")/../lib/baseline.bash"
 if ! baseline_check config_rows "${targets[@]}"; then
 	echo "pre-commit: docker compose config rejected staged Compose files." >&2
