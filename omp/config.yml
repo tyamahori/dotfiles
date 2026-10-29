@@ -5,7 +5,7 @@ modelRoles:
   commit: anthropic/claude-haiku-5-5
   plan: anthropic/claude-fable-5-1
   slow: openai-codex/gpt-6-astra
-  advisor: openai-codex/gpt-5.6-terra
+  advisor: openai-codex/gpt-6.1-terra
   default: anthropic/claude-opus-5-5
   web: web/google
   tiny: local/lfm2.5-350m
@@ -52,6 +52,7 @@ retry:
   usageReservePolicy: auto
   modelFallback: true
   maxRetries: 4
+  rateLimitWalksChain: true
   maxDelayMs: 60000
 task:
   showResolvedModelBadge: true
@@ -74,6 +75,7 @@ lsp:
   diagnosticsOnEdit: true
 prewalk:
   auto: suggest
+  into: "@task"
 tools:
   xdevDocs: builtins
   xdevNotices: false
