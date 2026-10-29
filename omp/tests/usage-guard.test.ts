@@ -139,6 +139,19 @@ test("shows one widget line per logged-in Claude organisation, then Codex", asyn
   expect(lines).toEqual(["Claude personal A:10%(60m)", "Claude team A:60%(60m)", "Codex 3%(60m)"]);
 });
 
+test("warns about the Codex weekly pool once each time it crosses the reserve line", async () => {
+  blockNetwork();
+  const guard = usageHarness(
+    () => ({ provider: "anthropic", id: "claude-opus-5-5" }),
+    () => undefined,
+  );
+  for (const pct of [85, 90, 50, 85]) {
+    seedUsage([{ provider: "openai-codex", limitId: "openai-codex:primary", pct }]);
+    await guard.sessionStart();
+  }
+  expect(guard.notifications.map((m) => m.match(/\d+%/)?.[0])).toEqual(["85%", "85%"]);
+});
+
 test("uses the local rescue only when both pools are depleted and ollama serves qwen", async () => {
   seedUsage([
     { provider: "anthropic", account: "oauth|account:a|org:org-p", limitId: "anthropic:7d:fable", pct: 99 },

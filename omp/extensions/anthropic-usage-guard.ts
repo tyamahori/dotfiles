@@ -127,8 +127,9 @@ function limitMatches(limitId: string, filter: string): boolean {
 }
 
 /** filter に合う枠の使用率（整数%）。アカウント毎に最大を取り、
- *  アカウント間では最小（omp 本体が選べる最も余裕のあるアカウント）を返す。 */
-function latestUsedPct(rows: UsageRow[], provider: string, limitFilter: string): number | null {
+ *  アカウント間では最小（omp 本体が選べる最も余裕のあるアカウント）を返す。
+ *  合う枠が無ければ（記録が無い・期限切れ）、使っていない枠として 0。 */
+function latestUsedPct(rows: UsageRow[], provider: string, limitFilter: string): number {
   const perAccount = new Map<string, number>();
   for (const row of rows) {
     if (
@@ -143,7 +144,7 @@ function latestUsedPct(rows: UsageRow[], provider: string, limitFilter: string):
     }
     perAccount.set(row.accountKey, Math.max(perAccount.get(row.accountKey) ?? 0, row.pct));
   }
-  return perAccount.size === 0 ? null : Math.min(...perAccount.values());
+  return perAccount.size === 0 ? 0 : Math.min(...perAccount.values());
 }
 
 function formatReset(resetsAt: number | null): string {
@@ -223,21 +224,34 @@ async function ollamaHasModel(spec: string): Promise<boolean> {
   }
 }
 
+/** 使用率が閾値以上になったら一度だけ発火し、閾値を下回ると再び発火できるようになる。 */
+class ThresholdLatch {
+  private fired = false;
+
+  constructor(private readonly threshold: number) {}
+
+  /** 閾値以上でまだ発火していなければ true。閾値未満なら再武装して false。 */
+  armed(pct: number): boolean {
+    if (pct < this.threshold) this.fired = false;
+    return pct >= this.threshold && !this.fired;
+  }
+
+  fire(): void {
+    this.fired = true;
+  }
+}
+
 export default function (pi: ExtensionHandlerApi): void {
   pi.setLabel?.("Usage Guard");
 
   let inflight = false;
-  let codexNotifiedThisWindow = false;
-  let rescuedThisWindow = false;
+  const codexReserve = new ThresholdLatch(100 - USAGE_RESERVE_PCT);
+  const bothDepleted = new ThresholdLatch(DEPLETED_PCT);
 
   function checkCodex(ctx: Ctx, rows: UsageRow[]): void {
     const pct = latestUsedPct(rows, "openai-codex", "openai-codex:primary");
-    if (pct === null || pct < 100 - USAGE_RESERVE_PCT) {
-      codexNotifiedThisWindow = false;
-      return;
-    }
-    if (codexNotifiedThisWindow) return;
-    codexNotifiedThisWindow = true;
+    if (!codexReserve.armed(pct)) return;
+    codexReserve.fire();
     safeNotify(
       ctx,
       `usage-guard: Codex 週次枠 ${pct}% 使用（残り${100 - pct}% ≤ ${USAGE_RESERVE_PCT}%）。退避は retry.fallbackChains が処理`,
@@ -248,16 +262,13 @@ export default function (pi: ExtensionHandlerApi): void {
   async function checkLocalRescue(ctx: Ctx, rows: UsageRow[]): Promise<void> {
     const anthropicPct = latestUsedPct(rows, "anthropic", "anthropic:7d%");
     const codexPct = latestUsedPct(rows, "openai-codex", "openai-codex:primary");
-    if (anthropicPct === null || codexPct === null || anthropicPct < DEPLETED_PCT || codexPct < DEPLETED_PCT) {
-      rescuedThisWindow = false;
-      return;
-    }
-    if (rescuedThisWindow || ctx.models?.current()?.provider === "ollama") return;
+    if (!bothDepleted.armed(Math.min(anthropicPct, codexPct))) return;
+    if (ctx.models?.current()?.provider === "ollama") return;
     if (!(await ollamaHasModel(LOCAL_RESCUE_MODEL))) return;
 
     const target = await ctx.models?.resolve(LOCAL_RESCUE_MODEL);
     if (target && (await pi.setModel(target))) {
-      rescuedThisWindow = true;
+      bothDepleted.fire();
       safeNotify(
         ctx,
         `usage-guard: 両pool枯渇（Anthropic ${anthropicPct}% / Codex ${codexPct}%）→ ローカル ${LOCAL_RESCUE_MODEL} へ退避。戻すには /model`,
