@@ -52,7 +52,12 @@ machine-local state) — follow [`docs/new-machine.md`](docs/new-machine.md).
 blocks staged UUIDs, dollar-denominated measurements, and absolute `$HOME/`
 paths. Add machine-specific project or customer names to the gitignored
 `git/sensitive-patterns.local`, one literal string per line. Intentional public
-content can bypass the guard with `git commit --no-verify`. The post-merge hook
+content can bypass the guard with `git commit --no-verify`. The same hook
+checks staged TS/JS against `biome.json` (Biome formatter, installed via devbox
+global) and prints the `biome format --write` command for the files to fix.
+Pass Biome file paths only, never `.` or a directory: it follows symlinks out
+of the repository (scratch links into `$HOME`) and rewrites what it finds there.
+The post-merge hook
 runs `scripts/link` when a pull changes `agents/` or `omp/`, reruns
 `scripts/agent-tools` when it changes, and says when running OMP sessions need
 a restart.

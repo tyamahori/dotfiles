@@ -60,6 +60,25 @@ if [[ -n $pins ]]; then
 	printf 'Run the model-migration-review skill and record the result in agents/skills/model-migration-review/journal.md.\n' >&2
 fi
 
+# TS/JS formatting is this repository's own policy (biome.json); other
+# repositories keep their team's formatter, so it is not a global check. Biome
+# gets the staged paths only, never a directory: given `.` it follows symlinks
+# out of the repository and rewrites files under $HOME.
+if command -v biome >/dev/null; then
+	formatted=()
+	while IFS= read -r -d '' file; do
+		case $file in
+		*.ts | *.tsx | *.mts | *.cts | *.js | *.jsx | *.mjs | *.cjs) [[ -f $file ]] && formatted+=("$file") ;;
+		esac
+	done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+	if ((${#formatted[@]})) && ! biome format --no-errors-on-unmatched -- "${formatted[@]}" >/dev/null 2>&1; then
+		printf 'pre-commit: TS/JS is not formatted. Run:\n  biome format --write' >&2
+		printf ' %q' "${formatted[@]}" >&2
+		printf '\n' >&2
+		exit 1
+	fi
+fi
+
 # This repo sets a local core.hooksPath, which bypasses the machine-global
 # dispatcher. Hand off to it through its pre-commit symlink (the dispatcher
 # keys on its own name) so a check added there runs here too, instead of

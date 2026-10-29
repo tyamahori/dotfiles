@@ -79,10 +79,16 @@ test("pre-push-base-freshness blocks a stale fork in a single-branch clone", () 
   writeFileSync(join(bin, "gh"), "#!/bin/sh\necho feature-a\n");
   chmodSync(join(bin, "gh"), 0o755);
   const git = "git -c user.name=t -c user.email=t@example.com";
-  sh(dir, `git init -q --bare -b main remote.git && git clone -q remote.git seed 2>/dev/null && cd seed &&
+  sh(
+    dir,
+    `git init -q --bare -b main remote.git && git clone -q remote.git seed 2>/dev/null && cd seed &&
     ${git} commit -q --allow-empty -m root && git push -q origin main &&
-    git switch -q -c feature-a && ${git} commit -q --allow-empty -m a1 && git push -q origin feature-a`);
-  sh(dir, "git clone -q --single-branch --branch main remote.git work && cd work && git fetch -q origin feature-a && git switch -q -c stacked FETCH_HEAD");
+    git switch -q -c feature-a && ${git} commit -q --allow-empty -m a1 && git push -q origin feature-a`,
+  );
+  sh(
+    dir,
+    "git clone -q --single-branch --branch main remote.git work && cd work && git fetch -q origin feature-a && git switch -q -c stacked FETCH_HEAD",
+  );
   sh(join(dir, "seed"), `${git} commit -q --allow-empty -m a2 && git push -q origin feature-a`);
 
   const sha = sh(join(dir, "work"), "git rev-parse HEAD").out.trim();
@@ -96,10 +102,7 @@ test("pre-push-base-freshness blocks a stale fork in a single-branch clone", () 
 });
 
 // git/hooks/pre-commit is this repo's own hook; run a copy whose global hand-off is stubbed.
-test.each([
-  ["the last pattern of a patterns file without a trailing newline", "secretproject\nother", "mentions other thing\n"],
-  ["an added line that starts with ++", "secretproject\n", "++ secretproject\n"],
-])("dotfiles pre-commit blocks %s", (_case, patterns, added) => {
+function dotfilesHookRepo() {
   dir = mkdtempSync(join(tmpdir(), "global-hooks-"));
   mkdirSync(join(dir, "git/hooks"), { recursive: true });
   mkdirSync(join(dir, "git/global-hooks"));
@@ -107,13 +110,38 @@ test.each([
   writeFileSync(join(dir, "git/global-hooks/pre-commit"), "#!/bin/sh\nexit 0\n");
   chmodSync(join(dir, "git/hooks/pre-commit"), 0o755);
   chmodSync(join(dir, "git/global-hooks/pre-commit"), 0o755);
-  writeFileSync(join(dir, "git/sensitive-patterns.local"), patterns);
-  writeFileSync(join(dir, "notes.md"), added);
-  sh(dir, "git init -q && git add notes.md");
+  sh(dir, "git init -q");
+  return dir;
+}
 
-  const r = sh(dir, "git/hooks/pre-commit");
+test.each([
+  ["the last pattern of a patterns file without a trailing newline", "secretproject\nother", "mentions other thing\n"],
+  ["an added line that starts with ++", "secretproject\n", "++ secretproject\n"],
+])("dotfiles pre-commit blocks %s", (_case, patterns, added) => {
+  const repo = dotfilesHookRepo();
+  writeFileSync(join(repo, "git/sensitive-patterns.local"), patterns);
+  writeFileSync(join(repo, "notes.md"), added);
+  sh(repo, "git add notes.md");
+
+  const r = sh(repo, "git/hooks/pre-commit");
   expect(r.out).toContain("machine-local pattern");
   expect(r.status).toBe(1);
+});
+
+// The staged TS/JS is judged by this repo's biome.json (space indent).
+test.each<[string, string, number]>([
+  ["passes formatted TS/JS", "export const a = 1;\n", 0],
+  ["blocks unformatted TS/JS", "export const a=1\n", 1],
+])("dotfiles pre-commit %s", (_case, source, status) => {
+  const repo = dotfilesHookRepo();
+  writeFileSync(join(repo, "biome.json"), readFileSync(resolve(checks, "../../../biome.json")));
+  mkdirSync(join(repo, "src dir"));
+  writeFileSync(join(repo, "src dir/a.ts"), source);
+  sh(repo, "git add 'src dir/a.ts'");
+
+  const r = sh(repo, "git/hooks/pre-commit");
+  expect(r.status).toBe(status);
+  if (status) expect(r.out).toContain("biome format --write src\\ dir/a.ts");
 });
 
 // lib/baseline.bash with a stub tool reporting each line of file `f` that holds
