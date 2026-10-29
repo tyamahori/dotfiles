@@ -21,6 +21,8 @@ const PYTHON_COMMAND = /^(uv run|uvx|python3?)(\s|$)/;
 const JS_COMMAND = /^(bun (--no-install )?(run|-e)|node -e)(\s|$)/;
 const BROWSER_CALL = /\bbrowser\.open\s*\(/;
 const TEST_PATH = /(\.test\.|\.spec\.|_test\.|(^|\/)tests?\/|(^|\/)test_[^/]*\.py$)/;
+// TS/JS の形(関数の大きさ、class を使う場面、型の最小化)は software-design の TS 節にある。
+const TS_JS_PATH = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
 
 function bashSkills(command: string): string[] {
   const heads = command.split(/[;&|(\n]/).map((segment) => segment.trimStart());
@@ -44,7 +46,9 @@ export function triggeredSkills(event: ToolEvent): string[] {
   let skills: string[] = [];
   if (event.toolName === "bash" && typeof input.command === "string") skills = bashSkills(input.command);
   else if (event.toolName === "eval") skills = evalSkills(input);
-  if (editedPaths(event).some((path) => TEST_PATH.test(path))) skills.push("test-design");
+  const paths = editedPaths(event);
+  if (paths.some((path) => TEST_PATH.test(path))) skills.push("test-design");
+  if (paths.some((path) => TS_JS_PATH.test(path) && !TEST_PATH.test(path))) skills.push("software-design");
   return skills;
 }
 
