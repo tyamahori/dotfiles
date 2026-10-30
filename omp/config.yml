@@ -64,6 +64,7 @@ task:
     security-reviewer: "@slow"
     librarian: "@smol"
   enableLsp: true
+  file: true
 compaction:
   thresholdTokens: 160000
   methodOrder:
