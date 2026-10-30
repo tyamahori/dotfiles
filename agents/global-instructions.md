@@ -118,6 +118,12 @@ the criteria.
   checkboxes. Either way, state what is out of scope and what else the change
   could affect. Keep the description readable in a minute: link run logs,
   SHA lists, and metric tables instead of pasting them.
+- `gh` gains flags between releases, so before a `gh` subcommand you haven't
+  checked this session, read `gh help <command> <subcommand>` for the
+  installed version instead of relying on memory. For example, `--attach` on
+  `gh pr create|edit|comment` and `gh issue create|edit|comment` uploads a
+  local image or video into the body; use it for screenshots instead of
+  browser uploads or external hosting.
 
 ## Quality gates
 
