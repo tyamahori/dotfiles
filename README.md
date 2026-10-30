@@ -104,6 +104,11 @@ Shells without the plugin retain the normal Zsh completion menu.
 Kiro's optional graphical autocomplete uses its existing shell integration;
 keep the Kiro pre block first and the post block last in `.zshrc`, after
 prompt initialization. It is separate from fzf-tab and history suggestions.
+Inside Herdr panes, `.zshenv` sets `Q_TERM_DISABLED=1` so the Kiro terminal
+wrapper does not start: it would become the pane's foreground process
+(`zsh (kiro-cli-term)`), and `herdr agent start` rejects such a pane as
+not an available shell (`agent_pane_busy`). The graphical dropdown is
+therefore unavailable in Herdr panes.
 If `kiro-cli doctor --all` reports an outdated terminal integration or a
 failed Qterm socket connection, try `Q_NEW_SESSION=1 zsh -il` in a spare
 terminal pane and rerun the diagnostic there. This starts a nested shell;
