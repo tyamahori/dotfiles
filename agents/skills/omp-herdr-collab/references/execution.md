@@ -53,6 +53,10 @@ EOF
 $S/review-flow.py scaffold --dir .agent-msgs/fix-auth --tag findings
 $S/review-flow.py scaffold --dir .agent-msgs/fix-auth --tag verified
 
+# reviewer が返却前に自分で実行する検査（台帳へは書かない）。
+$S/review-flow.py check-return --dir .agent-msgs/fix-auth \
+  .agent-msgs/fix-auth/artifacts/myrepo-codex-findings.md
+
 # ピアの return file を採番・header 生成・検証して台帳へ取り込む。
 $S/send.sh --record-only --from myrepo-codex --to myrepo-omp \
   --tag findings --flow fix-auth \

@@ -707,8 +707,9 @@ decline or timeout is non-go: panel never silently becomes single.
 
 - **Inside Herdr**: `omp-herdr-collab` stores one flow ledger under
   `.agent-msgs/`, validates every review tag before delivery, scaffolds
-  return-file skeletons (`review-flow.py scaffold`), and prints the next
-  action with `review-flow.py status`.
+  return-file skeletons (`review-flow.py scaffold`), lets reviewers check a
+  return file before handing it back (`review-flow.py check-return`), and
+  prints the next action with `review-flow.py status`.
 - **Outside Herdr**: there is no skill-based transport. An occasional second
   opinion from a GUI Claude or Codex session is a manual paste of the
   template and artifact; it carries no review tags and never claims review

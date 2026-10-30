@@ -31,7 +31,10 @@
    返却前に skeleton と項目を照合する。各フィールドは値まで1行で書き、
    空値、未記入の `TODO`、独自項目、コードフェンスを残さない。
    空の ID リストは `none` と書く。説明は既定の evidence / verification の値に収める。
-   書き終えたら turn を終える。coordinator への send / prompt は実行しない。
+   書き終えたら
+   `~/.agents/skills/omp-herdr-collab/scripts/review-flow.py check-return --dir <ledger-directory> <return file>`
+   を実行し、`ok:` が出るまで直す（台帳には書き込まない検査で、coordinator の取り込みと同じ検証をする）。
+   通ったら turn を終える。coordinator への send / prompt は実行しない。
 6. `[APPLIED]` が届いたら、初回の固定 `revision` から `result-revision` までの
    全差分、以前の全指摘、変更した契約の影響範囲を確認する。初回は対象全体を読む。
    再確認では変更のないファイルを一律に読み直さず、囲む関数・呼び出し元・関連する

@@ -27,6 +27,7 @@ REVIEW_TAGS = {
     "fyi": "FYI",
 }
 FLOW_REVIEW_TAGS = REVIEW_TAGS.keys() - {"fyi"}
+RETURN_TAGS = ("findings", "cross-check", "verified")
 TAG_TO_FILE = {value: key for key, value in REVIEW_TAGS.items()}
 FILE_NAME_RE = re.compile(r"^(?P<number>[0-9]+)-(?P<tag>[a-z-]+)\.md$")
 TITLE_RE = re.compile(
@@ -101,7 +102,7 @@ def fail(message: str) -> NoReturn:
     raise ValidationError(message)
 
 
-def parse_message(path: Path) -> Message:
+def parse_message(path: Path, text: str | None = None) -> Message:
     match = FILE_NAME_RE.fullmatch(path.name)
     if not match:
         fail(f"{path}: filename must be NN-<tag>.md")
@@ -110,7 +111,7 @@ def parse_message(path: Path) -> Message:
         fail(f"{path}: not a review message")
 
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = (path.read_text(encoding="utf-8") if text is None else text).splitlines()
     except OSError as error:
         fail(f"{path}: cannot read message: {error}")
 
@@ -795,7 +796,7 @@ def validate_panel_relay(
             fail(f"{message.path.name}: {key} must identify the corresponding FINDINGS file")
 
 
-def review_messages(directory: Path) -> list[Message]:
+def review_messages(directory: Path, candidate: Message | None = None) -> list[Message]:
     if not directory.is_dir():
         fail(f"{directory}: not a directory")
     messages: list[Message] = []
@@ -811,6 +812,8 @@ def review_messages(directory: Path) -> list[Message]:
             fail(f"{directory}: duplicate message number {message.number}")
         used_numbers.add(message.number)
         messages.append(message)
+    if candidate is not None:
+        messages.append(candidate)
 
     messages.sort(key=lambda message: message.number)
     if not messages or messages[0].tag != "review-req" or messages[0].values.get("review-mode") != "panel":
@@ -989,8 +992,8 @@ def validate_panel_flow(directory: Path, messages: list[Message], request: Messa
     return ("closed-risk" if outcome == "accept-risk" else "rework"), result_revision
 
 
-def validate_flow(directory: Path) -> tuple[str, str]:
-    messages = review_messages(directory)
+def validate_flow(directory: Path, candidate: Message | None = None) -> tuple[str, str]:
+    messages = review_messages(directory, candidate)
     if not messages:
         fail(f"{directory}: no review messages")
     actual_tags = [message.tag for message in messages]
@@ -1083,6 +1086,40 @@ def command_validate_message(path_value: str) -> int:
     message = parse_message(path)
     validate_flow(message.path.parent)
     return 0
+
+
+def command_check_return(directory_value: str, file_value: str) -> int:
+    """Validate a body-only return file as if send.sh --record-only appended it now; writes nothing."""
+    directory, path = Path(directory_value), Path(file_value)
+    try:
+        body = path.read_text(encoding="utf-8")
+    except OSError as error:
+        fail(f"{path}: cannot read return file: {error}")
+    lines = body.splitlines()
+    title = TITLE_RE.fullmatch(lines[0]) if lines else None
+    if not title or TAG_TO_FILE[title.group("tag")] not in RETURN_TAGS:
+        fail(
+            f"{path.name}: first line must be the [FINDINGS], [CROSS-CHECK], or [VERIFIED] title; "
+            "write the body only, without from/to/date headers"
+        )
+    tag = TAG_TO_FILE[title.group("tag")]
+    sender = path.name.removesuffix(f"-{tag}.md")
+    if not sender or sender == path.name:
+        fail(f"{path.name}: return file must be named <sender>-{tag}.md")
+    if any(line == f"[{title.group('tag')}] TODO" or line.endswith(": TODO") for line in lines):
+        fail(f"{path.name}: replace every scaffold TODO before returning")
+
+    messages = review_messages(directory)
+    if not messages or messages[0].tag != "review-req":
+        fail(f"{directory}: review flow must begin with review-req")
+    number = 1 + max(
+        int(match.group("number"), 10) for item in directory.iterdir() if (match := FILE_NAME_RE.fullmatch(item.name))
+    )
+    header = f"from: {sender}\nto: {messages[0].value('implementer')}\ndate: {datetime.now().strftime(DATE_FORMAT)}\n\n"
+    validate_flow(directory, parse_message(directory / f"{number:02d}-{tag}.md", header + body))
+    print(f"ok: {path}")
+    return 0
+
 
 
 def scaffold_path(request: Message, reviewer: str, tag: str, output: str | None) -> Path:
@@ -1229,6 +1266,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     subcommands = parser.add_subparsers(dest="command", required=True)
     validate = subcommands.add_parser("validate-message", help="validate a review message and its containing flow")
     validate.add_argument("file", metavar="FILE")
+    check = subcommands.add_parser("check-return", help="check a body-only return file against the flow without recording it")
+    check.add_argument("--dir", required=True, metavar="DIR")
+    check.add_argument("file", metavar="FILE")
     for command in ("status", "require-closed"):
         state = subcommands.add_parser(command, help="report a review flow state")
         state.add_argument("--dir", required=True, metavar="DIR")
@@ -1245,6 +1285,8 @@ def main(argv: list[str]) -> int:
     try:
         if args.command == "validate-message":
             return command_validate_message(args.file)
+        if args.command == "check-return":
+            return command_check_return(args.dir, args.file)
         if args.command == "scaffold":
             return command_scaffold(args.dir, args.tag, args.reviewer, args.out)
         return command_status(args.dir, args.command == "require-closed")

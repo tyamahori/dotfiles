@@ -661,6 +661,58 @@ class ReviewFlowTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("reviewer: reviewer-b\nlens: security\n", output.read_text(encoding="utf-8"))
 
+    def test_check_return_accepts_ready_findings_without_recording(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            review_request(directory)
+            returned = directory / "artifacts" / "reviewer-findings.md"
+            returned.parent.mkdir()
+            returned.write_text(
+                "[FINDINGS] parser lifecycle\n"
+                f"reviewed-revision: {BASE_REVISION}\n"
+                "scope: agents/skills/herdr-collab\n"
+                "verification: Ran the contract tests\n"
+                "count: 0\n"
+                "pre-existing: none\n",
+                encoding="utf-8",
+            )
+
+            result = self.invoke("check-return", "--dir", str(directory), str(returned))
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(sorted(path.name for path in directory.glob("*.md")), ["01-review-req.md"])
+
+    def test_check_return_rejects_files_the_coordinator_could_not_record(self) -> None:
+        valid_body = (
+            "[FINDINGS] parser lifecycle\n"
+            f"reviewed-revision: {BASE_REVISION}\n"
+            "scope: agents/skills/herdr-collab\n"
+            "verification: Ran the contract tests\n"
+            "count: 0\n"
+            "pre-existing: none\n"
+        )
+        cases = {
+            "paraphrased scope": ("reviewer-findings.md", valid_body.replace("herdr-collab\n", "herdr-collab skill\n"), "scope must equal"),
+            "scaffold TODO left": ("reviewer-findings.md", valid_body.replace("Ran the contract tests", "TODO"), "TODO"),
+            "generated headers written": (
+                "reviewer-findings.md",
+                "from: reviewer\nto: implementer\ndate: 2026-08-22 12:00:00\n\n" + valid_body,
+                "without from/to/date headers",
+            ),
+            "unnamed sender": ("findings.md", valid_body, "<sender>-findings.md"),
+        }
+        for case, (name, body, expected_error) in cases.items():
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                review_request(directory)
+                returned = directory / name
+                returned.write_text(body, encoding="utf-8")
+
+                result = self.invoke("check-return", "--dir", str(directory), str(returned))
+
+                self.assertEqual(result.returncode, 2)
+                self.assertIn(expected_error, result.stderr)
+
     def test_panel_cross_check_scaffold_lists_peer_high_mid_ids(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
