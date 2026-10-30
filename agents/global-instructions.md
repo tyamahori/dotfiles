@@ -156,7 +156,9 @@ then end the turn (measured).
   sections, freshness-sensitive facts, or snapshots needed for anchored
   edits. After compaction, recover requirements from sources; don't guess.
 - Pass bulky material as a file path.
-- Use non-interactive output and keep TUIs out of pipelines.
+- Use non-interactive output and keep TUIs out of pipelines. Give unattended
+  CLI calls (`codex exec`, `claude -p`) an explicit stdin (`</dev/null`, a
+  heredoc, or a file) so they cannot block waiting for input.
 - Don't switch models mid-session; the new model starts with an empty cache.
   Start fresh with a handoff instead. Automatic quota fallback is exempt.
 
