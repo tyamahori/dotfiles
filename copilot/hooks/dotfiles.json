@@ -2,7 +2,7 @@
   "hooks": {
     "preToolUse": [
       {
-        "bash": "\"$HOME/.local/share/devbox/global/default/.devbox/nix/profile/default/bin/bun\" \"$HOME/dotfiles/scripts/deny-command-hook.ts\" copilot",
+        "bash": "\"$HOME/.bun/bin/bun\" \"$HOME/dotfiles/scripts/deny-command-hook.ts\" copilot",
         "timeoutSec": 10,
         "type": "command"
       }
