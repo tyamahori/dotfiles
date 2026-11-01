@@ -13,7 +13,8 @@ and isolation rules live in the global instructions.
 For symbols in TypeScript, Go, or Python—callers, references, definitions,
 implementations, renames, type questions—call `xd://lsp` first; grep is for
 strings, comments, config, and languages without a server. When `lsp` reports
-no server, say so once and fall back to grep.
+no server, say so once and use the `idea` MCP tools if the project is open in
+IntelliJ IDEA; otherwise fall back to grep.
 
 # Wait on events, not timers
 

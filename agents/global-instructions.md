@@ -214,6 +214,11 @@ Without a Git toplevel, skip the copy and say so.
 - Structural edits: language-server rename/references when available; for
   repeated rewrites, OMP `ast_edit` or `structural-edit`/`ast-grep`. Preview
   first; parse errors are failures.
+- A project open in IntelliJ IDEA exposes the `idea` MCP server: use it for
+  languages without a language server (Java, Kotlin, PHP, SQL) and for IDE-only
+  work (inspections, build, run configurations, database, Xdebug), passing the
+  repo root as `projectPath`. Run configurations wait for confirmation in the
+  IDE, so unattended work runs tests from the shell.
 - Slack messages posted or updated on my behalf, by any tool or identity, must
   end exactly with `[自動投稿です。玉堀の秘書システムによるものです。]`.
   Check the final body before sending; prefer an existing guarded wrapper.
