@@ -512,21 +512,27 @@ else
 	echo "> 閾値: peak context >= ${CONTEXT_PEAK_TOKENS} tokens または単一応答間の増分 >= ${CONTEXT_JUMP_TOKENS} tokens。session_file はローカル調査用。"
 	echo
 	echo 'session_file	role	calls	peak_context	max_context_jump	models'
+	# 増分は同一モデル内で取る。main には数 k 文脈の小モデル呼出（haiku 等）が挟まり、
+	# モデルをまたいで差を取ると急増に見える（2026-11-01: 50k 超 110 件中 107 件がこれ）。
+	# 直前の文脈が 0 のレコード（中断した呼出）も起点にしない。
 	OMP_CONTEXT_GROWTH="$(
 		sqlite3 -noheader -separator $'\t' "$OMP_STATS" "
 			WITH ordered AS (
 				SELECT session_file, agent_type, timestamp, model,
 				       input_tokens + cache_read_tokens + cache_write_tokens AS context_tokens,
-				       (input_tokens + cache_read_tokens + cache_write_tokens)
-				         - LAG(input_tokens + cache_read_tokens + cache_write_tokens)
-				           OVER (PARTITION BY session_file, agent_type ORDER BY timestamp) AS context_delta
+				       LAG(input_tokens + cache_read_tokens + cache_write_tokens)
+				         OVER (PARTITION BY session_file, agent_type, model ORDER BY timestamp) AS prev_context
 				FROM messages
 				WHERE timestamp >= $CUTOFF_MS
+			), deltas AS (
+				SELECT session_file, agent_type, model, context_tokens,
+				       CASE WHEN prev_context > 0 THEN context_tokens - prev_context END AS context_delta
+				FROM ordered
 			)
 			SELECT session_file, agent_type, COUNT(*), MAX(context_tokens),
 			       MAX(CASE WHEN context_delta > 0 THEN context_delta ELSE 0 END),
 			       COUNT(DISTINCT model)
-			FROM ordered
+			FROM deltas
 			GROUP BY session_file, agent_type
 			HAVING MAX(context_tokens) >= $CONTEXT_PEAK_TOKENS
 			    OR MAX(CASE WHEN context_delta > 0 THEN context_delta ELSE 0 END) >= $CONTEXT_JUMP_TOKENS
