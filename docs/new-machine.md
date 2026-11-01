@@ -84,6 +84,11 @@ Playwright CLI/MCP の導入、再起動後の検出、ブラウザ操作の使�
 Karabiner-Elements、Raycast、SoundSourceなどは初回起動時にアクセシビリティや入力監視の許可を求める。
 OrbStack、Superwhisper、Slackなどは各自サインインする。
 
+### IntelliJ IDEAのMCP Server
+
+Settings | Tools | MCP Server で Enable MCP Server を有効にし、Clients Auto-Configuration で Claude Code と Codex を設定する（ポートは IDE が決めるので dotfiles に直書きしない）。
+Brave mode（Run shell commands or run configurations without confirmation）は無効のままにする。有効にするとシェルと run configuration が確認なしで IDE 内で動き、OMP の bash フックや `restrictedFolders` を通らない。
+
 ## 5. jbcontextを再構築する（setupは面倒を見ない）
 
 セマンティック検索のjbcontextは自前のインストーラで `~/.jbcontext/` に入り、dotfilesの自動化の外にある。
