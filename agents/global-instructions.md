@@ -262,6 +262,11 @@ is only for account switching, usage dashboards, automations, and GitHub
 tasks; never use it, `orchestration`, or `orca-cli` for terminals or
 coordination.
 
+In a `devvm` project VM, run claude and codex in Herdr panes
+(`herdr --machine <vm> agent start …`) so the user can watch and interrupt
+them; use `orb -m <vm> zsh -lc '…'` only for short commands whose exit code
+and output are the result (tests, git, package installs).
+
 <!-- jbcontext-instructions-start -->
 ## Semantic Code Search (jbcontext)
 
