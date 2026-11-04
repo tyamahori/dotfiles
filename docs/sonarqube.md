@@ -13,6 +13,7 @@ rootの`sonar-project.properties`でopt-inと解析範囲を定義する。
 | --- | --- |
 | dotfiles | Homebrew packages、OrbStack Compose、`sonar-quality-gate`、global agent instructions |
 | macOS Keychain | local admin password、analysis token |
+| VMの`~/.config/sonar-quality-gate/token` | `devvm up`がVMごとに発行したanalysis token |
 | Docker volumes | SonarQubeの解析履歴とServer data |
 | 解析対象リポジトリ | rootの`sonar-project.properties` |
 
@@ -119,6 +120,24 @@ bun test --coverage --coverage-reporter=text --coverage-reporter=lcov \
 古い計測結果は使わない。
 `sonar-project.properties`は、この実行で生成した`lcov.info`を読み込むため、Gateの前には一部だけでなく全テストを計測し直す。
 テストコードは`sonar.tests`へ登録し、production codeの解析・カバレッジ対象とは分ける。
+
+### OrbStack VMから実行する
+
+`devvm`で作ったVMの中では、`sonar-quality-gate`はMacのServerへ接続するだけのclientとして動く。
+VMのDockerでServerを起動すると、解析結果が空の別Serverへ送られてしまうためである。
+VMでは上の手順のうち1、3、4を行わない。
+
+tokenは`SONAR_TOKEN`、なければ`~/.config/sonar-quality-gate/token`から読む。
+Macで`devvm up`を実行すると、`dotfiles-quality-gate-<VM名>`という名前のanalysis tokenを発行してこのfileへ書き込む。
+発行だけなら、Macで次を実行してもよい。
+Macの解析に使うKeychainのtokenは置き換わらない。
+
+```bash
+sonar-quality-gate --issue-token <VM名>
+```
+
+MacのServerが止まっている場合、VMのcommandは`SonarQube is not up`で失敗する。
+Macで一度`sonar-quality-gate`を実行してServerを起動する。
 
 ## 解析結果をブラウザで確認する
 

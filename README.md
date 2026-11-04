@@ -764,10 +764,12 @@ git, curl, build-essential, and passwordless sudo for the Nix and Devbox install
 repositories; on a host without passwordless sudo it prompts once.
 
 Some parts stay macOS-only by design, and Linux skips them: the Brewfile
-(apps, Keychain/GUI tools), the launchd jobs (`scripts/link` has no systemd
-equivalent, so the weekly/quarterly reviews do not run), and
-`scripts/sonar-quality-gate` (it requires macOS `dscacheutil` and bootstraps its
-token from the Keychain, so it exits early on Linux). On Linux, Ghostty comes from the Ubuntu archive rather than devbox: the
+(apps, Keychain/GUI tools) and the launchd jobs (`scripts/link` has no systemd
+equivalent, so the weekly/quarterly reviews do not run). On Linux
+`scripts/sonar-quality-gate` is only a client of the Mac's SonarQube: it never
+starts a server and reads its token from `SONAR_TOKEN` or
+`~/.config/sonar-quality-gate/token`, which `devvm up` issues (see
+[`docs/sonarqube.md`](docs/sonarqube.md)). On Linux, Ghostty comes from the Ubuntu archive rather than devbox: the
 nixpkgs build needs the host's mesa through `LD_LIBRARY_PATH`, which leaked
 into every shell and broke nix binaries once nixpkgs' glibc was newer than the
 host's.

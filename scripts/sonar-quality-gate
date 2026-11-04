@@ -14,55 +14,29 @@ fail() {
 	exit 1
 }
 
-project_root=$(git rev-parse --show-toplevel 2>/dev/null) ||
-	fail "run this command inside a Git repository"
-
-if [[ ! -f "$project_root/sonar-project.properties" ]]; then
-	echo "sonar-quality-gate: skipped; $project_root has no sonar-project.properties"
-	exit 0
-fi
-
-# The subset of .properties syntax a hand-written file uses: `key = value` or
-# `key:value`, a last line without a newline, and `\` line continuations.
-read_property() {
-	local re="^${1//./\\.}[[:space:]]*[=:][[:space:]]*(.*)$"
-	local line value="" found=""
-	while IFS= read -r line || [[ -n $line ]]; do
-		line=${line#"${line%%[![:space:]]*}"}
-		if [[ -n $found ]]; then
-			value+=$line
-		elif [[ $line =~ $re ]]; then
-			value=${BASH_REMATCH[1]}
-			found=1
-		else
-			continue
-		fi
-		[[ $value == *\\ ]] || break
-		value=${value%\\}
-	done <"$project_root/sonar-project.properties"
-	[[ -n $found ]] || return 1
-	printf '%s' "$value"
+require() {
+	local command_name
+	for command_name in "$@"; do
+		command -v "$command_name" >/dev/null 2>&1 || fail "$command_name is required"
+	done
 }
 
-project_key=$(read_property sonar.projectKey) ||
-	fail "sonar-project.properties must define sonar.projectKey"
-project_name=$(read_property sonar.projectName || true)
-project_name=${project_name:-$project_key}
-
-sonar_exclusions=$(read_property sonar.exclusions || true)
-while IFS= read -r -d '' path; do
-	if [[ $path == *','* || $path == *'*'* || $path == *'?'* || $path == *$'\n'* ]]; then
-		fail "cannot safely exclude Git-untracked path from SonarQube: $path"
-	fi
-	sonar_exclusions="${sonar_exclusions:+$sonar_exclusions,}$path"
-done < <(git -C "$project_root" ls-files --others --exclude-standard -z)
-
-[[ -f $COMPOSE_FILE ]] || fail "missing $COMPOSE_FILE; run ~/dotfiles/scripts/link"
-for command_name in curl docker dscacheutil jq sonar-scanner; do
-	command -v "$command_name" >/dev/null 2>&1 || fail "$command_name is required"
-done
+os=$(uname -s)
+issue_name=
+if [[ ${1:-} == --issue-token ]]; then
+	issue_name=${2:-}
+	[[ -n $issue_name ]] || fail "usage: sonar-quality-gate --issue-token <name>"
+fi
 
 start_server() {
+	if [[ $os != Darwin ]]; then
+		# A Linux VM is only a client of the Mac's server: starting one in the
+		# VM's own Docker would analyse into a second, empty SonarQube.
+		curl -fsS "$SONAR_HOST_URL/api/system/status" 2>/dev/null | jq -e '.status == "UP"' >/dev/null ||
+			fail "SonarQube is not up at $SONAR_HOST_URL; run sonar-quality-gate on the Mac to start it"
+		return
+	fi
+
 	docker compose -f "$COMPOSE_FILE" up -d
 
 	if [[ $SONAR_HOST_URL == http://sonarqube.local ]]; then
@@ -130,47 +104,59 @@ managed_token_valid() {
 		>/dev/null <<<"$tokens"
 }
 
-bootstrap_token() {
+# Prints the local admin password, replacing SonarQube's default on first use.
+admin_password() {
 	command -v security >/dev/null 2>&1 ||
 		fail "set SONAR_TOKEN; automatic local bootstrap requires macOS Keychain"
 	command -v openssl >/dev/null 2>&1 || fail "openssl is required for local bootstrap"
 
-	local admin_password
-	if admin_password=$(keychain_secret admin "$ADMIN_SERVICE") &&
-		valid_admin_password "$admin_password"; then
-		:
-	else
-		local default_auth
-		default_auth=$(curl -fsS -u admin:admin "$SONAR_HOST_URL/api/authentication/validate" 2>/dev/null || true) # gitleaks:allow (SonarQube's documented default, probed to confirm it's unchanged)
-		jq -e '.valid == true' >/dev/null 2>&1 <<<"$default_auth" ||
-			fail "local admin credentials are already changed; set SONAR_TOKEN or restore the $ADMIN_SERVICE Keychain item"
-
-		admin_password="A1a!$(openssl rand -hex 20)" ||
-			fail "could not generate the local admin password"
-		curl -fsS -u admin:admin -X POST --data-urlencode login=admin --data-urlencode previousPassword=admin --data-urlencode "password=$admin_password" "$SONAR_HOST_URL/api/users/change_password" >/dev/null || # gitleaks:allow (SonarQube's documented default, being replaced below)
-			fail "could not change the default local admin password"
-		store_keychain_secret admin "$ADMIN_SERVICE" "$admin_password" ||
-			fail "could not store the local admin password in Keychain"
+	local password
+	if password=$(keychain_secret admin "$ADMIN_SERVICE") &&
+		valid_admin_password "$password"; then
+		printf '%s' "$password"
+		return
 	fi
 
-	local tokens
-	tokens=$(curl -fsS -u "admin:$admin_password" "$SONAR_HOST_URL/api/user_tokens/search") ||
+	local default_auth
+	default_auth=$(curl -fsS -u admin:admin "$SONAR_HOST_URL/api/authentication/validate" 2>/dev/null || true) # gitleaks:allow (SonarQube's documented default, probed to confirm it's unchanged)
+	jq -e '.valid == true' >/dev/null 2>&1 <<<"$default_auth" ||
+		fail "local admin credentials are already changed; set SONAR_TOKEN or restore the $ADMIN_SERVICE Keychain item"
+
+	password="A1a!$(openssl rand -hex 20)" ||
+		fail "could not generate the local admin password"
+	curl -fsS -u admin:admin -X POST --data-urlencode login=admin --data-urlencode previousPassword=admin --data-urlencode "password=$password" "$SONAR_HOST_URL/api/users/change_password" >/dev/null || # gitleaks:allow (SonarQube's documented default, being replaced below)
+		fail "could not change the default local admin password"
+	store_keychain_secret admin "$ADMIN_SERVICE" "$password" ||
+		fail "could not store the local admin password in Keychain"
+	printf '%s' "$password"
+}
+
+# Revokes any token with this name, then prints a fresh global analysis token.
+generate_token() {
+	local name=$1
+	local password tokens token_response
+	password=$(admin_password) || return 1
+	tokens=$(curl -fsS -u "admin:$password" "$SONAR_HOST_URL/api/user_tokens/search") ||
 		fail "could not list local SonarQube tokens"
-	if jq -e --arg name "$TOKEN_NAME" '.userTokens[]? | select(.name == $name)' >/dev/null <<<"$tokens"; then
-		curl -fsS -u "admin:$admin_password" -X POST \
-			--data-urlencode "name=$TOKEN_NAME" \
+	if jq -e --arg name "$name" '.userTokens[]? | select(.name == $name)' >/dev/null <<<"$tokens"; then
+		curl -fsS -u "admin:$password" -X POST \
+			--data-urlencode "name=$name" \
 			"$SONAR_HOST_URL/api/user_tokens/revoke" >/dev/null ||
 			fail "could not revoke the stale local analysis token"
 	fi
 
-	local token_response token
-	token_response=$(curl -fsS -u "admin:$admin_password" -X POST \
-		--data-urlencode "name=$TOKEN_NAME" \
+	token_response=$(curl -fsS -u "admin:$password" -X POST \
+		--data-urlencode "name=$name" \
 		--data-urlencode type=GLOBAL_ANALYSIS_TOKEN \
 		"$SONAR_HOST_URL/api/user_tokens/generate") ||
 		fail "could not generate the local analysis token"
-	token=$(jq -er '.token' <<<"$token_response") ||
+	jq -er '.token' <<<"$token_response" ||
 		fail "the local token response did not contain a token"
+}
+
+bootstrap_token() {
+	local token
+	token=$(generate_token "$TOKEN_NAME") || return 1
 	store_keychain_secret "$TOKEN_ACCOUNT" "$TOKEN_SERVICE" "$token" ||
 		fail "could not store the local analysis token in Keychain"
 	printf '%s' "$token"
@@ -198,11 +184,77 @@ ensure_project() {
 		fail "could not create local SonarQube project $project_key"
 }
 
+# devvm calls this on the Mac to give a VM its own analysis token; the Mac's
+# Keychain token stays as it is.
+if [[ -n $issue_name ]]; then
+	[[ $os == Darwin ]] || fail "--issue-token runs on the Mac that hosts SonarQube"
+	[[ -f $COMPOSE_FILE ]] || fail "missing $COMPOSE_FILE; run ~/dotfiles/scripts/link"
+	require curl docker dscacheutil jq
+	start_server >&2
+	generate_token "dotfiles-quality-gate-$issue_name" || fail "could not issue a token for $issue_name"
+	exit 0
+fi
+
+project_root=$(git rev-parse --show-toplevel 2>/dev/null) ||
+	fail "run this command inside a Git repository"
+
+if [[ ! -f "$project_root/sonar-project.properties" ]]; then
+	echo "sonar-quality-gate: skipped; $project_root has no sonar-project.properties"
+	exit 0
+fi
+
+# The subset of .properties syntax a hand-written file uses: `key = value` or
+# `key:value`, a last line without a newline, and `\` line continuations.
+read_property() {
+	local re="^${1//./\\.}[[:space:]]*[=:][[:space:]]*(.*)$"
+	local line value="" found=""
+	while IFS= read -r line || [[ -n $line ]]; do
+		line=${line#"${line%%[![:space:]]*}"}
+		if [[ -n $found ]]; then
+			value+=$line
+		elif [[ $line =~ $re ]]; then
+			value=${BASH_REMATCH[1]}
+			found=1
+		else
+			continue
+		fi
+		[[ $value == *\\ ]] || break
+		value=${value%\\}
+	done <"$project_root/sonar-project.properties"
+	[[ -n $found ]] || return 1
+	printf '%s' "$value"
+}
+
+project_key=$(read_property sonar.projectKey) ||
+	fail "sonar-project.properties must define sonar.projectKey"
+project_name=$(read_property sonar.projectName || true)
+project_name=${project_name:-$project_key}
+
+sonar_exclusions=$(read_property sonar.exclusions || true)
+while IFS= read -r -d '' path; do
+	if [[ $path == *','* || $path == *'*'* || $path == *'?'* || $path == *$'\n'* ]]; then
+		fail "cannot safely exclude Git-untracked path from SonarQube: $path"
+	fi
+	sonar_exclusions="${sonar_exclusions:+$sonar_exclusions,}$path"
+done < <(git -C "$project_root" ls-files --others --exclude-standard -z)
+
+if [[ $os == Darwin ]]; then
+	[[ -f $COMPOSE_FILE ]] || fail "missing $COMPOSE_FILE; run ~/dotfiles/scripts/link"
+	require curl docker dscacheutil jq sonar-scanner
+else
+	require curl jq sonar-scanner
+fi
 start_server
 
 if [[ -n ${SONAR_TOKEN:-} ]]; then
 	valid_token "$SONAR_TOKEN" || fail "SONAR_TOKEN is not valid for $SONAR_HOST_URL"
 	token=$SONAR_TOKEN
+elif [[ $os != Darwin ]]; then
+	token_file=${XDG_CONFIG_HOME:-$HOME/.config}/sonar-quality-gate/token
+	[[ -r $token_file ]] ||
+		fail "set SONAR_TOKEN or write $token_file; on the Mac, devvm up issues one"
+	token=$(<"$token_file")
+	valid_token "$token" || fail "$token_file is not valid for $SONAR_HOST_URL; rerun devvm up on the Mac"
 elif token=$(keychain_secret "$TOKEN_ACCOUNT" "$TOKEN_SERVICE") && managed_token_valid "$token"; then
 	ensure_project
 else
