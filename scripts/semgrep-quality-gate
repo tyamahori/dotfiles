@@ -36,6 +36,9 @@ cd "$project_root"
 # Output is captured and shown only on failure: success costs one line of
 # agent context instead of ~27, and unlike --quiet (which also swallows
 # rule-file parse errors) the failure path keeps the full diagnosis.
+# The PyPI semgrep-core segfaults under Ubuntu's 8 MiB default stack on
+# aarch64-linux; macOS caps the hard limit, so a refusal there is harmless.
+ulimit -s unlimited 2>/dev/null || true
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
 if semgrep scan \

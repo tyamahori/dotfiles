@@ -822,8 +822,10 @@ the actual upstream source.
 On aarch64-linux (arm64 OrbStack VMs) the package is excluded via
 `excluded_platforms`: nixpkgs' patchelf aborts on the prebuilt `semgrep-core`
 there (`Assertion splitIndex == -1 failed`), which fails the whole
-`devbox global install`. The pre-commit check skips itself when `semgrep` is
-absent. Drop the exclusion once that build succeeds on aarch64-linux.
+`devbox global install`. `scripts/python` installs the PyPI wheel with
+`uv tool install semgrep` there instead, so the pre-commit check and
+`semgrep-quality-gate` still run. Drop both once the devbox build succeeds on
+aarch64-linux.
 
 `./scripts/sync` never runs `git add`: stage exactly the files you want synced
 first. It refuses to run while `docs/ops` has staged changes (unstage the

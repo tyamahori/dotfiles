@@ -16,6 +16,9 @@
 set -euo pipefail
 
 command -v semgrep >/dev/null || exit 0
+# The PyPI semgrep-core segfaults under Ubuntu's 8 MiB default stack on
+# aarch64-linux; macOS caps the hard limit, so a refusal there is harmless.
+ulimit -s unlimited 2>/dev/null || true
 
 repo_root=$(git rev-parse --show-toplevel)
 DOTFILES_ROOT=${DOTFILES_ROOT:-"$HOME/dotfiles"}
