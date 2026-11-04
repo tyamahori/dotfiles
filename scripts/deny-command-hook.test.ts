@@ -23,6 +23,13 @@ test("both command-hook clients deny bare Python with the shared permission prot
   }
 });
 
+// Claude Code 2.1.314 runs Bash-matched hooks for Monitor-started shell commands.
+// The notes do not show that payload; this assumes the Bash tool_input shape.
+test("Bash-matched hook payloads for Monitor-started commands are denied like Bash", () => {
+  const monitor = JSON.stringify({ tool_name: "Bash", tool_input: { command: "python3 app.py" } });
+  expect(denyCommandHook("claude", monitor)?.hookSpecificOutput.permissionDecision).toBe("deny");
+});
+
 test("client-specific guidance stays distinct and missing replacements do not block", () => {
   expect(denyCommandHook("claude", payload("cat file.txt"))?.hookSpecificOutput.permissionDecision).toBe("deny");
   expect(denyCommandHook("codex", payload("cat file.txt"))).toBeUndefined();
