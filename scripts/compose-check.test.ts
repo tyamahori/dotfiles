@@ -20,7 +20,8 @@ for (const row of [
     hook: "pre-commit-compose-config",
     files: { "compose.yaml": base, "compose.override.yaml": "services:\n  app:\n    imagee: x\n" },
     stage: ["compose.override.yaml"],
-    blockedWith: "additional properties 'imagee' not allowed",
+    // Compose's own wording differs between versions; only the key is stable.
+    blockedWith: "imagee",
   },
   {
     name: "semgrep blocks a privileged Compose service",

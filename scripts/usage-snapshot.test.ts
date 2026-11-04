@@ -170,7 +170,8 @@ test("snapshot reports a failed stats freshness check when stats.db cannot be qu
 
   const bin = resolve(home, "bin");
   mkdirSync(bin);
-  symlinkSync(Bun.which("jq")!, resolve(bin, "jq"));
+  // Linux keeps jq and sqlite3 in the devbox profile, outside /usr/bin.
+  for (const tool of ["jq", "sqlite3"]) symlinkSync(Bun.which(tool)!, resolve(bin, tool));
   const omp = resolve(bin, "omp");
   writeFileSync(omp, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
 
