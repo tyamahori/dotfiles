@@ -59,6 +59,16 @@ write_files:
         ~/project/dotfiles/scripts/setup
       '
 
+      # The zsh plugins come from devbox, and fzf-tab's compiled module links
+      # against nixpkgs' glibc. Ubuntu's zsh (older glibc) cannot load it, and
+      # fzf-tab's rebuild prompt then eats the first typed character, so log in
+      # with devbox's zsh once setup has installed it.
+      DEVBOX_ZSH=$(getent passwd "$USER_NAME" | cut -d: -f6)/.local/share/devbox/global/default/.devbox/nix/profile/default/bin/zsh
+      if [ -x "$DEVBOX_ZSH" ]; then
+        grep -qxF "$DEVBOX_ZSH" /etc/shells || echo "$DEVBOX_ZSH" >>/etc/shells
+        chsh -s "$DEVBOX_ZSH" "$USER_NAME"
+      fi
+
       touch "$DONE"
 
 runcmd:

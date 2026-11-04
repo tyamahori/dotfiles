@@ -758,8 +758,13 @@ orb -m dev   # default user inherits from the macOS host
 cloud-init installs zsh and build tools, clones this repo, and runs
 `./scripts/setup` as the default user, so the VM gets the same steps as macOS
 minus the Brewfile; `scripts/apps` adds Docker CE and the `docker` group.
+After setup the login shell becomes devbox's zsh: fzf-tab's compiled module
+from devbox links against nixpkgs' glibc, which Ubuntu's zsh cannot load, and
+fzf-tab's rebuild prompt would then swallow the first character typed into a
+new shell, including commands that Herdr sends.
 Running `./scripts/setup` by hand on another Ubuntu host works the same way, given zsh,
-git, curl, build-essential, and passwordless sudo for the Nix and Devbox installers.
+git, curl, build-essential, and passwordless sudo for the Nix and Devbox installers;
+switch the login shell to devbox's zsh yourself, as `dev-bootstrap.sh` in the cloud-init does.
 `scripts/apps` also uses sudo to register the Claude Code and Docker apt
 repositories; on a host without passwordless sudo it prompts once.
 
