@@ -834,16 +834,16 @@
       }
     },
     "github:NixOS/nixpkgs/nixpkgs-unstable": {
-      "last_modified": "2026-11-02T18:58:35Z",
-      "resolved": "github:NixOS/nixpkgs/f9887a8a434bfba06e20dfc77bc8e0628266af84?lastModified=1793645915"
+      "last_modified": "2026-11-03T11:44:38Z",
+      "resolved": "github:NixOS/nixpkgs/ea9e3ef341e11c193537f674f821a99f9f436729?lastModified=1793706278"
     },
     "github:NixOS/nixpkgs/nixpkgs-unstable#php85Packages.composer": {
-      "last_modified": "2026-11-02T18:58:35Z",
-      "resolved": "github:NixOS/nixpkgs/f9887a8a434bfba06e20dfc77bc8e0628266af84?lastModified=1793645915#php85Packages.composer"
+      "last_modified": "2026-11-03T11:44:38Z",
+      "resolved": "github:NixOS/nixpkgs/ea9e3ef341e11c193537f674f821a99f9f436729?lastModified=1793706278#php85Packages.composer"
     },
     "github:NixOS/nixpkgs/nixpkgs-unstable#typescript": {
-      "last_modified": "2026-11-02T18:58:35Z",
-      "resolved": "github:NixOS/nixpkgs/f9887a8a434bfba06e20dfc77bc8e0628266af84?lastModified=1793645915#typescript"
+      "last_modified": "2026-11-03T11:44:38Z",
+      "resolved": "github:NixOS/nixpkgs/ea9e3ef341e11c193537f674f821a99f9f436729?lastModified=1793706278#typescript"
     },
     "gitleaks@latest": {
       "last_modified": "2026-10-24T11:44:37Z",
@@ -1278,8 +1278,8 @@
       }
     },
     "hunk@latest": {
-      "last_modified": "2026-11-02T01:28:21Z",
-      "resolved": "github:NixOS/nixpkgs/5c9de89ec55bff981cb8da1a4ee92b10f1438ffc#hunk",
+      "last_modified": "2026-11-03T03:15:56Z",
+      "resolved": "github:NixOS/nixpkgs/9a6cbf4722bdbbef65f9e0400452ca088e31dc4b#hunk",
       "source": "devbox-search",
       "version": "0.24.1",
       "systems": {
@@ -1287,31 +1287,31 @@
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/xjlkia9ph9aizlrxj25wd4bwa8xb0isa-hunk-0.24.1",
+              "path": "/nix/store/w5d6n6ipvcd3dxdgbxkcc5r67xh4ab5m-hunk-0.24.1",
               "default": true
             }
           ],
-          "store_path": "/nix/store/xjlkia9ph9aizlrxj25wd4bwa8xb0isa-hunk-0.24.1"
+          "store_path": "/nix/store/w5d6n6ipvcd3dxdgbxkcc5r67xh4ab5m-hunk-0.24.1"
         },
         "aarch64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/2zv025ndl2qdiy852wdr7myh6v2gxpww-hunk-0.24.1",
+              "path": "/nix/store/s1k55d3bi2lklqn1d0vp95g2x7nf3xa5-hunk-0.24.1",
               "default": true
             }
           ],
-          "store_path": "/nix/store/2zv025ndl2qdiy852wdr7myh6v2gxpww-hunk-0.24.1"
+          "store_path": "/nix/store/s1k55d3bi2lklqn1d0vp95g2x7nf3xa5-hunk-0.24.1"
         },
         "x86_64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/hdiqbpc5vqcffi2m83ymhin3wic8mfvl-hunk-0.24.1",
+              "path": "/nix/store/mx969nfdnd9gcjzgikmg24lgmnd5n9aj-hunk-0.24.1",
               "default": true
             }
           ],
-          "store_path": "/nix/store/hdiqbpc5vqcffi2m83ymhin3wic8mfvl-hunk-0.24.1"
+          "store_path": "/nix/store/mx969nfdnd9gcjzgikmg24lgmnd5n9aj-hunk-0.24.1"
         }
       }
     },
