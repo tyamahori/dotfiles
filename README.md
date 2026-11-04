@@ -763,7 +763,7 @@ from devbox links against nixpkgs' glibc, which Ubuntu's zsh cannot load, and
 fzf-tab's rebuild prompt would then swallow the first character typed into a
 new shell, including commands that Herdr sends.
 Running `./scripts/setup` by hand on another Ubuntu host works the same way, given zsh,
-git, curl, build-essential, and passwordless sudo for the Nix and Devbox installers;
+git, curl, rsync, build-essential, and passwordless sudo for the Nix and Devbox installers;
 switch the login shell to devbox's zsh yourself, as `dev-bootstrap.sh` in the cloud-init does.
 `scripts/apps` also uses sudo to register the Claude Code and Docker apt
 repositories; on a host without passwordless sudo it prompts once.

@@ -26,6 +26,7 @@ packages:
   - xz-utils
   - build-essential
   - nftables
+  - rsync
 
 write_files:
 
