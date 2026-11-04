@@ -25,6 +25,7 @@ packages:
   - gnupg
   - xz-utils
   - build-essential
+  - nftables
 
 write_files:
 

@@ -1,0 +1,196 @@
+#!/bin/bash
+# One OrbStack VM per project, cloned from the golden VM dev-base, where
+# claude and codex run with every permission. Run from the project's Git repo
+# on the Mac; the VM is named after the repo directory.
+#
+# The nftables rule `devvm allow` installs is a fence against accidents, not
+# an isolation boundary: agents in the VM have passwordless sudo and can
+# delete it. Isolation comes only from OrbStack's per-machine settings
+# (--isolated --isolate-network). Allowed addresses are resolved once, so a
+# freed address that OrbStack hands to another container stays allowed until
+# the next `devvm allow`.
+set -euo pipefail
+
+DOTFILES_ROOT=${DOTFILES_ROOT:-"$HOME/dotfiles"}
+BASE=dev-base
+# Shared services every project VM may reach; projects add more with
+# `git config --local --add devvm.allow <domain>`.
+SHARED_ALLOW=(sonarqube.local)
+
+fail() {
+	echo "devvm: $*" >&2
+	exit 1
+}
+
+usage() {
+	cat >&2 <<-'EOF'
+		usage: devvm base   create the golden VM dev-base
+		       devvm up     create/start this repo's VM, clone, register with Herdr, allow
+		       devvm allow  re-resolve allowed domains and reload the VM's firewall
+		       devvm down   stop this repo's VM
+		       devvm rm     delete this repo's VM and its Herdr machine
+	EOF
+	exit 2
+}
+
+exists() { orb info "$1" >/dev/null 2>&1; }
+
+repo_root() {
+	git rev-parse --show-toplevel 2>/dev/null || fail "run inside the project's Git repository"
+}
+
+# OrbStack machine names: lowercase letters, digits, and hyphens.
+vm_name() {
+	local name
+	name=$(basename "$1" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9-' '-')
+	name=${name#-}
+	printf '%s' "${name%-}"
+}
+
+cmd_base() {
+	exists "$BASE" && fail "$BASE exists; orb delete $BASE to rebuild it"
+	local start=$SECONDS
+	orb create --isolated --isolate-network --forward-ssh-agent \
+		-c "$DOTFILES_ROOT/cloud-init/ubuntu.yaml" ubuntu:24.04 "$BASE"
+	until orb run -m "$BASE" test -e /var/lib/dev-bootstrap.done; do
+		if orb run -m "$BASE" systemctl is-failed -q dev-bootstrap; then
+			fail "bootstrap failed; see: orb run -m $BASE sudo journalctl -u dev-bootstrap"
+		fi
+		sleep 10
+	done
+	echo "devvm: $BASE ready in $((SECONDS - start))s"
+	cat <<-EOF
+		Log in once so every clone inherits it:
+		  orb -m $BASE    then run: claude (log in), codex login
+		  orb stop $BASE
+	EOF
+}
+
+cmd_allow() {
+	local root name
+	root=$(repo_root)
+	name=$(vm_name "$root")
+	local domains=("${SHARED_ALLOW[@]}")
+	local extra
+	while IFS= read -r extra; do domains+=("$extra"); done < <(git -C "$root" config --get-all devvm.allow || true)
+	local subnet4
+	subnet4=$(orb config get network.subnet4)
+
+	orb run -m "$name" sudo bash -s -- "$subnet4" "${domains[@]}" <<-'EOF'
+		set -euo pipefail
+		subnet4=$1
+		shift
+		v4=() v6=()
+		for domain; do
+			addrs=$(getent ahosts "$domain" | awk '{print $1}' | sort -u)
+			[[ -n $addrs ]] || { echo "devvm: cannot resolve $domain" >&2; exit 1; }
+			for addr in $addrs; do
+				case $addr in
+				::ffff:*) ;; # v4-mapped duplicate of an A record
+				*:*) v6+=("$addr") ;;
+				*) v4+=("$addr") ;;
+				esac
+			done
+		done
+		list() { printf '%s\n' "$@" | sort -u | paste -sd, -; }
+		rules() {
+			echo '    udp dport 67 accept'
+			((${#v4[@]})) && echo "    ip daddr { $(list "${v4[@]}") } accept"
+			((${#v6[@]})) && echo "    ip6 daddr { $(list "${v6[@]}") } accept"
+			# OrbStack's container/domain range, host.docker.internal, and the
+			# IPv6 path to docker.orb.internal's published ports.
+			echo "    ip daddr { $subnet4, 0.250.250.254 } drop"
+			echo '    ip6 daddr fd07:b51a:cc66::/64 drop'
+		}
+		# The empty table plus delete makes reloading the file replace the
+		# table atomically; nothing else in the ruleset is touched, so Docker's
+		# own rules survive. The forward chain covers containers in the VM.
+		{
+			echo '#!/usr/sbin/nft -f'
+			echo 'table inet devvm {}'
+			echo 'delete table inet devvm'
+			echo 'table inet devvm {'
+			echo '  chain output {'
+			echo '    type filter hook output priority 0; policy accept;'
+			rules
+			echo '  }'
+			echo '  chain forward {'
+			echo '    type filter hook forward priority 0; policy accept;'
+			rules
+			echo '  }'
+			echo '}'
+		} >/etc/nftables.conf.devvm
+		nft -c -f /etc/nftables.conf.devvm
+		mv /etc/nftables.conf.devvm /etc/nftables.conf
+		nft -f /etc/nftables.conf
+		systemctl enable -q nftables
+		grep ' accept$' /etc/nftables.conf | sort -u
+	EOF
+
+	# A timeout (28) means the drop is active; a refusal or an answer means
+	# docker.orb.internal is reachable.
+	local rc=0
+	orb run -m "$name" curl -4 -sS -m 3 -o /dev/null http://docker.orb.internal/ 2>/dev/null || rc=$?
+	((rc == 28)) || fail "$name still reaches docker.orb.internal (curl exit $rc)"
+}
+
+cmd_up() {
+	local root name url
+	root=$(repo_root)
+	name=$(vm_name "$root")
+	url=$(git -C "$root" remote get-url origin) || fail "the repository has no origin remote"
+	exists "$BASE" || fail "no $BASE VM; run devvm base first"
+
+	exists "$name" || orb clone "$BASE" "$name"
+	orb start "$name"
+	cmd_allow
+
+	# Claude Code's folder-trust prompt ignores --dangerously-skip-permissions
+	# and would block the first herdr agent start, so accept it up front.
+	# shellcheck disable=SC2016 # the script expands inside the VM
+	orb run -m "$name" bash -c '
+		set -euo pipefail
+		dir=~/project/$1
+		if [[ ! -d $dir ]]; then
+			mkdir -p ~/project
+			GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new" git clone -q "$2" "$dir"
+		fi
+		cfg=~/.claude.json
+		[[ -s $cfg ]] || echo "{}" >"$cfg"
+		jq --arg d "$dir" ".projects[\$d].hasTrustDialogAccepted = true" "$cfg" >"$cfg.tmp"
+		chmod 600 "$cfg.tmp" && mv "$cfg.tmp" "$cfg"
+	' _ "$name" "$url"
+
+	if ! herdr machine list --json | jq -e --arg l "$name" '.. | objects | select(.label? == $l)' >/dev/null; then
+		herdr machine add "$name@orb" --label "$name"
+	fi
+
+	# The VM's analysis token is issued only when it is missing or revoked,
+	# and travels over stdin so it never appears in a process list.
+	# shellcheck disable=SC2016 # the script expands inside the VM
+	if ! orb run -m "$name" bash -c 'f=~/.config/sonar-quality-gate/token
+		[[ -s $f ]] && [[ $(curl -fsS -u "$(<"$f"):" http://sonarqube.local/api/authentication/validate) == *"\"valid\":true"* ]]' 2>/dev/null; then
+		sonar-quality-gate --issue-token "$name" |
+			orb run -m "$name" bash -c 'umask 077; mkdir -p ~/.config/sonar-quality-gate && cat >~/.config/sonar-quality-gate/token'
+	fi
+	echo "devvm: $name is up; repo at ~/project/$name"
+}
+
+cmd_down() {
+	orb stop "$(vm_name "$(repo_root)")"
+}
+
+cmd_rm() {
+	local name answer id
+	name=$(vm_name "$(repo_root)")
+	read -r -p "Delete VM $name, including uncommitted work in it? [y/N] " answer
+	[[ $answer == [yY] ]] || exit 1
+	id=$(herdr machine list --json | jq -r --arg l "$name" '.. | objects | select(.label? == $l) | .id // empty' | head -1)
+	[[ -n $id ]] && herdr machine remove "$id"
+	orb delete -f "$name"
+}
+
+case ${1:-} in
+base | up | allow | down | rm) "cmd_$1" ;;
+*) usage ;;
+esac

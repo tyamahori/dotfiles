@@ -752,7 +752,7 @@ Reproduces this dev environment in an OrbStack Linux VM via cloud-init.
 
 ```bash
 orb create --isolated --isolate-network --forward-ssh-agent -c cloud-init/ubuntu.yaml ubuntu:24.04 dev
-orb shell dev   # default user inherits from the macOS host
+orb -m dev   # default user inherits from the macOS host
 ```
 
 cloud-init installs zsh and build tools, clones this repo, and runs
@@ -775,7 +775,41 @@ into every shell and broke nix binaries once nixpkgs' glibc was newer than the
 host's.
 
 > Note: the docker group membership only takes effect after the next login —
-> reconnect with `orb shell dev` or run `newgrp docker` once.
+> reconnect with `orb -m dev` or run `newgrp docker` once.
+
+### One VM per project (`devvm`)
+
+`scripts/devvm` (linked as `devvm`) gives each project its own clone of a
+golden VM, so claude and codex can run there with every permission while the
+OMP on the Mac drives them through Herdr. A project that should keep running
+on the Mac simply never runs `devvm`.
+
+```bash
+devvm base   # once: build dev-base from cloud-init, then log in to claude and codex in it
+cd ~/projects/<repo>
+devvm up     # clone dev-base as <repo>, clone origin to ~/project/<repo>, pre-trust it for claude, register with Herdr
+herdr --machine <repo> agent start <name> --kind claude --pane <pane> -- --dangerously-skip-permissions
+herdr --machine <repo> agent start <name> --kind codex --pane <pane> -- --dangerously-bypass-approvals-and-sandbox
+devvm allow  # after an OrbStack restart, which can move container addresses
+devvm down   # stop; devvm rm deletes the VM and its Herdr machine
+```
+
+The VM inherits `--isolated --isolate-network --forward-ssh-agent` from
+dev-base: the Mac's files are not mounted, `host.orb.internal` is refused, and
+GitHub writes go through the forwarded SSH agent. Run the project's containers
+inside its VM. `devvm allow` resolves `sonarqube.local` plus each
+`git config --local --add devvm.allow <domain>` entry inside the VM, accepts
+those addresses, and drops the rest of OrbStack's container range,
+`host.docker.internal`, and the IPv6 path to `docker.orb.internal`, whose
+published ports belong to every project. The rule lives in
+`/etc/nftables.conf`, so it holds when OrbStack starts the VM on its own.
+
+That rule is a fence against accidents, not an isolation boundary. Agents in
+the VM have passwordless sudo and can rewrite or delete it, and when an
+allowed address is freed and handed to another project's container, that
+container stays reachable until the next `devvm allow`. Everything given to
+the VM is usable by its agents: the forwarded SSH agent, the claude and codex
+logins copied from dev-base, and the SonarQube analysis token.
 
 ## Maintenance
 
