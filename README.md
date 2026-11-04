@@ -799,6 +799,11 @@ devvm allow  # after an OrbStack restart, which can move container addresses
 devvm down   # stop; devvm rm deletes the VM and its Herdr machine
 ```
 
+Run claude and codex in those Herdr panes, where you can watch their progress
+and interrupt them, and the caller reads only the part of the pane it needs.
+Use `orb -m <repo> zsh -lc '<command>'` only for short commands whose exit
+code and output are the result, such as tests, git, and package installs.
+
 The VM inherits `--isolated --isolate-network --forward-ssh-agent` from
 dev-base: the Mac's files are not mounted, `host.orb.internal` is refused, and
 GitHub writes go through the forwarded SSH agent. Run the project's containers
