@@ -382,10 +382,14 @@
       "Skill(artifact-design)",
       "mcp__claude-in-chrome__tabs_context_mcp"
     ],
+    "blockWritesOutsideWorkingDirectories": true,
     "defaultMode": "auto",
     "deny": [
       "Read(//**/*.env)",
-      "Read(//**/.env.*)"
+      "Read(//**/.env.*)",
+      "Read(~/.ssh/id_*)",
+      "Read(~/.aws/credentials)",
+      "Read(~/.config/gh/hosts.yml)"
     ]
   },
   "skillListingBudgetFraction": 0.03125,
