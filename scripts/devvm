@@ -161,6 +161,34 @@ cmd_up() {
 		chmod 600 "$cfg.tmp" && mv "$cfg.tmp" "$cfg"
 	' _ "$name" "$url"
 
+	# Gitignored local files the repo lists in .worktreeinclude (.env, role
+	# overrides) are seeded once and never overwritten. Selection matches
+	# scripts/worktree-include-copy: regular files inside the checkout only, so
+	# `..` lines and symlinks cannot pull in files from elsewhere on the Mac.
+	local rel
+	if [[ -f $root/.worktreeinclude ]]; then
+		while IFS= read -r -d '' rel; do
+			[[ -f $root/$rel && ! -L $root/$rel ]] || continue
+			# shellcheck disable=SC2016 # the script expands inside the VM
+			orb run -m "$name" bash -c 'f=~/project/$1/$2; [[ -e $f || -L $f ]] && exit 0
+				mkdir -p "${f%/*}" && umask 077 && cat >"$f" && echo "devvm: seeded $2"' _ "$name" "$rel" <"$root/$rel"
+		done < <(
+			git -C "$root" ls-files --others --ignored --exclude-from="$root/.worktreeinclude" -z |
+				git -C "$root" check-ignore --stdin -z
+		)
+	fi
+
+	# gh in the VM reuses the Mac's github.com login; the token travels over
+	# stdin so it never appears in a process list.
+	if ! orb run -m "$name" gh auth status --active --hostname github.com >/dev/null 2>&1; then
+		local token
+		if token=$(env -u GH_TOKEN -u GITHUB_TOKEN gh auth token --hostname github.com) && [[ -n $token ]]; then
+			printf '%s\n' "$token" | orb run -m "$name" gh auth login --hostname github.com --with-token
+		else
+			echo "devvm: skipped gh login in $name; run gh auth login on the Mac, then devvm up" >&2
+		fi
+	fi
+
 	if ! herdr machine list --json | jq -e --arg l "$name" '.. | objects | select(.label? == $l)' >/dev/null; then
 		herdr machine add "$name@orb" --label "$name"
 	fi

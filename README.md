@@ -801,7 +801,7 @@ on the Mac simply never runs `devvm`.
 ```bash
 devvm base   # once: build dev-base from cloud-init, then log in to claude and codex in it
 cd ~/projects/<repo>
-devvm up     # clone dev-base as <repo>, clone origin to ~/project/<repo>, pre-trust it for claude, register with Herdr
+devvm up     # clone dev-base as <repo>, clone origin to ~/project/<repo>, seed its .worktreeinclude files, log gh in, pre-trust it for claude, register with Herdr
 herdr --machine <repo> agent start <name> --kind claude --pane <pane> -- --dangerously-skip-permissions
 herdr --machine <repo> agent start <name> --kind codex --pane <pane> -- --dangerously-bypass-approvals-and-sandbox
 devvm allow  # after an OrbStack restart, which can move container addresses
@@ -828,7 +828,8 @@ the VM have passwordless sudo and can rewrite or delete it, and when an
 allowed address is freed and handed to another project's container, that
 container stays reachable until the next `devvm allow`. Everything given to
 the VM is usable by its agents: the forwarded SSH agent, the claude and codex
-logins copied from dev-base, and the SonarQube analysis token.
+logins copied from dev-base, the Mac's GitHub CLI token, the gitignored files
+listed in `.worktreeinclude`, and the SonarQube analysis token.
 
 ## Maintenance
 
