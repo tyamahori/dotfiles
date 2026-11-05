@@ -39,9 +39,12 @@ herdr 0.8.0 以降を前提とする。**フラグ・exit code・失敗時の対
 ```bash
 S=~/.agents/skills/omp-herdr-collab/scripts
 
-# ピア起動: ペインを分割し、素の CLI を herdr agent start で起動・命名する。
+# ピア起動: coordinator のタブは分割せず、<repo>-workers workspace（無ければ作る）に
+# 素の CLI を herdr agent start で起動・命名する。
 $S/spawn.sh codex                 # name は <ディレクトリ名>-codex
-$S/spawn.sh claude myrepo-claude  # stdout: name=myrepo-claude pane=w1:p2
+$S/spawn.sh claude myrepo-claude  # stdout: name=myrepo-claude pane=w2:p2 workspace=w2 cwd=...
+# 実装 worker: ブランチ専用の herdr worktree workspace に起動する（下の「実装の委譲」）。
+HC_WORKTREE_BRANCH=feat/x HC_WORKTREE_BASE=origin/main $S/spawn.sh codex myrepo-worker
 
 # 配送: 台帳作成 + validator 検証 + settle 待ち + prompt 配送 + 着火確認。
 $S/send.sh --to myrepo-codex --tag review-req --flow fix-auth --body - <<'EOF'
@@ -69,8 +72,9 @@ $S/review-flow.py status --dir .agent-msgs/fix-auth
 # 完了判定。closed-pass / closed-low / closed-risk 以外は失敗。
 $S/review-flow.py require-closed --dir .agent-msgs/fix-auth
 
-# 片付け: spawn.sh が返した pane ID で閉じる。
-$S/despawn.sh w1:p2
+# 片付け: spawn.sh が返した pane ID で閉じる。worktree workspace にひとりで居る
+# worker なら worktree ごと外す（未コミットの変更があれば何も閉じずに失敗する）。
+$S/despawn.sh w2:p2
 ```
 
 配送の要点は次のとおり（詳細は `--help`）。
@@ -84,6 +88,27 @@ $S/despawn.sh w1:p2
   読んでいる間に skeleton が return-directory に届く。厳密に先置きしたければ
   `--record-only` で REVIEW-REQ を記録 → scaffold → `--file` で配送する。
   scaffold は既存ファイルを上書きせず失敗する（ピアが先に書き始めていた場合）。
+
+## 実装の委譲
+
+実装を worker（codex / claude）へ渡すときは、worker ごとに専用の worktree
+workspace を作る。coordinator の作業ツリーと干渉せず、Herdr のサイドバーで
+進捗が見え、coordinator のセッションを閉じても worker が巻き添えにならない。
+
+1. briefing（acceptance criteria・非目標・検証手段・ブランチ名）を書く。
+2. `HC_WORKTREE_BRANCH=<branch> HC_WORKTREE_BASE=<ref> spawn.sh <kind> <name>` で
+   起動する。ブランチが既にあれば開き直す。`git worktree add` は Herdr 内で
+   拒否されるので使わない。
+3. `[HANDOFF]` を `return-mode: artifact-import`、`期待する成果物: <branch> 上の
+   コミット` で送る（`--tag handoff`。validator の対象外）。return-directory は
+   coordinator 側 repo の `.agent-msgs/<flow>/artifacts/` の絶対パスにする。
+   worker は push・PR 作成をしない。
+4. worker は完了したら `<name>-fyi.md`（先頭 `[FYI]`、最終 commit とブランチ）を
+   return-directory に書いて turn を終える。coordinator は `git -C <cwd> log` で
+   コミットを確かめ、`send.sh --record-only --tag fyi` で取り込む。
+5. その commit を revision に固定した通常のレビュー flow を、新しい flow 名・
+   別の fresh reviewer で始める。実装者の model family は worker の系統で数える。
+6. flow を閉じたら `despawn.sh <pane>` で worktree を外す。ブランチは残る。
 
 ## 検証とメッセージ規約
 
@@ -105,6 +130,8 @@ $S/despawn.sh w1:p2
   agent 出力専用の `.agent-msgs/` に限定する。
 - msgs ディレクトリがそのままフローの作業ログになる（改ざん耐性はない —
   監査証跡が要る場合は永続化先へ別途保存する）。
+- 片付けの対象は自分が spawn したペインと、それが作った workspace・worktree
+  だけ。workers workspace は最後のペインが閉じると herdr が一緒に閉じる。
 
 ## レビューの実行
 

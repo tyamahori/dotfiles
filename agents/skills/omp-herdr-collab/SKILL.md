@@ -138,4 +138,4 @@ return file は coordinator が実パスと内容を確認してから ledger �
 - レビュー中の承認エラーを理由に、global hook、agent 設定、permission 設定を
   変更すること。return mode を切り替えるか、ユーザーへ blocker を報告する。
 - diff・ログ・長文の prompt 直貼り（ファイルに書いてパスを渡す）。
-- 自分が開けていないペインの close。
+- 自分が開けていないペイン・workspace・worktree の close。

@@ -1848,6 +1848,182 @@ class ReviewFlowTest(unittest.TestCase):
             self.assertEqual(invalid_retry.returncode, 2)
             self.assertIn("--retry-target must belong", invalid_retry.stderr)
 
+SPAWN = SKILL_DIR / "scripts" / "spawn.sh"
+
+# Canned herdr responses, keyed by "<group>-<command>" (e.g. workspace-list).
+# <key>.json is printed on stdout; <key>.rc, when present, is the exit status.
+FAKE_HERDR = """#!/bin/bash
+printf '%s\\n' "$*" >> "$HERDR_LOG"
+key="$1-$2"
+[ -f "$HERDR_RESPONSES/$key.json" ] && cat "$HERDR_RESPONSES/$key.json"
+if [ -f "$HERDR_RESPONSES/$key.rc" ]; then
+  echo "fake $key failure" >&2
+  exit "$(cat "$HERDR_RESPONSES/$key.rc")"
+fi
+exit 0
+"""
+
+
+class PeerPlacementTest(unittest.TestCase):
+    """spawn.sh / despawn.sh place peers outside the coordinator's workspace and undo only what they made."""
+
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self.temporary.name)
+        self.repo = self.root / "repo"
+        self.repo.mkdir()
+        subprocess.run(["git", "init", "-q", str(self.repo)], check=True)
+        self.responses = self.root / "responses"
+        self.responses.mkdir()
+        binary_directory = self.root / "bin"
+        binary_directory.mkdir()
+        herdr = binary_directory / "herdr"
+        herdr.write_text(FAKE_HERDR, encoding="utf-8")
+        herdr.chmod(0o755)
+        self.log = self.root / "herdr.log"
+        self.env = os.environ | {
+            "HERDR_ENV": "1",
+            "HERDR_PANE_ID": "w1:p1",
+            "HERDR_LOG": str(self.log),
+            "HERDR_RESPONSES": str(self.responses),
+            "HC_CWD": str(self.repo),
+            "PATH": f"{binary_directory}:{os.environ['PATH']}",
+        }
+
+    def tearDown(self) -> None:
+        self.temporary.cleanup()
+
+    def respond(self, key: str, body: str, rc: int | None = None) -> None:
+        (self.responses / f"{key}.json").write_text(body, encoding="utf-8")
+        if rc is not None:
+            (self.responses / f"{key}.rc").write_text(str(rc), encoding="utf-8")
+
+    def calls(self) -> list[str]:
+        return self.log.read_text(encoding="utf-8").splitlines() if self.log.exists() else []
+
+    def run_script(self, script: Path, *args: str, **env: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [str(script), *args], check=False, text=True, capture_output=True, env=self.env | env
+        )
+
+    def test_spawn_creates_workers_workspace(self) -> None:
+        self.respond("workspace-list", '{"result":{"workspaces":[{"workspace_id":"w1","label":"repo"}]}}')
+        self.respond("workspace-create", '{"result":{"workspace":{"workspace_id":"w2"},"root_pane":{"pane_id":"w2:p1"}}}')
+
+        result = self.run_script(SPAWN, "codex")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, f"name=repo-codex pane=w2:p1 workspace=w2 cwd={self.repo}\n")
+        self.assertIn(f"workspace create --cwd {self.repo} --label repo-workers --no-focus", self.calls())
+        self.assertFalse([call for call in self.calls() if call.startswith("pane split")])
+
+    def test_spawn_splits_inside_existing_workers_workspace(self) -> None:
+        self.respond("workspace-list", '{"result":{"workspaces":[{"workspace_id":"w7","label":"repo-workers"}]}}')
+        self.respond("pane-list", '{"result":{"panes":[{"pane_id":"w7:p1"},{"pane_id":"w7:p4"}]}}')
+        self.respond("pane-split", '{"result":{"pane":{"pane_id":"w7:p5"}}}')
+
+        result = self.run_script(SPAWN, "claude", "repo-reviewer-b")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, f"name=repo-reviewer-b pane=w7:p5 workspace=w7 cwd={self.repo}\n")
+        self.assertIn(f"pane split w7:p4 --direction right --cwd {self.repo} --no-focus", self.calls())
+        self.assertFalse([call for call in self.calls() if "workspace create" in call or "w1:p1" in call])
+
+    def test_spawn_failure_closes_only_split_pane(self) -> None:
+        self.respond("workspace-list", '{"result":{"workspaces":[{"workspace_id":"w7","label":"repo-workers"}]}}')
+        self.respond("pane-list", '{"result":{"panes":[{"pane_id":"w7:p1"}]}}')
+        self.respond("pane-split", '{"result":{"pane":{"pane_id":"w7:p2"}}}')
+        self.respond("agent-start", "", rc=1)
+
+        result = self.run_script(SPAWN, "codex")
+
+        self.assertEqual(result.returncode, 1)
+        closes = [call for call in self.calls() if "close" in call or "remove" in call]
+        self.assertEqual(closes, ["pane close w7:p2"])
+
+    def test_spawn_writer_creates_worktree_workspace(self) -> None:
+        checkout = self.root / "worktrees" / "feat-x"
+        self.respond(
+            "worktree-create",
+            '{"result":{"workspace":{"workspace_id":"w9"},"root_pane":{"pane_id":"w9:p1"},'
+            f'"worktree":{{"checkout_path":"{checkout}"}}}}}}',
+        )
+
+        result = self.run_script(SPAWN, "codex", "repo-worker", HC_WORKTREE_BRANCH="feat/x", HC_WORKTREE_BASE="main")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, f"name=repo-worker pane=w9:p1 workspace=w9 cwd={checkout}\n")
+        self.assertIn(
+            f"worktree create --cwd {self.repo} --branch feat/x --base main --label repo-worker --no-focus",
+            self.calls(),
+        )
+        self.assertIn("agent start repo-worker --kind codex --pane w9:p1 --timeout 60000", self.calls())
+
+    def test_spawn_writer_reopens_existing_branch(self) -> None:
+        subprocess.run(["git", "-C", str(self.repo), "commit", "-q", "--allow-empty", "-m", "init"], check=True)
+        subprocess.run(["git", "-C", str(self.repo), "branch", "feat/x"], check=True)
+        self.respond(
+            "worktree-open",
+            '{"result":{"workspace":{"workspace_id":"w9"},"root_pane":{"pane_id":"w9:p1"},'
+            '"worktree":{"checkout_path":"/wt/feat-x"}}}',
+        )
+
+        result = self.run_script(SPAWN, "codex", "repo-worker", HC_WORKTREE_BRANCH="feat/x")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f"worktree open --cwd {self.repo} --branch feat/x --label repo-worker --no-focus", self.calls())
+
+    def test_spawn_writer_failure_removes_created_worktree(self) -> None:
+        self.respond(
+            "worktree-create",
+            '{"result":{"workspace":{"workspace_id":"w9"},"root_pane":{"pane_id":"w9:p1"},'
+            '"worktree":{"checkout_path":"/wt/feat-x"}}}',
+        )
+        self.respond("agent-start", "", rc=1)
+
+        result = self.run_script(SPAWN, "codex", HC_WORKTREE_BRANCH="feat/x")
+
+        self.assertEqual(result.returncode, 1)
+        closes = [call for call in self.calls() if "close" in call or "remove" in call]
+        self.assertEqual(closes, ["worktree remove --workspace w9"])
+
+    def worker_pane(self, linked: bool, panes: int) -> None:
+        self.respond("pane-get", '{"result":{"pane":{"pane_id":"w9:p1","workspace_id":"w9"}}}')
+        flag = "true" if linked else "false"
+        self.respond("workspace-get", f'{{"result":{{"workspace":{{"worktree":{{"is_linked_worktree":{flag}}}}}}}}}')
+        pane_list = ",".join(f'{{"pane_id":"w9:p{n}"}}' for n in range(1, panes + 1))
+        self.respond("pane-list", f'{{"result":{{"panes":[{pane_list}]}}}}')
+
+    def test_despawn_removes_worker_worktree(self) -> None:
+        self.worker_pane(linked=True, panes=1)
+
+        result = self.run_script(DESPAWN, "w9:p1")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "removed=w9\n")
+        self.assertIn("worktree remove --workspace w9", self.calls())
+        self.assertNotIn("pane close w9:p1", self.calls())
+
+    def test_despawn_keeps_dirty_worktree(self) -> None:
+        self.worker_pane(linked=True, panes=1)
+        self.respond("worktree-remove", "", rc=1)
+
+        result = self.run_script(DESPAWN, "w9:p1")
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("nothing closed", result.stderr)
+        self.assertNotIn("pane close w9:p1", self.calls())
+
+    def test_despawn_closes_only_pane_when_worktree_has_other_panes(self) -> None:
+        self.worker_pane(linked=True, panes=2)
+
+        result = self.run_script(DESPAWN, "w9:p1")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "closed=w9:p1\n")
+        self.assertNotIn("worktree remove --workspace w9", self.calls())
+
+
 
 if __name__ == "__main__":
     unittest.main()
