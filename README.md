@@ -593,6 +593,13 @@ extensions in `omp/extensions/`:
   the loop: once the agent saves the handoff note and calls the
   `handoff_switch` tool, the extension opens a fresh session after the
   current response and feeds it the note.
+- **personal project rules** — a gitignored `AGENTS.local.md` at a
+  repository root (ignored globally via `git/ignore`) holds per-project
+  personal rules. OMP loads it natively (`contextFiles.extra` in
+  `omp/config.yml`, also from the primary checkout inside a linked
+  worktree); Claude Code and Codex get it from
+  `scripts/agents-local-context` on `SessionStart`
+  (`startup|clear|compact`), with the same worktree fallback.
 
 ### Worktree-local files
 Repository-local `.worktreeinclude` files are the shared allowlist for

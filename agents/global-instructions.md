@@ -67,6 +67,15 @@ user-facing commands, config, setup, integrations, or operational behavior,
 and state the documentation impact before committing. Record decisions that
 outlive a commit in ADRs; don't write design docs that restate the code.
 
+## Per-project personal rules
+
+`AGENTS.local.md` at a repository root holds my personal rules for that
+project and is loaded automatically (OMP `contextFiles.extra`; Claude Code and
+Codex through `scripts/agents-local-context`). It refines the shared
+AGENTS.md/CLAUDE.md for my sessions; explicit instructions in the conversation
+still win. It is gitignored: never commit it or copy its content into shared
+files.
+
 ## Skills to load first
 
 Read the skill before starting the matching work. When it gives a numbered
