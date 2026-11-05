@@ -224,8 +224,10 @@ Current checks:
   devcontainer) are skipped.
 - **pre-push base freshness** (`checks/pre-push-base-freshness`) — blocks a
   branch whose intended base has advanced since it forked, preventing stale
-  unrelated commits from entering a PR. Network or GitHub failures skip the
-  check because the intended base cannot be established.
+  unrelated commits from entering a PR. The base is the open PR's base, else
+  `branch.<name>.gh-merge-base` (declare a stack before its first push; `gh pr
+  create` uses the same config), else the default branch. Network or GitHub
+  failures skip the check because the intended base cannot be established.
 
 The whole-file checks (semgrep, zizmor, dclint, compose canonical, compose
 config, hadolint, oxlint, sqruff) block only findings the commit adds. When one fails,

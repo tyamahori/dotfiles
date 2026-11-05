@@ -91,6 +91,8 @@ test("pre-push-base-freshness blocks a stale fork in a single-branch clone", () 
   );
   sh(join(dir, "seed"), `${git} commit -q --allow-empty -m a2 && git push -q origin feature-a`);
 
+  // A leftover gh-merge-base must not override the open PR's declared base.
+  sh(join(dir, "work"), "git config branch.stacked.gh-merge-base main");
   const sha = sh(join(dir, "work"), "git rev-parse HEAD").out.trim();
   const push = sh(
     join(dir, "work"),
@@ -99,6 +101,36 @@ test("pre-push-base-freshness blocks a stale fork in a single-branch clone", () 
   );
   expect(push.out).toContain("forked from 'feature-a' before its current tip");
   expect(push.status).toBe(1);
+});
+
+test("pre-push-base-freshness accepts a fresh stack declared by gh-merge-base before any PR exists", () => {
+  dir = mkdtempSync(join(tmpdir(), "global-hooks-"));
+  const bin = join(dir, "bin");
+  mkdirSync(bin);
+  // No open PR yet: gh returns an empty base.
+  writeFileSync(join(bin, "gh"), "#!/bin/sh\nexit 0\n");
+  chmodSync(join(bin, "gh"), 0o755);
+  const git = "git -c user.name=t -c user.email=t@example.com";
+  sh(
+    dir,
+    `git init -q --bare -b main remote.git && git clone -q remote.git seed 2>/dev/null && cd seed &&
+    ${git} commit -q --allow-empty -m root && git push -q origin main &&
+    git switch -q -c feature-a && ${git} commit -q --allow-empty -m a1 && git push -q origin feature-a &&
+    git switch -q main && ${git} commit -q --allow-empty -m m2 && git push -q origin main`,
+  );
+  sh(dir, "git clone -q remote.git work && cd work && git switch -q -c stacked origin/feature-a");
+
+  const work = join(dir, "work");
+  const sha = sh(work, "git rev-parse HEAD").out.trim();
+  const prePush = `printf 'refs/heads/stacked %s refs/heads/stacked %s\\n' ${sha} ${"0".repeat(40)} | ${checks}/pre-push-base-freshness origin`;
+  const env = { PATH: `${bin}:${process.env.PATH}` };
+  // Undeclared, the base falls back to main, which advanced after feature-a forked.
+  const undeclared = sh(work, prePush, env);
+  expect(undeclared.out).toContain("forked from 'main' before its current tip");
+  expect(undeclared.status).toBe(1);
+
+  sh(work, "git config branch.stacked.gh-merge-base feature-a");
+  expect(sh(work, prePush, env).status).toBe(0);
 });
 
 // git/hooks/pre-commit is this repo's own hook; run a copy whose global hand-off is stubbed.

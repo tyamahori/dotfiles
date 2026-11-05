@@ -7,7 +7,10 @@
 # branch on another in-flight PR branch (agents/global-instructions.md,
 # "Commits and pull requests"). Base is resolved per push, in priority order:
 #   1. An open PR's declared base (gh pr view --json baseRefName).
-#   2. The repo's default branch (origin/HEAD), when no PR exists yet.
+#   2. branch.<branch>.gh-merge-base, when no PR exists yet. This is the same
+#      config `gh pr create` reads for its default base, so declaring a stack
+#      once before the first push also opens the PR against the right base.
+#   3. The repo's default branch (origin/HEAD) otherwise.
 # The check itself is base-relative, not main-relative: it only asks whether
 # HEAD forked from that base's current tip, so an intentional, fresh stack
 # passes and an accidental stale/wrong branch-off is flagged either way.
@@ -35,6 +38,7 @@ while read -r local_ref local_sha _remote_ref _remote_sha; do
 	base=$(
 		gh pr list --head "$branch" --state open --json baseRefName -q '.[0].baseRefName // empty' 2>/dev/null
 	) || continue
+	base=${base:-$(git config --get "branch.$branch.gh-merge-base" || true)}
 	base=${base:-$default_branch}
 
 	git fetch -q "$remote" "$base" 2>/dev/null || continue
@@ -50,8 +54,9 @@ pre-push: '$branch' forked from '$base' before its current tip ($remote/$base).
 This is how an unmerged branch's unrelated commits end up dragged into a PR.
 If '$base' is genuinely this branch's intended base, rebase onto it:
     git fetch $remote $base && git rebase $remote/$base
-If this branch intentionally stacks on a different in-flight PR, open/retarget
-the PR with that base first so this check resolves it correctly next time.
+If this branch intentionally stacks on a different in-flight PR, declare that
+base (gh pr create also uses it) and push again:
+    git config branch.$branch.gh-merge-base <base-branch>
 EOF
 	fi
 done
