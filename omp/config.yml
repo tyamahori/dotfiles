@@ -113,6 +113,9 @@ skills:
 enabledProviders:
   - claude
   - codex
+contextFiles:
+  extra:
+    - AGENTS.local.md
 defaultThinkingLevel: high
 magicKeywords:
   enabled: true

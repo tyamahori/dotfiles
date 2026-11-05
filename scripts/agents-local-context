@@ -1,0 +1,21 @@
+#!/bin/bash
+# Shared SessionStart hook (Claude/Codex): print the repository's gitignored
+# AGENTS.local.md (per-project personal rules) so it lands in context. OMP
+# loads the same file natively via contextFiles.extra in omp/config.yml.
+# Why a hook: Codex has no additive project file (fallback names apply only
+# where AGENTS.md is absent; AGENTS.override.md replaces it), and a Claude
+# CLAUDE.local.md importing it would suppress Claude's AGENTS.md fallback.
+set -euo pipefail
+
+cwd=$(jq -r '.cwd // empty' 2>/dev/null || true)
+top=$(git -C "${cwd:-.}" rev-parse --show-toplevel 2>/dev/null) || exit 0
+file="$top/AGENTS.local.md"
+if [ ! -s "$file" ]; then
+	# Linked worktree: the gitignored file lives only in the primary checkout.
+	common=$(git -C "$top" rev-parse --path-format=absolute --git-common-dir)
+	file="$(dirname "$common")/AGENTS.local.md"
+fi
+[ -s "$file" ] || exit 0
+
+printf 'Personal rules for this project from AGENTS.local.md (%s):\n\n' "$file"
+cat "$file"

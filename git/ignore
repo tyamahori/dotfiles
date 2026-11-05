@@ -11,3 +11,4 @@
 **/.codex/hooks.json
 .scannerwork/
 .env
+AGENTS.local.md

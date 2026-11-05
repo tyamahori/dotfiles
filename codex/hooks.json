@@ -91,6 +91,16 @@
           }
         ],
         "matcher": "resume|compact"
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"$HOME/dotfiles/scripts/agents-local-context\"",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "startup|clear|compact"
       }
     ],
     "Stop": [
