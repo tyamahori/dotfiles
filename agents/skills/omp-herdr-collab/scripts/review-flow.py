@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -102,19 +103,7 @@ def fail(message: str) -> NoReturn:
     raise ValidationError(message)
 
 
-def parse_message(path: Path, text: str | None = None) -> Message:
-    match = FILE_NAME_RE.fullmatch(path.name)
-    if not match:
-        fail(f"{path}: filename must be NN-<tag>.md")
-    tag = match.group("tag")
-    if tag not in REVIEW_TAGS:
-        fail(f"{path}: not a review message")
-
-    try:
-        lines = (path.read_text(encoding="utf-8") if text is None else text).splitlines()
-    except OSError as error:
-        fail(f"{path}: cannot read message: {error}")
-
+def parse_headers(path: Path, lines: list[str]) -> list[str]:
     if len(lines) < 5:
         fail(f"{path.name}: generated headers and body are required")
     header_values: list[str] = []
@@ -129,16 +118,12 @@ def parse_message(path: Path, text: str | None = None) -> Message:
         datetime.strptime(header_values[2], DATE_FORMAT)
     except ValueError as error:
         fail(f"{path.name}: invalid date header ({error})")
+    return header_values
 
-    title = TITLE_RE.fullmatch(lines[4])
-    if not title:
-        fail(f"{path.name}: first body line must be a tagged review title")
-    title_tag = title.group("tag")
-    if TAG_TO_FILE[title_tag] != tag:
-        fail(f"{path.name}: filename tag and body tag differ")
 
+def parse_body_values(path: Path, lines: list[str]) -> dict[str, str]:
     values: dict[str, str] = {}
-    for line in lines[5:]:
+    for line in lines:
         if not line:
             continue
         value_match = KEY_VALUE_RE.fullmatch(line)
@@ -148,6 +133,32 @@ def parse_message(path: Path, text: str | None = None) -> Message:
         if key in values:
             fail(f"{path.name}: duplicate {key}")
         values[key] = value_match.group("value")
+    return values
+
+
+def parse_message(path: Path, text: str | None = None) -> Message:
+    match = FILE_NAME_RE.fullmatch(path.name)
+    if not match:
+        fail(f"{path}: filename must be NN-<tag>.md")
+    tag = match.group("tag")
+    if tag not in REVIEW_TAGS:
+        fail(f"{path}: not a review message")
+
+    try:
+        lines = (path.read_text(encoding="utf-8") if text is None else text).splitlines()
+    except OSError as error:
+        fail(f"{path}: cannot read message: {error}")
+
+    header_values = parse_headers(path, lines)
+
+    title = TITLE_RE.fullmatch(lines[4])
+    if not title:
+        fail(f"{path.name}: first body line must be a tagged review title")
+    title_tag = title.group("tag")
+    if TAG_TO_FILE[title_tag] != tag:
+        fail(f"{path.name}: filename tag and body tag differ")
+
+    values = parse_body_values(path, lines[5:])
 
     return Message(
         path=path,
@@ -796,22 +807,29 @@ def validate_panel_relay(
             fail(f"{message.path.name}: {key} must identify the corresponding FINDINGS file")
 
 
-def review_messages(directory: Path, candidate: Message | None = None) -> list[Message]:
-    if not directory.is_dir():
-        fail(f"{directory}: not a directory")
+def collect_messages(
+    directory: Path, used_numbers: set[int], accept: Callable[[re.Match[str]], bool]
+) -> list[Message]:
     messages: list[Message] = []
-    used_numbers: set[int] = set()
     for path in directory.iterdir():
         if not path.is_file():
             continue
         match = FILE_NAME_RE.fullmatch(path.name)
-        if not match or match.group("tag") not in FLOW_REVIEW_TAGS:
+        if not match or not accept(match):
             continue
         message = parse_message(path)
         if message.number in used_numbers:
             fail(f"{directory}: duplicate message number {message.number}")
         used_numbers.add(message.number)
         messages.append(message)
+    return messages
+
+
+def review_messages(directory: Path, candidate: Message | None = None) -> list[Message]:
+    if not directory.is_dir():
+        fail(f"{directory}: not a directory")
+    used_numbers: set[int] = set()
+    messages = collect_messages(directory, used_numbers, lambda match: match.group("tag") in FLOW_REVIEW_TAGS)
     if candidate is not None:
         messages.append(candidate)
 
@@ -820,17 +838,11 @@ def review_messages(directory: Path, candidate: Message | None = None) -> list[M
         return messages
 
     request_number = messages[0].number
-    for path in directory.iterdir():
-        if not path.is_file():
-            continue
-        match = FILE_NAME_RE.fullmatch(path.name)
-        if not match or match.group("tag") != "fyi" or int(match.group("number"), 10) <= request_number:
-            continue
-        message = parse_message(path)
-        if message.number in used_numbers:
-            fail(f"{directory}: duplicate message number {message.number}")
-        used_numbers.add(message.number)
-        messages.append(message)
+    messages += collect_messages(
+        directory,
+        used_numbers,
+        lambda match: match.group("tag") == "fyi" and int(match.group("number"), 10) > request_number,
+    )
     return sorted(messages, key=lambda message: message.number)
 
 
@@ -996,8 +1008,7 @@ def validate_flow(directory: Path, candidate: Message | None = None) -> tuple[st
     messages = review_messages(directory, candidate)
     if not messages:
         fail(f"{directory}: no review messages")
-    actual_tags = [message.tag for message in messages]
-    if actual_tags[0] != "review-req":
+    if messages[0].tag != "review-req":
         fail(f"{directory}: review flow must begin with review-req")
 
     request = messages[0]
@@ -1009,42 +1020,66 @@ def validate_flow(directory: Path, candidate: Message | None = None) -> tuple[st
     reviewer = request.value("reviewer")
     if len(messages) == 1:
         return "open-review", revision
+    severities = validate_pair_findings(directory, messages, reviewer, implementer, revision)
+    if len(messages) == 2:
+        return "open-findings", revision
+
+    result_revision, verified = validate_pair_applied(directory, messages, reviewer, implementer, severities)
+    if verified is None:
+        return "open-applied", result_revision
+    return validate_pair_verified(messages, verified, reviewer, implementer, severities, result_revision)
+
+
+def validate_pair_findings(
+    directory: Path, messages: list[Message], reviewer: str, implementer: str, revision: str
+) -> dict[int, str]:
     if messages[1].tag != "findings":
         fail(f"{directory}: REVIEW-REQ must be followed by FINDINGS")
-
     findings = messages[1]
     if findings.sender != reviewer or findings.recipient != implementer:
         fail(f"{findings.path.name}: FINDINGS must route reviewer -> implementer")
     severities = validate_findings(findings)
     if require_revision(findings, "reviewed-revision") != revision:
         fail(f"{findings.path.name}: reviewed-revision must equal REVIEW-REQ revision")
-    if findings.value("scope") != request.value("scope"):
+    if findings.value("scope") != messages[0].value("scope"):
         fail(f"{findings.path.name}: scope must equal REVIEW-REQ scope")
-    if len(messages) == 2:
-        return "open-findings", revision
+    return severities
 
+
+def validate_pair_applied(
+    directory: Path, messages: list[Message], reviewer: str, implementer: str, severities: dict[int, str]
+) -> tuple[str, Message | None]:
+    """Return the revision under verification and VERIFIED, or None while APPLIED is the latest message."""
+    actual_tags = [message.tag for message in messages]
     finding_ids = set(severities)
-    if finding_ids:
-        expected_tags = ["review-req", "findings", "applied", "verified", "decision"]
-        if len(messages) > len(expected_tags) or actual_tags != expected_tags[: len(actual_tags)]:
-            fail(f"{directory}: illegal review message ordering: {' -> '.join(actual_tags)}")
-        applied = messages[2]
-        if applied.sender != implementer or applied.recipient != reviewer:
-            fail(f"{applied.path.name}: APPLIED must route implementer -> reviewer")
-        validate_applied(applied, finding_ids)
-        if require_revision(applied, "base-revision") != require_revision(findings, "reviewed-revision"):
-            fail(f"{applied.path.name}: base-revision must equal FINDINGS reviewed-revision")
-        result_revision = require_revision(applied, "result-revision")
-        if len(messages) == 3:
-            return "open-applied", result_revision
-        verified = messages[3]
-    else:
+    if not finding_ids:
         expected_tags = ["review-req", "findings", "verified"]
         if len(messages) > len(expected_tags) or actual_tags != expected_tags[: len(actual_tags)]:
             fail(f"{directory}: zero findings must proceed directly to VERIFIED")
-        result_revision = revision
-        verified = messages[2]
+        return require_revision(messages[0], "revision"), messages[2]
 
+    expected_tags = ["review-req", "findings", "applied", "verified", "decision"]
+    if len(messages) > len(expected_tags) or actual_tags != expected_tags[: len(actual_tags)]:
+        fail(f"{directory}: illegal review message ordering: {' -> '.join(actual_tags)}")
+    applied = messages[2]
+    if applied.sender != implementer or applied.recipient != reviewer:
+        fail(f"{applied.path.name}: APPLIED must route implementer -> reviewer")
+    validate_applied(applied, finding_ids)
+    if require_revision(applied, "base-revision") != require_revision(messages[1], "reviewed-revision"):
+        fail(f"{applied.path.name}: base-revision must equal FINDINGS reviewed-revision")
+    result_revision = require_revision(applied, "result-revision")
+    return result_revision, (messages[3] if len(messages) > 3 else None)
+
+
+def validate_pair_verified(
+    messages: list[Message],
+    verified: Message,
+    reviewer: str,
+    implementer: str,
+    severities: dict[int, str],
+    result_revision: str,
+) -> tuple[str, str]:
+    finding_ids = set(severities)
     if verified.sender != reviewer or verified.recipient != implementer:
         fail(f"{verified.path.name}: VERIFIED must route reviewer -> implementer")
     verified_partitions = validate_verified(verified, finding_ids, severities)
@@ -1055,9 +1090,7 @@ def validate_flow(directory: Path, candidate: Message | None = None) -> tuple[st
         expected_length = 4 if finding_ids else 3
         if len(messages) != expected_length:
             fail(f"{messages[-1].path.name}: DECISION is only legal for unresolved high/mid findings")
-        if verified_partitions["unresolved-low"]:
-            return "closed-low", result_revision
-        return "closed-pass", result_revision
+        return ("closed-low" if verified_partitions["unresolved-low"] else "closed-pass"), result_revision
 
     if len(messages) == 4:
         return "awaiting-decision", result_revision
