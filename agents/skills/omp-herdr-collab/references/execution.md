@@ -101,14 +101,18 @@ workspace を作る。coordinator の作業ツリーと干渉せず、Herdr の�
    拒否されるので使わない。
 3. `[HANDOFF]` を `return-mode: artifact-import`、`期待する成果物: <branch> 上の
    コミット` で送る（`--tag handoff`。validator の対象外）。return-directory は
-   coordinator 側 repo の `.agent-msgs/<flow>/artifacts/` の絶対パスにする。
-   worker は push・PR 作成をしない。
+   spawn.sh が返した worker の cwd 配下 `<cwd>/.agent-msgs/<flow>/artifacts/` の
+   絶対パスにする。Codex の workspace-write sandbox は worktree の外へ書けない
+   ので、coordinator 側 repo を指すと承認画面で止まる。worker は push・PR 作成を
+   しない。
 4. worker は完了したら `<name>-fyi.md`（先頭 `[FYI]`、最終 commit とブランチ）を
    return-directory に書いて turn を終える。coordinator は `git -C <cwd> log` で
-   コミットを確かめ、`send.sh --record-only --tag fyi` で取り込む。
+   コミットを確かめ、`send.sh --record-only --tag fyi --body <その return file>` で
+   自分の ledger へ取り込む。
 5. その commit を revision に固定した通常のレビュー flow を、新しい flow 名・
    別の fresh reviewer で始める。実装者の model family は worker の系統で数える。
-6. flow を閉じたら `despawn.sh <pane>` で worktree を外す。ブランチは残る。
+6. flow を閉じたら `despawn.sh <pane>` で worktree を外す。worktree 内の
+   `.agent-msgs/` も一緒に消えるので、必ず 4 の取り込みの後にする。ブランチは残る。
 
 ## 検証とメッセージ規約
 

@@ -1957,7 +1957,15 @@ class PeerPlacementTest(unittest.TestCase):
             f"worktree create --cwd {self.repo} --branch feat/x --base main --label repo-worker --no-focus",
             self.calls(),
         )
-        self.assertIn("agent start repo-worker --kind codex --pane w9:p1 --timeout 60000", self.calls())
+        # A linked worktree commits into the main .git, outside Codex's workspace-write root.
+        git_dir = subprocess.run(
+            ["git", "-C", str(self.repo), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            check=True, text=True, capture_output=True,
+        ).stdout.strip()
+        self.assertIn(
+            f"agent start repo-worker --kind codex --pane w9:p1 --timeout 60000 -- --add-dir {git_dir}",
+            self.calls(),
+        )
 
     def test_spawn_writer_reopens_existing_branch(self) -> None:
         subprocess.run(["git", "-C", str(self.repo), "commit", "-q", "--allow-empty", "-m", "init"], check=True)

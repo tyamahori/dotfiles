@@ -33,12 +33,18 @@ NAME="${2:-$DEFAULT_NAME}"
 die() { echo "spawn.sh: $*" >&2; exit 1; }
 field() { jq -r "$1 // empty" <<<"$2"; }
 
+AGENT_ARGS=()
 if [ -n "${HC_WORKTREE_BRANCH:-}" ]; then
   if git -C "$CWD" show-ref --verify --quiet "refs/heads/$HC_WORKTREE_BRANCH"; then
     out="$(herdr worktree open --cwd "$CWD" --branch "$HC_WORKTREE_BRANCH" --label "$NAME" --no-focus)"
   else
     out="$(herdr worktree create --cwd "$CWD" --branch "$HC_WORKTREE_BRANCH" \
       ${HC_WORKTREE_BASE:+--base "$HC_WORKTREE_BASE"} --label "$NAME" --no-focus)"
+  fi
+  # linked worktree の index・objects・refs は本体の .git 配下にあり、Codex の
+  # workspace-write sandbox の外になる。足さないと git commit が index.lock で失敗する。
+  if [ "$KIND" = codex ]; then
+    AGENT_ARGS=(-- --add-dir "$(git -C "$CWD" rev-parse --path-format=absolute --git-common-dir)")
   fi
   WS="$(field .result.workspace.workspace_id "$out")"
   PANE="$(field .result.root_pane.pane_id "$out")"
@@ -70,7 +76,7 @@ fi
 started=0
 for _ in 1 2 3 4 5 6 7 8 9 10; do
   if err="$(herdr agent start "$NAME" --kind "$KIND" --pane "$PANE" \
-      --timeout "${HC_START_TIMEOUT_MS:-60000}" 2>&1 >/dev/null)"; then
+      --timeout "${HC_START_TIMEOUT_MS:-60000}" ${AGENT_ARGS[@]+"${AGENT_ARGS[@]}"} 2>&1 >/dev/null)"; then
     started=1
     break
   fi
