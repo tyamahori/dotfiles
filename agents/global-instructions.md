@@ -110,6 +110,9 @@ the criteria.
   `github-pr-respond`.
 - Long, unattended, or fully handed-over work the user reviews later:
   `show-me-your-work`.
+- OMP inside Herdr, in a repository's main checkout, with a task that needs
+  its own branch: `omp-herdr-collab` (coordinate; a worktree worker
+  implements).
 - A model pin changed in `claude/settings.json`, `codex/config.toml`, or
   `omp/config.yml`: `model-migration-review` against official sources; apply
   only approved changes and record the result in its journal.
@@ -274,6 +277,17 @@ ask-first rule); close only what you created, and remove it when the flow
 closes. Orca is only for account switching, usage dashboards, automations, and
 GitHub tasks; never use it, `orchestration`, or `orca-cli` for terminals or
 coordination.
+
+Inside Herdr, an OMP session in a repository's main checkout coordinates
+rather than implements whenever a task needs its own branch: it plans,
+briefs, reviews, and integrates, while a worker that `omp-herdr-collab`'s
+`spawn.sh` starts with `HC_WORKTREE_BRANCH` writes the code in that branch's
+worktree workspace. The coordinator never switches the main checkout to the
+task branch or edits files there for the task. This covers repository
+procedures that launch a writing `codex exec` themselves: send the same prompt
+to the worker, and turn their `resume` steps into messages to that worker.
+Repository scripts that only review and write a result file run as the
+repository defines.
 
 In a `devvm` project VM, run claude and codex in Herdr panes
 (`herdr --machine <vm> agent start …`) so the user can watch and interrupt

@@ -1,6 +1,6 @@
 ---
 name: omp-herdr-collab
-description: クロスレビュー・第二意見・Herdr 上の peer CLI（Claude Code / Codex）へのタスク受け渡しではまずこれを読む。omp が coordinator として行う協働プロトコルの正本（revision 固定の契約・状態遷移・タグとテンプレ・台帳）。panel 版は omp-herdr-collab-panel。
+description: クロスレビュー・第二意見・Herdr 上の peer CLI（Claude Code / Codex）へのタスク受け渡し、および Herdr 内で実装を worktree workspace の worker に任せるときはまずこれを読む。omp が coordinator として行う協働プロトコルの正本（revision 固定の契約・状態遷移・タグとテンプレ・台帳）。panel 版は omp-herdr-collab-panel。
 ---
 
 # omp-herdr-collab
