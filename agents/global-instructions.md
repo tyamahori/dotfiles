@@ -119,7 +119,8 @@ the criteria.
 - Stack logical, self-contained commits in dependency order; never squash a
   whole feature into one. Follow repo conventions.
 - Branch from the fresh tip of the intended base: fetch, then `origin/main`,
-  or the parent PR branch for a stacked PR (declare it as the PR base). Never
+  or the parent PR branch for a stacked PR (declare it as the PR base; before
+  the first push, `git config branch.<branch>.gh-merge-base <parent>`). Never
   fork from a stale or unrelated branch. Before opening a PR,
   `git log --oneline <base>..HEAD` must show only intended commits (measured).
 - Create PRs as draft; ready-for-review only when asked. `gh pr create --body`
