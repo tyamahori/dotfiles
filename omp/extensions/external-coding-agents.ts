@@ -131,8 +131,7 @@ function registerCursor(pi: ExtensionAPI) {
       // `--print` alone grants write and shell access, so read-only must be requested explicitly.
       const args = ["--print", "--output-format", "text", "--trust"];
       if (params.model) args.push("--model", params.model);
-      args.push(...(params.allowToolUse ? ["--force"] : ["--mode", "ask"]));
-      args.push("--", params.prompt);
+      args.push(...(params.allowToolUse ? ["--force"] : ["--mode", "ask"]), "--", params.prompt);
 
       onUpdate?.({ content: [{ type: "text", text: "Running Cursor Agent…" }] });
       // Called as `cursor-agent`, not `agent`: Grok Build also installs an `agent` command.
