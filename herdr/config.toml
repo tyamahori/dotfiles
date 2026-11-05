@@ -4,6 +4,9 @@ onboarding = false
 # new_cwd は workspace を含む共通ポリシーのため、新しい workspace も同様に引き継ぐ。
 [terminal]
 new_cwd = "follow"
+# terminal-browser（Chromiumをペインに描画）が要求。Kitty graphics対応ターミナル前提。
+# 0.9.5 で experimental.kitty_graphics から移動（既定 true だが依存を明示しておく）。
+kitty_graphics = true
 
 # 標準アクションは terminal.new_cwd の follow を使うため、HOME 専用コマンドへ置き換える。
 [keys]
@@ -59,9 +62,8 @@ command = '"$HOME/dotfiles/scripts/tool-release-review" --apply'
 description = "ツール更新レビューを開く"
 
 [experimental]
-# terminal-browser（Chromiumをペインに描画）が要求。Kitty graphics対応ターミナル前提。
-kitty_graphics = true
-pane_history = true
+# 画面履歴を平文の session-history.json に残さない（agent が出したトークン等も残るため）。既定も false。
+pane_history = false
 switch_ascii_input_source_in_prefix = true
 reveal_hidden_cursor_for_cjk_ime = true
 cjk_ime_agents = ["claude", "codex", "copilot"]
