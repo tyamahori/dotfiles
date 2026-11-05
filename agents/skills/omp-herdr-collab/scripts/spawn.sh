@@ -7,8 +7,8 @@
 # 置き場所:
 #   既定        <ディレクトリ名>-workers workspace (無ければ作る) のペイン。reviewer 向け
 #   HC_WORKTREE_BRANCH=<branch>
-#               そのブランチの herdr worktree workspace (label=<name>)。実装 worker 向け。
-#               ブランチが既にあれば worktree open、無ければ worktree create
+#               そのブランチの新しい herdr worktree workspace (label=<name>)。実装 worker 向け。
+#               ブランチは既存でもよい。別の checkout で使用中なら失敗する
 # env: HC_WORKTREE_BASE    worktree create の --base (default: herdr の既定)
 #      HC_CWD              repo / 新ペインの cwd (default: $PWD)
 #      HC_START_TIMEOUT_MS agent start のタイムアウト (default: 60000)
@@ -35,17 +35,9 @@ field() { jq -r "$1 // empty" <<<"$2"; }
 
 AGENT_ARGS=()
 if [ -n "${HC_WORKTREE_BRANCH:-}" ]; then
-  if git -C "$CWD" show-ref --verify --quiet "refs/heads/$HC_WORKTREE_BRANCH"; then
-    out="$(herdr worktree open --cwd "$CWD" --branch "$HC_WORKTREE_BRANCH" --label "$NAME" --no-focus)"
-  else
-    out="$(herdr worktree create --cwd "$CWD" --branch "$HC_WORKTREE_BRANCH" \
-      ${HC_WORKTREE_BASE:+--base "$HC_WORKTREE_BASE"} --label "$NAME" --no-focus)"
-  fi
-  # linked worktree の index・objects・refs は本体の .git 配下にあり、Codex の
-  # workspace-write sandbox の外になる。足さないと git commit が index.lock で失敗する。
-  if [ "$KIND" = codex ]; then
-    AGENT_ARGS=(-- --add-dir "$(git -C "$CWD" rev-parse --path-format=absolute --git-common-dir)")
-  fi
+  # 既存 checkout を worktree open で借りない。借りると undo / despawn が他人の checkout を消す。
+  out="$(herdr worktree create --cwd "$CWD" --branch "$HC_WORKTREE_BRANCH" \
+    ${HC_WORKTREE_BASE:+--base "$HC_WORKTREE_BASE"} --label "$NAME" --no-focus)"
   WS="$(field .result.workspace.workspace_id "$out")"
   PANE="$(field .result.root_pane.pane_id "$out")"
   CWD="$(field '.result.worktree.checkout_path // .result.workspace.worktree.checkout_path' "$out")"
@@ -70,6 +62,24 @@ else
   fi
 fi
 [ -n "$WS" ] && [ -n "$PANE" ] && [ -n "$CWD" ] || die "unexpected herdr response: $out"
+
+# linked worktree の commit は本体 .git 配下の index・objects・ref・reflog に書く。どれも
+# Codex の workspace-write sandbox の外なので、必要な場所だけ書込可にする。.git 全体を
+# 渡すと config・hooks まで書けてしまい、worker が後で coordinator 側で実行されるコードを置ける。
+# git の自動 pack-refs は packed-refs に書けず警告を出すが、commit は成功するので広げない。
+# ponytail: refs/heads 全体なので他ブランチの ref も動かせる。ブランチ単位の namespace が要るなら refs/heads/<prefix> に絞る。
+if [ -n "${HC_WORKTREE_BRANCH:-}" ] && [ "$KIND" = codex ]; then
+  if ! common="$(git -C "$CWD" rev-parse --path-format=absolute --git-common-dir)" \
+    || ! admin="$(git -C "$CWD" rev-parse --absolute-git-dir)" \
+    || ! mkdir -p "$common/logs/refs/heads"; then
+    "${undo[@]}" >/dev/null 2>&1 || true
+    die "cannot resolve git dirs for $CWD"
+  fi
+  AGENT_ARGS=(--)
+  for dir in "$admin" "$common/objects" "$common/refs/heads" "$common/logs/refs/heads"; do
+    AGENT_ARGS+=(--add-dir "$dir")
+  done
+fi
 
 # 作成直後はシェルがまだ立っておらず agent_pane_busy で弾かれることがある。
 # シェルが available になるまで最大 10 秒リトライする。

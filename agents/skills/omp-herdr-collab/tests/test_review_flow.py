@@ -1943,6 +1943,9 @@ class PeerPlacementTest(unittest.TestCase):
 
     def test_spawn_writer_creates_worktree_workspace(self) -> None:
         checkout = self.root / "worktrees" / "feat-x"
+        git = ["git", "-C", str(self.repo)]
+        subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "init"], check=True)
+        subprocess.run([*git, "worktree", "add", "-q", "-b", "feat/x", str(checkout)], check=True)
         self.respond(
             "worktree-create",
             '{"result":{"workspace":{"workspace_id":"w9"},"root_pane":{"pane_id":"w9:p1"},'
@@ -1957,29 +1960,28 @@ class PeerPlacementTest(unittest.TestCase):
             f"worktree create --cwd {self.repo} --branch feat/x --base main --label repo-worker --no-focus",
             self.calls(),
         )
-        # A linked worktree commits into the main .git, outside Codex's workspace-write root.
-        git_dir = subprocess.run(
-            ["git", "-C", str(self.repo), "rev-parse", "--path-format=absolute", "--git-common-dir"],
-            check=True, text=True, capture_output=True,
-        ).stdout.strip()
+        # Codex may write exactly what a linked-worktree commit needs, never the shared config or hooks.
+        def resolve(*args: str) -> str:
+            return subprocess.run(
+                ["git", "-C", str(checkout), "rev-parse", *args], check=True, text=True, capture_output=True
+            ).stdout.strip()
+
+        common, admin = resolve("--path-format=absolute", "--git-common-dir"), resolve("--absolute-git-dir")
+        roots = [admin, f"{common}/objects", f"{common}/refs/heads", f"{common}/logs/refs/heads"]
         self.assertIn(
-            f"agent start repo-worker --kind codex --pane w9:p1 --timeout 60000 -- --add-dir {git_dir}",
+            "agent start repo-worker --kind codex --pane w9:p1 --timeout 60000 -- "
+            + " ".join(f"--add-dir {root}" for root in roots),
             self.calls(),
         )
 
-    def test_spawn_writer_reopens_existing_branch(self) -> None:
-        subprocess.run(["git", "-C", str(self.repo), "commit", "-q", "--allow-empty", "-m", "init"], check=True)
-        subprocess.run(["git", "-C", str(self.repo), "branch", "feat/x"], check=True)
-        self.respond(
-            "worktree-open",
-            '{"result":{"workspace":{"workspace_id":"w9"},"root_pane":{"pane_id":"w9:p1"},'
-            '"worktree":{"checkout_path":"/wt/feat-x"}}}',
-        )
+    def test_spawn_writer_never_removes_a_checkout_it_did_not_create(self) -> None:
+        # herdr refuses create when the branch is already checked out elsewhere; that checkout is not ours.
+        self.respond("worktree-create", '{"error":{"code":"branch_in_use"}}', rc=1)
 
         result = self.run_script(SPAWN, "codex", "repo-worker", HC_WORKTREE_BRANCH="feat/x")
 
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn(f"worktree open --cwd {self.repo} --branch feat/x --label repo-worker --no-focus", self.calls())
+        self.assertEqual(result.returncode, 1)
+        self.assertFalse([call for call in self.calls() if "remove" in call or "close" in call or "agent start" in call])
 
     def test_spawn_writer_failure_removes_created_worktree(self) -> None:
         self.respond(

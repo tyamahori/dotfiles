@@ -97,8 +97,8 @@ workspace を作る。coordinator の作業ツリーと干渉せず、Herdr の�
 
 1. briefing（acceptance criteria・非目標・検証手段・ブランチ名）を書く。
 2. `HC_WORKTREE_BRANCH=<branch> HC_WORKTREE_BASE=<ref> spawn.sh <kind> <name>` で
-   起動する。ブランチが既にあれば開き直す。`git worktree add` は Herdr 内で
-   拒否されるので使わない。
+   起動する。毎回新しい checkout を作る（既存ブランチも可。別の checkout で
+   使用中なら失敗する）。`git worktree add` は Herdr 内で拒否されるので使わない。
 3. `[HANDOFF]` を `return-mode: artifact-import`、`期待する成果物: <branch> 上の
    コミット` で送る（`--tag handoff`。validator の対象外）。return-directory は
    spawn.sh が返した worker の cwd 配下 `<cwd>/.agent-msgs/<flow>/artifacts/` の
@@ -107,8 +107,8 @@ workspace を作る。coordinator の作業ツリーと干渉せず、Herdr の�
    しない。
 4. worker は完了したら `<name>-fyi.md`（先頭 `[FYI]`、最終 commit とブランチ）を
    return-directory に書いて turn を終える。coordinator は `git -C <cwd> log` で
-   コミットを確かめ、`send.sh --record-only --tag fyi --body <その return file>` で
-   自分の ledger へ取り込む。
+   コミットを確かめ、`send.sh --record-only --from <worker> --to <coordinator>
+   --tag fyi --flow <flow> --body <その return file>` で自分の ledger へ取り込む。
 5. その commit を revision に固定した通常のレビュー flow を、新しい flow 名・
    別の fresh reviewer で始める。実装者の model family は worker の系統で数える。
 6. flow を閉じたら `despawn.sh <pane>` で worktree を外す。worktree 内の
