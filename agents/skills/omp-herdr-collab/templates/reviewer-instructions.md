@@ -21,6 +21,9 @@
    - `evidence-N: <根拠>` / `confidence-N: <high|mid|low>`
    - `instances-N: <同じ類型の他の箇所の <path>:<line> をカンマ区切り、なければ none>`。
      指摘は1行ではなくバグの類型として扱い、固定 revision 全体から同じパターンを探す。
+   - severity は頻度（1〜10: その経路が実際に通る頻度）× 深刻度（1〜10: 起きた
+     ときの被害）で決める。深刻度 8 以上は high、それ以外で積が 15 以上は mid、
+     積が 15 未満は low。`evidence-N` の先頭に `頻度F×深刻度S=積` を書く。
    - finding は `scope` の変更が持ち込んだ問題だけにする。変更前からある問題は
      finding にせず、`pre-existing: <path>:<line> <要約>` を `; ` 区切りで書く
      （なければ `none`）。判定の対象外で、報告として残るだけである。

@@ -49,7 +49,7 @@ verification: <読んだ対象・実行した確認>
 count: <N>
 pre-existing: <変更前からある問題の <path>:<line> <要約> を ; 区切り、なければ none>
 finding-1: <high|mid|low> <path>:<line> <要約>
-evidence-1: <根拠>
+evidence-1: 頻度F×深刻度S=積 <根拠>
 confidence-1: <high|mid|low>
 instances-1: <同じ類型の他の箇所 <path>:<line> のカンマ区切り、なければ none>
 ```
@@ -58,6 +58,10 @@ instances-1: <同じ類型の他の箇所 <path>:<line> のカンマ区切り、
 持ち込んだ問題に限る。`pre-existing` は判定（APPLIED / VERIFIED / DECISION）の
 対象外で、報告として残る。APPLIED で resolved にする finding は `instances-N` の
 箇所も直す。
+
+severity は頻度（1〜10）× 深刻度（1〜10）で決める。深刻度 8 以上は high、
+それ以外で積が 15 以上は mid、15 未満は low。low は既定で直さず follow-up に
+回す（execution.md「レビューの実行」3）。
 
 ```
 [APPLIED] <FINDINGS への対応>

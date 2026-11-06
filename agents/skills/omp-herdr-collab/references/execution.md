@@ -40,14 +40,13 @@ herdr 0.8.0 以降を前提とする。**フラグ・exit code・失敗時の対
 S=~/.agents/skills/omp-herdr-collab/scripts
 
 # ピア起動: coordinator のタブは分割せず、<repo>-workers workspace（無ければ作る）に
-# 素の CLI を herdr agent start で起動・命名する。
-$S/spawn.sh codex                 # name は <ディレクトリ名>-codex
-$S/spawn.sh claude myrepo-claude  # stdout: name=myrepo-claude pane=w2:p2 workspace=w2 cwd=...
+# 素の CLI を herdr agent start で起動・命名する。名前は下の「ワーカー名と roster」。
+$S/spawn.sh codex fix-auth-review-codex  # stdout: name=fix-auth-review-codex pane=w2:p2 workspace=w2 cwd=...
 # 実装 worker: ブランチ専用の herdr worktree workspace に起動する（下の「実装の委譲」）。
-HC_WORKTREE_BRANCH=feat/x HC_WORKTREE_BASE=origin/main $S/spawn.sh codex myrepo-worker
+HC_WORKTREE_BRANCH=feat/x HC_WORKTREE_BASE=origin/main $S/spawn.sh codex fix-auth-impl-codex
 
 # 配送: 台帳作成 + validator 検証 + settle 待ち + prompt 配送 + 着火確認。
-$S/send.sh --to myrepo-codex --tag review-req --flow fix-auth --body - <<'EOF'
+$S/send.sh --to fix-auth-review-codex --tag review-req --flow fix-auth --body - <<'EOF'
 [REVIEW-REQ] ...
 EOF
 
@@ -58,12 +57,12 @@ $S/review-flow.py scaffold --dir .agent-msgs/fix-auth --tag verified
 
 # reviewer が返却前に自分で実行する検査（台帳へは書かない）。
 $S/review-flow.py check-return --dir .agent-msgs/fix-auth \
-  .agent-msgs/fix-auth/artifacts/myrepo-codex-findings.md
+  .agent-msgs/fix-auth/artifacts/fix-auth-review-codex-findings.md
 
 # ピアの return file を採番・header 生成・検証して台帳へ取り込む。
-$S/send.sh --record-only --from myrepo-codex --to myrepo-omp \
+$S/send.sh --record-only --from fix-auth-review-codex --to myrepo-omp \
   --tag findings --flow fix-auth \
-  --body .agent-msgs/fix-auth/artifacts/myrepo-codex-findings.md
+  --body .agent-msgs/fix-auth/artifacts/fix-auth-review-codex-findings.md
 
 # 受信確認と状態。status は次の一手も印字する。
 $S/inbox.sh --flow fix-auth
@@ -88,6 +87,14 @@ $S/despawn.sh w2:p2
   読んでいる間に skeleton が return-directory に届く。厳密に先置きしたければ
   `--record-only` で REVIEW-REQ を記録 → scaffold → `--file` で配送する。
   scaffold は既存ファイルを上書きせず失敗する（ピアが先に書き始めていた場合）。
+
+## ワーカー名と roster
+
+spawn.sh の name は `<task>-<role>-<model>` で明示する（例: `fix-auth-impl-codex`、
+`fix-auth-review-claude`）。task は flow 名か短い作業名、role は `impl` か
+`review`、model は kind。全体で 32 文字以内、`[a-z][a-z0-9_-]` に収める。
+名前で用途が分かるので `herdr agent list` がそのまま roster になり、宛先の
+取り違えも防げる。既定名 `<ディレクトリ名>-<kind>` は単発の相談だけに使う。
 
 ## 実装の委譲
 
@@ -148,8 +155,10 @@ workspace を作る。coordinator の作業ツリーと干渉せず、Herdr の�
    `[REVIEW-REQ]` を配送する。直後に findings の scaffold を実行する。
    既存ピアを使う場合だけ `[HANDOFF]` → go/no-go → `[REVIEW-REQ]` に分ける。
 3. `herdr agent wait <reviewer>` で turn 終了を待ち、return file を
-   `--record-only` で台帳へ取り込み、`[FINDINGS]` を triage する。正しい指摘
-   だけ直し、却下には理由を付ける。
+   `--record-only` で台帳へ取り込み、`[FINDINGS]` を triage する。正しい
+   high/mid だけ直し、却下には理由を付ける。low は既定で直さず `dismissed` に
+   入れ、`reason-N: low: follow-up` としてユーザー報告の follow-up（issue 候補）に
+   残す。直すと判断した low だけ resolved にしてよい。
 4. 指摘があれば、全 ID を `resolved` / `dismissed` に一度ずつ振り分けた
    `[APPLIED]` を配送し、verified の scaffold を実行する。修正後 revision と
    verification を必ず記録する。
