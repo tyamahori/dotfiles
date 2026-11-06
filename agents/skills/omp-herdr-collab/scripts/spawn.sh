@@ -61,7 +61,9 @@ else
     undo=(herdr pane close "$PANE")
   fi
 fi
-[ -n "$WS" ] && [ -n "$PANE" ] && [ -n "$CWD" ] || die "unexpected herdr response: $out"
+if [ -z "$WS" ] || [ -z "$PANE" ] || [ -z "$CWD" ]; then
+  die "unexpected herdr response: $out"
+fi
 
 # linked worktree の commit は本体 .git 配下の index・objects・ref・reflog に書く。どれも
 # Codex の workspace-write sandbox の外なので、必要な場所だけ書込可にする。.git 全体を
