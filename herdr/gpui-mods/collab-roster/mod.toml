@@ -1,0 +1,6 @@
+name = "collab-roster"
+api = 1
+places = ["panel"]
+
+[panel]
+title = "Roster"

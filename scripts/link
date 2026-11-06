@@ -287,6 +287,17 @@ fi
 mkdir -p "$HOME/.config/herdr"
 ln -snfv "${REPO_ROOT}/herdr/config.toml" "$HOME/.config/herdr/config.toml"
 
+# Sheprd mods: link the whole gpui-mods directory. Sheprd ignores a mod whose
+# folder or files are symlinks (measured: "no mod.toml"), but follows a
+# symlinked gpui-mods itself. A real directory there holds the user's own
+# mods: report it and leave it.
+mods_target="$HOME/.config/herdr/gpui-mods"
+if [[ -e $mods_target && ! -L $mods_target ]]; then
+	echo "link: $mods_target is a local directory; move it aside to use ${REPO_ROOT}/herdr/gpui-mods" >&2
+else
+	ln -snfv "${REPO_ROOT}/herdr/gpui-mods" "$mods_target"
+fi
+
 # herdr worktree-track plugin: follow same-named remote branches in new
 # worktrees. `plugin link` is idempotent; it needs a reachable herdr server,
 # so tolerate failure on machines where herdr isn't running yet.
