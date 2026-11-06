@@ -77,3 +77,36 @@ test("cursor_agent runs read-only unless tool use is allowed", async () => {
     ["cursor-agent", ["--print", "--output-format", "text", "--trust", "--force", "--", "fix it"]],
   ]);
 });
+
+test("grok_build denies shell, edits, and MCP tools unless tool use is allowed", async () => {
+  const { tools, calls } = load(grokAuth);
+  const grok = tools.get("grok_build")!;
+
+  await grok.execute("id", { prompt: "explain" }, undefined, undefined, { cwd: "/w" });
+  await grok.execute("id", { prompt: "fix it", allowToolUse: true }, undefined, undefined, { cwd: "/w" });
+  // A headless run without --always-approve still auto-approves `touch`, and `--tools` alone
+  // left idea's MCP terminal reachable, so the read-only run needs every deny.
+  const base = ["--no-alt-screen", "--cwd", "/w"];
+  expect(calls).toEqual([
+    [
+      "grok",
+      [
+        ...base,
+        "--single=explain",
+        "--output-format",
+        "plain",
+        "--tools",
+        "read_file,grep,list_dir",
+        "--deny",
+        "MCPTool",
+        "--deny",
+        "Bash",
+        "--deny",
+        "Edit",
+        "--deny",
+        "Write",
+      ],
+    ],
+    ["grok", [...base, "--single=fix it", "--output-format", "plain", "--always-approve"]],
+  ]);
+});

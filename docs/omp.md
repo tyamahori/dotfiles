@@ -456,8 +456,10 @@ omp config get retry.usageReservePct --json
 そのため `grok_build` は `grok login` 済みの端末だけ、`cursor_agent` は `cursor-agent login` 済みの端末だけに出ます。
 ログインやログアウトは dotfiles の外で端末ごとに行い、その後に OMP を起動し直すと反映されます。
 
-`cursor_agent` は、既定では読み取り専用（`--mode ask`）で動きます。
-ファイルの変更やコマンドの実行を任せるときだけ、`allowToolUse` を有効にします（`--force`）。
+`cursor_agent` と `grok_build` は、既定では読み取り専用で動きます。
+`cursor_agent` は `--mode ask`、`grok_build` は `--tools read_file,grep,list_dir` に加えてシェル・編集・書き込み・MCP ツールを `--deny` します。
+Grok は `--always-approve` なしの headless 実行でも `touch` を自動承認し、`--tools` だけでは idea MCP のターミナル経由でコマンドを実行できたためです。
+ファイルの変更やコマンドの実行を任せるときだけ、`allowToolUse` を有効にします（Cursor は `--force`、Grok は `--always-approve`）。
 Grok Build も `agent` コマンドを入れるため、Cursor の CLI は `cursor-agent` の名前で呼びます。
 
 ## OMP 本体を更新する

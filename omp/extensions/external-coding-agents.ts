@@ -86,13 +86,16 @@ function registerGrok(pi: ExtensionAPI) {
     name: "grok_build",
     label: "Grok Build",
     description:
-      "Delegate a task to Grok Build in the current workspace. By default Grok Build does not auto-approve its own tools. Set allowToolUse only when the user explicitly authorizes the delegated agent to run commands or modify files.",
+      "Delegate a task to Grok Build in the current workspace. By default Grok Build runs read-only (read_file, grep, list_dir; shell, edits, and MCP tools denied). Set allowToolUse only when the user explicitly authorizes the delegated agent to run commands or modify files.",
     parameters: z.object({
       prompt: z.string().min(1).describe("Complete task for Grok Build."),
       agent: z.string().optional().describe("Optional Grok Build agent name or definition path."),
       model: z.string().optional().describe("Optional Grok Build model identifier."),
       effort: z.string().optional().describe("Optional Grok Build reasoning effort."),
-      allowToolUse: z.boolean().optional().describe("Auto-approve Grok Build tool use. Defaults to false."),
+      allowToolUse: z
+        .boolean()
+        .optional()
+        .describe("Let Grok Build edit files, run commands, and call MCP tools. Defaults to false (read-only)."),
     }),
     defaultInactive: false,
     approval: "exec",
@@ -102,7 +105,15 @@ function registerGrok(pi: ExtensionAPI) {
       if (params.agent) args.push("--agent", params.agent);
       if (params.model) args.push("--model", params.model);
       if (params.effort) args.push("--reasoning-effort", params.effort);
+      // Without --always-approve a headless run still auto-approves `touch`/`mkdir`, and `--tools` alone
+      // leaves MCP tools reachable (idea's execute_terminal_command ran shell commands), hence the denies.
       if (params.allowToolUse) args.push("--always-approve");
+      else
+        args.push(
+          "--tools",
+          "read_file,grep,list_dir",
+          ...["MCPTool", "Bash", "Edit", "Write"].flatMap((rule) => ["--deny", rule]),
+        );
 
       onUpdate?.({ content: [{ type: "text", text: "Running Grok Build…" }] });
       return runAgent(pi, "Grok Build", ["grok", ...args], { cwd: ctx.cwd, signal });
