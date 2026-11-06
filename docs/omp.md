@@ -578,6 +578,14 @@ omp usage
 これは shell 呼び出しの文字列照合とファイル名照合による防御であり、`docs/omp.md` の他ルールと同じくガイダンスです。
 Python/Node の一行スクリプトがファイルを直接開く、絶対パス経由で呼ぶなど、意図的な迂回までは防げません。
 
+### 強制 push や `gh api -X DELETE` で確認が出る、または拒否される
+
+履歴やリモートを壊す操作は、承認モードに関係なく人の確認を求めます。対象は強制 push（`--force`・`-f`・`+refspec`）、`git reset --hard`、`git clean -f`、`gh repo delete`、`gh api` の DELETE、`docker volume rm`/`prune`、`docker system prune` です。
+
+- OMP: `omp/config.yml` の `bash.patterns` が `approval: prompt` を付けます。既定の yolo でも有効で、UI のないサブエージェントや `omp -p` では拒否されます。`bash` ツールだけが対象で、`eval` から起動したシェルには効きません。IDE の MCP ターミナル（`mcp__idea_execute_terminal_command`）は `tools.approval` で毎回確認にしています。`tools.restrictedFolders` の `~/.ssh`・`~/.aws`・`~/.config/gh`・`~/.gnupg` は、中での読み書きとコマンドがすべて確認になります。
+
+どちらもコマンド文字列の照合なので、`sh -c` や絶対パス経由の呼び出しまでは止めません。
+
 ### 代替ツールのルールを追加する
 
 四 CLI 共通のルール表は `agents/command-rules.json` です。

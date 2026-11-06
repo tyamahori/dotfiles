@@ -85,8 +85,45 @@ prewalk:
 tools:
   xdevDocs: builtins
   xdevNotices: false
+  # The idea MCP terminal runs arbitrary shell outside bash.patterns and the
+  # deny-commands extension, so it always asks (headless subagents: refused).
+  approval:
+    mcp__idea_execute_terminal_command: prompt
   restrictedFolders:
     - ~/.ssh
+    - ~/.aws
+    - ~/.config/gh
+    - ~/.gnupg
+# Destructive remote/history operations ask even under the default yolo mode;
+# headless subagents cannot answer, so they are refused there.
+bash:
+  patterns:
+    - match: "git *push *--force*"
+      approval: prompt
+    - match: "git *push -f*"
+      approval: prompt
+    - match: "git *push * -f*"
+      approval: prompt
+    - match: "git *push * +*"
+      approval: prompt
+    - match: "git *reset *--hard*"
+      approval: prompt
+    - match: "git *clean *-*f*"
+      approval: prompt
+    - match: "gh repo delete*"
+      approval: prompt
+    - match: "gh api *-X DELETE*"
+      approval: prompt
+    - match: "gh api *-XDELETE*"
+      approval: prompt
+    - match: "gh api *--method DELETE*"
+      approval: prompt
+    - match: "docker volume rm*"
+      approval: prompt
+    - match: "docker volume prune*"
+      approval: prompt
+    - match: "docker system prune*"
+      approval: prompt
 advisor:
   enabled: true
   # Final-yield review only. Per-turn review (measured 2026-10-24: 7 days,
