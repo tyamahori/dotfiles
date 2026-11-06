@@ -298,18 +298,20 @@ fi
 
 # Sheprd (herdr-gpui) prompt profiles, read from agent-launcher's directory.
 # "Review with agent" appends the chosen profile to its read-only PR review
-# prompt, so code-review points the agent (e.g. omp) at agents/skills review
-# criteria. Link the file, not the directory, so an existing real profile
-# directory is not nested. A regular file that differs from the repository
-# copy is the user's own profile: report it and leave it in place.
-profile_source="${REPO_ROOT}/herdr/agent-launcher/code-review/prompt.md"
-profile_target="$HOME/.config/agent-launcher/agents/code-review/prompt.md"
-if [[ -e $profile_target && ! -L $profile_target ]] && ! cmp -s "$profile_source" "$profile_target"; then
-	echo "link: $profile_target is a local profile; move it aside to use $profile_source" >&2
-else
+# prompt. Each herdr/agent-launcher/<name>/prompt.md is a hand-written profile
+# (code-review points the agent at agents/skills review criteria); add a
+# directory there to add one. Link the file, not the directory, so an
+# existing real profile directory is not nested. A regular file that differs
+# from the repository copy is the user's own profile: report it and leave it.
+for profile_source in "${REPO_ROOT}/herdr/agent-launcher"/*/prompt.md; do
+	profile_target="$HOME/.config/agent-launcher/agents/$(basename "$(dirname "$profile_source")")/prompt.md"
+	if [[ -e $profile_target && ! -L $profile_target ]] && ! cmp -s "$profile_source" "$profile_target"; then
+		echo "link: $profile_target is a local profile; move it aside to use $profile_source" >&2
+		continue
+	fi
 	mkdir -p "$(dirname "$profile_target")"
 	ln -snfv "$profile_source" "$profile_target"
-fi
+done
 
 # One generated profile per authored skill, so the dispatch and "Review with
 # agent" dialogs list them. For an issue a profile replaces the built-in
