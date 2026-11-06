@@ -110,12 +110,43 @@ impl / reviewer の役割はフロー開始時に決める。
   verification は「読んだ」で止めず、実行できる確認を実行した記録を要求する
   （reviewer-instructions が要求する。briefing 側は手段を与える）。
 
+## 軽量委譲（レビュー flow なし）
+
+小さい実装依頼は revision 固定のレビュー flow を使わず、次の型で回してよい。
+send.sh は `[HANDOFF]` と `[FYI]` を台帳に残すが、`[REVIEW-REQ]` 以降の
+review tag は使わないので、closure（`closed-pass` など）も `require-closed` も
+対象外になる。完了報告には「正式レビューなし」と書く。
+
+- 使える条件: 目的が1つで差分が小さい（目安: 数ファイル・数百行以内）。
+  認証・権限・秘密情報・CI の認証情報・信頼できない入力の処理・公開契約に
+  触れない。
+- 手順:
+  1. briefing（acceptance criteria・非目標・検証手段・ブランチ名）を短く書き、
+     `HC_WORKTREE_BRANCH=<branch> spawn.sh <kind> <task>-impl-<kind>` で起動する。
+     書き込む worker は 1 人 1 worktree、同時に 2〜3 人まで。
+  2. `send.sh --tag handoff --flow <task>` で briefing を渡す（validator の対象外）。
+     return-directory は「実装の委譲」3 と同じく worker の cwd 配下にする。
+     worker には最終 commit・変更ファイル・実行したテスト・未解決点だけを
+     5 行以内で `<name>-fyi.md` に書かせ、「実装の委譲」4 と同じく
+     `send.sh --record-only --tag fyi` で台帳へ取り込む。
+  3. coordinator は報告ではなく `git -C <cwd> diff <base>...<branch>` の実際の
+     差分を読み、検証手段のテストを自分で再実行する。
+  4. 必要なら worker と別系統のモデルを `<task>-review-<kind>` として spawn し、
+     固定 commit を read-only でレビューさせる。指摘はペインに出力させて
+     `herdr agent read` で読み、`references/messages.md` の severity 規則で
+     triage する。
+  5. 修正ラウンドは、元の briefing と採用した指摘をまとめて fresh worker に
+     渡す。前の worker を `despawn.sh` で外してから同じブランチで spawn する。
+- 正式 flow へ切り替える条件: 差分が条件を超えた、reviewer が high を出した、
+  ユーザーがレビューの記録や closure を求めた。切り替えたら現在の commit を
+  revision に固定し、新しい flow 名の REVIEW-REQ から始める。
+
 ## 必要な手順を読む
 
 - メッセージ作成・検証時は [タグとテンプレ](references/messages.md) を読む。
 - coordinator は初回の書込・起動・配送の前に [実行と運搬](references/execution.md) を読み、許可境界・return mode・閉鎖判定を守る。
 - peer はこの skill を読まず、配達された `templates/reviewer-instructions.md` と briefing に従う。
-- 完了報告前に `scripts/review-flow.py require-closed --dir <flow-dir>` を実行し、通らなければ完了と報告しない。
+- レビュー flow（`[REVIEW-REQ]` を記録した flow）の完了報告前に `scripts/review-flow.py require-closed --dir <flow-dir>` を実行し、通らなければ完了と報告しない。
 
 ## trust boundary（herdr-only 固有・ここが正本）
 

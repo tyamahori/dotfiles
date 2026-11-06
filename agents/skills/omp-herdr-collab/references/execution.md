@@ -135,8 +135,8 @@ workspace を作る。coordinator の作業ツリーと干渉せず、Herdr の�
 - coordinator 自身が herdr agent 未登録だと `from:` が再起動で変わる pane ID に
   なる。`--from <安定名>` を明示して trust boundary の「期待する送信元」を
   安定させる。
-- 完了報告の直前に必ず `review-flow.py require-closed --dir <flow-dir>` を
-  実行する。通らなければ完了と報告しない。
+- レビュー flow の完了報告の直前に必ず `review-flow.py require-closed --dir <flow-dir>` を
+  実行する。通らなければ完了と報告しない（SKILL.md の軽量委譲は対象外）。
 - ディレクトリ名を汎用名（`.agents/` 等）に変えない。ignore 対象は
   agent 出力専用の `.agent-msgs/` に限定する。
 - msgs ディレクトリがそのままフローの作業ログになる（改ざん耐性はない —
