@@ -37,6 +37,8 @@ fi
 #   used so it is not listed twice.
 # - imozuru: source-chasing research into unfamiliar fields; the Claude plugin
 #   form is not used so Codex and OMP get the same copy.
+# - portless, oauth: the upstream `npx skills add vercel-labs/portless` set for
+#   the portless CLI (installed from ~/.Brewfile).
 global_skills=(
 	"archify tt-a1i/archify"
 	"frontend-design anthropics/skills"
@@ -56,6 +58,8 @@ global_skills=(
 	"owasp-top-10-testing usestrix/strix"
 	"penetration-testing-with-strix usestrix/strix"
 	"web-app-penetration-testing usestrix/strix"
+	"portless vercel-labs/portless"
+	"oauth vercel-labs/portless"
 )
 for entry in "${global_skills[@]}"; do
 	read -r -a skill <<<"$entry"
