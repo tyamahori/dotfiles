@@ -12,3 +12,5 @@
 .scannerwork/
 .env
 AGENTS.local.md
+
+**/.claude/.cc-writes/
