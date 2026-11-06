@@ -1,6 +1,23 @@
 # model migration journal
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
+## 2026-11-06 effort を medium → xhigh へ(Claude Code・Codex)
+
+- 契機: ユーザーが「effort を medium から xhigh に」と明示指示。
+  `scripts/model-pins check` は `codex.model_reasoning_effort: medium -> xhigh` を報告。
+  Claude の `effortLevel` は pin の監視対象外。
+- 収集: 公式資料は読んでいない(ユーザーの明示指示で値が確定していたため)。
+  値の有効性は CLI で確認した。`claude --help` の `--effort` は low〜max で
+  xhigh を含む。`codex debug models` の gpt-6.1-terra は low〜ultra で xhigh を含む。
+- 適用: `claude/settings.json` の `effortLevel` と `modelSettings` の
+  Opus/Sonnet/Haiku 5.5、`codex/config.toml` と user 層 `~/.codex/config.toml` の
+  `model_reasoning_effort`。OMP の `defaultThinkingLevel: high` は medium でないので対象外。
+- 検証: 新規 `codex exec` が `model: gpt-6.1-terra` / `reasoning effort: xhigh` で応答。
+  新規 `claude -p`(Opus 5.5・Haiku 5.5)は応答したが、解決済み effort は
+  `-p` の出力に現れず未確認。
+- 1週間後: medium の期間と比べ、Claude・Codex の週次消費、cache hit、
+  cross-review の指摘の有用度を見る。消費だけ増えていれば medium へ戻す案を出す。
+
 ## 2026-10-30 Codex 正本を gpt-6.1-sol / low → gpt-6.1-terra / medium へ
 
 - 契機: ユーザーが `codex/config.toml` の `model` を terra に変え、push 前に

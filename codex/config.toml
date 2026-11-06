@@ -12,10 +12,10 @@
 # command when it is missing.
 
 model = "gpt-6.1-terra"
-# Matches the user-layer choice (~/.codex/config.toml, aligned 2026-10-30) so
-# the canonical pin and the effective value agree. medium is Terra's official
-# starting effort.
-model_reasoning_effort = "medium"
+# Matches the user-layer choice (~/.codex/config.toml) so the canonical pin and
+# the effective value agree. Raised from Terra's official starting effort
+# (medium) to xhigh on 2026-11-06 at the user's request.
+model_reasoning_effort = "xhigh"
 service_tier = "default"
 
 # Keep workspace isolation while routing approval requests to auto-review.
