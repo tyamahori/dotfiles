@@ -245,6 +245,8 @@ omp config get retry.fallbackChains --json
 | `commit` | commit 文面 |
 | `advisor` | メインセッションの補助レビュー。`advisor.reviewMode: agent-end` で最終応答の前だけ動く。`turn` にするとターンごとに動くが、指摘が届くのは大半が 5 ターン以上あとで、利用量も増える。止めるときは `/advisor off` |
 
+subagent の思考量は `task.enableEffort: true` で spawn ごとに指定できます。`task` ツールの各項目に `effort`（`lo`・`med`・`hi`）を付けると、そのモデルが対応する最低・中間・最高の段階に写し、`task.maxEffort: high` で上限を抑えます。付けなければ agent 既定の思考量のままです。
+
 ### モデルや退避先を見直す
 
 通常のモデルを変えるときは `modelRoles`、退避先を変えるときは `retry.fallbackChains` を編集します。

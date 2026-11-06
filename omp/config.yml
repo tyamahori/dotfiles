@@ -58,6 +58,10 @@ task:
   showResolvedModelBadge: true
   maxRecursionDepth: 1
   softRequestBudget: 200
+  # Per-spawn effort (lo/med/hi) lets cheap fan-out run at low thinking;
+  # maxEffort caps "hi" at the main thread's defaultThinkingLevel.
+  enableEffort: true
+  maxEffort: high
   agentModelOverrides:
     scout: "@smol"
     reviewer: "@slow"
