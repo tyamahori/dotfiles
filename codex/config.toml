@@ -17,6 +17,11 @@ model = "gpt-6.1-terra"
 # (medium) to xhigh on 2026-11-06 at the user's request.
 model_reasoning_effort = "xhigh"
 service_tier = "default"
+# Compact between turns once the context reaches ~160k tokens (35% of Terra's
+# usable window), the same point as omp/config.yml compaction.thresholdTokens.
+# Not model_auto_compact_token_limit: that one also fires mid-turn, and a
+# single-turn `codex exec` review would lose the files it already read.
+model_post_turn_compact_threshold_percent = 35
 
 # Keep workspace isolation while routing approval requests to auto-review.
 # Commands resolved as allow still bypass review.
@@ -29,6 +34,9 @@ network_access = true
 
 [features]
 hooks = true
+memories = true
+multi_agent_v2 = true
+recommended_plugins = true
 
 [tui]
 # PermissionRequest hooks already deliver approval banners via codex-notify.
