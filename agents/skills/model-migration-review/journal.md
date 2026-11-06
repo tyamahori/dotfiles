@@ -1,6 +1,32 @@
 # model migration journal
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
+## 2026-11-07 このマシンの user 層と ack を pin に揃える
+
+- 契機: `scripts/model-pins check` が 3 件の差分を報告。
+  `codex.model: gpt-6-astra -> gpt-6.1-terra`、`codex.model_reasoning_effort:
+  medium -> xhigh`、`omp.modelRoles.advisor: gpt-5.6-terra -> gpt-6.1-terra`。
+  どれも 10-30 の 2 エントリと 11-06 のエントリでレビュー済みの値。
+- 照合: 10-30 と 11-06 の pin 変更はこのマシンには pull で届いており、user 層の
+  更新と ack は別の環境で行われたと見られる。このマシンでは ack ファイルが
+  それ以前の状態のままだった。`~/.codex/config.toml` は gpt-6-astra / medium の
+  ままで、新規 `codex exec` も astra / medium で応答した。
+  10-27 エントリにある「ack の巻き戻り」も、ack ファイルが環境ごとにあることで
+  説明できる見込みが高い(仮説。別環境の ack ファイルは確認していない)。
+  OMP の commit ロールが ollama になるのは machine-local の
+  `~/.omp/agent/config.local.yml` による意図した上書きで、対象外。
+- 収集: 新しい公式資料は読んでいない。値は前回までの判断で確定している。
+- 提案と承認: 既に承認済みの「user 層を正本に揃える」をこの Mac にも適用する。
+  判定: 判断。ユーザーの「モデル pin の変更して」で承認。
+- 適用: `~/.codex/config.toml` の `model` を gpt-6.1-terra、
+  `model_reasoning_effort` を xhigh にした。
+- 検証: 新規 `codex exec -s read-only` が `model: gpt-6.1-terra` /
+  `reasoning effort: xhigh` で応答した。新規プロセスの
+  `omp config get modelRoles --json` は advisor に `openai-codex/gpt-6.1-terra` を
+  返した。`scripts/model-pins ack` のあと、check は exit 0。
+- 1週間後: 11-06 エントリの観察項目を引き継ぐ。各環境で ack ファイルの mtime と
+  user 層の値が pin と揃っているかも確認する。
+
 ## 2026-11-06 effort を medium → xhigh へ(Claude Code・Codex)
 
 - 契機: ユーザーが「effort を medium から xhigh に」と明示指示。
