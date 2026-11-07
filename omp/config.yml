@@ -158,6 +158,9 @@ contextFiles:
   extra:
     - AGENTS.local.md
 defaultThinkingLevel: high
+# omp 18.17.0 lowered the default to low (Codex included); keep reviewer and
+# advisor reports at their previous length.
+textVerbosity: medium
 magicKeywords:
   enabled: true
 colorBlindMode: true
