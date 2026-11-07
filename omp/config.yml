@@ -164,7 +164,7 @@ textVerbosity: medium
 magicKeywords:
   enabled: true
 colorBlindMode: true
-setupVersion: 2
+setupVersion: 3
 dev:
   autoqaConsent: granted
 composer:
@@ -181,3 +181,5 @@ claudeResets:
   autoRedeem: "yes"
 codexResets:
   autoRedeem: "yes"
+update:
+  auto: true
