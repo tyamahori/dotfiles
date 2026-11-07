@@ -13,6 +13,11 @@ kitty_graphics = true
 new_workspace = ""
 # 0.9.2 で追加。プロンプト行を残して画面と scrollback を消す（既定は未割り当て）。
 clear_pane = "prefix+shift+c"
+# エージェント間の移動は既定で未割り当て。agent_panel_sort = "priority" の並び順で回る。
+next_agent = "prefix+a"
+previous_agent = "prefix+shift+a"
+focus_agent = "prefix+alt+1..9"
+last_pane = "prefix+semicolon"
 
 [[keys.command]]
 key = "prefix+shift+n"
@@ -20,17 +25,39 @@ type = "shell"
 command = '"${HERDR_BIN_PATH}" workspace create --cwd "$HOME" --focus'
 description = "新しい HOME workspace を開く"
 
+# レイアウトを崩さずに一時的なシェルを開く。exit で閉じる。
+[[keys.command]]
+key = "prefix+t"
+type = "popup"
+command = 'exec "${SHELL:-sh}"'
+width = "80%"
+height = "80%"
+description = "スクラッチ端末を popup で開く"
+
 [ui]
 # 0.9.4 で workspace の最後の pane を閉じる前に確認が入るようになった。不要なので切る。
 confirm_close = false
 agent_panel_sort = "priority"
 show_agent_labels_on_pane_borders = true
+# blocked / working / done を色だけでなく形でも区別する。
+status_indicators = "symbols"
+tab_bar_right = [{ type = "zoom" }]
 
 # 1 行目はデフォルトレイアウト。2 行目にエージェント名、3 行目に状態テキストを出す。
+# machine は saved machine があるときだけ表示される。
 [ui.sidebar.agents]
 rows = [
-    ["state_icon", "workspace", "tab"],
+    ["state_icon", "machine", "workspace", "tab"],
     ["agent"], ["state_text"],
+]
+
+# OMP は terminal title にセッション題名を出すので、2 行目に表示する。
+# Claude の title は "✳ Claude Code" 固定に近く情報がないため対象外。
+[ui.sidebar.agents.rows_by_agent]
+omp = [
+    ["state_icon", "machine", "workspace", "tab"],
+    ["terminal_title_stripped"],
+    ["state_text"],
 ]
 
 # Claude Code (claude/hooks/herdr-notify.sh)・Codex (scripts/codex-notify)・
