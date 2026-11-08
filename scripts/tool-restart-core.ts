@@ -220,6 +220,9 @@ const asString = (value: unknown) => (typeof value === "string" ? value : undefi
 const asNumber = (value: unknown) => (typeof value === "number" ? value : undefined);
 const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 const unique = (items: readonly string[]) => [...new Set(items)];
+// The order sort() uses with no comparator, spelled out. No locale decides it, so a saved notification
+// key still compares equal under another environment, and two different strings never tie.
+const byCodeUnit = (a: string, b: string) => Number(a > b) - Number(a < b);
 
 export function parseJson(text: string): unknown {
   try {
@@ -927,7 +930,8 @@ function foregroundIdentity(info: PaneProcesses | undefined): unknown[] {
 function paneFingerprint(pane: Pane, info: PaneProcesses | undefined, world: World): unknown[] {
   const shell = info?.shellPid;
   const tree = shell === undefined ? [] : liveDescendants(shell, world);
-  const identities = tree.sort((a, b) => a.pid - b.pid).map((proc) => procIdentity(proc.pid, world));
+  tree.sort((a, b) => a.pid - b.pid);
+  const identities = tree.map((proc) => procIdentity(proc.pid, world));
   return [
     pane.id,
     pane.terminalId,
@@ -956,11 +960,12 @@ function fingerprintOf(session: SessionObservation, world: World): string {
   const panes = (session.panes ?? []).map((pane) => paneFingerprint(pane, session.processes.get(pane.id), world));
   const agents = (session.panes ?? []).flatMap((pane) => (isAgentId(pane.agent) ? [pane.agent] : []));
   const tools: ToolId[] = ["herdr", ...new Set(agents)];
+  tools.sort(byCodeUnit);
   return JSON.stringify({
     socket: session.entry.socket,
     server: procIdentity(session.serverPid, world),
     panes,
-    installed: tools.sort().map((tool) => installedIdentity(tool, world)),
+    installed: tools.map((tool) => installedIdentity(tool, world)),
     reasons: affectedReasons(session, world),
   });
 }
@@ -1144,7 +1149,7 @@ export function notificationKey(
     const { version, path, inode } = installed[row.tool];
     return `${row.tool}:${row.role}:${row.state}:${row.version ?? row.path ?? "?"}:${version}:${path}:${inode}`;
   });
-  return unique([...items, ...recovering.map((session) => `recovery:${session}`)]).sort();
+  return unique([...items, ...recovering.map((session) => `recovery:${session}`)]).sort(byCodeUnit);
 }
 
 export function notificationMessage(

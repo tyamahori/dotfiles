@@ -19,8 +19,10 @@ import {
   buildWorld,
   extractVersion,
   type Installed,
+  notificationKey,
   parseMappedExes,
   parseProcs,
+  type RunningRow,
   runningRows,
   type ToolId,
 } from "./tool-restart-core.ts";
@@ -799,6 +801,17 @@ test.each([
   ["another directory below the version", KEG, "/opt/Cellar/omp/1.0.0/libexec/omp", "1.0.0"],
 ])("a process running from %s stays unidentified", (_name, installedPath, running, version) => {
   expect(statesRunning(running, installedPath)).toEqual([["unknown", version]]);
+});
+
+test("the notification key ignores row order and repeats, even for paths a locale treats as the same", () => {
+  const installed = onlyOmpInstalled({ path: "/p", inode: "2", version: "2.0.0" });
+  const row = (path: string): RunningRow => ({ tool: "omp", pid: 1, role: "cli", state: "unknown", path });
+  const composed = row("/café");
+  const decomposed = row("/café");
+  const key = ["omp:cli:unknown:/café:2.0.0:/p:2", "omp:cli:unknown:/café:2.0.0:/p:2", "recovery:session"];
+
+  expect(notificationKey([composed, decomposed], ["session"], installed)).toEqual(key);
+  expect(notificationKey([decomposed, composed, decomposed], ["session"], installed)).toEqual(key);
 });
 
 test("the plain report lists every tool and session", async () => {
