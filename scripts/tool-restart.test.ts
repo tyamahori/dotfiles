@@ -2192,7 +2192,7 @@ test.each([
 test.each([
   ["a slow version check", "claude --version"],
   ["the read of OMP's services", "omp ps list --all --json"],
-  ["the last read of native pane state", "herdr api snapshot"],
+  ["the read of native pane state", "herdr api snapshot"],
 ])("a job that starts during %s after approval stops nothing", async (_name, call) => {
   const box = restartable();
   const changed = before(box);
