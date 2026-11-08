@@ -124,6 +124,7 @@ const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a
 const PANE_ID = /^[A-Za-z0-9][\w:.-]{0,63}$/;
 const PS_FORMAT = "pid=,ppid=,pgid=,uid=,stat=,lstart=,comm=";
 const LOCK_EX_NB = 2 | 4;
+const TOOL_NAMES: readonly string[] = TOOL_IDS;
 
 function homeOf(ctx: Ctx): string {
   const home = ctx.env.HOME;
@@ -260,7 +261,7 @@ function refreshInstalled(ctx: Ctx, earlier: Record<ToolId, Installed>): Record<
 }
 
 function interestingPids(procs: readonly Proc[], sessions: readonly SessionObservation[], gui: GuiStatus): number[] {
-  const named = procs.filter((proc) => TOOL_IDS.some((tool) => tool === proc.name)).map((proc) => proc.pid);
+  const named = procs.filter((proc) => TOOL_NAMES.includes(proc.name)).map((proc) => proc.pid);
   const inPanes = sessions.flatMap((session) => [
     ...(session.serverPid === undefined ? [] : [session.serverPid]),
     ...[...session.processes.values()].flatMap((info) => (info?.foreground ?? []).map((proc) => proc.pid)),

@@ -593,8 +593,10 @@ export function buildWorld(input: {
   return { procs, children, exes: input.exes, installed: input.installed, home: input.home };
 }
 
+const AGENT_NAMES: readonly string[] = AGENT_IDS;
+
 function isAgentId(value: string | undefined): value is AgentId {
-  return AGENT_IDS.some((id) => id === value);
+  return value !== undefined && AGENT_NAMES.includes(value);
 }
 
 function shape(path: string): string {
@@ -823,7 +825,7 @@ function assessAgentPane(pane: Pane, agent: AgentId, info: PaneProcesses, env: A
 
 function shellPaneBlockers(pane: Pane, info: PaneProcesses, env: AssessEnv): string[] {
   const shell = info.shellPid === undefined ? undefined : env.world.procs.get(info.shellPid);
-  if (!shell || shell.uid !== env.uid) return ["シェルのプロセスを特定できない"];
+  if (shell?.uid !== env.uid) return ["シェルのプロセスを特定できない"];
   const blockers = liveDescendants(shell.pid, env.world).map((proc) => `実行中のジョブ ${inert(proc.name)} がある`);
   const foreground = info.foreground.some((proc) => proc.pid !== shell.pid);
   if (foreground || info.fgGroup !== shell.pgid) blockers.push("前景でコマンドが動いている");
@@ -1207,11 +1209,8 @@ function paneMismatches(
   const label = inert(expected.id);
   if (!current) return [`${label}: ペインが戻っていない`];
   const cwd = current.cwd === expected.cwd ? [] : ["cwd が一致しない"];
-  const occupant = expected.agent
-    ? agentMismatches(expected, current, scope)
-    : current.agent
-      ? ["シェルだった場所でエージェントが動いている"]
-      : [];
+  const intruder = current.agent ? ["シェルだった場所でエージェントが動いている"] : [];
+  const occupant = expected.agent ? agentMismatches(expected, current, scope) : intruder;
   return [...cwd, ...occupant].map((problem) => `${label}: ${problem}`);
 }
 
@@ -1315,7 +1314,8 @@ function toolLine(tool: ToolId, plan: Plan): string {
 }
 
 function sessionLines(session: SessionPlan): string[] {
-  const heading = session.reasons.length === 0 ? "影響なし" : session.blockers.length > 0 ? "保留" : "再起動対象";
+  const action = session.blockers.length > 0 ? "保留" : "再起動対象";
+  const heading = session.reasons.length === 0 ? "影響なし" : action;
   const reasons = session.reasons.length > 0 ? `（${session.reasons.join(", ")}）` : "";
   const panes = session.paneCount > 0 ? ` ペイン ${session.paneCount} 件` : "";
   const note = session.note ? ` [${session.note}]` : "";
