@@ -741,15 +741,39 @@ executables. Conversations come back; commands that were running do not, and
 start flags are not kept. So a session is deferred before anything stops when
 any of its panes is working or waiting for approval, has no saved conversation,
 was started with flags other than a resume, runs a foreground command or
-background job, or has a process in another group that the agent's native
-inventory does not account for. An update to Sheprd alone quits and reopens the
-GUI and leaves the servers running; fullscreen and log windows may not return.
-Remote servers are never stopped.
+background job, or has a process under the agent that cannot be identified.
+An update to Sheprd alone quits and reopens the GUI and leaves the servers
+running; fullscreen and log windows may not return. Remote servers are never
+stopped.
+
+A process group says nothing about what a process is doing, so each process
+under an agent needs its own identification or the session is deferred. Three
+things count. OMP's own `omp ps` listing names it as infrastructure
+(`owner: null`, or the broker). Or the agent started it with exactly the command
+line of a stdio MCP server in that agent's user-level configuration: `~/.claude.json`,
+`~/.codex/config.toml`, `~/.omp/agent/mcp.json`, or `~/.grok/config.toml` (Grok
+also takes Claude's). Or its parent is such a server and it still holds the same
+stdin and stdout, as a wrapper's real binary does. Each exempts that process
+only, so a job under an identified process still defers the session. A
+repository's `.mcp.json` does not count, since the repository controls it; a
+server from there, from a plugin, or a browser opened by an MCP server defers
+the session until it exits. Configured arguments and environment are only
+compared, never printed or saved.
+
+Approval covers what the plan showed, including the update it was for. Right
+before each stop the command rereads the installed versions, the shared
+inventories, the process table, and the panes, then the process table once more,
+and stops nothing if anything differs. `herdr session stop` has no conditional
+form, so a job started between that last read and the stop still stops with the
+session. Concurrent `--apply` runs are excluded with `flock(2)` on
+`~/.local/state/tool-restart/apply.lock`; the kernel releases it however the run
+ends, so there is no stale lock to clear, and the file stays in place.
 
 Some things stay with you. An old Codex app-server daemon defers the sessions
 with Codex panes; run `codex app-server daemon update` yourself when no work
-depends on it, since it may interrupt running work. A stale process outside
-Herdr is listed but left alone.
+depends on it, since it may interrupt running work. A daemon whose state cannot
+be read defers them too; only its own report of not running counts as absent.
+A stale process outside Herdr is listed but left alone.
 
 If a postcheck fails, the command exits 1 and keeps the expected panes and
 conversation references in
