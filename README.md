@@ -708,6 +708,122 @@ point at both; `docs/software-engineering.md` maps every engineering norm on thi
 machine to its file and explains why they were authored rather than
 vendored.
 
+### Tool restarts
+
+`scripts/tool-restart` (`tool-restart` once `scripts/link` has run) finds OMP,
+Herdr, Sheprd, Claude Code, Codex, and Grok processes still running something
+older than what is installed, and restarts them through Herdr's native session
+restore after one approval. It compares the executable each process actually
+maps (`lsof` path and inode, plus Herdr's and Sheprd's own status) with the
+installed one, so it needs no baseline and also catches self-updates made
+outside `scripts/brewUpdate`. A process whose executable cannot be identified,
+including one `lsof` reports without an inode, is reported as unknown, never as
+current or as an update to restart for.
+
+| Command | What it does |
+| --- | --- |
+| `tool-restart`, `--status`, `--json` | Reports installed and running versions, pending and unknown processes, each affected session, and why it would be deferred. The JSON carries no conversation references or argv. |
+| `--notify` | Sends one `terminal-notifier` alert per stale state and stops nothing. `launchd/com.tyamahori.tool-restart.plist` runs it at load and every 5 minutes. |
+| `--cleanup-check` | Exits nonzero while an old or unidentifiable executable could still be using a Homebrew keg. `scripts/brewUpdate` skips `brew cleanup` then; rerun it after restarting. |
+| `--apply` | Shows the plan, asks for `yes` once, and restarts what is ready. There is no unattended form. |
+| `--apply --session <name>` | The same for one local session; other sessions and the GUI are left alone even when stale. |
+
+Run `--apply` from a separate terminal such as Terminal.app, outside Herdr and
+Sheprd; it refuses to run under either, because stopping the server would end
+the command itself. It exits 0 when nothing remains, 3 when something was
+deferred or declined, and 1 on a failure.
+
+A restart covers a whole local Herdr session: an updated agent or Herdr binary
+stops every pane of that session with `herdr session stop`, and Herdr brings
+the same panes and conversations back once a client attaches. The command
+attaches a short-lived client of its own, closes only that client, and checks
+that the pane IDs, directories, and conversation references match on current
+executables. Conversations come back; commands that were running do not, and
+start flags are not kept. So a session is deferred before anything stops when
+any of its panes is working or waiting for approval, has no saved conversation,
+was started with flags other than a resume, runs a foreground command or
+background job, or has a process under the agent that cannot be identified.
+An update to Sheprd alone quits and reopens the GUI and leaves the servers
+running; fullscreen and log windows may not return. Remote servers are never
+stopped.
+
+A process group says nothing about what a process is doing, so each process
+under an agent needs its own identification or the session is deferred. Two
+things count. OMP's own `omp ps` listing names it as infrastructure
+(`owner: null`, or the broker). Or the agent started it directly, the exact
+argument list Herdr reports for it (`herdr pane process-info`) matches a stdio
+MCP server in that agent's user-level configuration, and the file it maps (`lsof`
+path and inode) is the file that configuration resolves to. The configurations
+are `~/.claude.json`, `~/.codex/config.toml`, `~/.omp/agent/mcp.json`, and
+`~/.grok/config.toml` (Grok also takes Claude's). The file is the command as
+found on this command's `PATH`, the interpreter a script's shebang names, or what
+a launcher that only `exec`s goes on to run. Nothing configured is ever run to
+find this out, and a command that does not resolve, a `PATH` that finds another
+file, or a missing mapping leaves the process unidentified. Each exempts that
+process only, so a job under an identified process still defers the session.
+Shared stdin and stdout prove nothing, because a quiet job inherits them too.
+`ps` text proves nothing either, because it joins arguments with spaces and
+different commands can print alike. Configured arguments and environment are
+only compared, never printed or saved.
+
+An unidentified child holds only its own session; other ready sessions still
+restart. So ordinary MCP setups can need a manual restart. Whatever a wrapper
+runs stays unidentified (the `perl` and binary under the `jbcontext` launcher,
+for example). So does a server in its own process group, which Herdr does not
+list, a server an agent inherits from another tool's configuration or a plugin,
+one from a repository's `.mcp.json` (the repository controls that file), a server
+an agent started under a different `PATH`, and a browser opened by an MCP server.
+Wait for the child to exit, or check that the session holds no work you need,
+stop it from outside Herdr with `herdr session stop <name>`, and attach a client
+to bring it back.
+
+Approval covers what the plan showed, including the update it was for. Before
+each stop the command does the slow part once: version checks, recovery records,
+MCP configuration, and saved conversations. It then reads the Codex daemon state,
+OMP's and Grok's inventories of detached work, and the restore setting. After
+those it reads the socket owner, the mapped executables, the native pane state,
+each pane's argument lists, the process table, and the path and inode of each
+installed tool. It judges the session on those newest reads and on the answers
+from the slow part, and reads no configuration or saved conversation while
+judging: a pane the slow part could not ask about, because its process list or
+directory was missing at that moment, defers the session even if it has since
+returned. It stops nothing if a blocker appears or anything differs from what was
+approved, such as an argument list, a parent or process group, or an installed
+file that was replaced, removed, or rolled back.
+
+`herdr session stop` has no conditional form, so no check is atomic with the stop.
+Whatever changes after its own read still stops with the session: a job started
+after the last process table read, a state change after the native state read, a
+detached service after the inventories, an exec after the argument lists, and an
+edit to MCP configuration or a saved conversation after the slow part. The restart
+also accepts whatever is installed once the session has stopped, so an update
+rolled back during the restore is checked against the rolled-back version.
+
+A target that changes after approval is skipped while the other approved targets
+still restart, and the run exits 3 even if the final report no longer shows it. A
+failed stop or restore ends the run with 1 and touches nothing further. For the
+GUI, approval covers the running process and the executable it maps, and a missing,
+inode-less, or replaced mapping refuses the quit even when its version report shows
+an update.
+Concurrent `--apply` runs are excluded with `flock(2)` on
+`~/.local/state/tool-restart/apply.lock`; the kernel releases it however the run
+ends, so there is no stale lock to clear, and the file stays in place.
+
+Some things stay with you. An old Codex app-server daemon defers the sessions
+with Codex panes; run `codex app-server daemon update` yourself when no work
+depends on it, since it may interrupt running work. A daemon whose state cannot
+be read defers them too; only its own report of not running counts as absent.
+A stale process outside Herdr is listed but left alone.
+
+If a postcheck fails, the command exits 1 and keeps the expected panes and
+conversation references in
+`~/.local/state/tool-restart/recovery/<session>.json` (mode 0600). Rerunning
+`--apply` compares the session with that record, attaches a client if needed,
+and never stops the session again; the record clears once the session matches.
+The record is only ever compared, never used to decide what to stop. If you
+resolve a session by hand and it no longer matches, inspect the record and
+delete it, and the session becomes eligible again.
+
 ### Model migration review
 
 `scripts/model-pins` reports the model pins in `claude/settings.json`,
