@@ -123,7 +123,7 @@ export type SessionPlan = {
   record: RecoveryRecord;
 };
 export type GuiPlan = {
-  state: "absent" | "current" | "pending" | "unknown";
+  state: "absent" | "current" | "pending" | "unknown" | "skipped";
   pid?: number;
   started?: string;
   version?: string;
@@ -1065,6 +1065,17 @@ export function hasWork(plan: Plan): boolean {
   return readySessions(plan).length > 0 || guiActionable(plan) || recoveriesToRun(plan).length > 0;
 }
 
+// One session only: everything else, the GUI included, is neither acted on nor counted as left over.
+export function scopePlan(plan: Plan, only: string): Plan {
+  return {
+    ...plan,
+    rows: plan.rows.filter((row) => row.session === only),
+    sessions: plan.sessions.filter((session) => session.name === only),
+    gui: { ...plan.gui, state: "skipped", blockers: [] },
+    recovery: plan.recovery.filter((task) => task.session === only),
+  };
+}
+
 export function remaining(plan: Plan): boolean {
   const open = plan.sessions.some((session) => session.reasons.length > 0) || plan.recovery.length > 0;
   return open || plan.gui.state === "pending" || attentionRows(plan.rows).length > 0;
@@ -1098,7 +1109,8 @@ function guiLines(gui: GuiPlan): string[] {
     const action = gui.blockers.length > 0 ? `保留: ${gui.blockers.join(", ")}` : "GUI だけ再起動する";
     return [`  Sheprd ${gui.version ?? "?"}→${gui.installed ?? "?"}: ${action}${remote}`];
   }
-  return [`  Sheprd: ${{ absent: "起動していない", current: "最新", unknown: "状態を確認できない" }[gui.state]}`];
+  const labels = { absent: "起動していない", current: "最新", unknown: "状態を確認できない", skipped: "今回は対象外" };
+  return [`  Sheprd: ${labels[gui.state]}`];
 }
 
 function recoveryLines(view: RecoveryView): string[] {

@@ -810,14 +810,17 @@ test("--apply without a terminal is refused even when yes is available", async (
   expect(box.stops()).toEqual([]);
 });
 
-test.each(["--apply --yes", "--yes", "--force", "--apply --status"])("%s is not an accepted form", async (args) => {
-  const box = restartable();
+test.each(["--apply --yes", "--yes", "--force", "--apply --status", "--apply --session"])(
+  "%s is not an accepted form",
+  async (args) => {
+    const box = restartable();
 
-  const result = await box.run(args.split(" "));
+    const result = await box.run(args.split(" "));
 
-  expect(result.code).toBe(2);
-  expect(box.stops()).toEqual([]);
-});
+    expect(result.code).toBe(2);
+    expect(box.stops()).toEqual([]);
+  },
+);
 
 test.each([
   ["a herdr ancestor", 100],
@@ -1276,6 +1279,61 @@ test("a failed restart prevents the next session from being stopped", async () =
   expect(result.code).toBe(1);
   expect(box.stops()).toEqual(["herdr session stop default --json"]);
 }, 30_000);
+
+test("--apply --session restarts only that session and leaves the GUI and other stale sessions alone", async () => {
+  const box = setup();
+  const addSmoke = (world: FakeWorld, serverPid: number, version: string, terminalId: string) => {
+    world.procs.push(
+      { pid: serverPid, ppid: 1, name: "herdr", exe: box.exe("herdr", version) },
+      { pid: serverPid + 1, ppid: serverPid, name: "zsh" },
+    );
+    world.sessions.push({
+      name: "smoke",
+      serverPid,
+      panes: [
+        {
+          id: "w9:p1",
+          terminalId,
+          cwd: box.work,
+          shellPid: serverPid + 1,
+          fgGroup: serverPid + 1,
+          foreground: [{ pid: serverPid + 1, name: "zsh" }],
+        },
+      ],
+    });
+    return world;
+  };
+  const withGui = (world: FakeWorld): FakeWorld => ({
+    ...world,
+    procs: [...world.procs, { pid: 600, ppid: 1, name: "sheprd", exe: box.exe("sheprd") }],
+    gui: { pid: 600, version: "1.0.0" },
+  });
+  // `default` stays stale and ready throughout; scoping is what keeps it running.
+  box.world(withGui(addSmoke(before(box), 700, "1.0.0", "t9")));
+  const smokeStopped = withGui(before(box));
+  smokeStopped.sessions.push({ name: "smoke", running: false, panes: [] });
+  box.afterStop(smokeStopped);
+  box.afterAttach(withGui(addSmoke(before(box), 800, "2.0.0", "t10")));
+
+  const result = await box.run(["--apply", "--session", "smoke"]);
+
+  expect(result.code).toBe(0);
+  expect(result.asked).toBe(1);
+  expect(box.stops()).toEqual(["herdr session stop smoke --json"]);
+  expect(box.attaches()).toEqual(["herdr session attach smoke"]);
+  expect(box.calls()).not.toContain("sheprd app quit --json");
+});
+
+test("--apply --session with an unknown name stops nothing", async () => {
+  const box = restartable();
+
+  const result = await box.run(["--apply", "--session", "--all;rm -rf ~"]);
+
+  expect(result.code).toBe(2);
+  expect(result.asked).toBe(0);
+  expect(box.stops()).toEqual([]);
+  expect(box.calls().join("\n")).not.toContain("rm -rf");
+});
 
 test("a deferred session is left alone while a ready one restarts", async () => {
   const box = setup();

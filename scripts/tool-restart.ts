@@ -71,6 +71,7 @@ import {
   restoreMismatches,
   runningRows,
   type SavedRef,
+  scopePlan,
   type SessionEntry,
   type SessionObservation,
   type SessionPlan,
@@ -97,7 +98,7 @@ type RunOptions = { env?: Record<string, string>; timeoutMs?: number };
 type RunResult = { code: number; stdout: string };
 
 const EXIT = { ok: 0, failed: 1, usage: 2, deferred: 3 } as const;
-const USAGE = "usage: tool-restart [--status [--json] | --notify | --cleanup-check | --apply]";
+const USAGE = "usage: tool-restart [--status [--json] | --notify | --cleanup-check | --apply [--session <name>]]";
 const COMMAND_TIMEOUT_MS = 15_000;
 const STOP_TIMEOUT_MS = 120_000;
 const MAX_OUTPUT_BYTES = 32 * 1024 * 1024;
@@ -636,14 +637,16 @@ async function runRecoveries(ctx: Ctx, plan: Plan): Promise<boolean> {
   return true;
 }
 
-async function executeWork(ctx: Ctx, plan: Plan): Promise<number> {
+type PlanView = (plan: Plan) => Plan;
+
+async function executeWork(ctx: Ctx, plan: Plan, view: PlanView): Promise<number> {
   if (!(await runRecoveries(ctx, plan))) return EXIT.failed;
   for (const session of readySessions(plan)) {
     const outcome = await restartSession(ctx, session);
     if (outcome !== "ok") return outcome === "changed" ? EXIT.deferred : EXIT.failed;
   }
   if (guiActionable(plan) && (await restartGui(ctx, plan.gui)) === "failed") return EXIT.failed;
-  const final = buildPlan(ctx, observe(ctx));
+  const final = view(buildPlan(ctx, observe(ctx)));
   ctx.out(renderPlan(final));
   return exitFor(final);
 }
@@ -656,9 +659,14 @@ function settleRecoveries(ctx: Ctx, observed: Observed): void {
   }
 }
 
-async function applyLocked(ctx: Ctx, observed: Observed): Promise<number> {
+async function applyLocked(ctx: Ctx, observed: Observed, only?: string): Promise<number> {
   settleRecoveries(ctx, observed);
-  const plan = buildPlan(ctx, observed);
+  const view: PlanView = only === undefined ? (full) => full : (full) => scopePlan(full, only);
+  const plan = view(buildPlan(ctx, observed));
+  if (only !== undefined && plan.sessions.length === 0) {
+    ctx.err("tool-restart: 指定されたローカルセッションが見つからない");
+    return EXIT.usage;
+  }
   ctx.out(renderPlan(plan));
   if (!hasWork(plan)) return exitFor(plan);
   if (!ctx.isTty) {
@@ -670,10 +678,10 @@ async function applyLocked(ctx: Ctx, observed: Observed): Promise<number> {
     ctx.out("中止した。何も変更していない");
     return EXIT.deferred;
   }
-  return executeWork(ctx, plan);
+  return executeWork(ctx, plan, view);
 }
 
-async function runApply(ctx: Ctx): Promise<number> {
+async function runApply(ctx: Ctx, only?: string): Promise<number> {
   const observed = observe(ctx);
   if (herdrContainment(ctx.pid, observed) !== "outside") {
     ctx.err("tool-restart: --apply は Herdr と Sheprd の外で実行する。Terminal.app を開いて次を実行する:");
@@ -685,13 +693,20 @@ async function runApply(ctx: Ctx): Promise<number> {
     return EXIT.failed;
   }
   try {
-    return await applyLocked(ctx, observed);
+    return await applyLocked(ctx, observed, only);
   } finally {
     rmSync(lockPath(ctx), { force: true });
   }
 }
 
+function scopedSession(argv: readonly string[]): string | undefined {
+  const [mode, flag, session] = argv;
+  return argv.length === 3 && mode === "--apply" && flag === "--session" ? session : undefined;
+}
+
 function dispatch(argv: readonly string[], ctx: Ctx): Promise<number> | number {
+  const session = scopedSession(argv);
+  if (session) return runApply(ctx, session);
   switch (argv.join(" ")) {
     case "":
     case "--status":

@@ -725,6 +725,7 @@ is reported as unknown, never as current.
 | `--notify` | Sends one `terminal-notifier` alert per stale state and stops nothing. `launchd/com.tyamahori.tool-restart.plist` runs it at load and every 5 minutes. |
 | `--cleanup-check` | Exits nonzero while an old or unidentifiable executable could still be using a Homebrew keg. `scripts/brewUpdate` skips `brew cleanup` then; rerun it after restarting. |
 | `--apply` | Shows the plan, asks for `yes` once, and restarts what is ready. There is no unattended form. |
+| `--apply --session <name>` | The same for one local session; other sessions and the GUI are left alone even when stale. |
 
 Run `--apply` from a separate terminal such as Terminal.app, outside Herdr and
 Sheprd; it refuses to run under either, because stopping the server would end
