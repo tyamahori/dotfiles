@@ -580,8 +580,10 @@ function isCodexDaemon(exe: Exe | undefined, home: string): boolean {
   return exe?.path.startsWith(`${home}/${DAEMON_DIR}`) === true;
 }
 
-export function hasCodexDaemon(world: World): boolean {
-  return [...world.exes.values()].some((exe) => isCodexDaemon(exe, world.home));
+// A daemon executable mapped right now contradicts a daemon reporting itself absent.
+export function confirmedBackend(reported: Backend, world: World): Backend {
+  const mapped = [...world.exes.values()].some((exe) => isCodexDaemon(exe, world.home));
+  return reported === "absent" && mapped ? "unknown" : reported;
 }
 
 function baseRole(tool: ToolId, exe: Exe | undefined, home: string): Role {
@@ -933,11 +935,6 @@ function fingerprintOf(session: SessionObservation, world: World): string {
   });
 }
 
-// False when anything a stop rests on moved between two reads of the same session.
-export function sameTargetView(first: TargetView, last: TargetView): boolean {
-  return fingerprintOf(first.session, first.world) === fingerprintOf(last.session, last.world);
-}
-
 // Approval covers what the operator saw, and only while it is still work the safety checks passed.
 export function approvalHolds(approved: SessionPlan, fresh: SessionPlan | undefined): fresh is SessionPlan {
   if (!fresh || fresh.reasons.length === 0 || fresh.blockers.length > 0) return false;
@@ -964,8 +961,8 @@ function toRecoveryRecord(session: SessionObservation, world: World): RecoveryRe
   };
 }
 
-export function planSession(session: SessionObservation, observed: Observed, env: AssessEnv): SessionPlan {
-  const reasons = affectedReasons(session, observed.world);
+export function planSession(session: SessionObservation, env: AssessEnv): SessionPlan {
+  const reasons = affectedReasons(session, env.world);
   const assessed = reasons.length > 0 ? assessSession(session, env) : { blockers: [], helpers: [] };
   return {
     name: inert(session.entry.name),
@@ -976,8 +973,8 @@ export function planSession(session: SessionObservation, observed: Observed, env
     blockers: assessed.blockers,
     helpers: assessed.helpers,
     paneCount: session.panes?.length ?? 0,
-    fingerprint: fingerprintOf(session, observed.world),
-    record: toRecoveryRecord(session, observed.world),
+    fingerprint: fingerprintOf(session, env.world),
+    record: toRecoveryRecord(session, env.world),
   };
 }
 

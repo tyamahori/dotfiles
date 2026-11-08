@@ -34,6 +34,7 @@ import {
   claudeHeadMatches,
   cleanupBlockers,
   codexHeadMatches,
+  confirmedBackend,
   type Exe,
   extractVersion,
   type GuiPlan,
@@ -41,7 +42,6 @@ import {
   grokSummaryMatches,
   guiActionable,
   guiApprovalHolds,
-  hasCodexDaemon,
   hasWork,
   herdrContainment,
   type Installed,
@@ -85,7 +85,6 @@ import {
   restoreMismatches,
   runningRows,
   type SavedRef,
-  sameTargetView,
   scopePlan,
   type SessionEntry,
   type SessionObservation,
@@ -281,12 +280,6 @@ function readBackend(ctx: Ctx): Backend {
 
 type SlowFacts = { installed: Record<ToolId, Installed>; backend: Backend };
 
-// Launching every tool takes seconds and says nothing about the panes, so it goes first: what a
-// decision rests on is then the newest thing read rather than the oldest.
-function readSlowFacts(ctx: Ctx): SlowFacts {
-  return { installed: readInstalled(ctx), backend: readBackend(ctx) };
-}
-
 function observeNow(ctx: Ctx, slow: SlowFacts, only?: string): Observed {
   const procs = readProcs(ctx);
   const owners = readSocketOwners(ctx);
@@ -295,13 +288,13 @@ function observeNow(ctx: Ctx, slow: SlowFacts, only?: string): Observed {
   const gui = readGui(ctx);
   const exes = readExes(ctx, interestingPids(procs, sessions, gui));
   const world = buildWorld({ procs, exes, installed: refreshInstalled(ctx, slow.installed), home: homeOf(ctx) });
-  // A daemon executable mapped right now contradicts a daemon reporting itself absent.
-  const backend = slow.backend === "absent" && hasCodexDaemon(world) ? "unknown" : slow.backend;
-  return { world, sessions, gui, backend };
+  return { world, sessions, gui, backend: confirmedBackend(slow.backend, world) };
 }
 
+// Launching every tool takes seconds and says nothing about the panes, so it goes first: what a
+// decision rests on is then the newest thing read rather than the oldest.
 function observe(ctx: Ctx): Observed {
-  return observeNow(ctx, readSlowFacts(ctx));
+  return observeNow(ctx, { installed: readInstalled(ctx), backend: readBackend(ctx) });
 }
 
 function isDirectory(path: string): boolean {
@@ -472,6 +465,18 @@ function readInventories(ctx: Ctx, agents: ReadonlySet<string>): Inventories {
   };
 }
 
+function remembered<A extends unknown[], R extends object>(read: (...args: A) => R): (...args: A) => R {
+  const answers = new Map<string, R>();
+  return (...args) => {
+    const key = JSON.stringify(args);
+    const answer = answers.get(key) ?? read(...args);
+    answers.set(key, answer);
+    return answer;
+  };
+}
+
+// Answers read from configuration and saved conversations are remembered, so a later plan built on
+// this environment judges new live facts without reading those files again.
 function assessEnv(ctx: Ctx, observed: Observed, recovering: ReadonlySet<string>, inventories: Inventories): AssessEnv {
   return {
     ...inventories,
@@ -479,8 +484,8 @@ function assessEnv(ctx: Ctx, observed: Observed, recovering: ReadonlySet<string>
     uid: ctx.uid,
     backend: observed.backend,
     recovering,
-    mcpIdentities: (agent, cwd) => mcpIdentities(ctx, agent, cwd),
-    savedRef: (agent, ref, cwd) => SAVED_REF_READERS[agent](ctx, ref, cwd),
+    mcpIdentities: remembered((agent: AgentId, cwd: string) => mcpIdentities(ctx, agent, cwd)),
+    savedRef: remembered((agent: AgentId, ref: AgentRef, cwd: string) => SAVED_REF_READERS[agent](ctx, ref, cwd)),
     dirExists: isDirectory,
     socketOwned: (path) => isOwnedSocket(ctx, path),
   };
@@ -532,17 +537,14 @@ function unresolved(views: readonly RecoveryView[]): string[] {
   return views.filter((task) => task.state === "needs-client" || task.state === "corrupt").map((task) => task.session);
 }
 
-function buildPlan(
-  ctx: Ctx,
-  observed: Observed,
-  inventories = readInventories(ctx, agentsInAffectedSessions(observed)),
-): Plan {
+function buildPlan(ctx: Ctx, observed: Observed): Plan {
+  const inventories = readInventories(ctx, agentsInAffectedSessions(observed));
   const recovery = readRecovery(ctx, observed);
   const env = assessEnv(ctx, observed, new Set(unresolved(recovery)), inventories);
   return {
     rows: runningRows(observed),
     installed: observed.world.installed,
-    sessions: observed.sessions.map((session) => planSession(session, observed, env)),
+    sessions: observed.sessions.map((session) => planSession(session, env)),
     gui: planGui(observed),
     recovery,
   };
@@ -712,20 +714,27 @@ function readTargetAgain(ctx: Ctx, observed: Observed, session: SessionObservati
   };
 }
 
-// The last look before a stop. Global reads come first, then the session itself, then the inventories
-// of its detached work, and finally a second read that must match the first. `herdr session stop` has
-// no conditional form, so whatever changes between that second read and the stop still stops with the
-// session: this narrows the window and cannot close it.
+// The last look before a stop, ordered so that what a decision rests on is read as late as it can be.
+// Version checks, recovery records, MCP configuration, and saved conversations come first and once:
+// they are the slow part, and the plan below reuses the answers rather than reading them again. Then
+// the Codex daemon and the inventories of detached work, then the session itself, native state after
+// the inventories so that an agent beginning work after them no longer shows idle. Each fact can
+// still change after its own read: `herdr session stop` has no conditional form, so this narrows those
+// windows and closes none of them.
 function latestPlan(ctx: Ctx, approved: SessionPlan): SessionPlan | undefined {
   const name = approved.record.session;
   const agents = new Set(approved.record.panes.flatMap((pane) => pane.agent ?? []));
-  const observed = observeNow(ctx, readSlowFacts(ctx), name);
-  const inventories = readInventories(ctx, agents);
+  const observed = observeNow(ctx, { installed: readInstalled(ctx), backend: "unknown" }, name);
   const session = observed.sessions.find((candidate) => candidate.entry.name === name);
-  const plan = buildPlan(ctx, observed, inventories).sessions.find((candidate) => candidate.record.session === name);
-  if (!session || !plan) return undefined;
-  const steady = sameTargetView({ session, world: observed.world }, readTargetAgain(ctx, observed, session));
-  return steady ? plan : undefined;
+  if (!session?.panes) return undefined;
+  const recovering = new Set(unresolved(readRecovery(ctx, observed)));
+  const env = assessEnv(ctx, observed, recovering, { restoreOn: false });
+  // Planned only to read and remember the files: the live facts in this verdict are about to be replaced.
+  planSession(session, env);
+  const backend = agents.has("codex") ? readBackend(ctx) : "unknown";
+  const inventories = readInventories(ctx, agents);
+  const { session: last, world } = readTargetAgain(ctx, observed, session);
+  return planSession(last, { ...env, ...inventories, world, backend: confirmedBackend(backend, world) });
 }
 
 // Approval covers exactly what the operator saw: anything different now voids it.

@@ -18,7 +18,11 @@ import { type Ctx, main } from "./tool-restart.ts";
 // Every native CLI is a stub on PATH, driven by fixture files, so the production code spawns
 // real subprocesses without any real session in reach: HOME and PATH never leave this tree.
 const root = realpathSync(mkdtempSync(join(tmpdir(), "tool-restart-")));
-afterAll(() => rmSync(root, { recursive: true, force: true }));
+const fifoWriters: Bun.Subprocess[] = [];
+afterAll(() => {
+  for (const writer of fifoWriters) writer.kill();
+  rmSync(root, { recursive: true, force: true });
+});
 
 const UID = process.getuid?.() ?? 0;
 const STARTED = "Sun Nov  8 10:00:00 2026";
@@ -441,6 +445,18 @@ fi`,
     runOn: (call: string, command: string) => {
       writeText(join(stub, "hook-action"), command);
       writeText(join(stub, "hook-call"), call);
+    },
+    // The world changes while the code reads this absent file, a moment no native command marks. The
+    // writer's open of the pipe returns only once a reader has opened it, and the reader sees the end
+    // of the file only after the change. The file is absent again afterwards.
+    mutateDuringRead: (path: string, world: FakeWorld) => {
+      const changed = join(stub, "after-hook");
+      render(world, changed);
+      mkdirSync(dirname(path), { recursive: true });
+      Bun.spawnSync(["mkfifo", path]);
+      const script = 'exec 3>"$0"; cp -R "$1/." "$2/"; rm -f "$0"';
+      const argv = ["/bin/bash", "-c", script, path, changed, join(stub, "current")];
+      fifoWriters.push(Bun.spawn(argv, { stdio: ["ignore", "ignore", "ignore"] }));
     },
     installVersion: (tool: string, version: string) =>
       writeStub(exe(tool, version), (TOOL_STUBS[tool] ?? "").replace("2.0.0", version)),
@@ -2428,7 +2444,7 @@ test.each([
   expect(existsSync(box.recoveryFile("default"))).toBe(false);
 });
 
-// Each change lands after the first read of what it touches, so only a later read can notice it.
+// Each change lands after approval and before the last read of what it touches, which alone notices it.
 const SERVICES = "omp ps list --all --json";
 const LAST_PANE_PROCESSES = "herdr pane process-info --pane w1:p3";
 const LATE_CHANGES: [string, string, (world: FakeWorld, box: Box) => void][] = [
@@ -2524,6 +2540,55 @@ test.each([
   expect(result.asked).toBe(1);
   expect(result.code).toBe(3);
   expect(box.stops()).toEqual([]);
+});
+
+const OWNED_SERVICE = [{ daemons: [{ name: "svc", id: "1", state: "running", pid: 999, owner: OMP_ID }] }];
+const OLD_DAEMON = { cliVersion: "2.0.0", appServerVersion: "1.0.0" };
+
+// Reading an agent's MCP configuration is part of the work done before the last look, so what it is
+// waiting on must not be what the decision trusts.
+const DURING_CONFIG_READ: [string, string, (world: FakeWorld, box: Box) => void, (world: FakeWorld) => void][] = [
+  ["this conversation starts a detached service", ".claude.json", () => undefined, (w) => void (w.omp = OWNED_SERVICE)],
+  ["OMP's services can no longer be listed", ".claude.json", () => undefined, (w) => void (w.omp = "not json")],
+  ["a Grok leader starts", ".grok/config.toml", useGrok, (w) => void (w.grokLeaders = [{ id: "x" }])],
+  ["Grok's leaders can no longer be listed", ".grok/config.toml", useGrok, (w) => void (w.grokLeaders = "not json")],
+  ["the shared Codex daemon goes old", ".codex/config.toml", useCodex, (w) => void (w.codexDaemon = OLD_DAEMON)],
+  ["the shared Codex daemon can no longer be read", ".codex/config.toml", useCodex, (w) => void (w.codexDaemon = "")],
+];
+
+test.each(DURING_CONFIG_READ)(
+  "nothing stops when %s while `%s` is being read after approval",
+  async (_name, file, useAgent, change) => {
+    const box = restartable();
+    const withAgent = () => {
+      const world = before(box);
+      useAgent(world, box);
+      return world;
+    };
+    box.world(withAgent());
+    const changed = withAgent();
+    change(changed);
+
+    const result = await box.run(["--apply"], {
+      beforeAnswer: () => box.mutateDuringRead(join(box.home, file), changed),
+    });
+
+    expect(result.asked).toBe(1);
+    expect(result.code).toBe(3);
+    expect(box.stops()).toEqual([]);
+    expect(existsSync(box.recoveryFile("default"))).toBe(false);
+  },
+);
+
+test("reading configuration during which nothing changes still restarts the session", async () => {
+  const box = restartable();
+
+  const result = await box.run(["--apply"], {
+    beforeAnswer: () => box.mutateDuringRead(join(box.home, ".claude.json"), before(box)),
+  });
+
+  expect(result.code).toBe(0);
+  expect(box.stops()).toEqual(["herdr session stop default --json"]);
 });
 
 test("nothing stops when a pane's process list can no longer be read after approval", async () => {
