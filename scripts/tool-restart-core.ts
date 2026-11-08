@@ -71,6 +71,7 @@ export type World = {
   home: string;
 };
 export type Observed = { world: World; sessions: SessionObservation[]; gui: GuiStatus; backend: Backend };
+export type TargetView = { session: SessionObservation; world: World };
 export type OmpInventory = { owned: Map<string, string[]>; infra: Set<number> };
 export type McpServer = { command: string; args: string[] };
 export type CommandFiles = { resolve(command: string): string | undefined; head(path: string): string | undefined };
@@ -874,6 +875,8 @@ function paneFingerprint(pane: Pane, info: PaneProcesses | undefined, world: Wor
     pane.agent,
     pane.status,
     pane.stateSeq,
+    pane.launchPending,
+    pane.restoreError,
     pane.cwd,
     pane.foregroundCwd,
     pane.ref,
@@ -902,9 +905,9 @@ function fingerprintOf(session: SessionObservation, world: World): string {
   });
 }
 
-// False when the process table moved between two reads of the same native session state.
-export function sameProcessView(session: SessionObservation, before: World, after: World): boolean {
-  return fingerprintOf(session, before) === fingerprintOf(session, after);
+// False when anything a stop rests on moved between two reads of the same session.
+export function sameTargetView(first: TargetView, last: TargetView): boolean {
+  return fingerprintOf(first.session, first.world) === fingerprintOf(last.session, last.world);
 }
 
 // Approval covers what the operator saw, and only while it is still work the safety checks passed.

@@ -2185,6 +2185,86 @@ test.each([
   expect(existsSync(box.recoveryFile("default"))).toBe(false);
 });
 
+// Each change lands after the first read of what it touches, so only a later read can notice it.
+const SERVICES = "omp ps list --all --json";
+const LAST_PANE_PROCESSES = "herdr pane process-info --pane w1:p3";
+const LATE_CHANGES: [string, string, (world: FakeWorld, box: Box) => void][] = [
+  ["an agent starts working", SERVICES, (world) => void (pane(world, "w1:p2").status = "working")],
+  [
+    "an agent starts waiting for approval",
+    LAST_PANE_PROCESSES,
+    (world) => void (pane(world, "w1:p2").status = "blocked"),
+  ],
+  ["an agent worked and went idle again", SERVICES, (world) => void (pane(world, "w1:p2").stateSeq = 2)],
+  ["an agent begins launching", SERVICES, (world) => void (pane(world, "w1:p2").launchPending = true)],
+  ["a restore reports an error", SERVICES, (world) => void (pane(world, "w1:p2").restoreError = "boom")],
+  [
+    "this conversation starts a detached service",
+    LAST_PANE_PROCESSES,
+    (world) => {
+      world.omp = [{ daemons: [{ name: "svc", id: "1", state: "running", pid: 999, owner: OMP_ID }] }];
+    },
+  ],
+  [
+    "the agent's executable mapping changes",
+    SERVICES,
+    (world, box) => void (proc(world, 201).exe = box.exe("omp", "1.5.0")),
+  ],
+  ["the agent's executable mapping disappears", SERVICES, (world) => void delete proc(world, 201).exe],
+  [
+    "another server takes over the socket",
+    SERVICES,
+    (world, box) => {
+      world.procs.push({ pid: 150, ppid: 1, name: "herdr", exe: box.exe("herdr") });
+      for (const session of world.sessions) session.serverPid = 150;
+    },
+  ],
+];
+
+test.each(LATE_CHANGES)("nothing stops when %s during `%s` after approval", async (_name, call, change) => {
+  const box = restartable();
+  const changed = before(box);
+  change(changed, box);
+
+  const result = await box.run(["--apply"], { beforeAnswer: () => box.mutateOn(call, changed) });
+
+  expect(result.asked).toBe(1);
+  expect(result.code).toBe(3);
+  expect(box.stops()).toEqual([]);
+  expect(existsSync(box.recoveryFile("default"))).toBe(false);
+});
+
+test.each([
+  [
+    "a Grok leader starts",
+    LAST_PANE_PROCESSES,
+    useGrok,
+    (world: FakeWorld) => void (world.grokLeaders = [{ id: "x" }]),
+  ],
+  [
+    "the shared Codex daemon goes old",
+    "claude --version",
+    useCodex,
+    (world: FakeWorld) => void (world.codexDaemon = { cliVersion: "2.0.0", appServerVersion: "1.0.0" }),
+  ],
+] as const)("nothing stops when %s during `%s` after approval", async (_name, call, useAgent, change) => {
+  const box = restartable();
+  const withAgent = () => {
+    const world = before(box);
+    useAgent(world, box);
+    return world;
+  };
+  box.world(withAgent());
+  const changed = withAgent();
+  change(changed);
+
+  const result = await box.run(["--apply"], { beforeAnswer: () => box.mutateOn(call, changed) });
+
+  expect(result.asked).toBe(1);
+  expect(result.code).toBe(3);
+  expect(box.stops()).toEqual([]);
+});
+
 test("the report names an identified helper without its arguments or configured secrets", async () => {
   const box = setup();
   const world = before(box);

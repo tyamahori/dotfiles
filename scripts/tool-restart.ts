@@ -82,12 +82,13 @@ import {
   restoreMismatches,
   runningRows,
   type SavedRef,
-  sameProcessView,
+  sameTargetView,
   scopePlan,
   type SessionEntry,
   type SessionObservation,
   type SessionPlan,
   socketServer,
+  type TargetView,
   TOOL_IDS,
   TOOL_LABELS,
   type ToolId,
@@ -172,6 +173,10 @@ function readSessions(ctx: Ctx): SessionEntry[] {
   if (result.code === 127) return [];
   if (result.code !== 0) throw new Error("herdr session list に失敗した");
   return parseSessionList(parseJson(result.stdout), herdrRoot(ctx));
+}
+
+function readSocketOwners(ctx: Ctx): Map<string, number[]> {
+  return parseSocketOwners(run(ctx, ["lsof", "-nP", "-a", "-U", "-c", "herdr", "-Fpn"]).stdout);
 }
 
 function readPaneProcesses(ctx: Ctx, paneId: string, env: Record<string, string>): PaneProcesses | undefined {
@@ -259,7 +264,7 @@ function readSlowFacts(ctx: Ctx): SlowFacts {
 
 function observeNow(ctx: Ctx, slow: SlowFacts, only?: string): Observed {
   const procs = readProcs(ctx);
-  const owners = parseSocketOwners(run(ctx, ["lsof", "-nP", "-a", "-U", "-c", "herdr", "-Fpn"]).stdout);
+  const owners = readSocketOwners(ctx);
   const entries = readSessions(ctx).filter((entry) => only === undefined || entry.name === only);
   const sessions = entries.map((entry) => observeSession(ctx, entry, owners, procs));
   const gui = readGui(ctx);
@@ -663,21 +668,36 @@ async function stopSession(ctx: Ctx, record: RecoveryRecord, file: string): Prom
 
 type Outcome = "ok" | "changed" | "failed";
 
-// The last look before a stop. Slow reads come first, then the process table and native pane state,
-// then the process table once more to catch whatever started while the rest was being read.
-// `herdr session stop` has no conditional form, so a job starting between that last read and the
-// stop still stops with the session: this narrows the window and cannot close it.
+// What a stop rests on, read again once everything else has been read. The process table comes last,
+// so a job that started during any of these reads still shows. A pane's process list is not read
+// again, because whatever starts there is a new process in that table.
+function readTargetAgain(ctx: Ctx, observed: Observed, session: SessionObservation): TargetView {
+  const { world, sessions, gui } = observed;
+  const socket = session.entry.socket;
+  const owners = readSocketOwners(ctx);
+  const exes = readExes(ctx, interestingPids([...world.procs.values()], sessions, gui));
+  const panes = parseSnapshot(jsonOf(ctx, ["herdr", "api", "snapshot"], { env: { HERDR_SOCKET_PATH: socket } }));
+  const procs = readProcs(ctx);
+  return {
+    session: { ...session, panes, serverPid: socketServer(owners.get(socket), procs) },
+    world: buildWorld({ procs, exes, installed: world.installed, home: world.home }),
+  };
+}
+
+// The last look before a stop. Global reads come first, then the session itself, then the inventories
+// of its detached work, and finally a second read that must match the first. `herdr session stop` has
+// no conditional form, so whatever changes between that second read and the stop still stops with the
+// session: this narrows the window and cannot close it.
 function latestPlan(ctx: Ctx, approved: SessionPlan): SessionPlan | undefined {
   const name = approved.record.session;
-  const slow = readSlowFacts(ctx);
-  const inventories = readInventories(ctx, new Set(approved.record.panes.flatMap((pane) => pane.agent ?? [])));
-  const observed = observeNow(ctx, slow, name);
+  const agents = new Set(approved.record.panes.flatMap((pane) => pane.agent ?? []));
+  const observed = observeNow(ctx, readSlowFacts(ctx), name);
+  const inventories = readInventories(ctx, agents);
   const session = observed.sessions.find((candidate) => candidate.entry.name === name);
   const plan = buildPlan(ctx, observed, inventories).sessions.find((candidate) => candidate.record.session === name);
   if (!session || !plan) return undefined;
-  const { exes, installed, home } = observed.world;
-  const again = buildWorld({ procs: readProcs(ctx), exes, installed, home });
-  return sameProcessView(session, observed.world, again) ? plan : undefined;
+  const steady = sameTargetView({ session, world: observed.world }, readTargetAgain(ctx, observed, session));
+  return steady ? plan : undefined;
 }
 
 // Approval covers exactly what the operator saw: anything different now voids it.
