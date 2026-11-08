@@ -570,8 +570,10 @@ function shape(path: string): string {
   return path.replace(VERSION_SEGMENT, "V");
 }
 
+// A missing inode is not an unequal one: without both there is nothing to compare, and reading it as a
+// replaced file or as another version's path would allow a stop on evidence that names no file.
 function classifyExe(exe: Exe | undefined, installed: Installed): ExeState {
-  if (!exe || !installed.path) return "unknown";
+  if (!exe?.inode || !installed.path || !installed.inode) return "unknown";
   if (exe.path === installed.path) return exe.inode === installed.inode ? "current" : "pending";
   return shape(exe.path) === shape(installed.path) ? "pending" : "unknown";
 }

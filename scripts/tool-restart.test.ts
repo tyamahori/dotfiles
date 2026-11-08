@@ -44,6 +44,7 @@ type FakeProc = {
   name: string;
   exe?: string;
   inode?: string;
+  noInode?: boolean;
   command?: string;
   channel?: string;
 };
@@ -335,7 +336,10 @@ fi`,
       join(dir, "lsof-txt"),
       world.procs
         .filter((proc) => proc.exe)
-        .map((proc) => `p${proc.pid}\nftxt\ni${inodeOf(proc)}\nn${proc.exe}\nftxt\ni7\nn/usr/lib/dyld\n`)
+        .map((proc) => {
+          const inode = proc.noInode ? "" : `i${inodeOf(proc)}\n`;
+          return `p${proc.pid}\nftxt\n${inode}n${proc.exe}\nftxt\ni7\nn/usr/lib/dyld\n`;
+        })
         .join(""),
     );
     writeText(
@@ -1373,6 +1377,7 @@ const DEFERRED: Deferral[] = [
   ["the agent kind is not supported", "w1:p2", (world) => void (pane(world, "w1:p2").agent = "copilot")],
   ["the agent process cannot be found", "w1:p2", (world) => void (pane(world, "w1:p2").foreground = [])],
   ["the agent executable cannot be mapped", "w1:p2", (world) => void delete proc(world, 211).exe],
+  ["the agent executable is reported without an inode", "w1:p2", (world) => void (proc(world, 211).noInode = true)],
   ["the agent belongs to another user", "w1:p2", (world) => void (proc(world, 211).uid = UID + 1)],
   ["the foreground group is not the agent's", "w1:p2", (world) => void (pane(world, "w1:p2").fgGroup = 999)],
   [
@@ -1399,6 +1404,7 @@ const DEFERRED: Deferral[] = [
   ["no process owns the socket", undefined, (world) => void delete world.sessions[0]?.serverPid],
   ["the server belongs to another user", undefined, (world) => void (proc(world, 100).uid = UID + 1)],
   ["the server executable is foreign", undefined, (world) => void (proc(world, 100).exe = "/tmp/herdr")],
+  ["the server executable is reported without an inode", undefined, (world) => void (proc(world, 100).noInode = true)],
   [
     "a Codex pane relies on an old shared daemon",
     "w1:p2",
@@ -1677,6 +1683,21 @@ test.each(READY)("a session stays restartable when %s", async (_name, mutate) =>
 
   expect(status.sessions[0].blockers).toEqual([]);
   expect(status.sessions[0].ready).toBe(true);
+});
+
+test("an old agent reported without an inode is no update to restart it for", async () => {
+  const box = restartable();
+  const world = before(box);
+  proc(world, 201).noInode = true;
+  box.world(world);
+
+  const result = await box.run(["--apply"]);
+  const status = await box.status();
+
+  expect(status.sessions[0].affected).toBe(false);
+  expect(result.asked).toBe(0);
+  expect(result.code).toBe(3);
+  expect(box.stops()).toEqual([]);
 });
 
 test("the plan names the helpers that stop with the session", async () => {
@@ -2126,8 +2147,8 @@ test("a GUI skipped after approval stays reported even when the final scan shows
   expect(box.calls()).not.toContain("sheprd app quit --json");
 });
 
-test("a process lsof reports no inode for does not borrow the previous process's", () => {
-  const exes = parseMappedExes("p1\nftxt\ni42\nn/bin/tool\np2\nftxt\nn/bin/tool\n");
+test("a process lsof reports no inode for borrows none from the previous process or a later library", () => {
+  const exes = parseMappedExes("p1\nftxt\ni42\nn/bin/tool\np2\nftxt\nn/bin/tool\nftxt\ni7\nn/usr/lib/dyld\n");
 
   expect(exes.get(1)).toEqual({ path: "/bin/tool", inode: "42" });
   expect(exes.get(2)).toEqual({ path: "/bin/tool", inode: "" });
@@ -2147,10 +2168,13 @@ test("a Sheprd outside the expected install location is not reopened", async () 
   expect(box.calls()).not.toContain("sheprd app quit --json");
 });
 
-test("a GUI reporting an old version whose executable cannot be mapped is held, not quit", async () => {
+test.each([
+  ["cannot be mapped", { exe: undefined }],
+  ["is reported without an inode", { noInode: true }],
+])("a GUI reporting an old version whose executable %s is held, not quit", async (_name, mapping) => {
   const box = setup();
   guiOnly(box);
-  box.world(guiRunning(box, { exe: undefined }));
+  box.world(guiRunning(box, mapping));
 
   const result = await box.run(["--apply"]);
   const status = await box.status();
