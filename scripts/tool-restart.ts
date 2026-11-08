@@ -771,16 +771,22 @@ async function runRecoveries(ctx: Ctx, plan: Plan): Promise<boolean> {
 
 type PlanView = (plan: Plan) => Plan;
 
+// A target that changed since approval is skipped on its own: the others were approved independently.
+// A failed stop or restore ends the run, because the state of what it touched is no longer known.
 async function executeWork(ctx: Ctx, plan: Plan, view: PlanView): Promise<number> {
   if (!(await runRecoveries(ctx, plan))) return EXIT.failed;
+  let skipped = false;
   for (const session of readySessions(plan)) {
     const outcome = await restartSession(ctx, session);
-    if (outcome !== "ok") return outcome === "changed" ? EXIT.deferred : EXIT.failed;
+    if (outcome === "failed") return EXIT.failed;
+    if (outcome === "changed") skipped = true;
   }
-  if (guiActionable(plan) && (await restartGui(ctx, plan.gui)) === "failed") return EXIT.failed;
+  const gui = guiActionable(plan) ? await restartGui(ctx, plan.gui) : "ok";
+  if (gui === "failed") return EXIT.failed;
   const final = view(buildPlan(ctx, observe(ctx)));
   ctx.out(renderPlan(final));
-  return exitFor(final);
+  // Skipped work stays reported even if the final scan no longer shows that target.
+  return skipped || gui === "changed" ? EXIT.deferred : exitFor(final);
 }
 
 // Records of a stop that never happened or a restore that has since finished need no action.
