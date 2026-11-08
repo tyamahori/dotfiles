@@ -876,11 +876,20 @@ export function agentsInAffectedSessions(observed: Observed): Set<string> {
   return new Set(panes.flatMap((pane) => pane.agent ?? []));
 }
 
+// Parent and group count too: a server handed to another parent is no longer what was identified.
 function procIdentity(pid: number | undefined, world: World): unknown[] {
   if (pid === undefined) return [];
   const proc = world.procs.get(pid);
   const exe = world.exes.get(pid);
-  return [pid, proc?.started, proc?.uid, exe?.path, exe?.inode];
+  return [pid, proc?.ppid, proc?.pgid, proc?.started, proc?.uid, exe?.path, exe?.inode];
+}
+
+// A process can exec another script under the same pid, start time, and interpreter, which leaves
+// only its argument list different. Raw argv, so fingerprints stay in memory: neither the JSON view
+// nor a recovery record carries one.
+function foregroundIdentity(info: PaneProcesses | undefined): unknown[] {
+  const listed = [...(info?.foreground ?? [])].sort((a, b) => a.pid - b.pid);
+  return listed.map((proc) => [proc.pid, proc.name, proc.argv0, proc.argv]);
 }
 
 function paneFingerprint(pane: Pane, info: PaneProcesses | undefined, world: World): unknown[] {
@@ -900,6 +909,7 @@ function paneFingerprint(pane: Pane, info: PaneProcesses | undefined, world: Wor
     pane.ref,
     procIdentity(shell, world),
     info?.fgGroup,
+    foregroundIdentity(info),
     identities,
   ];
 }

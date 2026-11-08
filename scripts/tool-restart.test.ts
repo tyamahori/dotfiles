@@ -2462,6 +2462,24 @@ const LATE_CHANGES: [string, string, (world: FakeWorld, box: Box) => void][] = [
       for (const session of world.sessions) session.serverPid = 150;
     },
   ],
+  [
+    "a configured server execs another script under the same pid and interpreter",
+    SERVICES,
+    (world) => {
+      const entry = pane(world, "w1:p1").foreground?.[1];
+      if (entry) entry.argv = ["node", "job.js"];
+    },
+  ],
+  [
+    "the agent execs itself with other arguments it would still be allowed to have",
+    SERVICES,
+    (world, box) => {
+      const entry = pane(world, "w1:p1").foreground?.[0];
+      if (entry) entry.argv = ["omp", "--allow-home", `--resume=${box.ompSession}`];
+    },
+  ],
+  ["a configured server moves to its own process group", SERVICES, (world) => void (proc(world, 202).pgid = 202)],
+  ["a configured server is handed to another parent", SERVICES, (world) => void (proc(world, 202).ppid = 200)],
 ];
 
 test.each(LATE_CHANGES)("nothing stops when %s during `%s` after approval", async (_name, call, change) => {
@@ -2507,6 +2525,31 @@ test.each([
   expect(result.code).toBe(3);
   expect(box.stops()).toEqual([]);
 });
+
+test("nothing stops when a pane's process list can no longer be read after approval", async () => {
+  const box = restartable();
+  const processInfo = join(box.stub, "current/herdr/pi_w1_p1.json");
+
+  const result = await box.run(["--apply"], { beforeAnswer: () => box.runOn(SERVICES, `rm -f "${processInfo}"`) });
+
+  expect(result.asked).toBe(1);
+  expect(result.code).toBe(3);
+  expect(box.stops()).toEqual([]);
+});
+
+test("a recovery record keeps conversation references but no argument lists", async () => {
+  const box = restartable(3);
+  const bad = restored(box);
+  pane(bad, "w1:p2").terminalId = "t2";
+  box.afterAttach(bad);
+
+  expect((await box.run(["--apply"])).code).toBe(1);
+
+  const record = readFileSync(box.recoveryFile("default"), "utf8");
+  expect(record).toContain(CLAUDE_ID);
+  expect(record).not.toContain("--allow-home");
+  expect(record).not.toContain("server.js");
+}, 30_000);
 
 test("the report names an identified helper without its arguments or configured secrets", async () => {
   const box = setup();

@@ -53,6 +53,7 @@ import {
   type Observed,
   type OmpInventory,
   ompHeaderId,
+  type Pane,
   type PaneProcesses,
   type Plan,
   type Proc,
@@ -186,22 +187,30 @@ function readPaneProcesses(ctx: Ctx, paneId: string, env: Record<string, string>
   return parseProcessInfo(jsonOf(ctx, ["herdr", "pane", "process-info", "--pane", paneId], { env }));
 }
 
+function readAllPaneProcesses(
+  ctx: Ctx,
+  panes: readonly Pane[] | undefined,
+  env: Record<string, string>,
+): Map<string, PaneProcesses | undefined> {
+  const processes = new Map<string, PaneProcesses | undefined>();
+  for (const pane of panes ?? []) processes.set(pane.id, readPaneProcesses(ctx, pane.id, env));
+  return processes;
+}
+
 function observeSession(
   ctx: Ctx,
   entry: SessionEntry,
   owners: Map<string, number[]>,
   procs: readonly Proc[],
 ): SessionObservation {
-  const processes = new Map<string, PaneProcesses | undefined>();
-  if (entry.invalid || !entry.running) return { entry, processes };
+  if (entry.invalid || !entry.running) return { entry, processes: new Map() };
   const env = { HERDR_SOCKET_PATH: entry.socket };
   const serverPid = socketServer(owners.get(entry.socket), procs);
   const status = parseServerStatus(jsonOf(ctx, ["herdr", "status", "--json"], { env }));
   // The session named by the socket must be the one answering, or the panes below belong to another.
-  if (status.socket !== entry.socket) return { entry, processes, serverPid };
+  if (status.socket !== entry.socket) return { entry, processes: new Map(), serverPid };
   const panes = parseSnapshot(jsonOf(ctx, ["herdr", "api", "snapshot"], { env }));
-  for (const pane of panes ?? []) processes.set(pane.id, readPaneProcesses(ctx, pane.id, env));
-  return { entry, status, panes, processes, serverPid };
+  return { entry, status, panes, processes: readAllPaneProcesses(ctx, panes, env), serverPid };
 }
 
 function readGui(ctx: Ctx): GuiStatus {
@@ -685,18 +694,20 @@ async function stopSession(ctx: Ctx, record: RecoveryRecord, file: string): Prom
 
 type Outcome = "ok" | "changed" | "failed";
 
-// What a stop rests on, read again once everything else has been read. The process table comes last,
-// so a job that started during any of these reads still shows. A pane's process list is not read
-// again, because whatever starts there is a new process in that table.
+// What a stop rests on, read again once everything else has been read. Argument lists come after the
+// mapped executables, because an exec of the same interpreter changes only the list. The process table
+// comes last, so a job that started during any of these reads still shows.
 function readTargetAgain(ctx: Ctx, observed: Observed, session: SessionObservation): TargetView {
   const { world, sessions, gui } = observed;
   const socket = session.entry.socket;
+  const env = { HERDR_SOCKET_PATH: socket };
   const owners = readSocketOwners(ctx);
   const exes = readExes(ctx, interestingPids([...world.procs.values()], sessions, gui));
-  const panes = parseSnapshot(jsonOf(ctx, ["herdr", "api", "snapshot"], { env: { HERDR_SOCKET_PATH: socket } }));
+  const panes = parseSnapshot(jsonOf(ctx, ["herdr", "api", "snapshot"], { env }));
+  const processes = readAllPaneProcesses(ctx, panes, env);
   const procs = readProcs(ctx);
   return {
-    session: { ...session, panes, serverPid: socketServer(owners.get(socket), procs) },
+    session: { ...session, panes, processes, serverPid: socketServer(owners.get(socket), procs) },
     world: buildWorld({ procs, exes, installed: refreshInstalled(ctx, world.installed), home: world.home }),
   };
 }
