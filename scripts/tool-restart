@@ -1,0 +1,4 @@
+#!/bin/bash
+# Entry point for scripts/tool-restart.ts ("Tool restarts" in README.md).
+# realpath: ~/.local/bin/tool-restart is a symlink to this file.
+exec bun run --no-install "$(dirname "$(realpath "$0")")/tool-restart.ts" "$@"
