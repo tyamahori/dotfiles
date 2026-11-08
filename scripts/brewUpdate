@@ -57,7 +57,13 @@ if [ "$(uname)" = Darwin ]; then
 			echo "brewUpdate: skipping brew cleanup; running OMP processes could not be inspected" >&2
 			;;
 		*)
-			brew cleanup
+			# The other tools' old kegs stay mapped by running sessions the same way.
+			# Nonzero also covers "could not inspect": cleanup is the part that can wait.
+			if "$(dirname "$0")/tool-restart" --cleanup-check; then
+				brew cleanup
+			else
+				echo "brewUpdate: skipping brew cleanup; old or unknown tool executables may still be running" >&2
+			fi
 			;;
 		esac
 	else

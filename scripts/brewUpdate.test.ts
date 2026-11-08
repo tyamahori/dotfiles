@@ -39,6 +39,7 @@ test.each([
   ["Darwin", "upgrade", 3, false],
   ["Darwin", "python", 3, true],
   ["Darwin", "bun", 3, true],
+  ["Darwin", "tool-restart", 0, false],
   ["Linux", "omp", 3, false],
 ])("on %s, a failing %s step sets exit %i (brew cleanup ran: %p)", (os, fail, status, cleaned) => {
   const home = mkdtempSync(join(dir, "home-"));
@@ -50,6 +51,7 @@ test.each([
   copyFileSync(resolve(import.meta.dir, "brewUpdate"), join(scripts, "brewUpdate"));
   const stub = (path: string, body: string) => writeFileSync(path, `#!/bin/bash\n${body}\n`, { mode: 0o755 });
   for (const name of ["skill-sync", "tool-release-review"]) stub(join(scripts, name), "exit 0");
+  stub(join(scripts, "tool-restart"), '[ "$FAIL" = tool-restart ] && exit 1; exit 0');
   stub(join(scripts, "python"), '[ "$FAIL" = python ] && exit 3; exit 0');
   stub(join(bin, "omp"), '[ "$FAIL" = omp ] && exit 3; exit 0');
   stub(join(home, ".bun/bin/bun"), '[ "$FAIL" = bun ] && exit 3; exit 0');
