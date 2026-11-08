@@ -14,6 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { type Ctx, main } from "./tool-restart.ts";
+import { parseMappedExes } from "./tool-restart-core.ts";
 
 // Every native CLI is a stub on PATH, driven by fixture files, so the production code spawns
 // real subprocesses without any real session in reach: HOME and PATH never leave this tree.
@@ -2108,6 +2109,28 @@ test("a GUI that changed after approval is not quit", async () => {
 
   expect(result.code).toBe(3);
   expect(box.calls()).not.toContain("sheprd app quit --json");
+});
+
+test("a GUI skipped after approval stays reported even when the final scan shows it current", async () => {
+  const box = setup();
+  guiOnly(box);
+  const updatedMeanwhile = {
+    ...restored(box),
+    procs: [...restored(box).procs, { pid: 650, ppid: 1, name: "sheprd", exe: box.exe("sheprd") }],
+    gui: { pid: 650, version: "2.0.0" },
+  };
+
+  const result = await box.run(["--apply"], { beforeAnswer: () => box.world(updatedMeanwhile) });
+
+  expect(result.code).toBe(3);
+  expect(box.calls()).not.toContain("sheprd app quit --json");
+});
+
+test("a process lsof reports no inode for does not borrow the previous process's", () => {
+  const exes = parseMappedExes("p1\nftxt\ni42\nn/bin/tool\np2\nftxt\nn/bin/tool\n");
+
+  expect(exes.get(1)).toEqual({ path: "/bin/tool", inode: "42" });
+  expect(exes.get(2)).toEqual({ path: "/bin/tool", inode: "" });
 });
 
 test("a Sheprd outside the expected install location is not reopened", async () => {
