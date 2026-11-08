@@ -749,37 +749,58 @@ stopped.
 A process group says nothing about what a process is doing, so each process
 under an agent needs its own identification or the session is deferred. Two
 things count. OMP's own `omp ps` listing names it as infrastructure
-(`owner: null`, or the broker). Or the agent started it directly and the exact
+(`owner: null`, or the broker). Or the agent started it directly, the exact
 argument list Herdr reports for it (`herdr pane process-info`) matches a stdio
-MCP server in that agent's user-level configuration: `~/.claude.json`,
-`~/.codex/config.toml`, `~/.omp/agent/mcp.json`, or `~/.grok/config.toml` (Grok
-also takes Claude's). Each exempts that process only, so a job under an
-identified process still defers the session. Shared stdin and stdout prove
-nothing, because a quiet job inherits them too. `ps` text proves nothing either,
-because it joins arguments with spaces and different commands can print alike.
-Configured arguments and environment are only compared, never printed or saved.
+MCP server in that agent's user-level configuration, and the file it maps (`lsof`
+path and inode) is the file that configuration resolves to. The configurations
+are `~/.claude.json`, `~/.codex/config.toml`, `~/.omp/agent/mcp.json`, and
+`~/.grok/config.toml` (Grok also takes Claude's). The file is the command as
+found on this command's `PATH`, the interpreter a script's shebang names, or what
+a launcher that only `exec`s goes on to run. Nothing configured is ever run to
+find this out, and a command that does not resolve, a `PATH` that finds another
+file, or a missing mapping leaves the process unidentified. Each exempts that
+process only, so a job under an identified process still defers the session.
+Shared stdin and stdout prove nothing, because a quiet job inherits them too.
+`ps` text proves nothing either, because it joins arguments with spaces and
+different commands can print alike. Configured arguments and environment are
+only compared, never printed or saved.
 
 An unidentified child holds only its own session; other ready sessions still
 restart. So ordinary MCP setups can need a manual restart. Whatever a wrapper
 runs stays unidentified (the `perl` and binary under the `jbcontext` launcher,
 for example). So does a server in its own process group, which Herdr does not
 list, a server an agent inherits from another tool's configuration or a plugin,
-one from a repository's `.mcp.json` (the repository controls that file), and a
-browser opened by an MCP server. Wait for the child to exit, or check that the
-session holds no work you need, stop it from outside Herdr with
-`herdr session stop <name>`, and attach a client to bring it back.
+one from a repository's `.mcp.json` (the repository controls that file), a server
+an agent started under a different `PATH`, and a browser opened by an MCP server.
+Wait for the child to exit, or check that the session holds no work you need,
+stop it from outside Herdr with `herdr session stop <name>`, and attach a client
+to bring it back.
 
-Approval covers what the plan showed, including the update it was for. Right
-before each stop the command rereads the installed versions and the Codex daemon
-state, then the session, then OMP's and Grok's inventories of detached work.
-After those it reads the socket owner, the mapped executables, the native pane
-state, and the process table a second time, and stops nothing if anything
-differs or a new blocker appears. `herdr session stop` has no conditional form,
-so the last check and the stop are not atomic: a job or state change after that
-final read still stops with the session. For the GUI, approval covers the running
-process and the executable it maps, and a missing or replaced mapping refuses
-the quit even when its version report shows an update. Concurrent `--apply` runs
-are excluded with `flock(2)` on
+Approval covers what the plan showed, including the update it was for. Before
+each stop the command does the slow part once: version checks, recovery records,
+MCP configuration, and saved conversations. It then reads the Codex daemon state,
+OMP's and Grok's inventories of detached work, and the restore setting. After
+those it reads the socket owner, the mapped executables, the native pane state,
+each pane's argument lists, the process table, and the path and inode of each
+installed tool. It judges the session on those newest reads and stops nothing if
+a blocker appears or anything differs from what was approved, such as an argument
+list, a parent or process group, or an installed file that was replaced, removed,
+or rolled back.
+
+`herdr session stop` has no conditional form, so no check is atomic with the stop.
+Whatever changes after its own read still stops with the session: a job started
+after the last process table read, a state change after the native state read, a
+detached service after the inventories, an exec after the argument lists, and an
+edit to MCP configuration or a saved conversation after the slow part. The restart
+also accepts whatever is installed once the session has stopped, so an update
+rolled back during the restore is checked against the rolled-back version.
+
+A target that changes after approval is skipped while the other approved targets
+still restart, and the run exits 3 even if the final report no longer shows it. A
+failed stop or restore ends the run with 1 and touches nothing further. For the
+GUI, approval covers the running process and the executable it maps, and a missing
+or replaced mapping refuses the quit even when its version report shows an update.
+Concurrent `--apply` runs are excluded with `flock(2)` on
 `~/.local/state/tool-restart/apply.lock`; the kernel releases it however the run
 ends, so there is no stale lock to clear, and the file stays in place.
 
