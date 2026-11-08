@@ -716,8 +716,9 @@ older than what is installed, and restarts them through Herdr's native session
 restore after one approval. It compares the executable each process actually
 maps (`lsof` path and inode, plus Herdr's and Sheprd's own status) with the
 installed one, so it needs no baseline and also catches self-updates made
-outside `scripts/brewUpdate`. A process whose executable cannot be identified
-is reported as unknown, never as current.
+outside `scripts/brewUpdate`. A process whose executable cannot be identified,
+including one `lsof` reports without an inode, is reported as unknown, never as
+current or as an update to restart for.
 
 | Command | What it does |
 | --- | --- |
@@ -782,10 +783,13 @@ MCP configuration, and saved conversations. It then reads the Codex daemon state
 OMP's and Grok's inventories of detached work, and the restore setting. After
 those it reads the socket owner, the mapped executables, the native pane state,
 each pane's argument lists, the process table, and the path and inode of each
-installed tool. It judges the session on those newest reads and stops nothing if
-a blocker appears or anything differs from what was approved, such as an argument
-list, a parent or process group, or an installed file that was replaced, removed,
-or rolled back.
+installed tool. It judges the session on those newest reads and on the answers
+from the slow part, and reads no configuration or saved conversation while
+judging: a pane the slow part could not ask about, because its process list or
+directory was missing at that moment, defers the session even if it has since
+returned. It stops nothing if a blocker appears or anything differs from what was
+approved, such as an argument list, a parent or process group, or an installed
+file that was replaced, removed, or rolled back.
 
 `herdr session stop` has no conditional form, so no check is atomic with the stop.
 Whatever changes after its own read still stops with the session: a job started
@@ -798,8 +802,9 @@ rolled back during the restore is checked against the rolled-back version.
 A target that changes after approval is skipped while the other approved targets
 still restart, and the run exits 3 even if the final report no longer shows it. A
 failed stop or restore ends the run with 1 and touches nothing further. For the
-GUI, approval covers the running process and the executable it maps, and a missing
-or replaced mapping refuses the quit even when its version report shows an update.
+GUI, approval covers the running process and the executable it maps, and a missing,
+inode-less, or replaced mapping refuses the quit even when its version report shows
+an update.
 Concurrent `--apply` runs are excluded with `flock(2)` on
 `~/.local/state/tool-restart/apply.lock`; the kernel releases it however the run
 ends, so there is no stale lock to clear, and the file stays in place.
