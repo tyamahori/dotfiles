@@ -139,34 +139,10 @@ this runs twice, crashed halfway, or two actors write at once?*
 
 ## TypeScript and JavaScript
 
-The norms above take this shape in TS/JS. Where a repository has no lint
-config of its own, `scripts/lint-on-edit` and the pre-commit oxlint check
-count the size limits from this dotfiles' `.oxlintrc.json` (complexity 10,
-nesting depth 3, 60-line functions, 4 parameters, no `any`, no non-null
-assertion, no `@ts-` suppression) and block only findings an edit adds.
-Type discipline (discriminated unions closed by a `never` check, `satisfies`,
-type guards that check what their name claims) and how to run and verify
-TS/JS are in `efficient-ts-js`.
-
-- **Functional core, imperative shell.** Decisions are pure functions over
-  plain data (rows, snapshots, parsed input) that return a value or a
-  description of what to do. A thin shell reads the database, files, clock,
-  network, and UI, calls the core, and applies the result. The core is tested
-  with literals; the shell gets one happy path.
-- **A class only for state with rules, or a value with an invariant.** A
-  class earns its place when it owns mutable state whose transitions follow a
-  rule (a latch that fires once and re-arms below a threshold), or when its
-  constructor enforces what must hold for a value. Stateless functions grouped
-  together are a module, not a class; no hierarchy for one variant.
-- **Types name the smallest capability.** A parameter's type lists only what
-  the function uses (`{ notify(message: string, level?: string): void }`, not
-  the host's whole context object). Share such a type across modules when a
-  second module needs the same capability. Values typed `unknown` are parsed
-  once at the boundary.
-- **Over a limit: split by decision, not by line count.** Extract the pure
-  decision first (guard clauses, a table for a long `if` chain). Never quiet
-  the linter with a suppression comment, an options bag of unrelated values,
-  or a `!` that hides a missing case.
+Before writing or changing TS/JS code, read
+[TypeScript and JavaScript](references/typescript-javascript.md) for the
+language-specific design norms and lint limits. Runtime and verification
+guidance remains in `efficient-ts-js`.
 
 ## Gate before writing
 
@@ -208,41 +184,8 @@ Refactor when the current shape resists the change you need (make the change
 easy, then make the easy change), or on green after a feature lands.
 Behaviour change and refactoring never share a commit.
 
-1. **Characterise first.** If the code you will move has no tests, write
-   characterisation tests that pin the current behaviour, quirks included
-   (see `test-design`). Do not fix the quirk yet.
-2. **Find the seam.** A place where behaviour can be altered without editing
-   the code in place: an injected dependency, a function boundary, a module
-   export. Create one with a rename or an extracted parameter if none exists.
-3. **One small behaviour-preserving step, then run the tests.** Rename,
-   extract function, move function, inline, introduce parameter object,
-   replace conditional with polymorphism: one per step. Use the language
-   server for renames and `structural-edit` for repeated shape changes; hand
-   edits miss call sites. After a rename, search strings, docs, and config
-   for the old name; the language server does not see them.
-4. **Commit each green step** (`refactor:` subject, the reason in the body).
-   Tests break in an unexpected way: revert the step, do not debug it. A
-   green step that does not make the code easier to read is not worth
-   keeping either; revert it.
-5. **Fix behaviour afterwards** in a separate commit, updating the
-   characterisation test to the intended behaviour.
-
-Smell to move, for the smells that matter:
-
-| Smell | Move |
-| --- | --- |
-| Long parameter list, same group passed around | Parameter object or value type |
-| Function uses another object's data more than its own | Move function |
-| Same shape in three places | Extract on the third copy, not the second |
-| Primitive standing in for a concept (string id, int cents) | Value type carrying its invariant |
-| Flag argument switching behaviour | Two functions |
-| Nested conditionals | Guard clauses, early return |
-| Comment explaining what the next lines do | Rename or extract until the comment is redundant |
-| Interface, hook, or option nobody uses | Delete |
-| Caller imports another module's internals | Export a public entry point; import only that |
-| Two lists kept in sync by hand | Derive one from the other |
-| Flags for mutually exclusive states (`isDraft` and `isPublished`) | One state field whose values are the legal states; keep independent flags separate |
-| Modules named after steps (read, parse, write) that all know one format | Split by the decision each hides, not by execution order |
+Before refactoring, read [Refactoring](references/refactoring.md) for the
+required sequence, verification and commit discipline, and smell-to-move table.
 
 ## Design docs
 
@@ -254,55 +197,9 @@ in production for years; goals or requirements are ambiguous; a
 catastrophic risk (security, data loss, legal) can be prevented at design
 time. One "yes" is worth a one-pager; none means skip it.
 
-Content filter: **what is the cost of being wrong?** A choice that is cheap
-to reverse (a button placement, a page size) is not a design concern and
-must not consume review cycles; a choice that is expensive to reverse
-(language, storage, service boundary, data model, protocol) is the doc.
-
-What each section must do:
-
-- **Objective and background** read without any outside context: a
-  stakeholder who has not talked to the author understands the problem and
-  the motivation from the first page, with the numbers that prove it.
-- **Goals** are stated as impact on users, the team, or the business, never
-  as implementation ("fewer deploy-related outages", not "adopt
-  Kubernetes"). **Non-goals** list what a reader would otherwise assume is
-  in scope.
-- **Scenarios** show the finished system as concrete step sequences when
-  the goal alone does not make the behaviour obvious.
-- **Interfaces** show the API, CLI, file format, or type signatures that
-  consumers will see; UI as rough sketches only.
-- **Dependencies** justify the ones that are hard to change later (language,
-  storage, hosting); the easily swapped ones get a line.
-- **SLOs** are measurable numbers ("p50 < 200 ms"), and **monitoring** says
-  how a breach will be noticed.
-- **Security** names the threats considered, the attack surface, and the
-  trust boundaries (see "Validate at trust boundaries"); write the rationale
-  even when the answer is "none apply" so reviewers can disagree.
-- **Alternatives** cover only the strong candidates, a few lines each with
-  the specific reason they lost.
-- **Open issues** each state the problem, the options, a proposed answer,
-  and the immediate next step. When resolved, move the entry to **Resolved
-  issues** with the decision on top and the original discussion kept.
-- **Implementation plan**, when the doc carries one, is its own section
-  after the design, so reviewers judge what and why before how; the design
-  sections stay at the altitude of interfaces and data flow, with no
-  pseudocode or helper names. The plan passes the zero-decision test: a
-  fresh session that never saw the conversation can execute it without
-  choosing a schema, an API shape, a dependency, or how to handle a new
-  edge case. It names the files to create, change, or delete, the change in
-  each, the test cases, and phases that each leave the build green. A
-  choice still open goes under Open issues, not into a vague step ("update
-  the auth service").
-- **Governed code** names the files and symbols the design describes, so a
-  later reader can check the doc against the code. When they diverge, a
-  human decides which one changes.
-
-Diagrams come from an editable source kept next to the doc (`archify` on
-this machine), never a photographed whiteboard. Use the repository's
-existing design-doc location and headings; the HTML review workflow is
-`reviewable-design-doc`, which handles rendering and comment threads, not
-content.
+Before drafting or reviewing a design doc, read
+[Design docs](references/design-docs.md) for the content filter, required
+sections, implementation-readiness criteria, and repository conventions.
 
 ## ADRs
 
@@ -311,39 +208,8 @@ reverse: a dependency or framework, a data model, a service or module
 boundary, a protocol or API style, build or hosting. Local code choices go
 in the commit body (Why) or a code comment (Why-not), not in an ADR.
 
-**Placement: match the repository first.** Look for existing ADRs,
-`.adr-dir`, `docs/adr/`, `docs/decisions/`, or ADR tooling, and continue
-that directory, numbering, extension, and heading set. Only with no
-convention use `docs/adr/NNNN-kebab-title.md`, starting at `0001`. Never
-restart numbering or add a second scheme; if the evidence conflicts, ask.
-
-Template (one page, in the repository's document language; Japanese ADRs go
-through `natural-japanese`):
-
-```markdown
-# NNNN. <Decision stated as a sentence>
-
-- Status: Proposed | Accepted | Superseded by NNNN
-- Date: YYYY-MM-DD
-
-## Context
-The forces: requirement, constraint, measurement, deadline. Facts, not
-opinions.
-
-## Decision
-What we will do, in one paragraph.
-
-## Alternatives
-One paragraph each: what it was and the specific reason it lost.
-
-## Consequences
-What becomes easier, what becomes harder, what we now have to do
-(migration, monitoring, follow-up).
-```
-
-Never delete or rewrite an accepted ADR; supersede it with a new one that
-links back. Link the ADR from the code or doc it governs when the decision
-is not obvious from the code.
+Before creating or superseding an ADR, read [ADRs](references/adrs.md) for
+repository placement, numbering, the template, and accepted-decision handling.
 
 Sources: Ousterhout, *A Philosophy of Software Design*; Martin, *Clean
 Architecture* (dependency rule); Raymond, *The Art of Unix Programming*
