@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { type Ctx, main } from "./tool-restart";
+import { type Ctx, main } from "./tool-restart.ts";
 
 // Every native CLI is a stub on PATH, driven by fixture files, so the production code spawns
 // real subprocesses without any real session in reach: HOME and PATH never leave this tree.
@@ -39,6 +39,8 @@ type FakeProc = {
   name: string;
   exe?: string;
   inode?: string;
+  command?: string;
+  channel?: string;
 };
 type FakePane = {
   id: string;
@@ -79,7 +81,7 @@ function writeText(path: string, value: unknown) {
 
 function writeStub(path: string, body: string) {
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `#!/bin/bash\n${body}\n`);
+  writeFileSync(path, `#!/bin/bash\n[ -f "$STUB/hook.sh" ] && . "$STUB/hook.sh" "$(basename "$0") $*"\n${body}\n`);
   chmodSync(path, 0o755);
 }
 
@@ -119,7 +121,10 @@ esac`,
   codex: `echo "codex $*" >>"$STUB/calls.log"
 case "$*" in
 --version) echo "codex-cli 2.0.0" ;;
-"app-server daemon version") cat "$STUB/current/codex-daemon.json" ;;
+"app-server daemon version")
+  [ -e "$STUB/codex-fails" ] && exit 1
+  cat "$STUB/current/codex-daemon.json"
+  ;;
 *) exit 64 ;;
 esac`,
   grok: `echo "grok $*" >>"$STUB/calls.log"
@@ -172,7 +177,13 @@ function setup(attempts = 20) {
   }
   writeStub(
     join(bin, "ps"),
-    `[ -e "$STUB/ps-fails" ] && exit 1
+    `case "$*" in
+*command=*)
+  cat "$STUB/current/ps-commands.txt"
+  exit 0
+  ;;
+esac
+[ -e "$STUB/ps-fails" ] && exit 1
 cat "$STUB/current/ps.txt"
 parent=$(cat "$STUB/self-ppid" 2>/dev/null || echo 1)
 echo "$PPID $parent $PPID $(id -u) S ${STARTED} bun"`,
@@ -181,13 +192,23 @@ echo "$PPID $parent $PPID $(id -u) S ${STARTED} bun"`,
     join(bin, "lsof"),
     `case "$*" in
 *-U*) cat "$STUB/current/lsof-sockets" ;;
+*"-d 0,1"*) cat "$STUB/current/lsof-stdio" ;;
 *) cat "$STUB/current/lsof-txt" ;;
 esac`,
   );
-  writeStub(join(bin, "plutil"), "echo 2.0.0");
+  writeStub(join(bin, "plutil"), 'cat "$STUB/sheprd-version" 2>/dev/null || echo 2.0.0');
+  writeText(
+    join(stub, "hook.sh"),
+    `if [ "$(cat "$STUB/hook-call" 2>/dev/null)" = "$1" ]; then
+  rm -f "$STUB/hook-call"
+  cp -R "$STUB/after-hook/." "$STUB/current/"
+fi`,
+  );
   writeStub(join(bin, "terminal-notifier"), 'printf "terminal-notifier %s\\n" "$*" >>"$STUB/calls.log"');
   writeStub(join(bin, "open"), 'echo "open $*" >>"$STUB/calls.log"\ncp -R "$STUB/after-open/." "$STUB/current/"');
 
+  // before() runs this server under its OMP agent.
+  writeText(join(home, ".omp/agent/mcp.json"), { mcpServers: { web: { command: "node", args: ["server.js"] } } });
   const ompSession = join(home, ".omp/agent/sessions/work/s.jsonl");
   const claudeTranscript = join(home, ".claude/projects", work.replace(/[^A-Za-z0-9]/g, "-"), `${CLAUDE_ID}.jsonl`);
   writeText(
@@ -202,7 +223,13 @@ esac`,
     join(home, `.codex/sessions/2026/11/08/rollout-2026-11-08T10-00-00-${CODEX_ID}.jsonl`),
     `${JSON.stringify({ type: "session_meta", payload: { id: CODEX_ID, cwd: work } })}\n`,
   );
-  writeText(join(home, ".grok/sessions", encodeURIComponent(work), GROK_ID, "chat_history.jsonl"), "{}\n");
+  const grokDir = join(home, ".grok/sessions", encodeURIComponent(work), GROK_ID);
+  writeText(join(grokDir, "chat_history.jsonl"), "{}\n");
+  writeText(join(grokDir, "summary.json"), {
+    info: { id: GROK_ID, cwd: work },
+    grok_home: join(home, ".grok"),
+    session_summary: "private summary",
+  });
 
   const socketOf = (session: FakeSession) =>
     session.socket ??
@@ -297,6 +324,20 @@ esac`,
         .join(""),
     );
     writeText(
+      join(dir, "ps-commands.txt"),
+      world.procs
+        .filter((proc) => proc.command)
+        .map((proc) => `${proc.pid} ${proc.command}\n`)
+        .join(""),
+    );
+    writeText(
+      join(dir, "lsof-stdio"),
+      world.procs
+        .filter((proc) => proc.channel)
+        .map((proc) => `p${proc.pid}\nf0\ntunix\nd${proc.channel}-in\nf1\ntunix\nd${proc.channel}-out\n`)
+        .join(""),
+    );
+    writeText(
       join(dir, "lsof-sockets"),
       world.sessions
         .filter((session) => session.serverPid !== undefined)
@@ -338,7 +379,7 @@ esac`,
 
   const run = async (
     args: string[],
-    options: { answer?: string; tty?: boolean; env?: Record<string, string>; beforeAnswer?: () => void } = {},
+    options: { answer?: string; tty?: boolean; env?: Record<string, string>; beforeAnswer?: () => unknown } = {},
   ) => {
     const out: string[] = [];
     const err: string[] = [];
@@ -352,7 +393,7 @@ esac`,
       sleep: () => Bun.sleep(5),
       ask: async () => {
         asked++;
-        options.beforeAnswer?.();
+        await options.beforeAnswer?.();
         return options.answer ?? "yes";
       },
       out: (text) => out.push(text),
@@ -381,6 +422,17 @@ esac`,
     afterAttach: (world: FakeWorld) => render(world, join(stub, "after-attach")),
     afterQuit: (world: FakeWorld) => render(world, join(stub, "after-quit")),
     afterOpen: (world: FakeWorld) => render(world, join(stub, "after-open")),
+    // The world changes while the named native command runs, for the first such call from now on.
+    mutateOn: (call: string, world: FakeWorld) => {
+      render(world, join(stub, "after-hook"));
+      writeText(join(stub, "hook-call"), call);
+    },
+    installVersion: (tool: string, version: string) =>
+      writeStub(exe(tool, version), (TOOL_STUBS[tool] ?? "").replace("2.0.0", version)),
+    useInstalled: (tool: string, version: string) => {
+      rmSync(join(bin, tool));
+      symlinkSync(exe(tool, version), join(bin, tool));
+    },
     status: async () => {
       const result = await run(["--status", "--json"]);
       return JSON.parse(result.out);
@@ -407,7 +459,7 @@ function before(box: Box): FakeWorld {
       { pid: 100, ppid: 1, name: "herdr", exe: box.exe("herdr") },
       { pid: 200, ppid: 100, name: "zsh" },
       { pid: 201, ppid: 200, name: "omp", exe: box.exe("omp", "1.0.0") },
-      { pid: 202, ppid: 201, pgid: 201, name: "node" },
+      { pid: 202, ppid: 201, pgid: 201, name: "node", command: "node server.js" },
       { pid: 210, ppid: 100, name: "zsh" },
       { pid: 211, ppid: 210, name: "claude", exe: box.exe("claude") },
       { pid: 220, ppid: 100, name: "zsh" },
@@ -545,6 +597,7 @@ function useCodex(world: FakeWorld, box: Box, argv = ["codex"]) {
     foreground: [{ pid: 211, name: "codex", argv }],
   });
   Object.assign(proc(world, 211), { name: "codex", exe: box.exe("codex") });
+  world.codexDaemon = { status: "notRunning" };
 }
 
 function useGrok(world: FakeWorld, box: Box, argv = ["grok"]) {
@@ -744,7 +797,6 @@ test("an accepted restart stops the whole session once, attaches a client, and v
     expect(log.filter((call) => call.includes(forbidden))).toEqual([]);
   }
   expect(existsSync(box.recoveryFile("default"))).toBe(false);
-  expect(existsSync(join(box.home, ".local/state/tool-restart/apply.lock"))).toBe(false);
 });
 
 test("a named session is attached by name", async () => {
@@ -866,7 +918,66 @@ test("an agent that started working after approval voids it", async () => {
   expect(box.stops()).toEqual([]);
 });
 
-const DEFERRED: [string, string | undefined, (world: FakeWorld, box: Box) => void][] = [
+const TOOL_SERVER = { type: "stdio", command: "/opt/mcp/tool", args: ["mcp", "--flag"], env: { TOKEN: "env-secret" } };
+const TOOL_LINE = "/opt/mcp/tool mcp --flag";
+const TOOL_TOML = '[mcp_servers.tool]\ncommand = "/opt/mcp/tool"\nargs = ["mcp", "--flag"]\n';
+
+const claudeMcp = (box: Box, servers: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
+  writeText(join(box.home, ".claude.json"), { mcpServers: servers, ...extra });
+const configureTool = (box: Box) => claudeMcp(box, { tool: TOOL_SERVER });
+
+// A launcher that only execs a script, which runs perl, which runs the real server: the shape of a
+// real configured server. The last process keeps its parents' stdio only when `leafChannel` is theirs.
+function wrappedServer(world: FakeWorld, box: Box, leafChannel: string) {
+  const script = join(box.home, "mcp/run.sh");
+  const launcher = join(box.home, "mcp/launcher");
+  writeText(script, "#!/bin/bash\nperl -e 'system @ARGV' binary \"$@\"\n");
+  writeText(launcher, `#!/bin/bash\nexec "${script}" "$@"\n`);
+  claudeMcp(box, { server: { command: launcher, args: ["mcp"] } });
+  world.procs.push(
+    { pid: 212, ppid: 211, pgid: 211, name: "bash", command: `/bin/bash ${script} mcp`, channel: "chan" },
+    { pid: 213, ppid: 212, pgid: 211, name: "perl", command: "perl -e system binary mcp", channel: "chan" },
+    { pid: 214, ppid: 213, pgid: 211, name: "binary", command: "binary mcp", channel: leafChannel },
+  );
+}
+
+const grokSession = (box: Box) => join(box.home, ".grok/sessions", encodeURIComponent(box.work), GROK_ID);
+
+type Deferral = [string, string | undefined, (world: FakeWorld, box: Box) => void];
+
+const grokRefusal = (what: string, summary: (box: Box) => unknown): Deferral => [
+  `the saved Grok metadata ${what}`,
+  "w1:p2",
+  (world, box) => {
+    useGrok(world, box);
+    writeText(join(grokSession(box), "summary.json"), summary(box));
+  },
+];
+const grokHome = (box: Box) => `${box.home}/.grok`;
+
+const GROK_METADATA_REFUSALS: Deferral[] = [
+  grokRefusal("names another conversation", (box) => ({
+    info: { id: CODEX_ID, cwd: box.work },
+    grok_home: grokHome(box),
+  })),
+  grokRefusal("names another directory", (box) => ({
+    info: { id: GROK_ID, cwd: "/elsewhere" },
+    grok_home: grokHome(box),
+  })),
+  grokRefusal("names another Grok home", (box) => ({
+    info: { id: GROK_ID, cwd: box.work },
+    grok_home: "/elsewhere/.grok",
+  })),
+  grokRefusal("belongs to a headless run", (box) => ({
+    info: { id: GROK_ID, cwd: box.work },
+    grok_home: grokHome(box),
+    session_kind: "headless",
+  })),
+  grokRefusal("is not JSON", () => "{not json"),
+  grokRefusal("has no identity", () => ({})),
+];
+
+const DEFERRED: Deferral[] = [
   ["an agent is working", "w1:p1", (world) => void (pane(world, "w1:p1").status = "working")],
   ["an agent waits for approval", "w1:p2", (world) => void (pane(world, "w1:p2").status = "blocked")],
   ["an agent's state is unknown", "w1:p2", (world) => void (pane(world, "w1:p2").status = "unknown")],
@@ -876,6 +987,115 @@ const DEFERRED: [string, string | undefined, (world: FakeWorld, box: Box) => voi
     "a job runs in another process group",
     "w1:p2",
     (world) => void world.procs.push({ pid: 212, ppid: 211, pgid: 212, name: "bash" }),
+  ],
+  [
+    "a user's job shares the agent's process group",
+    "w1:p2",
+    (world, box) => {
+      configureTool(box);
+      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "node", command: "node train.js" });
+    },
+  ],
+  [
+    "a process runs a configured server's command with other arguments",
+    "w1:p2",
+    (world, box) => {
+      configureTool(box);
+      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool", command: `${TOOL_LINE} --other` });
+    },
+  ],
+  [
+    "a child's command line cannot be read",
+    "w1:p2",
+    (world, box) => {
+      configureTool(box);
+      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool" });
+    },
+  ],
+  [
+    "a configured command line runs beside the agent rather than under it",
+    "w1:p2",
+    (world, box) => {
+      configureTool(box);
+      world.procs.push({ pid: 212, ppid: 210, pgid: 212, name: "tool", command: TOOL_LINE });
+    },
+  ],
+  ["a job under a configured launcher has its own stdio", "w1:p2", (world, box) => wrappedServer(world, box, "other")],
+  [
+    "a job under a configured server cannot be matched to its stdio",
+    "w1:p2",
+    (world, box) => {
+      configureTool(box);
+      world.procs.push(
+        { pid: 212, ppid: 211, pgid: 211, name: "tool", command: TOOL_LINE, channel: "chan" },
+        { pid: 213, ppid: 212, pgid: 211, name: "python" },
+      );
+    },
+  ],
+  [
+    "only a repository's .mcp.json describes the process",
+    "w1:p2",
+    (world, box) => {
+      writeText(join(box.work, ".mcp.json"), { mcpServers: { tool: TOOL_SERVER } });
+      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool", command: TOOL_LINE });
+    },
+  ],
+  [
+    "the only match is a server Codex has disabled",
+    "w1:p2",
+    (world, box) => {
+      useCodex(world, box);
+      writeText(join(box.home, ".codex/config.toml"), `${TOOL_TOML}enabled = false\n`);
+      world.procs.push({ pid: 212, ppid: 211, pgid: 212, name: "tool", command: TOOL_LINE });
+    },
+  ],
+  [
+    "a job in its own group runs under OMP's managed infrastructure",
+    "w1:p1",
+    (world) => {
+      world.procs.push(
+        { pid: 204, ppid: 201, pgid: 204, name: "omp" },
+        { pid: 205, ppid: 204, pgid: 205, name: "python" },
+      );
+      world.omp = [{ daemons: [{ name: "lsp", id: "1", state: "running", pid: 204, owner: null }] }];
+    },
+  ],
+  [
+    "a job in the same group runs under OMP's managed infrastructure",
+    "w1:p1",
+    (world) => {
+      world.procs.push(
+        { pid: 204, ppid: 201, pgid: 204, name: "omp" },
+        { pid: 205, ppid: 204, pgid: 204, name: "python" },
+      );
+      world.omp = [{ daemons: [{ name: "lsp", id: "1", state: "running", pid: 204, owner: null }] }];
+    },
+  ],
+  [
+    "a job runs under OMP's broker",
+    "w1:p1",
+    (world) => {
+      world.procs.push(
+        { pid: 204, ppid: 201, pgid: 204, name: "omp" },
+        { pid: 205, ppid: 204, pgid: 201, name: "python" },
+      );
+      world.omp = [{ brokerPid: 204, daemons: [] }];
+    },
+  ],
+  [
+    "a running OMP service has no owner field",
+    "w1:p1",
+    (world) => {
+      world.procs.push({ pid: 204, ppid: 201, pgid: 204, name: "omp" });
+      world.omp = [{ daemons: [{ name: "svc", id: "1", state: "running", pid: 204 }] }];
+    },
+  ],
+  [
+    "a running OMP service has a malformed owner",
+    "w1:p1",
+    (world) => {
+      world.omp = [{ daemons: [{ name: "svc", id: "1", state: "running", pid: 999, owner: 7 }] }];
+    },
   ],
   [
     "a job descends from a helper in another group",
@@ -987,6 +1207,40 @@ const DEFERRED: [string, string | undefined, (world: FakeWorld, box: Box) => voi
     (world, box) => {
       useCodex(world, box);
       world.procs.push({ pid: 500, ppid: 1, name: "codex", exe: daemonExe(box, "2.0.0") });
+      world.codexDaemon = "";
+    },
+  ],
+  [
+    "the Codex daemon reports an old version for a process whose executable cannot be mapped",
+    "w1:p2",
+    (world, box) => {
+      useCodex(world, box);
+      world.procs.push({ pid: 500, ppid: 1, name: "codex" });
+      world.codexDaemon = { cliVersion: "2.0.0", appServerVersion: "1.0.0" };
+    },
+  ],
+  [
+    "the Codex daemon query fails and no daemon executable is mapped",
+    "w1:p2",
+    (world, box) => {
+      useCodex(world, box);
+      writeText(join(box.stub, "codex-fails"), "");
+    },
+  ],
+  [
+    "the Codex daemon query prints nothing usable",
+    "w1:p2",
+    (world, box) => {
+      useCodex(world, box);
+      world.codexDaemon = "";
+    },
+  ],
+  [
+    "the Codex daemon reports itself stopped while its executable is mapped",
+    "w1:p2",
+    (world, box) => {
+      useCodex(world, box);
+      world.procs.push({ pid: 500, ppid: 1, name: "codex", exe: daemonExe(box, "2.0.0") });
     },
   ],
   [
@@ -1017,13 +1271,22 @@ const DEFERRED: [string, string | undefined, (world: FakeWorld, box: Box) => voi
     },
   ],
   [
+    "Grok's saved metadata is missing",
+    "w1:p2",
+    (world, box) => {
+      useGrok(world, box);
+      rmSync(join(grokSession(box), "summary.json"));
+    },
+  ],
+  [
     "a Grok conversation was never saved",
     "w1:p2",
     (world, box) => {
       useGrok(world, box);
-      rmSync(join(box.home, ".grok/sessions", encodeURIComponent(box.work), GROK_ID, "chat_history.jsonl"));
+      rmSync(join(grokSession(box), "chat_history.jsonl"));
     },
   ],
+  ...GROK_METADATA_REFUSALS,
 ];
 
 test.each(DEFERRED)("a session is deferred before any stop when %s", async (_name, blockedPane, mutate) => {
@@ -1054,8 +1317,71 @@ const READY: [string, (world: FakeWorld, box: Box) => void][] = [
     },
   ],
   [
-    "a helper shares the agent's process group",
-    (world) => void world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "node" }),
+    "a configured MCP server shares the agent's process group",
+    (world, box) => {
+      configureTool(box);
+      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool", command: TOOL_LINE });
+    },
+  ],
+  [
+    "a configured MCP server runs in its own process group",
+    (world, box) => {
+      configureTool(box);
+      world.procs.push({ pid: 212, ppid: 211, pgid: 212, name: "tool", command: TOOL_LINE });
+    },
+  ],
+  [
+    "a project's local-scope MCP server is configured for this directory",
+    (world, box) => {
+      claudeMcp(box, {}, { projects: { [box.work]: { mcpServers: { tool: TOOL_SERVER } } } });
+      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool", command: TOOL_LINE });
+    },
+  ],
+  [
+    "a configured script runs through a symlink and its shebang",
+    (world, box) => {
+      const script = join(box.home, "mcp/server.js");
+      const link = join(box.home, "mcp/server");
+      writeText(script, "#!/usr/bin/env node\n");
+      symlinkSync(script, link);
+      claudeMcp(box, { server: { command: link, args: ["--headless"] } });
+      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "node", command: `node ${link} --headless` });
+    },
+  ],
+  ["a configured launcher's chain keeps its stdio", (world, box) => wrappedServer(world, box, "chan")],
+  [
+    "a Codex pane runs a server from Codex's configuration",
+    (world, box) => {
+      useCodex(world, box);
+      writeText(join(box.home, ".codex/config.toml"), TOOL_TOML);
+      world.procs.push({ pid: 212, ppid: 211, pgid: 212, name: "tool", command: TOOL_LINE });
+    },
+  ],
+  [
+    "a Grok pane runs a server from Grok's configuration",
+    (world, box) => {
+      useGrok(world, box);
+      writeText(join(box.home, ".grok/config.toml"), TOOL_TOML);
+      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool", command: TOOL_LINE });
+    },
+  ],
+  [
+    "a Grok pane runs a server it takes from Claude's configuration",
+    (world, box) => {
+      useGrok(world, box);
+      configureTool(box);
+      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool", command: TOOL_LINE });
+    },
+  ],
+  [
+    "OMP lists both a service and the broker above it",
+    (world) => {
+      world.procs.push(
+        { pid: 204, ppid: 201, pgid: 204, name: "omp" },
+        { pid: 205, ppid: 204, pgid: 205, name: "lsp" },
+      );
+      world.omp = [{ brokerPid: 204, daemons: [{ name: "lsp", id: "1", state: "running", pid: 205, owner: null }] }];
+    },
   ],
   [
     "a helper exited and only its zombie remains",
@@ -1562,21 +1888,191 @@ test("a malformed recovery record blocks its session and runs nothing", async ()
   expect(box.attaches()).toEqual([]);
 });
 
-test("a running apply excludes another, and a dead holder's lock is reclaimed", async () => {
+const lockFile = (box: Box) => join(box.home, ".local/state/tool-restart/apply.lock");
+
+test("a second --apply is refused while the first waits for approval, and runs once the first ends", async () => {
   const box = restartable();
-  const lock = join(box.home, ".local/state/tool-restart/apply.lock");
+  let inner: Awaited<ReturnType<Box["run"]>> | undefined;
 
-  writeText(lock, { pid: 100, started: STARTED.replace(/\s+/g, " ") });
-  const held = await box.run(["--apply"]);
-  expect(held.code).toBe(1);
-  expect(held.asked).toBe(0);
+  const outer = await box.run(["--apply"], {
+    answer: "no",
+    beforeAnswer: async () => {
+      inner = await box.run(["--apply"]);
+    },
+  });
+
+  expect(outer.asked).toBe(1);
+  expect(inner?.code).toBe(1);
+  expect(inner?.asked).toBe(0);
   expect(box.stops()).toEqual([]);
-  expect(existsSync(lock)).toBe(true);
+  expect((await box.run(["--apply"], { answer: "no" })).asked).toBe(1);
+});
 
-  writeText(lock, { pid: 9999, started: STARTED.replace(/\s+/g, " ") });
-  const reclaimed = await box.run(["--apply"], { answer: "no" });
-  expect(reclaimed.asked).toBe(1);
-  expect(existsSync(lock)).toBe(false);
+test.each([
+  ["empty, as a crash mid-write leaves it", ""],
+  ["half-written", '{"pid":'],
+  ["naming a live process, as an older version wrote it", JSON.stringify({ pid: 100, started: "x" })],
+])("a lock file that is %s decides nothing and survives the run", async (_name, content) => {
+  const box = restartable();
+  writeText(lockFile(box), content);
+
+  const result = await box.run(["--apply"], { answer: "no" });
+
+  expect(result.asked).toBe(1);
+  expect(readFileSync(lockFile(box), "utf8")).toBe(content);
+});
+
+test("a lock path that is a symlink is refused and its target left alone", async () => {
+  const box = restartable();
+  const target = join(box.home, "elsewhere");
+  writeText(target, "keep");
+  mkdirSync(dirname(lockFile(box)), { recursive: true });
+  symlinkSync(target, lockFile(box));
+
+  const result = await box.run(["--apply"]);
+
+  expect(result.code).toBe(1);
+  expect(result.asked).toBe(0);
+  expect(readFileSync(target, "utf8")).toBe("keep");
+});
+
+test.each([
+  ["a parent missing from the process table", () => [], 7777],
+  ["a cycle", () => [{ pid: 800, ppid: process.pid, name: "sh" }], 800],
+])("--apply under a process chain cut short by %s is refused", async (_name, procs, parent) => {
+  const box = restartable();
+  const world = before(box);
+  world.procs.push(...procs());
+  box.world(world);
+  writeText(join(box.stub, "self-ppid"), String(parent));
+
+  const result = await box.run(["--apply"]);
+
+  expect(result.code).toBe(1);
+  expect(result.asked).toBe(0);
+  expect(box.stops()).toEqual([]);
+});
+
+test("--apply under a complete chain to init that holds no Herdr goes ahead", async () => {
+  const box = restartable();
+  const world = before(box);
+  world.procs.push({ pid: 801, ppid: 800, name: "login" }, { pid: 800, ppid: 1, name: "Terminal" });
+  box.world(world);
+  writeText(join(box.stub, "self-ppid"), "801");
+
+  expect((await box.run(["--apply"], { answer: "no" })).asked).toBe(1);
+});
+
+test("--notify alerts again when a newer version arrives while the same old process runs", async () => {
+  const box = setup();
+  box.installVersion("omp", "3.0.0");
+  box.world(before(box));
+  const notes = () => box.calls().filter((call) => call.startsWith("terminal-notifier"));
+
+  await box.run(["--notify"]);
+  await box.run(["--notify"]);
+  expect(notes()).toHaveLength(1);
+
+  box.useInstalled("omp", "3.0.0");
+  await box.run(["--notify"]);
+  expect(notes()).toHaveLength(2);
+  expect(notes()[1]).toContain("1.0.0→3.0.0");
+
+  await box.run(["--notify"]);
+  expect(notes()).toHaveLength(2);
+});
+
+const VOIDING_CHANGES: [string, (box: Box) => void][] = [
+  ["the update it was for was rolled back", (box) => box.useInstalled("omp", "1.0.0")],
+  ["a newer version was installed instead", (box) => box.useInstalled("omp", "3.0.0")],
+  [
+    "native restore was turned off",
+    (box) => writeText(join(box.home, ".config/herdr/config.toml"), "[session]\nresume_agents_on_restore = false\n"),
+  ],
+  [
+    "the update was rolled back and native restore turned off",
+    (box) => {
+      box.useInstalled("omp", "1.0.0");
+      writeText(join(box.home, ".config/herdr/config.toml"), "[session]\nresume_agents_on_restore = false\n");
+    },
+  ],
+];
+
+test.each(VOIDING_CHANGES)("approval is void when %s while it was pending", async (_name, change) => {
+  const box = setup();
+  box.installVersion("omp", "1.0.0");
+  box.installVersion("omp", "3.0.0");
+  box.world(before(box));
+  box.afterStop(stopped());
+  box.afterAttach(restored(box));
+
+  const result = await box.run(["--apply"], { beforeAnswer: () => change(box) });
+
+  expect(result.asked).toBe(1);
+  expect(result.code).toBe(3);
+  expect(box.stops()).toEqual([]);
+  expect(box.attaches()).toEqual([]);
+  expect(existsSync(box.recoveryFile("default"))).toBe(false);
+});
+
+test.each([
+  ["its status can no longer be read", (box: Box) => writeText(join(box.stub, "current/sheprd-status.code"), "1")],
+  ["a newer Sheprd was installed", (box: Box) => writeText(join(box.stub, "sheprd-version"), "3.0.0")],
+  ["the update was rolled back", (box: Box) => writeText(join(box.stub, "sheprd-version"), "1.0.0")],
+])("a GUI approved for restart is not quit when %s", async (_name, change) => {
+  const box = setup();
+  guiOnly(box);
+
+  const result = await box.run(["--apply"], { beforeAnswer: () => change(box) });
+
+  expect(result.asked).toBe(1);
+  expect(box.calls()).not.toContain("sheprd app quit --json");
+  expect(box.calls().filter((call) => call.startsWith("open"))).toEqual([]);
+});
+
+test.each([
+  ["a slow version check", "claude --version"],
+  ["the read of OMP's services", "omp ps list --all --json"],
+  ["the last read of native pane state", "herdr api snapshot"],
+])("a job that starts during %s after approval stops nothing", async (_name, call) => {
+  const box = restartable();
+  const changed = before(box);
+  changed.procs.push({ pid: 205, ppid: 201, pgid: 201, name: "python", command: "python train.py" });
+
+  const result = await box.run(["--apply"], { beforeAnswer: () => box.mutateOn(call, changed) });
+
+  expect(result.code).toBe(3);
+  expect(box.stops()).toEqual([]);
+  expect(existsSync(box.recoveryFile("default"))).toBe(false);
+});
+
+test("the report names an identified helper without its arguments or configured secrets", async () => {
+  const box = setup();
+  const world = before(box);
+  configureTool(box);
+  world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool", command: TOOL_LINE });
+  box.world(world);
+
+  const status = await box.status();
+  const report = await box.run(["--status"]);
+
+  expect(status.sessions[0].helpers).toContain("tool");
+  for (const text of [JSON.stringify(status), report.out, report.err]) {
+    expect(text).not.toContain("--flag");
+    expect(text).not.toContain("env-secret");
+  }
+});
+
+test("the saved Grok summary stays out of the report", async () => {
+  const box = setup();
+  const world = before(box);
+  useGrok(world, box);
+  box.world(world);
+
+  const status = await box.status();
+
+  expect(status.sessions[0].ready).toBe(true);
+  expect(JSON.stringify(status)).not.toContain("private summary");
 });
 
 test("an inherited session target is never passed on", async () => {
@@ -1614,6 +2110,33 @@ test("the command asks on a real terminal and restarts after yes", async () => {
 
   expect(await child.exited).toBe(0);
   expect(box.stops()).toEqual(["herdr session stop default --json"]);
+}, 60_000);
+
+test("a killed --apply leaves no lock behind", async () => {
+  const box = restartable();
+  symlinkSync(process.execPath, join(box.bin, "bun"));
+  const atPrompt = Promise.withResolvers<void>();
+  let output = "";
+  const child = Bun.spawn([script, "--apply"], {
+    env: { HOME: box.home, PATH: `${box.bin}:/usr/bin:/bin`, STUB: box.stub },
+    terminal: {
+      cols: 120,
+      rows: 40,
+      data(_terminal, data) {
+        output += Buffer.from(data).toString();
+        if (output.includes("yes")) atPrompt.resolve();
+      },
+    },
+  });
+  await atPrompt.promise;
+
+  expect((await box.run(["--apply"])).asked).toBe(0);
+
+  child.kill("SIGKILL");
+  await child.exited;
+
+  expect((await box.run(["--apply"], { answer: "no" })).asked).toBe(1);
+  expect(box.stops()).toEqual([]);
 }, 60_000);
 
 test("the command refuses a piped yes", () => {

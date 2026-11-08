@@ -72,6 +72,11 @@ export type World = {
 };
 export type Observed = { world: World; sessions: SessionObservation[]; gui: GuiStatus; backend: Backend };
 export type OmpInventory = { owned: Map<string, string[]>; infra: Set<number> };
+export type McpServer = { command: string; args: string[] };
+export type CommandFiles = { resolve(command: string): string | undefined; head(path: string): string | undefined };
+// What the OS reports for processes under an affected pane. Only ever compared: command lines
+// can hold secrets, so nothing here reaches a plan, a record, or the terminal.
+export type HelperEvidence = { commands: Map<number, string>; channels: Map<number, string> };
 export type SavedRef = { ok: true; sessionId: string } | { ok: false; reason: string };
 export type AssessEnv = {
   world: World;
@@ -81,6 +86,8 @@ export type AssessEnv = {
   grokLeaders?: number;
   restoreOn: boolean;
   recovering: ReadonlySet<string>;
+  evidence: HelperEvidence;
+  mcpCommands(agent: AgentId, cwd: string): ReadonlySet<string>;
   savedRef(agent: AgentId, ref: AgentRef, cwd: string): SavedRef;
   dirExists(path: string): boolean;
   socketOwned(path: string): boolean;
@@ -129,6 +136,7 @@ export type GuiPlan = {
   version?: string;
   installed?: string;
   bundle?: string;
+  identity: string;
   blockers: string[];
   remoteHosts: number;
 };
@@ -171,6 +179,9 @@ const CODEX_BACKEND_BLOCKERS: Record<Backend, string[]> = {
   old: ["Codex 共有デーモンが旧版。作業の区切りで codex app-server daemon update を手動で実行してから再実行する"],
   unknown: ["Codex 共有デーモンの版を確認できない"],
 };
+const STDIO_CHANNEL_TYPES = new Set(["unix", "PIPE"]);
+// A launcher that does nothing but replace itself with another file, so ps shows that file instead.
+const EXEC_SHIM = /^#![^\n]*\n\s*exec "(\/[^"\n]+)" "\$@"\s*$/;
 const REF_KIND: Record<AgentId, string> = { omp: "path", claude: "id", codex: "id", grok: "id" };
 // Native restore keeps the conversation but not other flags (measured: OMP comes back as
 // `omp --allow-home --resume=<path>`), so anything outside these lists is deferred before a stop.
@@ -262,6 +273,37 @@ export function parseSocketOwners(text: string): Map<string, number[]> {
     else if (line.startsWith("n/")) owners.set(line.slice(1), [...(owners.get(line.slice(1)) ?? []), pid]);
   }
   return owners;
+}
+
+export function parseProcessCommands(text: string): Map<number, string> {
+  const commands = new Map<number, string>();
+  for (const line of text.split("\n")) {
+    const match = /^\s*(\d+)\s+(.+)$/.exec(line);
+    if (match) commands.set(Number(match[1]), match[2] ?? "");
+  }
+  return commands;
+}
+
+// Identifies a process's stdin and stdout by their kernel endpoints; a file or a terminal is no channel.
+export function parseStdioChannels(text: string): Map<number, string> {
+  const ends = new Map<string, string>();
+  let pid = 0;
+  let fd = "";
+  let type = "";
+  for (const line of text.split("\n")) {
+    const value = line.slice(1);
+    if (line.startsWith("p")) pid = Number(value);
+    else if (line.startsWith("f")) fd = value;
+    else if (line.startsWith("t")) type = value;
+    else if (line.startsWith("d") && STDIO_CHANNEL_TYPES.has(type)) ends.set(`${pid}:${fd}`, value);
+  }
+  const channels = new Map<number, string>();
+  for (const [key, stdin] of ends) {
+    const [owner, descriptor] = key.split(":");
+    const stdout = ends.get(`${owner}:1`);
+    if (descriptor === "0" && stdout) channels.set(Number(owner), `${stdin}/${stdout}`);
+  }
+  return channels;
 }
 
 // A server may fork children that inherit its listening socket; the owner is the one whose parent is not a holder.
@@ -356,15 +398,19 @@ export function parseProcessInfo(json: unknown): PaneProcesses | undefined {
 }
 
 // Keeps only ownership and pids: the inventory also holds service command lines, which may carry secrets.
-function addOmpDaemon(inventory: OmpInventory, daemon: Json): void {
-  if (INACTIVE_DAEMON.test(asString(daemon.state) ?? "")) return;
-  const owner = asString(daemon.owner);
-  const pid = asNumber(daemon.pid);
-  if (owner) {
+// Returns false for a running entry whose owner is neither a session nor OMP's explicit null: that
+// entry might be this session's work, so the inventory as a whole cannot clear anything.
+function addOmpDaemon(inventory: OmpInventory, daemon: Json): boolean {
+  if (INACTIVE_DAEMON.test(asString(daemon.state) ?? "")) return true;
+  const owner = daemon.owner;
+  if (typeof owner === "string" && owner) {
     inventory.owned.set(owner, [...(inventory.owned.get(owner) ?? []), inert(asString(daemon.name) ?? "?")]);
-  } else if (pid !== undefined) {
-    inventory.infra.add(pid);
+    return true;
   }
+  if (owner !== null) return false;
+  const pid = asNumber(daemon.pid);
+  if (pid !== undefined) inventory.infra.add(pid);
+  return true;
 }
 
 export function parseOmpInventory(json: unknown): OmpInventory | undefined {
@@ -374,13 +420,58 @@ export function parseOmpInventory(json: unknown): OmpInventory | undefined {
     const scope = asObject(item);
     const broker = asNumber(scope.brokerPid);
     if (broker !== undefined) inventory.infra.add(broker);
-    for (const daemon of asArray(scope.daemons)) addOmpDaemon(inventory, asObject(daemon));
+    if (!asArray(scope.daemons).every((daemon) => addOmpDaemon(inventory, asObject(daemon)))) return undefined;
   }
   return inventory;
 }
 
+function parseMcpTable(table: unknown): McpServer[] {
+  return Object.values(asObject(table)).flatMap((item) => {
+    const server = asObject(item);
+    const command = asString(server.command);
+    const args = server.args ?? [];
+    if (!command || server.enabled === false || !Array.isArray(args)) return [];
+    return args.every((arg): arg is string => typeof arg === "string") ? [{ command, args }] : [];
+  });
+}
+
+export function parseMcpServers(config: unknown, key: "mcpServers" | "mcp_servers"): McpServer[] {
+  return parseMcpTable(asObject(config)[key]);
+}
+
+// Claude keeps user-level servers at the root and local-scope servers under the project's path.
+export function parseClaudeMcpServers(config: unknown, cwd: string): McpServer[] {
+  const root = asObject(config);
+  return [...parseMcpTable(root.mcpServers), ...parseMcpTable(asObject(asObject(root.projects)[cwd]).mcpServers)];
+}
+
+function shebang(head: string): string[] {
+  const line = /^#![ \t]*([^\n]+)/.exec(head)?.[1];
+  if (!line) return [];
+  const tokens = line.trim().split(/\s+/);
+  return tokens[0] === "/usr/bin/env" ? tokens.slice(1) : tokens;
+}
+
+function launchLine(argv0: string, entry: string, args: readonly string[], head: string): string {
+  const interpreter = shebang(head);
+  return (interpreter.length > 0 ? [...interpreter, entry, ...args] : [argv0, ...args]).join(" ");
+}
+
+// The exact lines ps can show for a stdio server configured this way: the kernel puts a script's
+// interpreter first, and a shim that only execs another file shows that file's line instead.
+export function mcpCommandLines(server: McpServer, files: CommandFiles): string[] {
+  const entry = files.resolve(server.command) ?? server.command;
+  const head = files.head(entry) ?? "";
+  const lines = [launchLine(server.command, entry, server.args, head)];
+  const target = EXEC_SHIM.exec(head)?.[1];
+  if (target) lines.push(launchLine(target, target, server.args, files.head(target) ?? ""));
+  return lines;
+}
+
+// Only the daemon's own "notRunning" means absent: a failed query says nothing either way.
 export function parseCodexBackend(json: unknown): Backend {
   const daemon = asObject(json);
+  if (daemon.status === "notRunning") return "absent";
   const running = extractVersion(asString(daemon.appServerVersion) ?? "");
   const cli = extractVersion(asString(daemon.cliVersion) ?? "");
   if (!running || !cli) return "unknown";
@@ -458,6 +549,15 @@ export function codexHeadMatches(head: string, id: string, cwd: string): boolean
   return payload.id === id && payload.cwd === cwd;
 }
 
+// Restore resumes an ordinary interactive conversation, which writes no session_kind (measured on
+// saved sessions; "headless" is the only value seen). Any other kind is deferred, not assumed safe.
+export function grokSummaryMatches(text: string, expected: { id: string; cwd: string; grokHome: string }): boolean {
+  const summary = asObject(parseJson(text));
+  const info = asObject(summary.info);
+  const identified = info.id === expected.id && info.cwd === expected.cwd;
+  return identified && summary.grok_home === expected.grokHome && summary.session_kind === undefined;
+}
+
 export function buildWorld(input: {
   procs: readonly Proc[];
   exes: Map<number, Exe>;
@@ -515,14 +615,15 @@ function isWithin(pid: number, ancestor: number, world: World): boolean {
   return ancestry(pid, world).some((proc) => proc.pid === ancestor);
 }
 
-// Walks parents rather than process groups: background jobs can sit in another group.
-function liveDescendants(root: number, world: World, stopAt: ReadonlySet<number>): Proc[] {
+// Walks parents rather than process groups: background jobs can sit in another group. Breadth
+// first, so every process comes after its parent.
+function liveDescendants(root: number, world: World): Proc[] {
   const found: Proc[] = [];
   const seen = new Set([root]);
   const queue = [root];
   for (const pid of queue) {
     for (const child of world.children.get(pid) ?? []) {
-      if (seen.has(child.pid) || child.state.startsWith("Z") || stopAt.has(child.pid)) continue;
+      if (seen.has(child.pid) || child.state.startsWith("Z")) continue;
       seen.add(child.pid);
       found.push(child);
       queue.push(child.pid);
@@ -610,22 +711,45 @@ function savedConversation(facts: AgentPaneFacts, env: AssessEnv): { blockers: s
   return saved.ok ? { blockers: [], sessionId: saved.sessionId } : { blockers: [saved.reason] };
 }
 
-// MCP helpers share the agent's process group and stop with it; a tool command or job gets its
-// own group. A different group is unknown work unless the agent's native inventory claims it.
+// A process is part of a configured stdio MCP server in one of two ways. The agent started it with
+// exactly the configured command line, or its parent is part of that server and it still holds the
+// same stdin and stdout. MCP forbids anything but protocol on that stdout, so whatever shares it is
+// the server's own delegate (bash -> perl -> binary), while a job the server runs needs its own
+// output. Same-uid processes could fake this; it guards against mistakes, not against an attacker.
+function mcpMembers(facts: AgentPaneFacts, tree: readonly Proc[], env: AssessEnv): Set<number> {
+  const configured = env.mcpCommands(facts.agent, facts.pane.foregroundCwd ?? facts.pane.cwd ?? "");
+  const { commands, channels } = env.evidence;
+  const members = new Set<number>();
+  for (const proc of tree) {
+    const channel = channels.get(proc.pid);
+    const delegate = members.has(proc.ppid) && channel !== undefined && channel === channels.get(proc.ppid);
+    const started = proc.ppid === facts.root.pid && configured.has(commands.get(proc.pid) ?? "");
+    if (started || delegate) members.add(proc.pid);
+  }
+  return members;
+}
+
+// A process group proves nothing about what a process is doing, so every descendant needs its own
+// positive identification: a configured MCP server, or OMP's own listing as infrastructure. That
+// exempts the identified process only; its children are judged on their own. Anything else is
+// possibly the user's work and defers the session.
 function workload(facts: AgentPaneFacts, env: AssessEnv): { blockers: string[]; helpers: string[] } {
   const { info, root } = facts;
   const infra = env.omp?.infra ?? NO_PIDS;
-  const tree = liveDescendants(info.shellPid ?? root.pid, env.world, infra).filter((proc) => proc.pid !== root.pid);
-  const strays = tree.filter((proc) => proc.pgid !== root.pgid);
+  const tree = liveDescendants(info.shellPid ?? root.pid, env.world).filter((proc) => proc.pid !== root.pid);
+  const members = mcpMembers(facts, tree, env);
+  const identified = (proc: Proc) => infra.has(proc.pid) || members.has(proc.pid);
   const outsiders = info.foreground.filter(
     (proc) => proc.pid !== root.pid && !isWithin(proc.pid, root.pid, env.world) && !infra.has(proc.pid),
   );
   return {
     blockers: [
-      ...strays.map((proc) => `別グループの子プロセス ${inert(proc.name)} (pid ${proc.pid}) の用途を判定できない`),
+      ...tree
+        .filter((proc) => !identified(proc))
+        .map((proc) => `子プロセス ${inert(proc.name)} (pid ${proc.pid}) の用途を判定できない`),
       ...outsiders.map((proc) => `エージェント外の前景コマンド ${inert(proc.name)} がある`),
     ],
-    helpers: tree.filter((proc) => proc.pgid === root.pgid).map((proc) => inert(proc.name)),
+    helpers: tree.filter(identified).map((proc) => inert(proc.name)),
   };
 }
 
@@ -668,9 +792,7 @@ function assessAgentPane(pane: Pane, agent: AgentId, info: PaneProcesses, env: A
 function shellPaneBlockers(pane: Pane, info: PaneProcesses, env: AssessEnv): string[] {
   const shell = info.shellPid === undefined ? undefined : env.world.procs.get(info.shellPid);
   if (!shell || shell.uid !== env.uid) return ["シェルのプロセスを特定できない"];
-  const blockers = liveDescendants(shell.pid, env.world, NO_PIDS).map(
-    (proc) => `実行中のジョブ ${inert(proc.name)} がある`,
-  );
+  const blockers = liveDescendants(shell.pid, env.world).map((proc) => `実行中のジョブ ${inert(proc.name)} がある`);
   const foreground = info.foreground.some((proc) => proc.pid !== shell.pid);
   if (foreground || info.fgGroup !== shell.pgid) blockers.push("前景でコマンドが動いている");
   if (!pane.cwd || !env.dirExists(pane.cwd)) blockers.push("cwd が存在しない");
@@ -748,9 +870,20 @@ function affectedReasons(session: SessionObservation, world: World): string[] {
   return unique([...server, ...agentReasons(session, world)]);
 }
 
+function affectedSessions(observed: Observed): SessionObservation[] {
+  return observed.sessions.filter((session) => affectedReasons(session, observed.world).length > 0);
+}
+
 export function agentsInAffectedSessions(observed: Observed): Set<string> {
-  const affected = observed.sessions.filter((session) => affectedReasons(session, observed.world).length > 0);
-  return new Set(affected.flatMap((session) => (session.panes ?? []).flatMap((pane) => pane.agent ?? [])));
+  const panes = affectedSessions(observed).flatMap((session) => session.panes ?? []);
+  return new Set(panes.flatMap((pane) => pane.agent ?? []));
+}
+
+export function affectedTreePids(observed: Observed): number[] {
+  const shells = affectedSessions(observed).flatMap((session) =>
+    [...session.processes.values()].flatMap((info) => info?.shellPid ?? []),
+  );
+  return shells.flatMap((shell) => liveDescendants(shell, observed.world).map((proc) => proc.pid));
 }
 
 function procIdentity(pid: number | undefined, world: World): unknown[] {
@@ -762,7 +895,7 @@ function procIdentity(pid: number | undefined, world: World): unknown[] {
 
 function paneFingerprint(pane: Pane, info: PaneProcesses | undefined, world: World): unknown[] {
   const shell = info?.shellPid;
-  const tree = shell === undefined ? [] : liveDescendants(shell, world, NO_PIDS);
+  const tree = shell === undefined ? [] : liveDescendants(shell, world);
   const identities = tree.sort((a, b) => a.pid - b.pid).map((proc) => procIdentity(proc.pid, world));
   return [
     pane.id,
@@ -779,13 +912,38 @@ function paneFingerprint(pane: Pane, info: PaneProcesses | undefined, world: Wor
   ];
 }
 
+function installedIdentity(tool: ToolId, world: World): unknown[] {
+  const { path, inode, version } = world.installed[tool];
+  return [tool, path, inode, version];
+}
+
+// Covers what the operator approved: the processes and panes, and also which update it was for.
 function fingerprintOf(session: SessionObservation, world: World): string {
   const panes = (session.panes ?? []).map((pane) => paneFingerprint(pane, session.processes.get(pane.id), world));
+  const agents = (session.panes ?? []).flatMap((pane) => (isAgentId(pane.agent) ? [pane.agent] : []));
+  const tools: ToolId[] = ["herdr", ...new Set(agents)];
   return JSON.stringify({
     socket: session.entry.socket,
     server: procIdentity(session.serverPid, world),
     panes,
+    installed: tools.sort().map((tool) => installedIdentity(tool, world)),
+    reasons: affectedReasons(session, world),
   });
+}
+
+// False when the process table moved between two reads of the same native session state.
+export function sameProcessView(session: SessionObservation, before: World, after: World): boolean {
+  return fingerprintOf(session, before) === fingerprintOf(session, after);
+}
+
+// Approval covers what the operator saw, and only while it is still work the safety checks passed.
+export function approvalHolds(approved: SessionPlan, fresh: SessionPlan | undefined): fresh is SessionPlan {
+  if (!fresh || fresh.reasons.length === 0 || fresh.blockers.length > 0) return false;
+  return fresh.fingerprint === approved.fingerprint;
+}
+
+export function guiApprovalHolds(approved: GuiPlan, fresh: GuiPlan): boolean {
+  return fresh.state === "pending" && fresh.blockers.length === 0 && fresh.identity === approved.identity;
 }
 
 function toRecoveryRecord(session: SessionObservation, world: World): RecoveryRecord {
@@ -839,13 +997,15 @@ export function planGui(observed: Observed): GuiPlan {
   const { gui, world } = observed;
   const bundle = trustedBundle(world.installed.sheprd.path, world.home);
   const state = guiState(observed);
+  const started = gui.pid === undefined ? undefined : world.procs.get(gui.pid)?.started;
   return {
     state,
     pid: gui.pid,
-    started: gui.pid === undefined ? undefined : world.procs.get(gui.pid)?.started,
+    started,
     version: gui.version,
     installed: world.installed.sheprd.version,
     bundle,
+    identity: JSON.stringify([gui.pid, started, gui.version, gui.remoteHosts, installedIdentity("sheprd", world)]),
     blockers: state === "pending" && !bundle ? ["Sheprd の導入先が想定の場所にない"] : [],
     remoteHosts: gui.remoteHosts,
   };
@@ -927,8 +1087,16 @@ export function cleanupBlockers(rows: readonly RunningRow[]): RunningRow[] {
   return attentionRows(rows).filter((row) => row.role !== "daemon");
 }
 
-export function notificationKey(rows: readonly RunningRow[], recovering: readonly string[]): string[] {
-  const items = rows.map((row) => `${row.tool}:${row.role}:${row.state}:${row.version ?? row.path ?? "?"}`);
+// Names the installed target too: 1→2 and 1→3 are different news with the same process running.
+export function notificationKey(
+  rows: readonly RunningRow[],
+  recovering: readonly string[],
+  installed: Record<ToolId, Installed>,
+): string[] {
+  const items = rows.map((row) => {
+    const { version, path, inode } = installed[row.tool];
+    return `${row.tool}:${row.role}:${row.state}:${row.version ?? row.path ?? "?"}:${version}:${path}:${inode}`;
+  });
   return unique([...items, ...recovering.map((session) => `recovery:${session}`)]).sort();
 }
 
@@ -1040,13 +1208,16 @@ export function judgeRecovery(
   return { state: mismatches.length > 0 ? "needs-client" : "restored", mismatches };
 }
 
+// Outside only when the chain reaches init: one cut short by a missing parent or a cycle could
+// be hiding a Herdr above the part that is visible.
 export function herdrContainment(pid: number, observed: Observed): "inside" | "outside" | "unknown" {
   const chain = ancestry(pid, observed.world);
-  if (chain.length === 0) return "unknown";
   const shells = new Set(
     observed.sessions.flatMap((session) => [...session.processes.values()].flatMap((info) => info?.shellPid ?? [])),
   );
-  return chain.some((proc) => HERDR_PROCESS.test(proc.name) || shells.has(proc.pid)) ? "inside" : "outside";
+  if (chain.some((proc) => HERDR_PROCESS.test(proc.name) || shells.has(proc.pid))) return "inside";
+  const top = chain.at(-1);
+  return top && top.ppid <= 1 ? "outside" : "unknown";
 }
 
 export function readySessions(plan: Plan): SessionPlan[] {

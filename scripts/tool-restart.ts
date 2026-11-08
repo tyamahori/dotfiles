@@ -1,9 +1,11 @@
 // Detects tools whose running processes are older than what is installed, and after one
 // interactive approval restarts whole local Herdr sessions through Herdr's native restore.
 // See "Tool restarts" in README.md. Decisions live in tool-restart-core.ts.
+import { dlopen } from "bun:ffi";
 import {
   chmodSync,
   closeSync,
+  constants,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -23,8 +25,11 @@ import {
   type AgentId,
   type AgentRef,
   type AssessEnv,
+  affectedTreePids,
   agentsInAffectedSessions,
+  approvalHolds,
   attentionRows,
+  type Backend,
   buildWorld,
   claudeHeadMatches,
   cleanupBlockers,
@@ -32,25 +37,34 @@ import {
   extractVersion,
   type GuiPlan,
   type GuiStatus,
+  grokSummaryMatches,
   guiActionable,
+  guiApprovalHolds,
+  type HelperEvidence,
   hasCodexDaemon,
   hasWork,
   herdrContainment,
   type Installed,
   judgeRecovery,
+  type McpServer,
+  mcpCommandLines,
   notificationKey,
   notificationMessage,
   type Observed,
+  type OmpInventory,
   ompHeaderId,
   type PaneProcesses,
   type Plan,
   type Proc,
+  parseClaudeMcpServers,
   parseCodexBackend,
   parseGrokLeaders,
   parseGuiStatus,
   parseJson,
   parseMappedExes,
+  parseMcpServers,
   parseOmpInventory,
+  parseProcessCommands,
   parseProcessInfo,
   parseProcs,
   parseRecoveryRecord,
@@ -58,6 +72,7 @@ import {
   parseSessionList,
   parseSnapshot,
   parseSocketOwners,
+  parseStdioChannels,
   planGui,
   planJson,
   planSession,
@@ -71,6 +86,7 @@ import {
   restoreMismatches,
   runningRows,
   type SavedRef,
+  sameProcessView,
   scopePlan,
   type SessionEntry,
   type SessionObservation,
@@ -79,7 +95,6 @@ import {
   TOOL_IDS,
   TOOL_LABELS,
   type ToolId,
-  type World,
 } from "./tool-restart-core";
 
 export type Ctx = {
@@ -109,6 +124,7 @@ const HEAD_BYTES = 1024 * 1024;
 const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 const PANE_ID = /^[A-Za-z0-9][\w:.-]{0,63}$/;
 const PS_FORMAT = "pid=,ppid=,pgid=,uid=,stat=,lstart=,comm=";
+const LOCK_EX_NB = 2 | 4;
 
 function homeOf(ctx: Ctx): string {
   const home = ctx.env.HOME;
@@ -232,17 +248,34 @@ function readExes(ctx: Ctx, pids: readonly number[]) {
   return parseMappedExes(run(ctx, ["lsof", "-nP", "-a", "-d", "txt", "-Fpin", "-p", pids.join(",")]).stdout);
 }
 
-function observe(ctx: Ctx): Observed {
+function readBackend(ctx: Ctx): Backend {
+  const result = run(ctx, ["codex", "app-server", "daemon", "version"]);
+  return result.code === 0 ? parseCodexBackend(parseJson(result.stdout)) : "unknown";
+}
+
+type SlowFacts = { installed: Record<ToolId, Installed>; backend: Backend };
+
+// Launching every tool takes seconds and says nothing about the panes, so it goes first: what a
+// decision rests on is then the newest thing read rather than the oldest.
+function readSlowFacts(ctx: Ctx): SlowFacts {
+  return { installed: readInstalled(ctx), backend: readBackend(ctx) };
+}
+
+function observeNow(ctx: Ctx, slow: SlowFacts, only?: string): Observed {
   const procs = readProcs(ctx);
   const owners = parseSocketOwners(run(ctx, ["lsof", "-nP", "-a", "-U", "-c", "herdr", "-Fpn"]).stdout);
-  const sessions = readSessions(ctx).map((entry) => observeSession(ctx, entry, owners, procs));
+  const entries = readSessions(ctx).filter((entry) => only === undefined || entry.name === only);
+  const sessions = entries.map((entry) => observeSession(ctx, entry, owners, procs));
   const gui = readGui(ctx);
   const exes = readExes(ctx, interestingPids(procs, sessions, gui));
-  const world = buildWorld({ procs, exes, installed: readInstalled(ctx), home: homeOf(ctx) });
-  const backend = hasCodexDaemon(world)
-    ? parseCodexBackend(jsonOf(ctx, ["codex", "app-server", "daemon", "version"]))
-    : "absent";
+  const world = buildWorld({ procs, exes, installed: slow.installed, home: homeOf(ctx) });
+  // A daemon executable mapped right now contradicts a daemon reporting itself absent.
+  const backend = slow.backend === "absent" && hasCodexDaemon(world) ? "unknown" : slow.backend;
   return { world, sessions, gui, backend };
+}
+
+function observe(ctx: Ctx): Observed {
+  return observeNow(ctx, readSlowFacts(ctx));
 }
 
 function isDirectory(path: string): boolean {
@@ -262,14 +295,23 @@ function isOwnedSocket(ctx: Ctx, path: string): boolean {
   }
 }
 
+function ownedFileSize(ctx: Ctx, path: string): number {
+  try {
+    const stat = lstatSync(path);
+    return stat.isFile() && stat.uid === ctx.uid ? stat.size : 0;
+  } catch {
+    return 0;
+  }
+}
+
 // Bounded, and refuses symlinks and other users' files: the path comes from Herdr's session data.
 function readOwnedHead(ctx: Ctx, path: string): string | undefined {
   try {
-    const stat = lstatSync(path);
-    if (!stat.isFile() || stat.uid !== ctx.uid || stat.size === 0) return undefined;
+    const size = ownedFileSize(ctx, path);
+    if (size === 0) return undefined;
     const fd = openSync(path, "r");
     try {
-      const buffer = Buffer.alloc(Math.min(stat.size, HEAD_BYTES));
+      const buffer = Buffer.alloc(Math.min(size, HEAD_BYTES));
       return buffer.toString("utf8", 0, readSync(fd, buffer, 0, buffer.length, 0));
     } finally {
       closeSync(fd);
@@ -320,10 +362,16 @@ function savedCodex(ctx: Ctx, ref: AgentRef, cwd: string): SavedRef {
   return codexHeadMatches(head, ref.value, cwd) ? { ok: true, sessionId: ref.value } : MISMATCHED;
 }
 
+// The metadata beside the transcript identifies the conversation, so the transcript is never read.
 function savedGrok(ctx: Ctx, ref: AgentRef, cwd: string): SavedRef {
   if (!UUID.test(ref.value)) return MALFORMED_REF;
-  const path = join(homeOf(ctx), ".grok/sessions", encodeURIComponent(cwd), ref.value, "chat_history.jsonl");
-  return readOwnedHead(ctx, path) ? { ok: true, sessionId: ref.value } : NOT_SAVED;
+  const grokHome = join(homeOf(ctx), ".grok");
+  const dir = join(grokHome, "sessions", encodeURIComponent(cwd), ref.value);
+  const summary = readOwnedHead(ctx, join(dir, "summary.json"));
+  if (!summary || ownedFileSize(ctx, join(dir, "chat_history.jsonl")) === 0) return NOT_SAVED;
+  return grokSummaryMatches(summary, { id: ref.value, cwd, grokHome })
+    ? { ok: true, sessionId: ref.value }
+    : MISMATCHED;
 }
 
 const SAVED_REF_READERS: Record<AgentId, (ctx: Ctx, ref: AgentRef, cwd: string) => SavedRef> = {
@@ -343,16 +391,75 @@ function readRestoreSetting(ctx: Ctx): boolean {
   }
 }
 
-function assessEnv(ctx: Ctx, observed: Observed, recovering: ReadonlySet<string>): AssessEnv {
-  const agents = agentsInAffectedSessions(observed);
+function readToml(path: string): unknown {
+  try {
+    return Bun.TOML.parse(readFileSync(path, "utf8"));
+  } catch {
+    return undefined;
+  }
+}
+
+function claudeServers(ctx: Ctx, cwd: string): McpServer[] {
+  return parseClaudeMcpServers(parseJson(readText(join(homeOf(ctx), ".claude.json"))), cwd);
+}
+
+function grokServers(ctx: Ctx, cwd: string): McpServer[] {
+  const own = parseMcpServers(readToml(join(homeOf(ctx), ".grok/config.toml")), "mcp_servers");
+  return [...own, ...claudeServers(ctx, cwd)];
+}
+
+// The agent's own user-level configuration only. A repository's .mcp.json is not read: it is
+// content the repository controls, and it must not be able to declare a job harmless.
+const MCP_SOURCES: Record<AgentId, (ctx: Ctx, cwd: string) => McpServer[]> = {
+  claude: claudeServers,
+  codex: (ctx) => parseMcpServers(readToml(join(homeOf(ctx), ".codex/config.toml")), "mcp_servers"),
+  omp: (ctx) => parseMcpServers(parseJson(readText(join(homeOf(ctx), ".omp/agent/mcp.json"))), "mcpServers"),
+  grok: grokServers,
+};
+
+function commandHead(ctx: Ctx, path: string): string | undefined {
+  try {
+    return readOwnedHead(ctx, realpathSync(path));
+  } catch {
+    return undefined;
+  }
+}
+
+function mcpCommands(ctx: Ctx, agent: AgentId, cwd: string): ReadonlySet<string> {
+  const files = {
+    resolve: (command: string) => Bun.which(command, { PATH: ctx.env.PATH ?? "" }) ?? undefined,
+    head: (path: string) => commandHead(ctx, path),
+  };
+  return new Set(MCP_SOURCES[agent](ctx, cwd).flatMap((server) => mcpCommandLines(server, files)));
+}
+
+function readHelperEvidence(ctx: Ctx, pids: readonly number[]): HelperEvidence {
+  if (pids.length === 0) return { commands: new Map(), channels: new Map() };
+  const list = pids.join(",");
+  const commands = run(ctx, ["ps", "-ww", "-o", "pid=,command=", "-p", list], { env: { LC_ALL: "C" } }).stdout;
+  const channels = run(ctx, ["lsof", "-nP", "-a", "-d", "0,1", "-Fpftd", "-p", list]).stdout;
+  return { commands: parseProcessCommands(commands), channels: parseStdioChannels(channels) };
+}
+
+type Inventories = { omp?: OmpInventory; grokLeaders?: number; restoreOn: boolean };
+
+function readInventories(ctx: Ctx, agents: ReadonlySet<string>): Inventories {
   return {
+    restoreOn: readRestoreSetting(ctx),
+    omp: agents.has("omp") ? parseOmpInventory(jsonOf(ctx, ["omp", "ps", "list", "--all", "--json"])) : undefined,
+    grokLeaders: agents.has("grok") ? parseGrokLeaders(jsonOf(ctx, ["grok", "leader", "list", "--json"])) : undefined,
+  };
+}
+
+function assessEnv(ctx: Ctx, observed: Observed, recovering: ReadonlySet<string>, inventories: Inventories): AssessEnv {
+  return {
+    ...inventories,
     world: observed.world,
     uid: ctx.uid,
     backend: observed.backend,
     recovering,
-    restoreOn: readRestoreSetting(ctx),
-    omp: agents.has("omp") ? parseOmpInventory(jsonOf(ctx, ["omp", "ps", "list", "--all", "--json"])) : undefined,
-    grokLeaders: agents.has("grok") ? parseGrokLeaders(jsonOf(ctx, ["grok", "leader", "list", "--json"])) : undefined,
+    evidence: readHelperEvidence(ctx, affectedTreePids(observed)),
+    mcpCommands: (agent, cwd) => mcpCommands(ctx, agent, cwd),
     savedRef: (agent, ref, cwd) => SAVED_REF_READERS[agent](ctx, ref, cwd),
     dirExists: isDirectory,
     socketOwned: (path) => isOwnedSocket(ctx, path),
@@ -405,9 +512,13 @@ function unresolved(views: readonly RecoveryView[]): string[] {
   return views.filter((task) => task.state === "needs-client" || task.state === "corrupt").map((task) => task.session);
 }
 
-function buildPlan(ctx: Ctx, observed: Observed): Plan {
+function buildPlan(
+  ctx: Ctx,
+  observed: Observed,
+  inventories = readInventories(ctx, agentsInAffectedSessions(observed)),
+): Plan {
   const recovery = readRecovery(ctx, observed);
-  const env = assessEnv(ctx, observed, new Set(unresolved(recovery)));
+  const env = assessEnv(ctx, observed, new Set(unresolved(recovery)), inventories);
   return {
     rows: runningRows(observed),
     installed: observed.world.installed,
@@ -427,7 +538,7 @@ function runNotify(ctx: Ctx): number {
   const observed = observe(ctx);
   const rows = attentionRows(runningRows(observed));
   const recovering = unresolved(readRecovery(ctx, observed));
-  const key = JSON.stringify(notificationKey(rows, recovering));
+  const key = JSON.stringify(notificationKey(rows, recovering, observed.world.installed));
   const file = join(stateRoot(ctx), "notified.json");
   if (rows.length === 0 && recovering.length === 0) {
     rmSync(file, { force: true });
@@ -455,31 +566,20 @@ function runCleanupCheck(ctx: Ctx): number {
   return EXIT.failed;
 }
 
-function lockPath(ctx: Ctx): string {
-  return join(stateRoot(ctx), "apply.lock");
-}
-
-function lockHolderAlive(path: string, world: World): boolean {
-  const holder = parseJson(readText(path)) as { pid?: unknown; started?: unknown } | undefined;
-  const proc = typeof holder?.pid === "number" ? world.procs.get(holder.pid) : undefined;
-  return proc !== undefined && proc.started === holder?.started;
-}
-
-// O_EXCL claims the lock; a holder that is gone (or a recycled pid) marks it stale for the next run.
-function acquireLock(ctx: Ctx, world: World): boolean {
+// flock(2) belongs to this open file and the kernel drops it however the process ends, so no stale
+// lock can exist and the file's content, or a half-written one, decides nothing. The file stays:
+// deleting it would let a later run lock a new file while an earlier one still holds the old one.
+// Node's fs has no flock. Files Bun opens are close-on-exec, so a server started by our client
+// cannot inherit the lock (measured).
+function acquireLock(ctx: Ctx): number | undefined {
   ensurePrivateDir(stateRoot(ctx));
-  const path = lockPath(ctx);
-  const mine = JSON.stringify({ pid: ctx.pid, started: world.procs.get(ctx.pid)?.started });
-  for (const mayRetry of [true, false]) {
-    try {
-      writeFileSync(path, mine, { flag: "wx", mode: 0o600 });
-      return true;
-    } catch {
-      if (!mayRetry || lockHolderAlive(path, world)) return false;
-      rmSync(path, { force: true });
-    }
-  }
-  return false;
+  const libc = process.platform === "darwin" ? "libSystem.B.dylib" : "libc.so.6";
+  const { symbols } = dlopen(libc, { flock: { args: ["i32", "i32"], returns: "i32" } });
+  const flags = constants.O_RDWR | constants.O_CREAT | constants.O_NOFOLLOW;
+  const fd = openSync(join(stateRoot(ctx), "apply.lock"), flags, 0o600);
+  if (symbols.flock(fd, LOCK_EX_NB) === 0) return fd;
+  closeSync(fd);
+  return undefined;
 }
 
 async function waitUntil(ctx: Ctx, check: () => boolean, attempts: number): Promise<boolean> {
@@ -574,10 +674,27 @@ async function stopSession(ctx: Ctx, record: RecoveryRecord, file: string): Prom
 
 type Outcome = "ok" | "changed" | "failed";
 
+// The last look before a stop. Slow reads come first, then the process table and native pane state,
+// then the process table once more to catch whatever started while the rest was being read.
+// `herdr session stop` has no conditional form, so a job starting between that last read and the
+// stop still stops with the session: this narrows the window and cannot close it.
+function latestPlan(ctx: Ctx, approved: SessionPlan): SessionPlan | undefined {
+  const name = approved.record.session;
+  const slow = readSlowFacts(ctx);
+  const inventories = readInventories(ctx, new Set(approved.record.panes.flatMap((pane) => pane.agent ?? [])));
+  const observed = observeNow(ctx, slow, name);
+  const session = observed.sessions.find((candidate) => candidate.entry.name === name);
+  const plan = buildPlan(ctx, observed, inventories).sessions.find((candidate) => candidate.record.session === name);
+  if (!session || !plan) return undefined;
+  const { exes, installed, home } = observed.world;
+  const again = buildWorld({ procs: readProcs(ctx), exes, installed, home });
+  return sameProcessView(session, observed.world, again) ? plan : undefined;
+}
+
 // Approval covers exactly what the operator saw: anything different now voids it.
 async function restartSession(ctx: Ctx, approved: SessionPlan): Promise<Outcome> {
-  const fresh = buildPlan(ctx, observe(ctx)).sessions.find((session) => session.name === approved.name);
-  if (fresh?.fingerprint !== approved.fingerprint || fresh.blockers.length > 0) {
+  const fresh = latestPlan(ctx, approved);
+  if (!approvalHolds(approved, fresh)) {
     ctx.err(`tool-restart: 承認後に ${approved.name} の状態が変わったため止めなかった。再実行して確認する`);
     return "changed";
   }
@@ -613,13 +730,13 @@ async function quitGui(ctx: Ctx): Promise<"ok" | "busy" | "failed"> {
 
 async function restartGui(ctx: Ctx, approved: GuiPlan): Promise<Outcome> {
   const fresh = planGui(observe(ctx));
-  if (fresh.pid !== approved.pid || fresh.started !== approved.started || !approved.bundle) {
+  if (!guiApprovalHolds(approved, fresh) || !fresh.bundle) {
     ctx.err("tool-restart: 承認後に Sheprd の状態が変わったため止めなかった");
     return "changed";
   }
   const quit = await quitGui(ctx);
   if (quit !== "ok") return quit === "busy" ? "changed" : "failed";
-  if (run(ctx, ["open", approved.bundle]).code === 0) {
+  if (run(ctx, ["open", fresh.bundle]).code === 0) {
     if (await waitUntil(ctx, () => guiRestarted(ctx, approved), ctx.restoreAttempts)) return "ok";
   }
   ctx.err("tool-restart: Sheprd の起動を確認できなかった");
@@ -688,14 +805,15 @@ async function runApply(ctx: Ctx, only?: string): Promise<number> {
     ctx.err("  ~/.local/bin/tool-restart --apply");
     return EXIT.failed;
   }
-  if (!acquireLock(ctx, observed.world)) {
+  const lock = acquireLock(ctx);
+  if (lock === undefined) {
     ctx.err("tool-restart: 別の --apply が実行中");
     return EXIT.failed;
   }
   try {
     return await applyLocked(ctx, observed, only);
   } finally {
-    rmSync(lockPath(ctx), { force: true });
+    closeSync(lock);
   }
 }
 
