@@ -837,7 +837,7 @@ test("an accepted restart stops the whole session once, attaches a client, and v
     expect(log.filter((call) => call.includes(forbidden))).toEqual([]);
   }
   expect(existsSync(box.recoveryFile("default"))).toBe(false);
-});
+}, 30_000);
 
 test("a named session is attached by name", async () => {
   const box = setup();
@@ -856,7 +856,7 @@ test("a named session is attached by name", async () => {
 
   expect(box.stops()).toEqual(["herdr session stop smoke --json"]);
   expect(box.attaches()).toEqual(["herdr session attach smoke"]);
-});
+}, 30_000);
 
 test("a stale Herdr server alone restarts its session even when every agent is current", async () => {
   const box = setup();
@@ -1906,7 +1906,7 @@ test("--apply --session restarts only that session and leaves the GUI and other 
   expect(box.stops()).toEqual(["herdr session stop smoke --json"]);
   expect(box.attaches()).toEqual(["herdr session attach smoke"]);
   expect(box.calls()).not.toContain("sheprd app quit --json");
-});
+}, 30_000);
 
 test("--apply --session with an unknown name stops nothing", async () => {
   const box = restartable();
@@ -1954,7 +1954,7 @@ test("a deferred session is left alone while a ready one restarts", async () => 
 
   expect(result.code).toBe(3);
   expect(box.stops()).toEqual(["herdr session stop default --json"]);
-});
+}, 30_000);
 
 test("an unidentified child holds only its own session while an independent ready session restarts", async () => {
   const box = setup();
@@ -2001,7 +2001,7 @@ test("an unidentified child holds only its own session while an independent read
   expect(result.code).toBe(3);
   expect(result.asked).toBe(1);
   expect(box.stops()).toEqual(["herdr session stop default --json"]);
-});
+}, 30_000);
 
 // Two sessions run well over a hundred native commands, more than the default 5 s allows on a busy
 // machine. The runner also kills what a timed-out test has running, and a command killed during the
