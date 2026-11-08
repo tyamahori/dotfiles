@@ -25,7 +25,6 @@ import {
   type AgentId,
   type AgentRef,
   type AssessEnv,
-  affectedTreePids,
   agentsInAffectedSessions,
   approvalHolds,
   attentionRows,
@@ -40,14 +39,13 @@ import {
   grokSummaryMatches,
   guiActionable,
   guiApprovalHolds,
-  type HelperEvidence,
   hasCodexDaemon,
   hasWork,
   herdrContainment,
   type Installed,
   judgeRecovery,
   type McpServer,
-  mcpCommandLines,
+  mcpArgvKeys,
   notificationKey,
   notificationMessage,
   type Observed,
@@ -64,7 +62,6 @@ import {
   parseMappedExes,
   parseMcpServers,
   parseOmpInventory,
-  parseProcessCommands,
   parseProcessInfo,
   parseProcs,
   parseRecoveryRecord,
@@ -72,7 +69,6 @@ import {
   parseSessionList,
   parseSnapshot,
   parseSocketOwners,
-  parseStdioChannels,
   planGui,
   planJson,
   planSession,
@@ -409,7 +405,9 @@ function grokServers(ctx: Ctx, cwd: string): McpServer[] {
 }
 
 // The agent's own user-level configuration only. A repository's .mcp.json is not read: it is
-// content the repository controls, and it must not be able to declare a job harmless.
+// content the repository controls, and it must not be able to declare a job harmless. What an
+// agent imports from other tools (OMP from Claude's config, say) is not followed either: which
+// imports apply is that agent's own logic, so those servers stay unidentified and defer.
 const MCP_SOURCES: Record<AgentId, (ctx: Ctx, cwd: string) => McpServer[]> = {
   claude: claudeServers,
   codex: (ctx) => parseMcpServers(readToml(join(homeOf(ctx), ".codex/config.toml")), "mcp_servers"),
@@ -425,20 +423,12 @@ function commandHead(ctx: Ctx, path: string): string | undefined {
   }
 }
 
-function mcpCommands(ctx: Ctx, agent: AgentId, cwd: string): ReadonlySet<string> {
+function mcpArgvs(ctx: Ctx, agent: AgentId, cwd: string): ReadonlySet<string> {
   const files = {
     resolve: (command: string) => Bun.which(command, { PATH: ctx.env.PATH ?? "" }) ?? undefined,
     head: (path: string) => commandHead(ctx, path),
   };
-  return new Set(MCP_SOURCES[agent](ctx, cwd).flatMap((server) => mcpCommandLines(server, files)));
-}
-
-function readHelperEvidence(ctx: Ctx, pids: readonly number[]): HelperEvidence {
-  if (pids.length === 0) return { commands: new Map(), channels: new Map() };
-  const list = pids.join(",");
-  const commands = run(ctx, ["ps", "-ww", "-o", "pid=,command=", "-p", list], { env: { LC_ALL: "C" } }).stdout;
-  const channels = run(ctx, ["lsof", "-nP", "-a", "-d", "0,1", "-Fpftd", "-p", list]).stdout;
-  return { commands: parseProcessCommands(commands), channels: parseStdioChannels(channels) };
+  return new Set(MCP_SOURCES[agent](ctx, cwd).flatMap((server) => mcpArgvKeys(server, files)));
 }
 
 type Inventories = { omp?: OmpInventory; grokLeaders?: number; restoreOn: boolean };
@@ -458,8 +448,7 @@ function assessEnv(ctx: Ctx, observed: Observed, recovering: ReadonlySet<string>
     uid: ctx.uid,
     backend: observed.backend,
     recovering,
-    evidence: readHelperEvidence(ctx, affectedTreePids(observed)),
-    mcpCommands: (agent, cwd) => mcpCommands(ctx, agent, cwd),
+    mcpArgvs: (agent, cwd) => mcpArgvs(ctx, agent, cwd),
     savedRef: (agent, ref, cwd) => SAVED_REF_READERS[agent](ctx, ref, cwd),
     dirExists: isDirectory,
     socketOwned: (path) => isOwnedSocket(ctx, path),

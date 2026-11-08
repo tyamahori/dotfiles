@@ -52,9 +52,10 @@ type FakePane = {
   ref?: { agent: string; kind: string; value: string };
   shellPid?: number;
   fgGroup?: number;
-  foreground?: { pid: number; name: string; argv?: string[] }[];
+  foreground?: { pid: number; name: string; argv?: (string | number)[] }[];
   restoreError?: string;
   launchPending?: boolean;
+  stateSeq?: number;
 };
 type FakeSession = {
   name: string;
@@ -272,7 +273,7 @@ fi`,
       terminal_id: pane.terminalId,
       agent_status: pane.status ?? "idle",
       launch_pending: pane.launchPending === true,
-      state_change_seq: 1,
+      state_change_seq: pane.stateSeq ?? 1,
     }));
     writeText(join(key, "snapshot.json"), {
       id: "1",
@@ -459,7 +460,7 @@ function before(box: Box): FakeWorld {
       { pid: 100, ppid: 1, name: "herdr", exe: box.exe("herdr") },
       { pid: 200, ppid: 100, name: "zsh" },
       { pid: 201, ppid: 200, name: "omp", exe: box.exe("omp", "1.0.0") },
-      { pid: 202, ppid: 201, pgid: 201, name: "node", command: "node server.js" },
+      { pid: 202, ppid: 201, pgid: 201, name: "node" },
       { pid: 210, ppid: 100, name: "zsh" },
       { pid: 211, ppid: 210, name: "claude", exe: box.exe("claude") },
       { pid: 220, ppid: 100, name: "zsh" },
@@ -919,27 +920,47 @@ test("an agent that started working after approval voids it", async () => {
 });
 
 const TOOL_SERVER = { type: "stdio", command: "/opt/mcp/tool", args: ["mcp", "--flag"], env: { TOKEN: "env-secret" } };
-const TOOL_LINE = "/opt/mcp/tool mcp --flag";
+const TOOL_ARGV = ["/opt/mcp/tool", "mcp", "--flag"];
+const TOOL_LINE = TOOL_ARGV.join(" ");
 const TOOL_TOML = '[mcp_servers.tool]\ncommand = "/opt/mcp/tool"\nargs = ["mcp", "--flag"]\n';
 
 const claudeMcp = (box: Box, servers: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
   writeText(join(box.home, ".claude.json"), { mcpServers: servers, ...extra });
 const configureTool = (box: Box) => claudeMcp(box, { tool: TOOL_SERVER });
 
-// A launcher that only execs a script, which runs perl, which runs the real server: the shape of a
-// real configured server. The last process keeps its parents' stdio only when `leafChannel` is theirs.
-function wrappedServer(world: FakeWorld, box: Box, leafChannel: string) {
+// A process Herdr lists in the pane's foreground, with the exact argument list it reports.
+function inForeground(world: FakeWorld, paneId: string, child: FakeProc, argv: (string | number)[]) {
+  world.procs.push(child);
+  pane(world, paneId).foreground?.push({ pid: child.pid, name: child.name, argv });
+}
+
+// A launcher that only execs a script. Returns the script, and the argument list it then runs with.
+function execLauncher(box: Box) {
   const script = join(box.home, "mcp/run.sh");
   const launcher = join(box.home, "mcp/launcher");
   writeText(script, "#!/bin/bash\nperl -e 'system @ARGV' binary \"$@\"\n");
   writeText(launcher, `#!/bin/bash\nexec "${script}" "$@"\n`);
   claudeMcp(box, { server: { command: launcher, args: ["mcp"] } });
-  world.procs.push(
-    { pid: 212, ppid: 211, pgid: 211, name: "bash", command: `/bin/bash ${script} mcp`, channel: "chan" },
-    { pid: 213, ppid: 212, pgid: 211, name: "perl", command: "perl -e system binary mcp", channel: "chan" },
-    { pid: 214, ppid: 213, pgid: 211, name: "binary", command: "binary mcp", channel: leafChannel },
-  );
+  return ["/bin/bash", script, "mcp"];
 }
+
+// bash -> perl -> binary, the shape of a real configured wrapper. All three share the group and the
+// stdio, and ps shows each plainly: if either ever counted again, this would look safe.
+function wrappedServer(world: FakeWorld, box: Box) {
+  const shared = { pgid: 211, channel: "chan" };
+  const argv = execLauncher(box);
+  const perl = ["perl", "-e", "system @ARGV", "binary", "mcp"];
+  const binary = ["binary", "mcp"];
+  inForeground(world, "w1:p2", { ...shared, pid: 212, ppid: 211, name: "bash", command: argv.join(" ") }, argv);
+  inForeground(world, "w1:p2", { ...shared, pid: 213, ppid: 212, name: "perl", command: perl.join(" ") }, perl);
+  inForeground(world, "w1:p2", { ...shared, pid: 214, ppid: 213, name: "binary", command: binary.join(" ") }, binary);
+}
+
+// ps prints both of these as `node /work/mcp server.js`; only the argument lists tell them apart.
+const SPLIT_ARGS = ["/work/mcp", "server.js"];
+const SPACED_ARGS = ["/work/mcp server.js"];
+const NODE_LINE = "node /work/mcp server.js";
+const SERVER_CHILD = { pid: 212, ppid: 211, pgid: 211, name: "node", command: NODE_LINE };
 
 const grokSession = (box: Box) => join(box.home, ".grok/sessions", encodeURIComponent(box.work), GROK_ID);
 
@@ -993,7 +1014,7 @@ const DEFERRED: Deferral[] = [
     "w1:p2",
     (world, box) => {
       configureTool(box);
-      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "node", command: "node train.js" });
+      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "node" }, ["node", "train.js"]);
     },
   ],
   [
@@ -1001,15 +1022,58 @@ const DEFERRED: Deferral[] = [
     "w1:p2",
     (world, box) => {
       configureTool(box);
-      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool", command: `${TOOL_LINE} --other` });
+      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, [...TOOL_ARGV, "--other"]);
     },
   ],
   [
-    "a child's command line cannot be read",
+    "one spaced argument prints like a configured pair of arguments",
+    "w1:p2",
+    (world, box) => {
+      claudeMcp(box, { server: { command: "node", args: SPLIT_ARGS } });
+      inForeground(world, "w1:p2", SERVER_CHILD, ["node", ...SPACED_ARGS]);
+    },
+  ],
+  [
+    "a pair of arguments prints like one configured spaced argument",
+    "w1:p2",
+    (world, box) => {
+      claudeMcp(box, { server: { command: "node", args: SPACED_ARGS } });
+      inForeground(world, "w1:p2", SERVER_CHILD, ["node", ...SPLIT_ARGS]);
+    },
+  ],
+  [
+    "Herdr reports no argument list for a child ps shows as a configured server",
     "w1:p2",
     (world, box) => {
       configureTool(box);
-      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool" });
+      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool", command: TOOL_LINE });
+      pane(world, "w1:p2").foreground?.push({ pid: 212, name: "tool" });
+    },
+  ],
+  [
+    "a configured server runs in its own process group, where Herdr does not list it",
+    "w1:p2",
+    (world, box) => {
+      configureTool(box);
+      world.procs.push({ pid: 212, ppid: 211, pgid: 212, name: "tool", command: TOOL_LINE });
+    },
+  ],
+  [
+    "Herdr lists a child twice with different argument lists",
+    "w1:p2",
+    (world, box) => {
+      configureTool(box);
+      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
+      pane(world, "w1:p2").foreground?.push({ pid: 212, name: "tool", argv: ["python", "job.py"] });
+    },
+  ],
+  [
+    "a child's argument list holds an entry that is not a string",
+    "w1:p2",
+    (world, box) => {
+      configureTool(box);
+      const [command, ...args] = TOOL_ARGV;
+      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, [command ?? "", 7, ...args]);
     },
   ],
   [
@@ -1017,19 +1081,21 @@ const DEFERRED: Deferral[] = [
     "w1:p2",
     (world, box) => {
       configureTool(box);
-      world.procs.push({ pid: 212, ppid: 210, pgid: 212, name: "tool", command: TOOL_LINE });
+      inForeground(world, "w1:p2", { pid: 212, ppid: 210, pgid: 211, name: "tool" }, TOOL_ARGV);
     },
   ],
-  ["a job under a configured launcher has its own stdio", "w1:p2", (world, box) => wrappedServer(world, box, "other")],
   [
-    "a job under a configured server cannot be matched to its stdio",
+    "the processes under a configured launcher share its group and stdio",
+    "w1:p2",
+    (world, box) => wrappedServer(world, box),
+  ],
+  [
+    "a job runs under a configured server",
     "w1:p2",
     (world, box) => {
       configureTool(box);
-      world.procs.push(
-        { pid: 212, ppid: 211, pgid: 211, name: "tool", command: TOOL_LINE, channel: "chan" },
-        { pid: 213, ppid: 212, pgid: 211, name: "python" },
-      );
+      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
+      inForeground(world, "w1:p2", { pid: 213, ppid: 212, pgid: 211, name: "python" }, ["python", "job.py"]);
     },
   ],
   [
@@ -1037,7 +1103,7 @@ const DEFERRED: Deferral[] = [
     "w1:p2",
     (world, box) => {
       writeText(join(box.work, ".mcp.json"), { mcpServers: { tool: TOOL_SERVER } });
-      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool", command: TOOL_LINE });
+      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
     },
   ],
   [
@@ -1046,7 +1112,7 @@ const DEFERRED: Deferral[] = [
     (world, box) => {
       useCodex(world, box);
       writeText(join(box.home, ".codex/config.toml"), `${TOOL_TOML}enabled = false\n`);
-      world.procs.push({ pid: 212, ppid: 211, pgid: 212, name: "tool", command: TOOL_LINE });
+      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
     },
   ],
   [
@@ -1161,6 +1227,14 @@ const DEFERRED: Deferral[] = [
     (world) => {
       const entry = pane(world, "w1:p2").foreground?.[0];
       if (entry) delete entry.argv;
+    },
+  ],
+  [
+    "the argv is empty",
+    "w1:p2",
+    (world) => {
+      const entry = pane(world, "w1:p2").foreground?.[0];
+      if (entry) entry.argv = [];
     },
   ],
   ["the agent kind is not supported", "w1:p2", (world) => void (pane(world, "w1:p2").agent = "copilot")],
@@ -1320,21 +1394,21 @@ const READY: [string, (world: FakeWorld, box: Box) => void][] = [
     "a configured MCP server shares the agent's process group",
     (world, box) => {
       configureTool(box);
-      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool", command: TOOL_LINE });
+      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
     },
   ],
   [
-    "a configured MCP server runs in its own process group",
+    "a configured argument containing a space matches exactly",
     (world, box) => {
-      configureTool(box);
-      world.procs.push({ pid: 212, ppid: 211, pgid: 212, name: "tool", command: TOOL_LINE });
+      claudeMcp(box, { server: { command: "node", args: SPACED_ARGS } });
+      inForeground(world, "w1:p2", SERVER_CHILD, ["node", ...SPACED_ARGS]);
     },
   ],
   [
     "a project's local-scope MCP server is configured for this directory",
     (world, box) => {
       claudeMcp(box, {}, { projects: { [box.work]: { mcpServers: { tool: TOOL_SERVER } } } });
-      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool", command: TOOL_LINE });
+      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
     },
   ],
   [
@@ -1345,16 +1419,19 @@ const READY: [string, (world: FakeWorld, box: Box) => void][] = [
       writeText(script, "#!/usr/bin/env node\n");
       symlinkSync(script, link);
       claudeMcp(box, { server: { command: link, args: ["--headless"] } });
-      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "node", command: `node ${link} --headless` });
+      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "node" }, ["node", link, "--headless"]);
     },
   ],
-  ["a configured launcher's chain keeps its stdio", (world, box) => wrappedServer(world, box, "chan")],
+  [
+    "a configured launcher that only execs its script has no children yet",
+    (world, box) => inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "bash" }, execLauncher(box)),
+  ],
   [
     "a Codex pane runs a server from Codex's configuration",
     (world, box) => {
       useCodex(world, box);
       writeText(join(box.home, ".codex/config.toml"), TOOL_TOML);
-      world.procs.push({ pid: 212, ppid: 211, pgid: 212, name: "tool", command: TOOL_LINE });
+      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
     },
   ],
   [
@@ -1362,7 +1439,7 @@ const READY: [string, (world: FakeWorld, box: Box) => void][] = [
     (world, box) => {
       useGrok(world, box);
       writeText(join(box.home, ".grok/config.toml"), TOOL_TOML);
-      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool", command: TOOL_LINE });
+      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
     },
   ],
   [
@@ -1370,7 +1447,7 @@ const READY: [string, (world: FakeWorld, box: Box) => void][] = [
     (world, box) => {
       useGrok(world, box);
       configureTool(box);
-      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool", command: TOOL_LINE });
+      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
     },
   ],
   [
@@ -1696,6 +1773,68 @@ test("a deferred session is left alone while a ready one restarts", async () => 
 
   expect(result.code).toBe(3);
   expect(box.stops()).toEqual(["herdr session stop default --json"]);
+});
+
+test("an unidentified child holds only its own session while an independent ready session restarts", async () => {
+  const box = setup();
+  const add = (world: FakeWorld) => {
+    world.procs.push(
+      { pid: 700, ppid: 1, name: "herdr", exe: box.exe("herdr") },
+      { pid: 701, ppid: 700, name: "zsh" },
+      { pid: 702, ppid: 701, name: "claude", exe: box.exe("claude", "1.0.0"), channel: "chan" },
+      { pid: 703, ppid: 702, pgid: 702, name: "sleep", command: "sleep 999", channel: "chan" },
+    );
+    world.sessions.push({
+      name: "held",
+      serverPid: 700,
+      panes: [
+        {
+          id: "w9:p1",
+          terminalId: "t9",
+          agent: "claude",
+          cwd: box.work,
+          ref: { agent: "claude", kind: "id", value: CLAUDE_ID },
+          shellPid: 701,
+          fgGroup: 702,
+          foreground: [
+            { pid: 702, name: "claude", argv: ["claude"] },
+            { pid: 703, name: "sleep", argv: ["sleep", "999"] },
+          ],
+        },
+      ],
+    });
+    return world;
+  };
+  box.world(add(before(box)));
+  box.afterStop(add(stopped()));
+  box.afterAttach(add(restored(box)));
+
+  const status = await box.status();
+  const result = await box.run(["--apply"]);
+
+  const ready = status.sessions.map((session: { name: string; ready: boolean }) => [session.name, session.ready]);
+  expect(ready).toEqual([
+    ["default", true],
+    ["held", false],
+  ]);
+  expect(result.code).toBe(3);
+  expect(result.asked).toBe(1);
+  expect(box.stops()).toEqual(["herdr session stop default --json"]);
+});
+
+test("a launcher counts as the configured server while what it runs defers the session", async () => {
+  const box = setup();
+  const world = before(box);
+  wrappedServer(world, box);
+  box.world(world);
+
+  const status = await box.status();
+  const reasons = status.sessions[0].blockers.map((blocker: { reason: string }) => blocker.reason).join("\n");
+
+  expect(status.sessions[0].helpers).toContain("bash");
+  expect(reasons).not.toContain("pid 212");
+  expect(reasons).toContain("pid 213");
+  expect(reasons).toContain("pid 214");
 });
 
 function guiOnly(box: Box) {
@@ -2050,7 +2189,7 @@ test("the report names an identified helper without its arguments or configured 
   const box = setup();
   const world = before(box);
   configureTool(box);
-  world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool", command: TOOL_LINE });
+  inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
   box.world(world);
 
   const status = await box.status();

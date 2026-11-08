@@ -74,9 +74,6 @@ export type Observed = { world: World; sessions: SessionObservation[]; gui: GuiS
 export type OmpInventory = { owned: Map<string, string[]>; infra: Set<number> };
 export type McpServer = { command: string; args: string[] };
 export type CommandFiles = { resolve(command: string): string | undefined; head(path: string): string | undefined };
-// What the OS reports for processes under an affected pane. Only ever compared: command lines
-// can hold secrets, so nothing here reaches a plan, a record, or the terminal.
-export type HelperEvidence = { commands: Map<number, string>; channels: Map<number, string> };
 export type SavedRef = { ok: true; sessionId: string } | { ok: false; reason: string };
 export type AssessEnv = {
   world: World;
@@ -86,8 +83,7 @@ export type AssessEnv = {
   grokLeaders?: number;
   restoreOn: boolean;
   recovering: ReadonlySet<string>;
-  evidence: HelperEvidence;
-  mcpCommands(agent: AgentId, cwd: string): ReadonlySet<string>;
+  mcpArgvs(agent: AgentId, cwd: string): ReadonlySet<string>;
   savedRef(agent: AgentId, ref: AgentRef, cwd: string): SavedRef;
   dirExists(path: string): boolean;
   socketOwned(path: string): boolean;
@@ -179,7 +175,6 @@ const CODEX_BACKEND_BLOCKERS: Record<Backend, string[]> = {
   old: ["Codex 共有デーモンが旧版。作業の区切りで codex app-server daemon update を手動で実行してから再実行する"],
   unknown: ["Codex 共有デーモンの版を確認できない"],
 };
-const STDIO_CHANNEL_TYPES = new Set(["unix", "PIPE"]);
 // A launcher that does nothing but replace itself with another file, so ps shows that file instead.
 const EXEC_SHIM = /^#![^\n]*\n\s*exec "(\/[^"\n]+)" "\$@"\s*$/;
 const REF_KIND: Record<AgentId, string> = { omp: "path", claude: "id", codex: "id", grok: "id" };
@@ -275,37 +270,6 @@ export function parseSocketOwners(text: string): Map<string, number[]> {
   return owners;
 }
 
-export function parseProcessCommands(text: string): Map<number, string> {
-  const commands = new Map<number, string>();
-  for (const line of text.split("\n")) {
-    const match = /^\s*(\d+)\s+(.+)$/.exec(line);
-    if (match) commands.set(Number(match[1]), match[2] ?? "");
-  }
-  return commands;
-}
-
-// Identifies a process's stdin and stdout by their kernel endpoints; a file or a terminal is no channel.
-export function parseStdioChannels(text: string): Map<number, string> {
-  const ends = new Map<string, string>();
-  let pid = 0;
-  let fd = "";
-  let type = "";
-  for (const line of text.split("\n")) {
-    const value = line.slice(1);
-    if (line.startsWith("p")) pid = Number(value);
-    else if (line.startsWith("f")) fd = value;
-    else if (line.startsWith("t")) type = value;
-    else if (line.startsWith("d") && STDIO_CHANNEL_TYPES.has(type)) ends.set(`${pid}:${fd}`, value);
-  }
-  const channels = new Map<number, string>();
-  for (const [key, stdin] of ends) {
-    const [owner, descriptor] = key.split(":");
-    const stdout = ends.get(`${owner}:1`);
-    if (descriptor === "0" && stdout) channels.set(Number(owner), `${stdin}/${stdout}`);
-  }
-  return channels;
-}
-
 // A server may fork children that inherit its listening socket; the owner is the one whose parent is not a holder.
 export function socketServer(holders: readonly number[] | undefined, procs: readonly Proc[]): number | undefined {
   const pids = new Set(holders ?? []);
@@ -379,12 +343,17 @@ export function parseSnapshot(json: unknown): Pane[] | undefined {
   return snapshot.panes.map((pane) => parsePane(asObject(pane), agents));
 }
 
+// One malformed entry voids the whole list: dropping it would shift the boundaries that identify a process.
+function parseArgv(value: unknown): string[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+  return value.every((arg): arg is string => typeof arg === "string") ? value : undefined;
+}
+
 function parseForeground(item: unknown): FgProcess[] {
   const proc = asObject(item);
   const pid = asNumber(proc.pid);
   if (pid === undefined) return [];
-  const argv = Array.isArray(proc.argv) ? proc.argv.filter((arg): arg is string => typeof arg === "string") : undefined;
-  return [{ pid, name: asString(proc.name) ?? "", argv0: asString(proc.argv0), argv }];
+  return [{ pid, name: asString(proc.name) ?? "", argv0: asString(proc.argv0), argv: parseArgv(proc.argv) }];
 }
 
 export function parseProcessInfo(json: unknown): PaneProcesses | undefined {
@@ -452,20 +421,26 @@ function shebang(head: string): string[] {
   return tokens[0] === "/usr/bin/env" ? tokens.slice(1) : tokens;
 }
 
-function launchLine(argv0: string, entry: string, args: readonly string[], head: string): string {
+function launchArgv(argv0: string, entry: string, args: readonly string[], head: string): string[] {
   const interpreter = shebang(head);
-  return (interpreter.length > 0 ? [...interpreter, entry, ...args] : [argv0, ...args]).join(" ");
+  return interpreter.length > 0 ? [...interpreter, entry, ...args] : [argv0, ...args];
 }
 
-// The exact lines ps can show for a stdio server configured this way: the kernel puts a script's
-// interpreter first, and a shim that only execs another file shows that file's line instead.
-export function mcpCommandLines(server: McpServer, files: CommandFiles): string[] {
+// JSON keeps argument boundaries, so ["a b"] and ["a", "b"] never share a key. Text joined with
+// spaces, which is all ps prints, would give both the same one.
+function argvKey(argv: readonly string[]): string {
+  return JSON.stringify(argv);
+}
+
+// The exact argument lists a stdio server configured this way can run with: the kernel puts a
+// script's interpreter first, and a shim that only execs another file runs with that file's list.
+export function mcpArgvKeys(server: McpServer, files: CommandFiles): string[] {
   const entry = files.resolve(server.command) ?? server.command;
   const head = files.head(entry) ?? "";
-  const lines = [launchLine(server.command, entry, server.args, head)];
+  const lists = [launchArgv(server.command, entry, server.args, head)];
   const target = EXEC_SHIM.exec(head)?.[1];
-  if (target) lines.push(launchLine(target, target, server.args, files.head(target) ?? ""));
-  return lines;
+  if (target) lists.push(launchArgv(target, target, server.args, files.head(target) ?? ""));
+  return lists.map(argvKey);
 }
 
 // Only the daemon's own "notRunning" means absent: a failed query says nothing either way.
@@ -711,34 +686,37 @@ function savedConversation(facts: AgentPaneFacts, env: AssessEnv): { blockers: s
   return saved.ok ? { blockers: [], sessionId: saved.sessionId } : { blockers: [saved.reason] };
 }
 
-// A process is part of a configured stdio MCP server in one of two ways. The agent started it with
-// exactly the configured command line, or its parent is part of that server and it still holds the
-// same stdin and stdout. MCP forbids anything but protocol on that stdout, so whatever shares it is
-// the server's own delegate (bash -> perl -> binary), while a job the server runs needs its own
-// output. Same-uid processes could fake this; it guards against mistakes, not against an attacker.
-function mcpMembers(facts: AgentPaneFacts, tree: readonly Proc[], env: AssessEnv): Set<number> {
-  const configured = env.mcpCommands(facts.agent, facts.pane.foregroundCwd ?? facts.pane.cwd ?? "");
-  const { commands, channels } = env.evidence;
-  const members = new Set<number>();
-  for (const proc of tree) {
-    const channel = channels.get(proc.pid);
-    const delegate = members.has(proc.ppid) && channel !== undefined && channel === channels.get(proc.ppid);
-    const started = proc.ppid === facts.root.pid && configured.has(commands.get(proc.pid) ?? "");
-    if (started || delegate) members.add(proc.pid);
-  }
-  return members;
+// Herdr's report is the only argument list trusted here: ps prints arguments joined by spaces, so
+// different commands can look alike. Herdr lists only the pane's foreground group, so a process it
+// does not list, or lists twice, has no identity to compare and stays unidentified.
+function nativeArgv(info: PaneProcesses, pid: number): readonly string[] | undefined {
+  const listed = info.foreground.filter((proc) => proc.pid === pid);
+  return listed.length === 1 ? listed[0]?.argv : undefined;
+}
+
+// A configured stdio MCP server is a process the agent itself started with exactly the configured
+// arguments. Inherited stdin and stdout do not extend that to its children: a quiet job inherits
+// them just as a wrapper's real binary does. Same-uid processes could fake the arguments; this
+// guards against mistakes, not against an attacker.
+function configuredServers(facts: AgentPaneFacts, tree: readonly Proc[], env: AssessEnv): Set<number> {
+  const configured = env.mcpArgvs(facts.agent, facts.pane.foregroundCwd ?? facts.pane.cwd ?? "");
+  const started = tree.filter((proc) => {
+    const argv = proc.ppid === facts.root.pid ? nativeArgv(facts.info, proc.pid) : undefined;
+    return argv !== undefined && configured.has(argvKey(argv));
+  });
+  return new Set(started.map((proc) => proc.pid));
 }
 
 // A process group proves nothing about what a process is doing, so every descendant needs its own
 // positive identification: a configured MCP server, or OMP's own listing as infrastructure. That
 // exempts the identified process only; its children are judged on their own. Anything else is
-// possibly the user's work and defers the session.
+// possibly the user's work and defers the session, which ordinary wrappers' children also do.
 function workload(facts: AgentPaneFacts, env: AssessEnv): { blockers: string[]; helpers: string[] } {
   const { info, root } = facts;
   const infra = env.omp?.infra ?? NO_PIDS;
   const tree = liveDescendants(info.shellPid ?? root.pid, env.world).filter((proc) => proc.pid !== root.pid);
-  const members = mcpMembers(facts, tree, env);
-  const identified = (proc: Proc) => infra.has(proc.pid) || members.has(proc.pid);
+  const servers = configuredServers(facts, tree, env);
+  const identified = (proc: Proc) => infra.has(proc.pid) || servers.has(proc.pid);
   const outsiders = info.foreground.filter(
     (proc) => proc.pid !== root.pid && !isWithin(proc.pid, root.pid, env.world) && !infra.has(proc.pid),
   );
@@ -877,13 +855,6 @@ function affectedSessions(observed: Observed): SessionObservation[] {
 export function agentsInAffectedSessions(observed: Observed): Set<string> {
   const panes = affectedSessions(observed).flatMap((session) => session.panes ?? []);
   return new Set(panes.flatMap((pane) => pane.agent ?? []));
-}
-
-export function affectedTreePids(observed: Observed): number[] {
-  const shells = affectedSessions(observed).flatMap((session) =>
-    [...session.processes.values()].flatMap((info) => info?.shellPid ?? []),
-  );
-  return shells.flatMap((shell) => liveDescendants(shell, observed.world).map((proc) => proc.pid));
 }
 
 function procIdentity(pid: number | undefined, world: World): unknown[] {
