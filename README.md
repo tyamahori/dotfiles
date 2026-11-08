@@ -708,6 +708,57 @@ point at both; `docs/software-engineering.md` maps every engineering norm on thi
 machine to its file and explains why they were authored rather than
 vendored.
 
+### Tool restarts
+
+`scripts/tool-restart` (`tool-restart` once `scripts/link` has run) finds OMP,
+Herdr, Sheprd, Claude Code, Codex, and Grok processes still running something
+older than what is installed, and restarts them through Herdr's native session
+restore after one approval. It compares the executable each process actually
+maps (`lsof` path and inode, plus Herdr's and Sheprd's own status) with the
+installed one, so it needs no baseline and also catches self-updates made
+outside `scripts/brewUpdate`. A process whose executable cannot be identified
+is reported as unknown, never as current.
+
+| Command | What it does |
+| --- | --- |
+| `tool-restart`, `--status`, `--json` | Reports installed and running versions, pending and unknown processes, each affected session, and why it would be deferred. The JSON carries no conversation references or argv. |
+| `--notify` | Sends one `terminal-notifier` alert per stale state and stops nothing. `launchd/com.tyamahori.tool-restart.plist` runs it at load and every 5 minutes. |
+| `--cleanup-check` | Exits nonzero while an old or unidentifiable executable could still be using a Homebrew keg. `scripts/brewUpdate` skips `brew cleanup` then; rerun it after restarting. |
+| `--apply` | Shows the plan, asks for `yes` once, and restarts what is ready. There is no unattended form. |
+
+Run `--apply` from a separate terminal such as Terminal.app, outside Herdr and
+Sheprd; it refuses to run under either, because stopping the server would end
+the command itself. It exits 0 when nothing remains, 3 when something was
+deferred or declined, and 1 on a failure.
+
+A restart covers a whole local Herdr session: an updated agent or Herdr binary
+stops every pane of that session with `herdr session stop`, and Herdr brings
+the same panes and conversations back once a client attaches. The command
+attaches a short-lived client of its own, closes only that client, and checks
+that the pane IDs, directories, and conversation references match on current
+executables. Conversations come back; commands that were running do not, and
+start flags are not kept. So a session is deferred before anything stops when
+any of its panes is working or waiting for approval, has no saved conversation,
+was started with flags other than a resume, runs a foreground command or
+background job, or has a process in another group that the agent's native
+inventory does not account for. An update to Sheprd alone quits and reopens the
+GUI and leaves the servers running; fullscreen and log windows may not return.
+Remote servers are never stopped.
+
+Some things stay with you. An old Codex app-server daemon defers the sessions
+with Codex panes; run `codex app-server daemon update` yourself when no work
+depends on it, since it may interrupt running work. A stale process outside
+Herdr is listed but left alone.
+
+If a postcheck fails, the command exits 1 and keeps the expected panes and
+conversation references in
+`~/.local/state/tool-restart/recovery/<session>.json` (mode 0600). Rerunning
+`--apply` compares the session with that record, attaches a client if needed,
+and never stops the session again; the record clears once the session matches.
+The record is only ever compared, never used to decide what to stop. If you
+resolve a session by hand and it no longer matches, inspect the record and
+delete it, and the session becomes eligible again.
+
 ### Model migration review
 
 `scripts/model-pins` reports the model pins in `claude/settings.json`,
