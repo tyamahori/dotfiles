@@ -256,6 +256,17 @@ This repository sets a local `core.hooksPath`, so it wires the same checks
 through `git/hooks/commit-msg` and `git/hooks/pre-push` (symlinks) and a
 hand-off to the dispatcher at the end of its `git/hooks/pre-commit`.
 
+This repository's CI (`.github/workflows/ci.yml`) also runs three of these
+scanners over the whole repository, with no baseline: `semgrep-quality-gate`
+(`.semgrep.yaml` plus the Compose security rules, on files Git does not
+ignore), gitleaks on the tree committed at `HEAD` (ignored or generated files
+and older history are not scanned), and `zizmor --offline` on the workflows.
+Any finding, tool error, or missing scanner fails the job. gitleaks and
+zizmor use the versions `devbox/devbox.lock` resolves; semgrep uses the
+version pinned in the workflow. The job covers this repository only: other
+repositories get the hooks, not this CI. Whether a failure blocks a merge
+depends on branch protection, which these files do not configure.
+
 ## OMP (Oh My Pi)
 
 日常の起動方法、セッション操作、モデル運用、local memory、自動学習、定期レビュー、設定変更、トラブル対応は [`docs/omp.md`](docs/omp.md) にまとめています。
@@ -463,6 +474,16 @@ Docker and LLM provider credentials; the managed cloud requires an account.
 Only scan targets you own or have explicit permission to test.
 `scripts/brewUpdate` also calls `scripts/python`, so `brewup` updates both
 debugpy and Strix through the same installation script.
+
+`security-audit` (`cloudflare/security-audit-skill`) is global too. Agents
+use its guidance mode for the independent review that `software-design`'s
+security gate asks for when a change touches auth, secrets, untrusted input,
+file or command execution, outbound requests, or CI/deploy privileges. Its
+six-phase full audit, which writes report files, runs only when you ask for
+a full audit. In either mode it executes target code only inside an
+OS-enforced sandbox without external network, and reports the point as
+needing validation when that sandbox is unavailable. Loading it authorizes
+no live probes, paid scans, or Strix runs.
 
 `scripts/skill-sync --check` compares the recorded commit with upstream HEAD;
 `scripts/brewUpdate` runs it so drift shows up during the routine update.
@@ -679,9 +700,11 @@ placement rule; `agents/skills/test-design/SKILL.md` decides which tests a
 change needs, walks a viewpoint table for missing cases, sets test depth by
 kind of code, has the agent write a behaviour list for a human to check
 before implementing, and covers what to assert, test doubles,
-characterisation and property-based tests, and the mutation check. Shared
-instructions point at
-both; `docs/software-engineering.md` maps every engineering norm on this
+characterisation and property-based tests, and the mutation check. The
+behaviour list opens with a one-line security triage; a change it flags
+answers `software-design`'s security gate and gets the `security-audit`
+review described under "Vendored third-party skills". Shared instructions
+point at both; `docs/software-engineering.md` maps every engineering norm on this
 machine to its file and explains why they were authored rather than
 vendored.
 

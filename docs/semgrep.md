@@ -100,6 +100,15 @@ rule解決はgateと同じで、repoの`.semgrep.yaml`が優先、なければdo
 コミットが追加した指摘だけがブロック対象になる。失敗時にHEAD版のstaged fileを同じruleで再検査し、追加された行に触れる指摘、またはruleと該当コード片が同じ指摘のHEAD側の件数を超える分を新規として扱う。行番号だけが動いた既存の指摘は通るが、別の場所へ移した指摘は追加行になるためブロックされる（`git/global-hooks/lib/baseline.bash`）。HEADに存在しない新規・リネームのfileは全指摘が対象になる。一時dirの作成・HEADの取り出し・差分取得・ツール実行のどれかが失敗した場合も、ブロックして出力を示す。
 検査対象はstaged fileのworking tree版であり、index版ではない。
 
+## dotfiles自身のCIはrepository全体を検査する
+
+このdotfilesのCI（`.github/workflows/ci.yml`）は、`DOTFILES_ROOT`にcheckoutのdirectoryを指定して`semgrep-quality-gate`を実行する。
+適用されるのは、rootの`.semgrep.yaml`と`semgrep/security-compose.yaml`である。
+pre-commitと違って検査対象をstaged fileに限らず、HEADとの比較もしない。Gitが無視しないfileをすべて検査し、以前からある指摘も1件あれば失敗する。
+semgrepが見つからないときも、skipせずに失敗する。versionはworkflowで固定している。
+同じjobでは、gitleaksがHEADにcommitされたtreeを、zizmorがworkflowを検査する。詳細はREADMEの「Machine-global git hooks」にある。
+CIが検査するのはこのrepositoryだけで、他のrepositoryではpre-commitのhookだけが検査する。
+
 ## エラーから復旧する
 
 ### `skipped; ... has no .semgrep.yaml`
@@ -117,4 +126,4 @@ dotfilesを`~/dotfiles`へ配置済みなら通常は発生しない。
 `semgrep scan`はrule fileをparseできないと失敗する。
 指摘との区別は、出力末尾のScan Summaryとexit statusで判断する。
 
-最終更新日：2026-10-10
+最終更新日：2026-11-08

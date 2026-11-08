@@ -28,6 +28,7 @@ jobs:
 
       # The lint hooks under test skip silently when their linter is missing, so
       # install the ones the runner image lacks (shellcheck, yq, docker are preinstalled).
+      # semgrep, gitleaks, and zizmor also run as the security scan steps below.
       - name: Install linters
         run: |
           bin="$HOME/.local/bin"
@@ -46,10 +47,40 @@ jobs:
           echo "ce05865b75d9a51a03052c256068e63501ba2d4e6327376b2affbe14bf975b3c  $RUNNER_TEMP/oxlint.tgz" | sha256sum -c -
           tar xzf "$RUNNER_TEMP/oxlint.tgz" -C "$RUNNER_TEMP"
           install -m 755 "$RUNNER_TEMP/oxlint-x86_64-unknown-linux-gnu" "$bin/oxlint"
+          # Same versions devbox.lock resolves locally.
+          curl -fsSLo "$RUNNER_TEMP/gitleaks.tgz" https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tgz" | sha256sum -c -
+          tar xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$bin" gitleaks
+          curl -fsSLo "$RUNNER_TEMP/zizmor.tgz" https://github.com/zizmorcore/zizmor/releases/download/v1.31.1/zizmor-x86_64-unknown-linux-gnu.tar.gz
+          echo "d185f726bdaf92df78273217dfdd24ebcd6b0ef48cf3ce776ff5762b6e138c99  $RUNNER_TEMP/zizmor.tgz" | sha256sum -c -
+          tar xzf "$RUNNER_TEMP/zizmor.tgz" -C "$bin" zizmor
           echo "$bin" >>"$GITHUB_PATH"
           # Same version devbox.lock resolves locally; pipx puts it in ~/.local/bin.
           pipx install semgrep==1.179.0
           bun install --frozen-lockfile --cwd tools/dclint
+
+      # The security scans the pre-commit hooks apply to staged changes, run
+      # over the whole repository and with no baseline: any finding fails, and
+      # so does a missing scanner. Each stays local (--metrics=off, --offline).
+      # Repository rules (.semgrep.yaml) plus the Compose security rules, on
+      # the files Git does not ignore.
+      - name: semgrep
+        run: DOTFILES_ROOT="$GITHUB_WORKSPACE" scripts/semgrep-quality-gate
+
+      # Secrets in the tree committed at HEAD; ignored or generated files in
+      # the workspace and older history are out of scope.
+      - name: gitleaks
+        run: |
+          tree="$RUNNER_TEMP/tracked-tree"
+          mkdir "$tree"
+          git archive --format=tar -o "$RUNNER_TEMP/tracked-tree.tar" HEAD
+          tar xf "$RUNNER_TEMP/tracked-tree.tar" -C "$tree"
+          gitleaks dir "$tree" --redact --no-banner --verbose
+
+      # Workflows and composite actions Git does not ignore; a syntax error
+      # in one fails instead of being skipped.
+      - name: zizmor
+        run: zizmor --offline --strict-collection .
 
       # Smoke-tests placement on a fresh Linux home; it also creates the
       # ~/dotfiles alias that the hooks under test resolve their helpers from.

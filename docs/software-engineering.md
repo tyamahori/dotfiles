@@ -17,6 +17,7 @@
 | ADR のテンプレートと置き場所（既存規約に合わせる、なければ `docs/adr/NNNN-title.md`） | 同 skill の「ADRs」節 | コミットを超えて残る決定をしたとき |
 | 設計資料に何を書くか（書くべきかの判定、間違えたときのコストで内容を選ぶ、Goals は影響で・Non-goals を明示、Open issues は問題・選択肢・次の一歩、実装計画は設計と分けて実装者に判断を残さない、対象のファイルとシンボルを書く） | 同 skill の「Design docs」節。HTML 化とコメント運用は `reviewable-design-doc` | 複数人・長期・要件曖昧・致命的リスクのある案件の実装前 |
 | テスト設計（変更種別ごとに要るテスト、観点表で抜けたケースを洗い出す、コードの種類ごとのテストの厚み、実装前に確認する振る舞い・確認しない振る舞いの一覧を出す、name the break、実物 > fake > stub > mock、特性テスト、property-based、mutation check、消すべきテスト） | `agents/skills/test-design/SKILL.md` | テストを書く・直す・消す前、mock や helper を足す前 |
+| セキュリティ（実装前に守る条件を答える、拒否されるべきケースを許可されるケースと並べてテストする、独立レビュー、実行サンドボックスの条件、未検証を安全と言わない） | `software-design` の「Security gate」節、`test-design` の振る舞い一覧の冒頭にある triage、レビューは `security-audit` の guidance mode（フル監査は依頼されたときだけ） | 認証・認可、秘密情報、信頼できない入力、ファイルやコマンドの実行、外部への通信、CI やデプロイの権限に触れる変更の前 |
 | 依頼の枠組み（背景・課題・ゴール・スコープ・成果物、実行すれば分かる問いは聞かずに試す） | `task-briefing`、前提を問い直すなら `grill-me`（docs 付きなら用語集と ADR も書く） | 着手前、依頼が曖昧なとき |
 | 複雑タスクの工程（調査 → 計画 → 独立レビュー → 証拠つき納品） | `sureforge` | 複数ファイル・複数段階の実装 |
 | バグ診断（仮説と再現、根本原因の証拠、同じ前提の修正が二度失敗したら前提を検証する）と指標の改善（一変更ずつ計測して残すか戻す Hillclimb、測った数値を報告前に検める） | `diagnosing-bugs`（vendoring して節を追加）、共有指示の「Root-cause claims need reproduction」 | 障害・不具合・性能劣化、数値を目標まで改善するとき、測った数値を報告するとき |
@@ -25,7 +26,7 @@
 | レビュー（変更種別ごとの必須質問、fresh context での反証、読み手の理解と着手できるかの観点、指摘への作者側の仕分け、差分の外への波及範囲、Copilot 事前確認、過剰設計の摘出、ローカル差分の証拠つきレビュー） | `github-pr-review`、`evidence-code-review`、`adversarial-verification`、`copilot-preflight`、`ponytail-review` / `ponytail-audit`、OMP の `reviewer` / `security-reviewer` | PR の前後 |
 | 構造的な編集（rename、参照列挙、codemod） | 共有指示の「Structural edits」、`structural-edit`、OMP `lsp` / `ast_edit` | 複数箇所に及ぶ書き換え |
 | 言語別のスクリプト作法 | `efficient-python`、`efficient-ts-js` | スクリプトを書く・実行する前 |
-| 品質ゲート（semgrep、SonarQube、ruff、commit-msg の Why 検査） | `docs/semgrep.md`、`docs/sonarqube.md`、`ruff/ruff.toml`、`git/global-hooks/` | commit 時、完了報告前 |
+| 品質ゲート（semgrep、gitleaks、zizmor、SonarQube、ruff、commit-msg の Why 検査、このリポジトリの CI での全体検査） | `docs/semgrep.md`、`docs/sonarqube.md`、`ruff/ruff.toml`、`git/global-hooks/`、`.github/workflows/ci.yml` | commit 時、完了報告前、push 後の CI |
 | 判断の形式化（機械化できるか試す、`Mechanized:` の更新義務） | 本書「形式化のサイクルを回す」節、`agents/measured-notes.md` | 同じ判断を二度目にする前、hook/permission/schema を足したとき |
 
 ## 意図的に書いていないもの
