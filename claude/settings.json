@@ -417,24 +417,6 @@
       "Read(~/.config/gh/hosts.yml)"
     ]
   },
-  "sandbox": {
-    "enabled": true,
-    "excludedCommands": [
-      "docker *",
-      "orb *",
-      "gh *",
-      "herdr *",
-      "git fetch *",
-      "git pull *",
-      "git push *",
-      "git ls-remote *"
-    ],
-    "filesystem": {
-      "allowWrite": [
-        "~/.cache/uv"
-      ]
-    }
-  },
   "skillListingBudgetFraction": 0.03125,
   "skillOverrides": {
     "freee-api-skill": "off",
