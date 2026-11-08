@@ -1837,12 +1837,15 @@ test("a launcher counts as the configured server while what it runs defers the s
   expect(reasons).toContain("pid 214");
 });
 
+// A GUI whose own report names an older version than the installed one.
+const guiRunning = (box: Box, process: Partial<FakeProc> = {}): FakeWorld => ({
+  ...restored(box),
+  procs: [...restored(box).procs, { pid: 600, ppid: 1, name: "sheprd", exe: box.exe("sheprd"), ...process }],
+  gui: { pid: 600, version: "1.0.0", hosts: ["local", "ssh:remote"] },
+});
+
 function guiOnly(box: Box) {
-  box.world({
-    ...restored(box),
-    procs: [...restored(box).procs, { pid: 600, ppid: 1, name: "sheprd", exe: box.exe("sheprd") }],
-    gui: { pid: 600, version: "1.0.0", hosts: ["local", "ssh:remote"] },
-  });
+  box.world(guiRunning(box));
   box.afterQuit(restored(box));
   box.afterOpen({
     ...restored(box),
@@ -1914,6 +1917,21 @@ test("a Sheprd outside the expected install location is not reopened", async () 
   const result = await box.run(["--apply"]);
 
   expect(result.code).toBe(3);
+  expect(box.calls()).not.toContain("sheprd app quit --json");
+});
+
+test("a GUI reporting an old version whose executable cannot be mapped is held, not quit", async () => {
+  const box = setup();
+  guiOnly(box);
+  box.world(guiRunning(box, { exe: undefined }));
+
+  const result = await box.run(["--apply"]);
+  const status = await box.status();
+
+  expect(status.gui.state).toBe("pending");
+  expect(status.gui.blockers).toHaveLength(1);
+  expect(result.code).toBe(3);
+  expect(result.asked).toBe(0);
   expect(box.calls()).not.toContain("sheprd app quit --json");
 });
 
@@ -2158,6 +2176,8 @@ test.each([
   ["its status can no longer be read", (box: Box) => writeText(join(box.stub, "current/sheprd-status.code"), "1")],
   ["a newer Sheprd was installed", (box: Box) => writeText(join(box.stub, "sheprd-version"), "3.0.0")],
   ["the update was rolled back", (box: Box) => writeText(join(box.stub, "sheprd-version"), "1.0.0")],
+  ["its executable can no longer be mapped", (box: Box) => box.world(guiRunning(box, { exe: undefined }))],
+  ["its mapped executable was replaced", (box: Box) => box.world(guiRunning(box, { inode: "999" }))],
 ])("a GUI approved for restart is not quit when %s", async (_name, change) => {
   const box = setup();
   guiOnly(box);

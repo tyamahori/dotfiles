@@ -967,6 +967,19 @@ function guiState(observed: Observed): GuiPlan["state"] {
   return state === "current" ? "current" : "unknown";
 }
 
+// A version report says an update exists, not that this process is the app it would be quit for,
+// so the mapped executable has to be recognized as well.
+function guiBlockers(observed: Observed, bundle: string | undefined): string[] {
+  const { gui, world } = observed;
+  const exe = gui.pid === undefined ? undefined : world.exes.get(gui.pid);
+  const blockers: string[] = [];
+  if (!bundle) blockers.push("Sheprd の導入先が想定の場所にない");
+  if (classifyExe(exe, world.installed.sheprd) === "unknown") {
+    blockers.push("稼働中の Sheprd の実行ファイルを確認できない");
+  }
+  return blockers;
+}
+
 export function planGui(observed: Observed): GuiPlan {
   const { gui, world } = observed;
   const bundle = trustedBundle(world.installed.sheprd.path, world.home);
@@ -979,8 +992,13 @@ export function planGui(observed: Observed): GuiPlan {
     version: gui.version,
     installed: world.installed.sheprd.version,
     bundle,
-    identity: JSON.stringify([gui.pid, started, gui.version, gui.remoteHosts, installedIdentity("sheprd", world)]),
-    blockers: state === "pending" && !bundle ? ["Sheprd の導入先が想定の場所にない"] : [],
+    identity: JSON.stringify([
+      procIdentity(gui.pid, world),
+      gui.version,
+      gui.remoteHosts,
+      installedIdentity("sheprd", world),
+    ]),
+    blockers: state === "pending" ? guiBlockers(observed, bundle) : [],
     remoteHosts: gui.remoteHosts,
   };
 }
