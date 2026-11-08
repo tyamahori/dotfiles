@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.tyamahori.tool-restart</string>
+	<!-- notification only: --notify never stops anything -->
+	<key>ProgramArguments</key>
+	<array>
+		<string>@REPO_ROOT@/scripts/tool-restart</string>
+		<string>--notify</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StartInterval</key>
+	<integer>300</integer>
+	<!-- launchd's default PATH reaches none of the six tools, Bun, or terminal-notifier -->
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>@HOME@/.bun/bin:/opt/homebrew/bin:@HOME@/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>@HOME@/.local/state/tool-restart/launchd.log</string>
+	<key>StandardErrorPath</key>
+	<string>@HOME@/.local/state/tool-restart/launchd.log</string>
+</dict>
+</plist>
