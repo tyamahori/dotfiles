@@ -15,7 +15,15 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { type Ctx, main } from "./tool-restart.ts";
-import { parseMappedExes } from "./tool-restart-core.ts";
+import {
+  buildWorld,
+  extractVersion,
+  type Installed,
+  parseMappedExes,
+  parseProcs,
+  runningRows,
+  type ToolId,
+} from "./tool-restart-core.ts";
 
 // Every native CLI is a stub on PATH, driven by fixture files, so the production code spawns
 // real subprocesses without any real session in reach: HOME and PATH never leave this tree.
@@ -703,6 +711,94 @@ test("an unreadable process table is a failure, not an all-clear", async () => {
 
   expect(result.code).toBe(1);
   expect(result.out).toBe("");
+});
+
+test("a process line gives every column, one space inside the start time, and the command's own spaces", () => {
+  const line = " 123\t45  67 501 Ss+ Sun Nov  8 10:00:00 2026   /opt/My App/bin/my tool  \n";
+
+  expect(parseProcs(line)).toEqual([
+    { pid: 123, ppid: 45, pgid: 67, uid: 501, state: "Ss+", started: "Sun Nov 8 10:00:00 2026", name: "my tool" },
+  ]);
+});
+
+const PS_HEAD = "1 1 1 0 S Sun Nov  8 10:00:00 2026";
+
+test.each([
+  ["columns separated by non-ASCII whitespace", "　1 1 1 0 S Sun Nov 8 10:00:00 2026 omp", "omp"],
+  ["a command of nothing but spaces, since it is still a process", `${PS_HEAD}  `, ""],
+])("a process line is kept with %s", (_name, line, name) => {
+  expect(parseProcs(line).map((found) => found.name)).toEqual([name]);
+});
+
+test.each([
+  ["only one space after the start time", `${PS_HEAD} `],
+  ["nothing after the start time", PS_HEAD],
+  ["a carriage return inside the command", `${PS_HEAD} omp\r`],
+  ["a blank command ending in a carriage return", `${PS_HEAD}  \r`],
+  ["a pid that is not all digits", "1a 1 1 0 S Sun Nov 8 10:00:00 2026 omp"],
+  ["a weekday that is not three characters", "1 1 1 0 S Sunday Nov 8 10:00:00 2026 omp"],
+  ["a day that is not all digits", "1 1 1 0 S Sun Nov 8th 10:00:00 2026 omp"],
+  ["a time with other characters", "1 1 1 0 S Sun Nov 8 10-00-00 2026 omp"],
+  ["a year of five digits", "1 1 1 0 S Sun Nov 8 10:00:00 20261 omp"],
+])("a process line is dropped with %s", (_name, line) => {
+  expect(parseProcs(line)).toEqual([]);
+});
+
+test.each([
+  ["codex-cli 2.0.0", "2.0.0"],
+  ["v18.1", "18.1"],
+  ["1.2.3.4-beta", "1.2.3.4"],
+  ["build 123456 then 7.8", "7.8"],
+  ["1..2.3", "2.3"],
+  ["1. 2.3", "2.3"],
+  ["only 12 here", undefined],
+  ["123456", undefined],
+  ["", undefined],
+])("the version in %j is %j", (text, version) => {
+  expect(extractVersion(text)).toBe(version);
+});
+
+const onlyOmpInstalled = (omp: Installed): Record<ToolId, Installed> => ({
+  omp,
+  herdr: {},
+  sheprd: {},
+  claude: {},
+  codex: {},
+  grok: {},
+});
+
+const KEG = "/opt/Cellar/omp/2.0.0/bin/omp";
+const DOWNLOAD = "/home/.grok/downloads/grok-2.0.0-macos";
+
+const statesRunning = (running: string, installedPath: string) =>
+  runningRows({
+    world: buildWorld({
+      procs: [{ pid: 1, ppid: 0, pgid: 1, uid: 0, state: "S", started: "", name: "omp" }],
+      exes: new Map([[1, { path: running, inode: "1" }]]),
+      installed: onlyOmpInstalled({ path: installedPath, inode: "2", version: "2.0.0" }),
+      home: "/home",
+    }),
+    sessions: [],
+    gui: { known: true, running: false, remoteHosts: 0 },
+    backend: "absent",
+  }).map((row) => [row.state, row.version]);
+
+test.each([
+  ["a two-part version on another keg", KEG, "/opt/Cellar/omp/1.9/bin/omp", "1.9"],
+  ["a keg with a revision suffix", KEG, "/opt/Cellar/omp/18.18.1_1/bin/omp", "18.18.1"],
+  ["a version at the end of a file name", DOWNLOAD, "/home/.grok/downloads/grok-1.5.0-macos", "1.5.0"],
+  ["a segment holding two versions", "/opt/omp-2.0.0/omp", "/opt/omp-1.0-3.4/omp", "3.4"],
+])("a process running from %s waits for its update", (_name, installedPath, running, version) => {
+  expect(statesRunning(running, installedPath)).toEqual([["pending", version]]);
+});
+
+test.each([
+  ["a v before the version", KEG, "/opt/Cellar/omp/v1.0.0/bin/omp", "1.0.0"],
+  ["a number with no dot", KEG, "/opt/Cellar/omp/100/bin/omp", undefined],
+  ["a number with no dot before the version", "/opt/omp-2.0.0/omp", "/opt/omp-12345-1.0/omp", "1.0"],
+  ["another directory below the version", KEG, "/opt/Cellar/omp/1.0.0/libexec/omp", "1.0.0"],
+])("a process running from %s stays unidentified", (_name, installedPath, running, version) => {
+  expect(statesRunning(running, installedPath)).toEqual([["unknown", version]]);
 });
 
 test("the plain report lists every tool and session", async () => {

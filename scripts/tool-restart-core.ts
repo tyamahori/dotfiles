@@ -159,11 +159,20 @@ export type Plan = {
 
 type Json = Record<string, unknown>;
 const NO_PIDS: ReadonlySet<number> = new Set();
-const VERSION = /\d+\.\d+(?:\.\d+)*/;
-const VERSION_ANYWHERE = /\d+\.\d+(?:\.\d+)*/g;
-const VERSION_SEGMENT = /\d+\.\d+[^/]*/g;
+// A match can only begin where a digit run begins. Saying so keeps a long run with no dot after it
+// from being rescanned from each of its digits; `\b` instead would lose the version in v18.1.
+const VERSION = /(?<!\d)\d+\.\d+(?:\.\d+)*/;
+const VERSION_ANYWHERE = /(?<!\d)\d+\.\d+(?:\.\d+)*/g;
+const VERSION_SEGMENT = /(?<!\d)\d+\.\d+[^/]*/g;
 const SESSION_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
-const PS_LINE = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\w{3}\s+\w{3}\s+\d+\s+[\d:]+\s+\d{4})\s+(.+)$/;
+const DIGITS = /^\d+$/;
+const WORD3 = /^\w{3}$/;
+// pid ppid pgid uid stat, then lstart's weekday, month, day, time and year. None of them holds
+// whitespace, so each is split off and checked alone. One pattern for the whole line would let its
+// last `\s+` and `.+` trade spaces, which is quadratic on a line that cannot match.
+const PS_COLUMNS = [DIGITS, DIGITS, DIGITS, DIGITS, /^\S+$/, WORD3, WORD3, DIGITS, /^[\d:]+$/, /^\d{4}$/];
+const WHITESPACE = /\s/;
+const ONE_LINE = /^.+$/;
 const BREW_PATH = /\/(?:Cellar|Caskroom)\//;
 const INACTIVE_DAEMON = /^(?:exited|stopped|dead|failed|crashed)$/i;
 const HERDR_PROCESS = /^(?:herdr|sheprd)/;
@@ -232,23 +241,42 @@ function procName(comm: string): string {
   return basename(comm.trim()).replace(/^-/, "");
 }
 
+// What follows the last column: at least one separating whitespace, then the command with its spaces.
+// An all-blank command still counts, since dropping the line would hide a live process from every
+// check; its name comes out empty. A line terminator left in the command refuses the line.
+function psCommand(tail: string): string | undefined {
+  const text = tail.slice(1);
+  const command = text.trimStart() || text.slice(-1);
+  return ONE_LINE.test(command) ? command : undefined;
+}
+
+function parseProcLine(line: string): Proc | undefined {
+  const columns: string[] = [];
+  let rest = line;
+  for (const column of PS_COLUMNS) {
+    const text = rest.trimStart();
+    const end = text.search(WHITESPACE);
+    const value = end < 0 ? text : text.slice(0, end);
+    if (!column.test(value)) return undefined;
+    columns.push(value);
+    rest = text.slice(value.length);
+  }
+  const command = psCommand(rest);
+  if (command === undefined) return undefined;
+  const [pid, ppid, pgid, uid, state, ...started] = columns;
+  return {
+    pid: Number(pid),
+    ppid: Number(ppid),
+    pgid: Number(pgid),
+    uid: Number(uid),
+    state: state ?? "",
+    started: started.join(" "),
+    name: procName(command),
+  };
+}
+
 export function parseProcs(text: string): Proc[] {
-  return text.split("\n").flatMap((line) => {
-    const match = PS_LINE.exec(line);
-    if (!match) return [];
-    const [, pid, ppid, pgid, uid, state, started, comm] = match;
-    return [
-      {
-        pid: Number(pid),
-        ppid: Number(ppid),
-        pgid: Number(pgid),
-        uid: Number(uid),
-        state: state ?? "",
-        started: (started ?? "").replace(/\s+/g, " "),
-        name: procName(comm ?? ""),
-      },
-    ];
-  });
+  return text.split("\n").flatMap((line) => parseProcLine(line) ?? []);
 }
 
 // lsof lists the executable as a process's first txt entry, before dyld and dylibs.
