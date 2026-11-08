@@ -2003,52 +2003,59 @@ test("an unidentified child holds only its own session while an independent read
   expect(box.stops()).toEqual(["herdr session stop default --json"]);
 });
 
+// Two sessions run well over a hundred native commands, more than the default 5 s allows on a busy
+// machine. The runner also kills what a timed-out test has running, and a command killed during the
+// restore's last check leaves the recovery record behind, so the time limit has to be the real one.
 test.each([
   ["the final scan still shows it stale", (box: Box) => before(box)],
   ["the final scan no longer shows it stale", (box: Box) => restored(box)],
-])("a session held after approval does not cost the next one its restart when %s", async (_name, finalDefault) => {
-  const box = setup();
-  const second = (world: FakeWorld, serverPid: number, version: string, terminalId: string) => {
-    world.procs.push(
-      { pid: serverPid, ppid: 1, name: "herdr", exe: box.exe("herdr", version) },
-      { pid: serverPid + 1, ppid: serverPid, name: "zsh" },
-    );
-    world.sessions.push({
-      name: "second",
-      serverPid,
-      panes: [
-        {
-          id: "w9:p1",
-          terminalId,
-          cwd: box.work,
-          shellPid: serverPid + 1,
-          fgGroup: serverPid + 1,
-          foreground: [{ pid: serverPid + 1, name: "zsh" }],
-        },
-      ],
+])(
+  "a session held after approval does not cost the next one its restart when %s",
+  async (_name, finalDefault) => {
+    const box = setup();
+    const second = (world: FakeWorld, serverPid: number, version: string, terminalId: string) => {
+      world.procs.push(
+        { pid: serverPid, ppid: 1, name: "herdr", exe: box.exe("herdr", version) },
+        { pid: serverPid + 1, ppid: serverPid, name: "zsh" },
+      );
+      world.sessions.push({
+        name: "second",
+        serverPid,
+        panes: [
+          {
+            id: "w9:p1",
+            terminalId,
+            cwd: box.work,
+            shellPid: serverPid + 1,
+            fgGroup: serverPid + 1,
+            foreground: [{ pid: serverPid + 1, name: "zsh" }],
+          },
+        ],
+      });
+      return world;
+    };
+    // Both are ready when approved; only then does a job appear under the first session's agent.
+    const held = before(box);
+    held.procs.push({ pid: 212, ppid: 211, pgid: 212, name: "python" });
+    box.world(second(before(box), 700, "1.0.0", "t9"));
+    const secondStopped = before(box);
+    secondStopped.sessions.push({ name: "second", running: false, panes: [] });
+    box.afterStop(secondStopped);
+    box.afterAttach(second(finalDefault(box), 800, "2.0.0", "t10"));
+
+    const result = await box.run(["--apply"], {
+      beforeAnswer: () => box.mutateOn("omp ps list --all --json", second(held, 700, "1.0.0", "t9")),
     });
-    return world;
-  };
-  // Both are ready when approved; only then does a job appear under the first session's agent.
-  const held = before(box);
-  held.procs.push({ pid: 212, ppid: 211, pgid: 212, name: "python" });
-  box.world(second(before(box), 700, "1.0.0", "t9"));
-  const secondStopped = before(box);
-  secondStopped.sessions.push({ name: "second", running: false, panes: [] });
-  box.afterStop(secondStopped);
-  box.afterAttach(second(finalDefault(box), 800, "2.0.0", "t10"));
 
-  const result = await box.run(["--apply"], {
-    beforeAnswer: () => box.mutateOn("omp ps list --all --json", second(held, 700, "1.0.0", "t9")),
-  });
-
-  expect(result.asked).toBe(1);
-  expect(box.stops()).toEqual(["herdr session stop second --json"]);
-  expect(box.attaches()).toEqual(["herdr session attach second"]);
-  expect(existsSync(box.recoveryFile("default"))).toBe(false);
-  expect(existsSync(box.recoveryFile("second"))).toBe(false);
-  expect(result.code).toBe(3);
-});
+    expect(result.asked).toBe(1);
+    expect(box.stops()).toEqual(["herdr session stop second --json"]);
+    expect(box.attaches()).toEqual(["herdr session attach second"]);
+    expect(existsSync(box.recoveryFile("default"))).toBe(false);
+    expect(existsSync(box.recoveryFile("second"))).toBe(false);
+    expect(result.code).toBe(3);
+  },
+  30_000,
+);
 
 test("a launcher counts as the configured server while what it runs defers the session", async () => {
   const box = setup();
