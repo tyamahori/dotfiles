@@ -86,6 +86,13 @@ function writeStub(path: string, body: string) {
   chmodSync(path, 0o755);
 }
 
+// An executable file nothing here ever runs. The default content has no shebang, so it reads as a
+// compiled program rather than as a script with an interpreter.
+function writeProgram(path: string, content = "\u007fELF\n") {
+  writeText(path, content);
+  chmodSync(path, 0o755);
+}
+
 const HERDR_STUB = `echo "herdr $*" >>"$STUB/calls.log"
 [ -n "\${HERDR_PANE_ID:-}" ] && echo "leaked" >>"$STUB/calls.log"
 c="$STUB/current"
@@ -208,7 +215,9 @@ fi`,
   writeStub(join(bin, "terminal-notifier"), 'printf "terminal-notifier %s\\n" "$*" >>"$STUB/calls.log"');
   writeStub(join(bin, "open"), 'echo "open $*" >>"$STUB/calls.log"\ncp -R "$STUB/after-open/." "$STUB/current/"');
 
-  // before() runs this server under its OMP agent.
+  // before() runs this server under its OMP agent, mapping the node that PATH finds here.
+  writeProgram(join(bin, "node"));
+  writeProgram(join(bin, "mcp-tool"));
   writeText(join(home, ".omp/agent/mcp.json"), { mcpServers: { web: { command: "node", args: ["server.js"] } } });
   const ompSession = join(home, ".omp/agent/sessions/work/s.jsonl");
   const claudeTranscript = join(home, ".claude/projects", work.replace(/[^A-Za-z0-9]/g, "-"), `${CLAUDE_ID}.jsonl`);
@@ -452,6 +461,8 @@ const proc = (world: FakeWorld, pid: number) => {
   if (!found) throw new Error(`no proc ${pid}`);
   return found;
 };
+const nodeExe = (box: Box) => join(box.bin, "node");
+const toolExe = (box: Box) => join(box.bin, "mcp-tool");
 
 // default session: an OMP on an old keg, a current Claude, and an empty shell.
 function before(box: Box): FakeWorld {
@@ -460,7 +471,7 @@ function before(box: Box): FakeWorld {
       { pid: 100, ppid: 1, name: "herdr", exe: box.exe("herdr") },
       { pid: 200, ppid: 100, name: "zsh" },
       { pid: 201, ppid: 200, name: "omp", exe: box.exe("omp", "1.0.0") },
-      { pid: 202, ppid: 201, pgid: 201, name: "node" },
+      { pid: 202, ppid: 201, pgid: 201, name: "node", exe: nodeExe(box) },
       { pid: 210, ppid: 100, name: "zsh" },
       { pid: 211, ppid: 210, name: "claude", exe: box.exe("claude") },
       { pid: 220, ppid: 100, name: "zsh" },
@@ -919,14 +930,18 @@ test("an agent that started working after approval voids it", async () => {
   expect(box.stops()).toEqual([]);
 });
 
-const TOOL_SERVER = { type: "stdio", command: "/opt/mcp/tool", args: ["mcp", "--flag"], env: { TOKEN: "env-secret" } };
-const TOOL_ARGV = ["/opt/mcp/tool", "mcp", "--flag"];
+// A bare command, so it resolves on PATH to the program setup() puts there.
+const TOOL_SERVER = { type: "stdio", command: "mcp-tool", args: ["mcp", "--flag"], env: { TOKEN: "env-secret" } };
+const TOOL_ARGV = ["mcp-tool", "mcp", "--flag"];
 const TOOL_LINE = TOOL_ARGV.join(" ");
-const TOOL_TOML = '[mcp_servers.tool]\ncommand = "/opt/mcp/tool"\nargs = ["mcp", "--flag"]\n';
+const TOOL_TOML = '[mcp_servers.tool]\ncommand = "mcp-tool"\nargs = ["mcp", "--flag"]\n';
+// Where the kernel really found bash, which is also where lsof reports it.
+const BASH = realpathSync("/bin/bash");
 
 const claudeMcp = (box: Box, servers: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
   writeText(join(box.home, ".claude.json"), { mcpServers: servers, ...extra });
 const configureTool = (box: Box) => claudeMcp(box, { tool: TOOL_SERVER });
+const toolChild = (box: Box): FakeProc => ({ pid: 212, ppid: 211, pgid: 211, name: "tool", exe: toolExe(box) });
 
 // A process Herdr lists in the pane's foreground, with the exact argument list it reports.
 function inForeground(world: FakeWorld, paneId: string, child: FakeProc, argv: (string | number)[]) {
@@ -934,14 +949,36 @@ function inForeground(world: FakeWorld, paneId: string, child: FakeProc, argv: (
   pane(world, paneId).foreground?.push({ pid: child.pid, name: child.name, argv });
 }
 
+// A real program outside PATH, for a child that shares a command's name and arguments but not its file.
+function programElsewhere(box: Box, name: string) {
+  const path = join(box.home, "elsewhere", name);
+  writeProgram(path);
+  return path;
+}
+
+// A script configured as the server, whose shebang names this interpreter.
+function configuredScript(box: Box, interpreter: string) {
+  const script = join(box.home, "mcp/server.js");
+  writeProgram(script, `#!/usr/bin/env ${interpreter}\n`);
+  claudeMcp(box, { server: { command: script, args: [] } });
+  return script;
+}
+
 // A launcher that only execs a script. Returns the script, and the argument list it then runs with.
 function execLauncher(box: Box) {
   const script = join(box.home, "mcp/run.sh");
   const launcher = join(box.home, "mcp/launcher");
-  writeText(script, "#!/bin/bash\nperl -e 'system @ARGV' binary \"$@\"\n");
-  writeText(launcher, `#!/bin/bash\nexec "${script}" "$@"\n`);
+  writeProgram(script, "#!/bin/bash\nperl -e 'system @ARGV' binary \"$@\"\n");
+  writeProgram(launcher, `#!/bin/bash\nexec "${script}" "$@"\n`);
   claudeMcp(box, { server: { command: launcher, args: ["mcp"] } });
   return ["/bin/bash", script, "mcp"];
+}
+
+// A launcher that only execs this file, so the server then runs as that file.
+function execLauncherOf(box: Box, target: string) {
+  const launcher = join(box.home, "mcp/launcher");
+  writeProgram(launcher, `#!/bin/bash\nexec "${target}" "$@"\n`);
+  claudeMcp(box, { server: { command: launcher, args: ["mcp"] } });
 }
 
 // bash -> perl -> binary, the shape of a real configured wrapper. All three share the group and the
@@ -951,7 +988,12 @@ function wrappedServer(world: FakeWorld, box: Box) {
   const argv = execLauncher(box);
   const perl = ["perl", "-e", "system @ARGV", "binary", "mcp"];
   const binary = ["binary", "mcp"];
-  inForeground(world, "w1:p2", { ...shared, pid: 212, ppid: 211, name: "bash", command: argv.join(" ") }, argv);
+  inForeground(
+    world,
+    "w1:p2",
+    { ...shared, pid: 212, ppid: 211, name: "bash", command: argv.join(" "), exe: BASH },
+    argv,
+  );
   inForeground(world, "w1:p2", { ...shared, pid: 213, ppid: 212, name: "perl", command: perl.join(" ") }, perl);
   inForeground(world, "w1:p2", { ...shared, pid: 214, ppid: 213, name: "binary", command: binary.join(" ") }, binary);
 }
@@ -960,7 +1002,14 @@ function wrappedServer(world: FakeWorld, box: Box) {
 const SPLIT_ARGS = ["/work/mcp", "server.js"];
 const SPACED_ARGS = ["/work/mcp server.js"];
 const NODE_LINE = "node /work/mcp server.js";
-const SERVER_CHILD = { pid: 212, ppid: 211, pgid: 211, name: "node", command: NODE_LINE };
+const serverChild = (box: Box): FakeProc => ({
+  pid: 212,
+  ppid: 211,
+  pgid: 211,
+  name: "node",
+  command: NODE_LINE,
+  exe: nodeExe(box),
+});
 
 const grokSession = (box: Box) => join(box.home, ".grok/sessions", encodeURIComponent(box.work), GROK_ID);
 
@@ -1014,7 +1063,7 @@ const DEFERRED: Deferral[] = [
     "w1:p2",
     (world, box) => {
       configureTool(box);
-      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "node" }, ["node", "train.js"]);
+      inForeground(world, "w1:p2", { ...serverChild(box), command: undefined }, ["node", "train.js"]);
     },
   ],
   [
@@ -1022,15 +1071,77 @@ const DEFERRED: Deferral[] = [
     "w1:p2",
     (world, box) => {
       configureTool(box);
-      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, [...TOOL_ARGV, "--other"]);
+      inForeground(world, "w1:p2", toolChild(box), [...TOOL_ARGV, "--other"]);
     },
+  ],
+  [
+    "a child has the configured arguments but runs another file than the command resolves to",
+    "w1:p2",
+    (world, box) => {
+      configureTool(box);
+      inForeground(world, "w1:p2", { ...toolChild(box), exe: programElsewhere(box, "mcp-tool") }, TOOL_ARGV);
+    },
+  ],
+  [
+    "a child has the configured arguments but its file was replaced at the same path",
+    "w1:p2",
+    (world, box) => {
+      configureTool(box);
+      inForeground(world, "w1:p2", { ...toolChild(box), inode: "999" }, TOOL_ARGV);
+    },
+  ],
+  [
+    "a child has the configured arguments but its executable cannot be mapped",
+    "w1:p2",
+    (world, box) => {
+      configureTool(box);
+      inForeground(world, "w1:p2", { ...toolChild(box), exe: undefined }, TOOL_ARGV);
+    },
+  ],
+  [
+    "a configured command is not on PATH",
+    "w1:p2",
+    (world, box) => {
+      claudeMcp(box, { server: { command: "not-installed", args: ["mcp"] } });
+      inForeground(world, "w1:p2", toolChild(box), ["not-installed", "mcp"]);
+    },
+  ],
+  [
+    "a configured script's interpreter on PATH is not the one the child runs",
+    "w1:p2",
+    (world, box) => {
+      const script = configuredScript(box, "node");
+      inForeground(world, "w1:p2", { ...serverChild(box), exe: programElsewhere(box, "node") }, ["node", script]);
+    },
+  ],
+  [
+    "a configured script's interpreter is not on PATH",
+    "w1:p2",
+    (world, box) => {
+      const script = configuredScript(box, "not-installed");
+      inForeground(world, "w1:p2", serverChild(box), ["not-installed", script]);
+    },
+  ],
+  [
+    "a configured launcher execs a file that no longer exists",
+    "w1:p2",
+    (world, box) => {
+      const gone = join(box.home, "mcp/gone");
+      execLauncherOf(box, gone);
+      inForeground(world, "w1:p2", { ...toolChild(box), exe: gone }, [gone, "mcp"]);
+    },
+  ],
+  [
+    "OMP's configured server runs another node than PATH finds",
+    "w1:p1",
+    (world, box) => void (proc(world, 202).exe = programElsewhere(box, "node")),
   ],
   [
     "one spaced argument prints like a configured pair of arguments",
     "w1:p2",
     (world, box) => {
       claudeMcp(box, { server: { command: "node", args: SPLIT_ARGS } });
-      inForeground(world, "w1:p2", SERVER_CHILD, ["node", ...SPACED_ARGS]);
+      inForeground(world, "w1:p2", serverChild(box), ["node", ...SPACED_ARGS]);
     },
   ],
   [
@@ -1038,7 +1149,7 @@ const DEFERRED: Deferral[] = [
     "w1:p2",
     (world, box) => {
       claudeMcp(box, { server: { command: "node", args: SPACED_ARGS } });
-      inForeground(world, "w1:p2", SERVER_CHILD, ["node", ...SPLIT_ARGS]);
+      inForeground(world, "w1:p2", serverChild(box), ["node", ...SPLIT_ARGS]);
     },
   ],
   [
@@ -1046,7 +1157,7 @@ const DEFERRED: Deferral[] = [
     "w1:p2",
     (world, box) => {
       configureTool(box);
-      world.procs.push({ pid: 212, ppid: 211, pgid: 211, name: "tool", command: TOOL_LINE });
+      world.procs.push({ ...toolChild(box), command: TOOL_LINE });
       pane(world, "w1:p2").foreground?.push({ pid: 212, name: "tool" });
     },
   ],
@@ -1055,7 +1166,7 @@ const DEFERRED: Deferral[] = [
     "w1:p2",
     (world, box) => {
       configureTool(box);
-      world.procs.push({ pid: 212, ppid: 211, pgid: 212, name: "tool", command: TOOL_LINE });
+      world.procs.push({ ...toolChild(box), pgid: 212, command: TOOL_LINE });
     },
   ],
   [
@@ -1063,7 +1174,7 @@ const DEFERRED: Deferral[] = [
     "w1:p2",
     (world, box) => {
       configureTool(box);
-      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
+      inForeground(world, "w1:p2", toolChild(box), TOOL_ARGV);
       pane(world, "w1:p2").foreground?.push({ pid: 212, name: "tool", argv: ["python", "job.py"] });
     },
   ],
@@ -1073,7 +1184,7 @@ const DEFERRED: Deferral[] = [
     (world, box) => {
       configureTool(box);
       const [command, ...args] = TOOL_ARGV;
-      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, [command ?? "", 7, ...args]);
+      inForeground(world, "w1:p2", toolChild(box), [command ?? "", 7, ...args]);
     },
   ],
   [
@@ -1081,7 +1192,7 @@ const DEFERRED: Deferral[] = [
     "w1:p2",
     (world, box) => {
       configureTool(box);
-      inForeground(world, "w1:p2", { pid: 212, ppid: 210, pgid: 211, name: "tool" }, TOOL_ARGV);
+      inForeground(world, "w1:p2", { ...toolChild(box), ppid: 210 }, TOOL_ARGV);
     },
   ],
   [
@@ -1094,7 +1205,7 @@ const DEFERRED: Deferral[] = [
     "w1:p2",
     (world, box) => {
       configureTool(box);
-      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
+      inForeground(world, "w1:p2", toolChild(box), TOOL_ARGV);
       inForeground(world, "w1:p2", { pid: 213, ppid: 212, pgid: 211, name: "python" }, ["python", "job.py"]);
     },
   ],
@@ -1103,7 +1214,7 @@ const DEFERRED: Deferral[] = [
     "w1:p2",
     (world, box) => {
       writeText(join(box.work, ".mcp.json"), { mcpServers: { tool: TOOL_SERVER } });
-      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
+      inForeground(world, "w1:p2", toolChild(box), TOOL_ARGV);
     },
   ],
   [
@@ -1112,7 +1223,7 @@ const DEFERRED: Deferral[] = [
     (world, box) => {
       useCodex(world, box);
       writeText(join(box.home, ".codex/config.toml"), `${TOOL_TOML}enabled = false\n`);
-      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
+      inForeground(world, "w1:p2", toolChild(box), TOOL_ARGV);
     },
   ],
   [
@@ -1394,21 +1505,38 @@ const READY: [string, (world: FakeWorld, box: Box) => void][] = [
     "a configured MCP server shares the agent's process group",
     (world, box) => {
       configureTool(box);
-      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
+      inForeground(world, "w1:p2", toolChild(box), TOOL_ARGV);
+    },
+  ],
+  [
+    "a configured absolute command runs that very file",
+    (world, box) => {
+      const tool = programElsewhere(box, "tool");
+      claudeMcp(box, { server: { command: tool, args: ["mcp"] } });
+      inForeground(world, "w1:p2", { ...toolChild(box), exe: tool }, [tool, "mcp"]);
+    },
+  ],
+  [
+    "a configured command on PATH is a symlink to the file the child runs",
+    (world, box) => {
+      const real = programElsewhere(box, "tool");
+      symlinkSync(real, join(box.bin, "linked-tool"));
+      claudeMcp(box, { server: { command: "linked-tool", args: ["mcp"] } });
+      inForeground(world, "w1:p2", { ...toolChild(box), exe: real }, ["linked-tool", "mcp"]);
     },
   ],
   [
     "a configured argument containing a space matches exactly",
     (world, box) => {
       claudeMcp(box, { server: { command: "node", args: SPACED_ARGS } });
-      inForeground(world, "w1:p2", SERVER_CHILD, ["node", ...SPACED_ARGS]);
+      inForeground(world, "w1:p2", serverChild(box), ["node", ...SPACED_ARGS]);
     },
   ],
   [
     "a project's local-scope MCP server is configured for this directory",
     (world, box) => {
       claudeMcp(box, {}, { projects: { [box.work]: { mcpServers: { tool: TOOL_SERVER } } } });
-      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
+      inForeground(world, "w1:p2", toolChild(box), TOOL_ARGV);
     },
   ],
   [
@@ -1416,22 +1544,30 @@ const READY: [string, (world: FakeWorld, box: Box) => void][] = [
     (world, box) => {
       const script = join(box.home, "mcp/server.js");
       const link = join(box.home, "mcp/server");
-      writeText(script, "#!/usr/bin/env node\n");
+      writeProgram(script, "#!/usr/bin/env node\n");
       symlinkSync(script, link);
       claudeMcp(box, { server: { command: link, args: ["--headless"] } });
-      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "node" }, ["node", link, "--headless"]);
+      inForeground(world, "w1:p2", serverChild(box), ["node", link, "--headless"]);
     },
   ],
   [
     "a configured launcher that only execs its script has no children yet",
-    (world, box) => inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "bash" }, execLauncher(box)),
+    (world, box) => inForeground(world, "w1:p2", { ...toolChild(box), name: "bash", exe: BASH }, execLauncher(box)),
+  ],
+  [
+    "a configured launcher has become the program it execs",
+    (world, box) => {
+      const target = programElsewhere(box, "tool");
+      execLauncherOf(box, target);
+      inForeground(world, "w1:p2", { ...toolChild(box), exe: target }, [target, "mcp"]);
+    },
   ],
   [
     "a Codex pane runs a server from Codex's configuration",
     (world, box) => {
       useCodex(world, box);
       writeText(join(box.home, ".codex/config.toml"), TOOL_TOML);
-      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
+      inForeground(world, "w1:p2", toolChild(box), TOOL_ARGV);
     },
   ],
   [
@@ -1439,7 +1575,7 @@ const READY: [string, (world: FakeWorld, box: Box) => void][] = [
     (world, box) => {
       useGrok(world, box);
       writeText(join(box.home, ".grok/config.toml"), TOOL_TOML);
-      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
+      inForeground(world, "w1:p2", toolChild(box), TOOL_ARGV);
     },
   ],
   [
@@ -1447,7 +1583,7 @@ const READY: [string, (world: FakeWorld, box: Box) => void][] = [
     (world, box) => {
       useGrok(world, box);
       configureTool(box);
-      inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
+      inForeground(world, "w1:p2", toolChild(box), TOOL_ARGV);
     },
   ],
   [
@@ -2289,7 +2425,7 @@ test("the report names an identified helper without its arguments or configured 
   const box = setup();
   const world = before(box);
   configureTool(box);
-  inForeground(world, "w1:p2", { pid: 212, ppid: 211, pgid: 211, name: "tool" }, TOOL_ARGV);
+  inForeground(world, "w1:p2", toolChild(box), TOOL_ARGV);
   box.world(world);
 
   const status = await box.status();

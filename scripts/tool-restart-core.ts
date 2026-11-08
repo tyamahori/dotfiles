@@ -74,7 +74,11 @@ export type Observed = { world: World; sessions: SessionObservation[]; gui: GuiS
 export type TargetView = { session: SessionObservation; world: World };
 export type OmpInventory = { owned: Map<string, string[]>; infra: Set<number> };
 export type McpServer = { command: string; args: string[] };
-export type CommandFiles = { resolve(command: string): string | undefined; head(path: string): string | undefined };
+export type CommandFiles = {
+  resolve(command: string): string | undefined;
+  head(path: string): string | undefined;
+  identity(path: string): Exe | undefined;
+};
 export type SavedRef = { ok: true; sessionId: string } | { ok: false; reason: string };
 export type AssessEnv = {
   world: World;
@@ -84,7 +88,7 @@ export type AssessEnv = {
   grokLeaders?: number;
   restoreOn: boolean;
   recovering: ReadonlySet<string>;
-  mcpArgvs(agent: AgentId, cwd: string): ReadonlySet<string>;
+  mcpIdentities(agent: AgentId, cwd: string): ReadonlySet<string>;
   savedRef(agent: AgentId, ref: AgentRef, cwd: string): SavedRef;
   dirExists(path: string): boolean;
   socketOwned(path: string): boolean;
@@ -254,8 +258,11 @@ export function parseMappedExes(text: string): Map<number, Exe> {
   let inode = "";
   for (const line of text.split("\n")) {
     const value = line.slice(1);
-    if (line.startsWith("p")) pid = Number(value);
-    else if (line.startsWith("i")) inode = value;
+    if (line.startsWith("p")) {
+      pid = Number(value);
+      // An entry with no inode must not borrow the previous process's: that would vouch for the wrong file.
+      inode = "";
+    } else if (line.startsWith("i")) inode = value;
     else if (line.startsWith("n") && !exes.has(pid)) exes.set(pid, { path: value, inode });
   }
   return exes;
@@ -422,26 +429,35 @@ function shebang(head: string): string[] {
   return tokens[0] === "/usr/bin/env" ? tokens.slice(1) : tokens;
 }
 
-function launchArgv(argv0: string, entry: string, args: readonly string[], head: string): string[] {
-  const interpreter = shebang(head);
-  return interpreter.length > 0 ? [...interpreter, entry, ...args] : [argv0, ...args];
-}
-
 // JSON keeps argument boundaries, so ["a b"] and ["a", "b"] never share a key. Text joined with
 // spaces, which is all ps prints, would give both the same one.
-function argvKey(argv: readonly string[]): string {
-  return JSON.stringify(argv);
+function identityKey(argv: readonly string[], exe: Exe): string {
+  return JSON.stringify([argv, exe.path, exe.inode]);
 }
 
-// The exact argument lists a stdio server configured this way can run with: the kernel puts a
-// script's interpreter first, and a shim that only execs another file runs with that file's list.
-export function mcpArgvKeys(server: McpServer, files: CommandFiles): string[] {
-  const entry = files.resolve(server.command) ?? server.command;
-  const head = files.head(entry) ?? "";
-  const lists = [launchArgv(server.command, entry, server.args, head)];
-  const target = EXEC_SHIM.exec(head)?.[1];
-  if (target) lists.push(launchArgv(target, target, server.args, files.head(target) ?? ""));
-  return lists.map(argvKey);
+// How one launch of this file looks from outside: the exact argument list, and the file the kernel
+// maps, which for a script is its interpreter. No key when that file cannot be established. A file
+// whose head cannot be read counts as a program, which is safe: a script is never mapped itself, so
+// such a key cannot match it.
+function launchKeys(argv0: string, entry: string, args: readonly string[], files: CommandFiles): string[] {
+  const interpreter = shebang(files.head(entry) ?? "");
+  const [program] = interpreter;
+  const image = program === undefined ? entry : files.resolve(program);
+  const exe = image === undefined ? undefined : files.identity(image);
+  if (!exe) return [];
+  return [identityKey(program === undefined ? [argv0, ...args] : [...interpreter, entry, ...args], exe)];
+}
+
+// Every way a stdio server configured like this can look while running: a shim that only execs
+// another file runs as that file afterwards. A bare command is looked up on this process's PATH, so
+// an agent started with a different PATH maps a different file and stays unidentified. Nothing
+// configured is ever executed to find any of this out.
+export function mcpIdentityKeys(server: McpServer, files: CommandFiles): string[] {
+  const entry = files.resolve(server.command);
+  if (!entry) return [];
+  const target = EXEC_SHIM.exec(files.head(entry) ?? "")?.[1];
+  const shimmed = target ? launchKeys(target, target, server.args, files) : [];
+  return [...launchKeys(server.command, entry, server.args, files), ...shimmed];
 }
 
 // Only the daemon's own "notRunning" means absent: a failed query says nothing either way.
@@ -696,14 +712,16 @@ function nativeArgv(info: PaneProcesses, pid: number): readonly string[] | undef
 }
 
 // A configured stdio MCP server is a process the agent itself started with exactly the configured
-// arguments. Inherited stdin and stdout do not extend that to its children: a quiet job inherits
-// them just as a wrapper's real binary does. Same-uid processes could fake the arguments; this
-// guards against mistakes, not against an attacker.
+// arguments, mapping the very file that configuration resolves to. The arguments alone are not
+// enough, since the same list under another PATH is another program. Inherited stdin and stdout do
+// not extend any of this to its children: a quiet job inherits them just as a wrapper's real binary
+// does. Same-uid processes could fake all of it; this guards against mistakes, not against an attacker.
 function configuredServers(facts: AgentPaneFacts, tree: readonly Proc[], env: AssessEnv): Set<number> {
-  const configured = env.mcpArgvs(facts.agent, facts.pane.foregroundCwd ?? facts.pane.cwd ?? "");
+  const configured = env.mcpIdentities(facts.agent, facts.pane.foregroundCwd ?? facts.pane.cwd ?? "");
   const started = tree.filter((proc) => {
     const argv = proc.ppid === facts.root.pid ? nativeArgv(facts.info, proc.pid) : undefined;
-    return argv !== undefined && configured.has(argvKey(argv));
+    const exe = env.world.exes.get(proc.pid);
+    return argv !== undefined && exe !== undefined && configured.has(identityKey(argv, exe));
   });
   return new Set(started.map((proc) => proc.pid));
 }

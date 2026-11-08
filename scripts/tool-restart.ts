@@ -30,9 +30,11 @@ import {
   attentionRows,
   type Backend,
   buildWorld,
+  type CommandFiles,
   claudeHeadMatches,
   cleanupBlockers,
   codexHeadMatches,
+  type Exe,
   extractVersion,
   type GuiPlan,
   type GuiStatus,
@@ -45,7 +47,7 @@ import {
   type Installed,
   judgeRecovery,
   type McpServer,
-  mcpArgvKeys,
+  mcpIdentityKeys,
   notificationKey,
   notificationMessage,
   type Observed,
@@ -207,15 +209,18 @@ function readGui(ctx: Ctx): GuiStatus {
   return parseGuiStatus(result.code, parseJson(result.stdout));
 }
 
-function resolveEntry(ctx: Ctx, tool: ToolId): { path: string; inode: string } | undefined {
-  const entry = Bun.which(tool, { PATH: ctx.env.PATH ?? "" });
-  if (!entry) return undefined;
+function fileIdentity(path: string): Exe | undefined {
   try {
-    const path = realpathSync(entry);
-    return { path, inode: String(statSync(path).ino) };
+    const real = realpathSync(path);
+    return { path: real, inode: String(statSync(real).ino) };
   } catch {
     return undefined;
   }
+}
+
+function resolveEntry(ctx: Ctx, tool: ToolId): Exe | undefined {
+  const entry = Bun.which(tool, { PATH: ctx.env.PATH ?? "" });
+  return entry ? fileIdentity(entry) : undefined;
 }
 
 function sheprdVersion(ctx: Ctx, exePath: string): string | undefined {
@@ -428,12 +433,13 @@ function commandHead(ctx: Ctx, path: string): string | undefined {
   }
 }
 
-function mcpArgvs(ctx: Ctx, agent: AgentId, cwd: string): ReadonlySet<string> {
-  const files = {
-    resolve: (command: string) => Bun.which(command, { PATH: ctx.env.PATH ?? "" }) ?? undefined,
-    head: (path: string) => commandHead(ctx, path),
+function mcpIdentities(ctx: Ctx, agent: AgentId, cwd: string): ReadonlySet<string> {
+  const files: CommandFiles = {
+    resolve: (command) => Bun.which(command, { PATH: ctx.env.PATH ?? "" }) ?? undefined,
+    head: (path) => commandHead(ctx, path),
+    identity: fileIdentity,
   };
-  return new Set(MCP_SOURCES[agent](ctx, cwd).flatMap((server) => mcpArgvKeys(server, files)));
+  return new Set(MCP_SOURCES[agent](ctx, cwd).flatMap((server) => mcpIdentityKeys(server, files)));
 }
 
 type Inventories = { omp?: OmpInventory; grokLeaders?: number; restoreOn: boolean };
@@ -453,7 +459,7 @@ function assessEnv(ctx: Ctx, observed: Observed, recovering: ReadonlySet<string>
     uid: ctx.uid,
     backend: observed.backend,
     recovering,
-    mcpArgvs: (agent, cwd) => mcpArgvs(ctx, agent, cwd),
+    mcpIdentities: (agent, cwd) => mcpIdentities(ctx, agent, cwd),
     savedRef: (agent, ref, cwd) => SAVED_REF_READERS[agent](ctx, ref, cwd),
     dirExists: isDirectory,
     socketOwned: (path) => isOwnedSocket(ctx, path),
