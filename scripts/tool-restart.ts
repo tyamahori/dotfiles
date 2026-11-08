@@ -240,6 +240,17 @@ function readInstalled(ctx: Ctx): Record<ToolId, Installed> {
   return Object.fromEntries(TOOL_IDS.map((tool) => [tool, readInstalledTool(ctx, tool)])) as Record<ToolId, Installed>;
 }
 
+// Versions come from launching each tool, which takes seconds, so a later read of the same paths
+// catches an update replaced or rolled back meanwhile. A version says nothing about a different file.
+function refreshInstalled(ctx: Ctx, earlier: Record<ToolId, Installed>): Record<ToolId, Installed> {
+  const refreshed = TOOL_IDS.map((tool) => {
+    const entry = resolveEntry(ctx, tool);
+    const unchanged = entry?.path === earlier[tool].path && entry?.inode === earlier[tool].inode;
+    return [tool, { ...entry, version: unchanged ? earlier[tool].version : undefined }];
+  });
+  return Object.fromEntries(refreshed) as Record<ToolId, Installed>;
+}
+
 function interestingPids(procs: readonly Proc[], sessions: readonly SessionObservation[], gui: GuiStatus): number[] {
   const named = procs.filter((proc) => TOOL_IDS.some((tool) => tool === proc.name)).map((proc) => proc.pid);
   const inPanes = sessions.flatMap((session) => [
@@ -274,7 +285,7 @@ function observeNow(ctx: Ctx, slow: SlowFacts, only?: string): Observed {
   const sessions = entries.map((entry) => observeSession(ctx, entry, owners, procs));
   const gui = readGui(ctx);
   const exes = readExes(ctx, interestingPids(procs, sessions, gui));
-  const world = buildWorld({ procs, exes, installed: slow.installed, home: homeOf(ctx) });
+  const world = buildWorld({ procs, exes, installed: refreshInstalled(ctx, slow.installed), home: homeOf(ctx) });
   // A daemon executable mapped right now contradicts a daemon reporting itself absent.
   const backend = slow.backend === "absent" && hasCodexDaemon(world) ? "unknown" : slow.backend;
   return { world, sessions, gui, backend };
@@ -686,7 +697,7 @@ function readTargetAgain(ctx: Ctx, observed: Observed, session: SessionObservati
   const procs = readProcs(ctx);
   return {
     session: { ...session, panes, serverPid: socketServer(owners.get(socket), procs) },
-    world: buildWorld({ procs, exes, installed: world.installed, home: world.home }),
+    world: buildWorld({ procs, exes, installed: refreshInstalled(ctx, world.installed), home: world.home }),
   };
 }
 

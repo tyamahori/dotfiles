@@ -209,7 +209,7 @@ esac`,
     join(stub, "hook.sh"),
     `if [ "$(cat "$STUB/hook-call" 2>/dev/null)" = "$1" ]; then
   rm -f "$STUB/hook-call"
-  cp -R "$STUB/after-hook/." "$STUB/current/"
+  if [ -f "$STUB/hook-action" ]; then . "$STUB/hook-action"; else cp -R "$STUB/after-hook/." "$STUB/current/"; fi
 fi`,
   );
   writeStub(join(bin, "terminal-notifier"), 'printf "terminal-notifier %s\\n" "$*" >>"$STUB/calls.log"');
@@ -435,6 +435,11 @@ fi`,
     // The world changes while the named native command runs, for the first such call from now on.
     mutateOn: (call: string, world: FakeWorld) => {
       render(world, join(stub, "after-hook"));
+      writeText(join(stub, "hook-call"), call);
+    },
+    // A shell command runs while the named native command runs, for changes outside the fixture world.
+    runOn: (call: string, command: string) => {
+      writeText(join(stub, "hook-action"), command);
       writeText(join(stub, "hook-call"), call);
     },
     installVersion: (tool: string, version: string) =>
@@ -2355,10 +2360,45 @@ test.each(VOIDING_CHANGES)("approval is void when %s while it was pending", asyn
   expect(existsSync(box.recoveryFile("default"))).toBe(false);
 });
 
+// A new file takes over the path while the old one still exists, so its inode is certain to differ.
+const replaceInPlace = (file: string) => `cp "${file}" "${file}.new" && mv "${file}.new" "${file}"`;
+
+// The stub for each tool's version check runs in turn, so these land after `omp --version` has answered.
+const INSTALL_CHANGES: [string, (box: Box) => string][] = [
+  ["rolled back to the running version", (box) => `ln -sfn "${box.exe("omp", "1.0.0")}" "${box.bin}/omp"`],
+  ["moved on to a newer version", (box) => `ln -sfn "${box.exe("omp", "3.0.0")}" "${box.bin}/omp"`],
+  ["replaced in place", (box) => replaceInPlace(box.exe("omp"))],
+  ["removed", (box) => `rm -f "${box.bin}/omp"`],
+];
+
+test.each(INSTALL_CHANGES)(
+  "nothing stops when the approved update is %s during a later check",
+  async (_name, change) => {
+    const box = setup();
+    box.installVersion("omp", "1.0.0");
+    box.installVersion("omp", "3.0.0");
+    box.world(before(box));
+    box.afterStop(stopped());
+    box.afterAttach(restored(box));
+
+    const result = await box.run(["--apply"], { beforeAnswer: () => box.runOn("grok --version", change(box)) });
+
+    expect(result.asked).toBe(1);
+    expect(result.code).toBe(3);
+    expect(box.stops()).toEqual([]);
+    expect(box.attaches()).toEqual([]);
+    expect(existsSync(box.recoveryFile("default"))).toBe(false);
+  },
+);
+
 test.each([
   ["its status can no longer be read", (box: Box) => writeText(join(box.stub, "current/sheprd-status.code"), "1")],
   ["a newer Sheprd was installed", (box: Box) => writeText(join(box.stub, "sheprd-version"), "3.0.0")],
   ["the update was rolled back", (box: Box) => writeText(join(box.stub, "sheprd-version"), "1.0.0")],
+  [
+    "the installed bundle is replaced during a later check",
+    (box: Box) => box.runOn("sheprd status --json", replaceInPlace(box.exe("sheprd"))),
+  ],
   ["its executable can no longer be mapped", (box: Box) => box.world(guiRunning(box, { exe: undefined }))],
   ["its mapped executable was replaced", (box: Box) => box.world(guiRunning(box, { inode: "999" }))],
 ])("a GUI approved for restart is not quit when %s", async (_name, change) => {
