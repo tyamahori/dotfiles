@@ -71,11 +71,11 @@ shims). Do not fall back to bare python.
   stages of sed/awk, any state across lines, or arithmetic over records. One
   Python heredoc beats a shell-fumbling retry loop — don't keep patching a
   fragile pipeline.
-- Don't pipe shell output into an inline parser
-  (`cmd | uv run - <<'PY' … json.load(sys.stdin)`) unless upstream output is
-  guaranteed JSON. Otherwise do the whole job in Python (read the file, or
-  `subprocess.run`) so a failure is one debuggable step, not a broken pipe
-  with two suspects.
+- Don't combine a data pipe with a program heredoc
+  (`cmd | uv run - <<'PY' … json.load(sys.stdin)`). The heredoc replaces
+  the pipe as stdin, and Python consumes it as program text; even valid
+  upstream JSON cannot reach `json.load(sys.stdin)`. Read a data file or
+  capture the command with `subprocess.run` inside Python instead.
 
 ## Style: written once, runs once
 

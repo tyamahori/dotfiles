@@ -17,7 +17,7 @@ description: Codex の利用傾向を専用の HTML レポートにまとめる�
 通常は直近 90 日を対象にする。
 
 ```bash
-uv run scripts/generate.py
+uv run ~/.agents/skills/codex-insights/scripts/generate.py
 ```
 
 ユーザーが期間を指定した場合は `--days N`、全履歴なら `--all` を使う。

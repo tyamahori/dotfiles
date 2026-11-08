@@ -263,6 +263,7 @@ claim の後の本文は1段落に収め、引用するコードは3行までに
 gh api repos/<owner>/<repo>/pulls/<N>/reviews --input - <<'JSON'
 {
   "event": "COMMENT",
+  "commit_id": "<固定した head.sha>",
   "body": "<全体サマリ（日本語）>",
   "comments": [
     { "path": "src/foo.ts", "line": 42, "body": "<単一行への指摘>" },
@@ -302,10 +303,12 @@ NO_FINDINGS の本文例:
   ので `"side": "LEFT"` を指定する。
 
 投稿の応答からレビュー ID を記録し、配送完了と述べる前に
-`repos/<owner>/<repo>/pulls/<N>/reviews/<review-id>` を再取得して event が `COMMENT`
-であることを確認する。続けてそのレビューのインラインコメントを `--paginate` で取得し、
-投稿した件数と一致することを確認する。NO_FINDINGS と INCONCLUSIVE は0件が正常。
-ID が取得できない、event が異なる、または件数が一致しない場合は、配送完了を
+`repos/<owner>/<repo>/pulls/<N>/reviews/<review-id>` を再取得する。
+レスポンスの `state` が `COMMENTED`、`commit_id` が固定した head SHA と
+一致することを確認する。`event: COMMENT` は投稿入力であり、取得結果の項目ではない。
+続けてそのレビューのインラインコメントを `--paginate` で取得し、投稿した件数と
+一致することを確認する。NO_FINDINGS と INCONCLUSIVE は0件が正常。
+ID が取得できない、状態・SHA・件数のいずれかが一致しない場合は、配送完了を
 主張せず状況を報告する。
 
 ## 422 を避ける

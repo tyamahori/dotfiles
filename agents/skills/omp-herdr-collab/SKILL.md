@@ -58,11 +58,12 @@ impl / reviewer の役割はフロー開始時に決める。
 
 - ユーザーが指定したらそれに従う。指定がなければ、レビューしてもらいたい
   作業を持つセッションが実装者、相手がレビュアー。
-- **レビュアーは fresh context かつ実装者と異なるモデル系統でなければならない。**
-  omp は main のモデル系統で数える。実装を worker へ委譲した場合、実装者の
-  model family は coordinator ではなく**コードを書いた worker の系統**で数える。
+- 実装者の model family は omp の場合 main のモデル系統で数える。実装を worker へ
+  委譲した場合は、coordinator ではなく**コードを書いた worker の系統**で数える。
+- **single のレビュアーは fresh context かつ実装者と異なるモデル系統でなければならない。**
   満たせない場合は `independence-exception: user-approved: <reason>` を
   `[REVIEW-REQ]` に明記する。ユーザー指定でも省略しない。
+- panel の reviewer のモデル系統と独立性条件は `omp-herdr-collab-panel` の「役割」に従う。
 - `[REVIEW-REQ]` の送信者＝そのフローの実装者。役割はフロー単位で、逆向きの
   フローが並行してもよい。
 

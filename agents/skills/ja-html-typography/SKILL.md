@@ -65,10 +65,12 @@ document.compatMode === 'CSS1Compat' && document.documentElement.lang === 'ja'
 [...document.querySelectorAll('.nowrap')].filter(s => s.getClientRects().length > 1).length   // 0 件
 document.documentElement.scrollWidth > innerWidth            // false であること（横はみ出しなし）
 [...document.querySelectorAll('pre')].every(p => getComputedStyle(p).whiteSpace === 'pre')
-[...document.querySelectorAll('td:first-child')].filter(td => {   // 先頭列が折れているセル。0 件であること
+[...document.querySelectorAll('td:first-child')].filter(td => {   // 折返しの候補。件数だけで失敗としない
   const r = document.createRange(); r.selectNodeContents(td); return r.getClientRects().length > 1;
 }).length
 ```
+
+`Range.getClientRects()` は同じ行の `<code>` や `<span>` でも複数の矩形を返す。先頭列の候補は、矩形の位置と描画を確かめ、本当に複数行へ折れているものだけを直す。
 
 スクリーンショットは `<git toplevel>/.agent-msgs/screenshots/` に置き、数値と単位・日付・式が同じ行にあることを目で確認する。
 
