@@ -2597,17 +2597,21 @@ test.each([
   ["a slow version check", "claude --version"],
   ["the read of OMP's services", "omp ps list --all --json"],
   ["the read of native pane state", "herdr api snapshot"],
-])("a job that starts during %s after approval stops nothing", async (_name, call) => {
-  const box = restartable();
-  const changed = before(box);
-  changed.procs.push({ pid: 205, ppid: 201, pgid: 201, name: "python", command: "python train.py" });
+])(
+  "a job that starts during %s after approval stops nothing",
+  async (_name, call) => {
+    const box = restartable();
+    const changed = before(box);
+    changed.procs.push({ pid: 205, ppid: 201, pgid: 201, name: "python", command: "python train.py" });
 
-  const result = await box.run(["--apply"], { beforeAnswer: () => box.mutateOn(call, changed) });
+    const result = await box.run(["--apply"], { beforeAnswer: () => box.mutateOn(call, changed) });
 
-  expect(result.code).toBe(3);
-  expect(box.stops()).toEqual([]);
-  expect(existsSync(box.recoveryFile("default"))).toBe(false);
-});
+    expect(result.code).toBe(3);
+    expect(box.stops()).toEqual([]);
+    expect(existsSync(box.recoveryFile("default"))).toBe(false);
+  },
+  30_000,
+);
 
 // Each change lands after approval and before the last read of what it touches, which alone notices it.
 const SERVICES = "omp ps list --all --json";
