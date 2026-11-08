@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   realpathSync,
+  renameSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -453,14 +454,15 @@ fi`,
     },
     // The world changes while the code reads this absent file, a moment no native command marks. The
     // writer's open of the pipe returns only once a reader has opened it, and the reader sees the end
-    // of the file only after the change. The file is absent again afterwards.
+    // of the file only after the change. The file is absent again afterwards. The moment of the read
+    // goes in the call log.
     mutateDuringRead: (path: string, world: FakeWorld) => {
       const changed = join(stub, "after-hook");
       render(world, changed);
       mkdirSync(dirname(path), { recursive: true });
       Bun.spawnSync(["mkfifo", path]);
-      const script = 'exec 3>"$0"; cp -R "$1/." "$2/"; rm -f "$0"';
-      const argv = ["/bin/bash", "-c", script, path, changed, join(stub, "current")];
+      const script = 'exec 3>"$0"; echo "opened $0" >>"$3"; cp -R "$1/." "$2/"; rm -f "$0"';
+      const argv = ["/bin/bash", "-c", script, path, changed, join(stub, "current"), join(stub, "calls.log")];
       fifoWriters.push(Bun.spawn(argv, { stdio: ["ignore", "ignore", "ignore"] }));
     },
     installVersion: (tool: string, version: string) =>
@@ -2647,6 +2649,55 @@ test("nothing stops when a pane's process list can no longer be read after appro
   expect(result.asked).toBe(1);
   expect(result.code).toBe(3);
   expect(box.stops()).toEqual([]);
+});
+
+// A read this late would come after the inventories, so the service it stands for would go unseen.
+test.each([
+  ["a pane beside the stale one, which keeps the session affected", "pi_w1_p2.json"],
+  ["the only stale pane, which leaves nothing looking affected", "pi_w1_p1.json"],
+])(
+  "nothing stops and no file is read late when the process list of %s is back only for the last look",
+  async (_name, file) => {
+    const box = restartable();
+    const processInfo = join(box.stub, "current/herdr", file);
+    const hidden = `${processInfo}.hidden`;
+    const config = join(box.home, ".claude.json");
+    const withService = before(box);
+    withService.omp = OWNED_SERVICE;
+
+    const result = await box.run(["--apply"], {
+      beforeAnswer: () => {
+        renameSync(processInfo, hidden);
+        box.runOn(SERVICES, `mv "${hidden}" "${processInfo}"`);
+        box.mutateDuringRead(config, withService);
+      },
+    });
+
+    expect(result.asked).toBe(1);
+    expect(result.code).toBe(3);
+    expect(box.stops()).toEqual([]);
+    expect(existsSync(box.recoveryFile("default"))).toBe(false);
+    // The report after the run opens with its own version checks, and only that report may read the file.
+    const calls = box.calls();
+    expect(calls.indexOf(`opened ${config}`)).toBeGreaterThan(calls.lastIndexOf("omp --version"));
+  },
+);
+
+test("nothing stops when a directory missing during the preparation is back for the last look", async () => {
+  const box = restartable();
+  const away = `${box.work}.away`;
+
+  const result = await box.run(["--apply"], {
+    beforeAnswer: () => {
+      renameSync(box.work, away);
+      box.runOn(SERVICES, `mv "${away}" "${box.work}"`);
+    },
+  });
+
+  expect(result.asked).toBe(1);
+  expect(result.code).toBe(3);
+  expect(box.stops()).toEqual([]);
+  expect(existsSync(box.recoveryFile("default"))).toBe(false);
 });
 
 test("a recovery record keeps conversation references but no argument lists", async () => {

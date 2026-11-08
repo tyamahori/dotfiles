@@ -465,27 +465,52 @@ function readInventories(ctx: Ctx, agents: ReadonlySet<string>): Inventories {
   };
 }
 
-function remembered<A extends unknown[], R extends object>(read: (...args: A) => R): (...args: A) => R {
+function remembered<A extends unknown[], R extends object>(read: (...args: A) => R) {
   const answers = new Map<string, R>();
-  return (...args) => {
-    const key = JSON.stringify(args);
-    const answer = answers.get(key) ?? read(...args);
-    answers.set(key, answer);
-    return answer;
+  return {
+    ask: (...args: A): R => {
+      const key = JSON.stringify(args);
+      const answer = answers.get(key) ?? read(...args);
+      answers.set(key, answer);
+      return answer;
+    },
+    kept: (...args: A): R | undefined => answers.get(JSON.stringify(args)),
   };
 }
 
-// Answers read from configuration and saved conversations are remembered, so a later plan built on
-// this environment judges new live facts without reading those files again.
-function assessEnv(ctx: Ctx, observed: Observed, recovering: ReadonlySet<string>, inventories: Inventories): AssessEnv {
+type FileAnswers = Pick<AssessEnv, "mcpIdentities" | "savedRef">;
+
+const NOTHING_IDENTIFIED: ReadonlySet<string> = new Set();
+const UNREAD_REF: SavedRef = { ok: false, reason: "保存された会話を準備の段階で確認していない" };
+
+// `reading` reads configuration and saved conversations at most once each. `frozen` never reads: a
+// read there would come after every live check, so whatever started during it would go unseen. A
+// pane asks for its identities and its reference together, so one with no identities kept has no
+// reference kept either, and that refusal defers it even with no child to identify.
+function rememberedFiles(ctx: Ctx): { reading: FileAnswers; frozen: FileAnswers } {
+  const identities = remembered((agent: AgentId, cwd: string) => mcpIdentities(ctx, agent, cwd));
+  const refs = remembered((agent: AgentId, ref: AgentRef, cwd: string) => SAVED_REF_READERS[agent](ctx, ref, cwd));
   return {
-    ...inventories,
+    reading: { mcpIdentities: identities.ask, savedRef: refs.ask },
+    frozen: {
+      mcpIdentities: (agent, cwd) => identities.kept(agent, cwd) ?? NOTHING_IDENTIFIED,
+      savedRef: (agent, ref, cwd) => refs.kept(agent, ref, cwd) ?? UNREAD_REF,
+    },
+  };
+}
+
+function assessEnv(
+  ctx: Ctx,
+  observed: Observed,
+  recovering: ReadonlySet<string>,
+  known: Inventories & FileAnswers,
+): AssessEnv {
+  return {
+    ...known,
     world: observed.world,
     uid: ctx.uid,
     backend: observed.backend,
     recovering,
-    mcpIdentities: remembered((agent: AgentId, cwd: string) => mcpIdentities(ctx, agent, cwd)),
-    savedRef: remembered((agent: AgentId, ref: AgentRef, cwd: string) => SAVED_REF_READERS[agent](ctx, ref, cwd)),
     dirExists: isDirectory,
     socketOwned: (path) => isOwnedSocket(ctx, path),
   };
@@ -540,7 +565,8 @@ function unresolved(views: readonly RecoveryView[]): string[] {
 function buildPlan(ctx: Ctx, observed: Observed): Plan {
   const inventories = readInventories(ctx, agentsInAffectedSessions(observed));
   const recovery = readRecovery(ctx, observed);
-  const env = assessEnv(ctx, observed, new Set(unresolved(recovery)), inventories);
+  const known = { ...inventories, ...rememberedFiles(ctx).reading };
+  const env = assessEnv(ctx, observed, new Set(unresolved(recovery)), known);
   return {
     rows: runningRows(observed),
     installed: observed.world.installed,
@@ -716,11 +742,12 @@ function readTargetAgain(ctx: Ctx, observed: Observed, session: SessionObservati
 
 // The last look before a stop, ordered so that what a decision rests on is read as late as it can be.
 // Version checks, recovery records, MCP configuration, and saved conversations come first and once:
-// they are the slow part, and the plan below reuses the answers rather than reading them again. Then
-// the Codex daemon and the inventories of detached work, then the session itself, native state after
-// the inventories so that an agent beginning work after them no longer shows idle. Each fact can
-// still change after its own read: `herdr session stop` has no conditional form, so this narrows those
-// windows and closes none of them.
+// they are the slow part, and the plan below answers from them alone. A pane this preparation could
+// not ask about, because its process list or directory was missing just then, defers the session
+// even when it is back for the last look. Then the Codex daemon and the inventories of detached work,
+// then the session itself, native state after the inventories so that an agent beginning work after
+// them no longer shows idle. Each fact can still change after its own read: `herdr session stop` has
+// no conditional form, so this narrows those windows and closes none of them.
 function latestPlan(ctx: Ctx, approved: SessionPlan): SessionPlan | undefined {
   const name = approved.record.session;
   const agents = new Set(approved.record.panes.flatMap((pane) => pane.agent ?? []));
@@ -728,13 +755,15 @@ function latestPlan(ctx: Ctx, approved: SessionPlan): SessionPlan | undefined {
   const session = observed.sessions.find((candidate) => candidate.entry.name === name);
   if (!session?.panes) return undefined;
   const recovering = new Set(unresolved(readRecovery(ctx, observed)));
-  const env = assessEnv(ctx, observed, recovering, { restoreOn: false });
+  const files = rememberedFiles(ctx);
+  const env = assessEnv(ctx, observed, recovering, { restoreOn: false, ...files.reading });
   // Planned only to read and remember the files: the live facts in this verdict are about to be replaced.
   planSession(session, env);
   const backend = agents.has("codex") ? readBackend(ctx) : "unknown";
   const inventories = readInventories(ctx, agents);
   const { session: last, world } = readTargetAgain(ctx, observed, session);
-  return planSession(last, { ...env, ...inventories, world, backend: confirmedBackend(backend, world) });
+  const newest = { ...inventories, ...files.frozen, world, backend: confirmedBackend(backend, world) };
+  return planSession(last, { ...env, ...newest });
 }
 
 // Approval covers exactly what the operator saw: anything different now voids it.
