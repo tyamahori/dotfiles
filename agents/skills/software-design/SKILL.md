@@ -2,12 +2,15 @@
 name: software-design
 description: >
   Load before shaping a module boundary, public interface, error-handling
-  policy, or data model; before a refactoring larger than a rename; when a
-  decision outlives a commit (ADR); and before writing a design doc. Design
-  norms (deep modules, dependency direction, invariants, one error policy,
-  when to abstract), the TS/JS shape (functional core, when a class earns
-  its place, minimal capability types), the refactoring procedure, what a
-  design doc must contain, and the ADR template and placement rule.
+  policy, or data model; before a refactoring larger than a rename; before a
+  change touching auth, secrets, untrusted input, file or command
+  execution, outbound requests, or CI/deploy privileges; when a decision
+  outlives a commit (ADR); and before writing a design doc. Design norms
+  (deep modules, dependency direction, invariants, one error policy, when
+  to abstract), the security gate and its independent review, the TS/JS
+  shape (functional core, when a class earns its place, minimal capability
+  types), the refactoring procedure, what a design doc must contain, and
+  the ADR template and placement rule.
 ---
 
 # software-design
@@ -153,6 +156,54 @@ Answer each in one line; a blank answer means the design is not ready.
 3. Where does untrusted data enter, and what type does it become?
 4. What must always hold, and which site enforces it?
 5. What does failure look like to the caller?
+
+## Security gate
+
+Answer it when `test-design`'s triage flags the change: it touches
+authentication or authorization, secrets, untrusted input, file or command
+execution, outbound requests, or CI/deploy privileges. Question 3 above
+already places the trust boundary; answer each of these that applies in one
+line:
+
+1. Who may do what to which resource, and who must be refused (a logged-out
+   visitor, the lowest role, another user's or tenant's resource)?
+2. Where is the allow/deny decision made? It belongs to the trusted server
+   or the resource's owner, on every path to the action, never to a client,
+   a UI state, or a value the caller supplies.
+3. Which existing API makes the dangerous form impossible: parameterized
+   queries, an argv array without a shell, a path joined and then checked to
+   stay under its root, the repository's own auth and secret helpers? No
+   hand-rolled escaping or crypto.
+4. Does a failed or missing check refuse, and does the error stay silent
+   about secrets and internals?
+5. As applicable: do secrets come from the environment or a secret store and
+   stay out of logs, output, argv, URLs, and commits; does untrusted work
+   have size and time limits; do outbound requests reach only intended
+   destinations; do CI jobs get least permissions and no persisted
+   credentials?
+
+A flagged diff then gets an independent review: a fresh-context reviewer
+reads the diff and its callers with `security-audit` in guidance mode,
+using only the parts relevant to the touched boundary. Loading that skill
+authorizes neither its six-phase full audit, output directory, and report
+files, which run only when the user asks for a full audit, nor live probes,
+paid scans, or Strix runs.
+
+The review inspects source read-only. Executing target code in it (builds,
+tests, fixtures, reproductions) follows `security-audit`'s universal
+execution safety in either mode: an OS-enforced sandbox with no external
+network, an environment built from an allowlist with a scratch `HOME`, a
+read-only target and toolchain with writes only to scratch, and low CPU,
+memory, process, file-size, disk, and time limits. An ordinary agent sandbox or an
+OrbStack container alone does not provide this. Without every control the
+reviewer executes nothing and reports the point as needs-validation with a
+safe plan. The implementer's tests stay development work, not evidence of a
+sandboxed audit, and the reviewer does not escape these limits by calling
+its own reproduction a development test.
+
+Report the refused cases that were tested, what stays unverified and why,
+and any limit or refusal the reviewer hit. Never call a change safe because
+the skill was read or the review found nothing.
 
 ## Sketch the shape before filling it in
 

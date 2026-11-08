@@ -88,7 +88,13 @@ the criteria.
 - Module boundary, interface, error policy, data model, refactor beyond a
   rename, or an ADR: `software-design`. Writing, changing, or deleting tests,
   or planning any change to code, scripts, hooks, or config (its behaviour
-  list comes before the first edit): `test-design`.
+  list, opened by a one-line security triage, comes before the first edit):
+  `test-design`. A change the triage flags (auth/authz, secrets, untrusted
+  input, file or command execution, outbound requests, CI/deploy
+  privileges) also loads `software-design` for its security gate and gets
+  an independent review with `security-audit` in guidance mode; a full
+  audit only when asked. Report what stays unverified: neither reading the
+  skill nor a clean review makes a change safe.
 - Framing that needs discussion: `task-briefing`.
 - Japanese prose the user reads as a document (docs, reports, minutes, emails,
   PR descriptions, articles): `natural-japanese`, plus

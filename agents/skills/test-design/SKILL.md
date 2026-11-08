@@ -5,8 +5,8 @@ description: >
   test helper, before the first edit of any change to code, scripts, hooks,
   or config, and when deciding whether a change needs a test at all. Which
   tests earn their place, the viewpoint walk that finds missing cases, how
-  deep to test each kind of code, the behaviour list written before
-  implementing, what to assert, the test-double ladder, characterisation
+  deep to test each kind of code, the behaviour list (opened by a security
+  triage) written before implementing, what to assert, the test-double ladder, characterisation
   tests before refactoring, property-based tests, and the mutation check.
 ---
 
@@ -96,6 +96,17 @@ the reply, then proceed.
   of upstream logic; covered by an existing test; out of scope for this
   change. Viewpoint rows marked *covered elsewhere*, *not applicable*, or
   *out of scope* go here.
+
+Open the lists with a one-line security triage: does the change touch
+authentication or authorization, secrets, untrusted input, file or command
+execution, outbound requests, or CI/deploy privileges? If not, say so; the
+triage adds no test and no audit. If it does, answer `software-design`'s
+security gate, and for each touched boundary list the refused case beside
+the allowed one: the Authority row's two directions; a hostile input (a
+path that climbs out of its root, shell metacharacters, an oversized value)
+rejected or kept inert; a secret that never reaches logs, output, or argv;
+an outbound request to an unintended destination refused. The allowed case
+keeps its own item, so a change that refuses everyone still fails a test.
 
 Repeat both lists in the final report and mark any item that changed during
 implementation.

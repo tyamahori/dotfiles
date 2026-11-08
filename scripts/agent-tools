@@ -37,6 +37,9 @@ fi
 #   used so it is not listed twice.
 # - imozuru: source-chasing research into unfamiliar fields; the Claude plugin
 #   form is not used so Codex and OMP get the same copy.
+# - security-audit: source-first security review; agents use its guidance
+#   mode for risk-triggered reviews (software-design's security gate) and
+#   its full six-phase audit only on an explicit request.
 # - portless, oauth: the upstream `npx skills add vercel-labs/portless` set for
 #   the portless CLI (installed from ~/.Brewfile).
 global_skills=(
@@ -49,6 +52,7 @@ global_skills=(
 	"typesafe-ai typesafe-ai/skills"
 	"find-skills vercel-labs/skills"
 	"imozuru MaryCache/imozuru"
+	"security-audit cloudflare/security-audit-skill"
 	"api-security-testing usestrix/strix"
 	"application-security-testing usestrix/strix"
 	"ci-security-scanning-with-strix usestrix/strix"
