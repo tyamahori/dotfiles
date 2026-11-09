@@ -200,8 +200,10 @@ function runChild(spec: ChildSpec): Promise<ChildResult> {
       stopping = true;
       result[flag] = true;
       killGroup(child.pid, "SIGTERM");
-      timers.push(setTimeout(() => killGroup(child.pid, "SIGKILL"), KILL_GRACE_MS));
-      timers.push(setTimeout(finish, KILL_GRACE_MS + CLOSE_GRACE_MS));
+      timers.push(
+        setTimeout(() => killGroup(child.pid, "SIGKILL"), KILL_GRACE_MS),
+        setTimeout(finish, KILL_GRACE_MS + CLOSE_GRACE_MS),
+      );
     };
     const interrupt = () => stop("interrupted");
     const stdout = cappedSink(spec.stdoutPath, MAX_STDOUT_BYTES, () => stop("overLimit"));
