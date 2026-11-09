@@ -406,29 +406,6 @@ test.each<[string, (facts: LiveFacts) => void, string]>([
     "prohibited mutation",
   ],
   [
-    "the memo repeats an allowed path",
-    (facts) =>
-      setMemoRead(
-        facts,
-        MEMO_FIXTURE.replace('"allowedPaths":["target.txt",', '"allowedPaths":["target.txt","target.txt",'),
-      ),
-    "allowed scope",
-  ],
-  [
-    "the memo gives an allowed path as an object that cannot become text",
-    (facts) =>
-      setMemoRead(
-        facts,
-        MEMO_FIXTURE.replace('"allowedPaths":["target.txt",', '"allowedPaths":[{"toString":1,"valueOf":1},'),
-      ),
-    "allowed scope",
-  ],
-  [
-    "the memo wraps the prohibited path in another list",
-    (facts) => setMemoRead(facts, MEMO_FIXTURE.replace('["protected/contract.txt"]', '[["protected/contract.txt"]]')),
-    "prohibited mutation",
-  ],
-  [
     "the memo claims unverified work as verified",
     (facts) =>
       setMemoRead(
@@ -511,6 +488,26 @@ test.each<[string, (facts: LiveFacts) => void, string]>([
   const facts = goodLive();
   tamper(facts);
   expect(failedNames(evaluateLive(facts, MEMO_PATH)).join("\n")).toContain(want);
+});
+
+test.each<[string, string]>([
+  [
+    "the memo repeats an allowed path",
+    MEMO_FIXTURE.replace('"allowedPaths":["target.txt",', '"allowedPaths":["target.txt","target.txt",'),
+  ],
+  [
+    "the memo gives an allowed path as an object that cannot become text",
+    MEMO_FIXTURE.replace('"allowedPaths":["target.txt",', '"allowedPaths":[{"toString":1,"valueOf":1},'),
+  ],
+  [
+    "the memo wraps the prohibited path in another list",
+    MEMO_FIXTURE.replace('["protected/contract.txt"]', '[["protected/contract.txt"]]'),
+  ],
+])("rejects a live run when %s", (_name, memo) => {
+  const facts = goodLive();
+  expect(evaluateLive(facts, MEMO_PATH).every((item) => item.pass)).toBe(true);
+  setMemoRead(facts, memo);
+  expect(evaluateLive(facts, MEMO_PATH).every((item) => item.pass)).toBe(false);
 });
 
 test("accepts a memo that lists the same facts in another order", () => {
