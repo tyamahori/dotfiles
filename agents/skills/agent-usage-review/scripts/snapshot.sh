@@ -896,6 +896,38 @@ if [ -d "$OMP_MEMORY_ROOT" ] && [ "$OMP_MEMORY_SCOPES" -gt 0 ]; then
 fi
 
 echo
+echo "### OMP 起動ログの warn / error"
+echo
+# shellcheck disable=SC2016 # backticks are literal markdown code-span text, not expansion
+echo '> `~/.omp/logs` の warn / error を message（MCP は path 付き）別に数える。processes は該当ログファイル数。毎回出る警告は古い設定、間欠的なものは MCP や外部依存の障害を疑う。上位15件。'
+echo
+OMP_LOGS="$HOME/.omp/logs"
+if [ -d "$OMP_LOGS" ]; then
+	echo "processes_in_window: $(find "$OMP_LOGS" -name 'omp.*.log' -newermt "$CUTOFF" | wc -l | tr -d ' ')"
+	echo
+	echo 'level	events	processes	message'
+	# shellcheck disable=SC2016 # $cutoff is a jq variable, not shell expansion
+	find "$OMP_LOGS" -name 'omp.*.log' -newermt "$CUTOFF" -print0 |
+		xargs -0 jq -rR --arg cutoff "$CUTOFF" --arg home "$HOME" '
+			# 認証情報・個人情報を snapshot に混ぜない: メール、URL の query、HOME、長い token 様の文字列を伏せる。
+			def redact: split($home) | join("~")
+				| gsub("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]+"; "<email>")
+				| gsub("\\?[^\\s\\]]*"; "?<query>")
+				| gsub("[A-Za-z0-9_\\-]{24,}"; "<token>")
+				| gsub("[\\t\\n]"; " ");
+			fromjson? // empty
+			| select((.level == "warn" or .level == "error") and ((.timestamp // "")[0:10]) >= $cutoff)
+			| [input_filename, .level, (((.message // "") | tostring) + (if .path then " [\(.path)]" else "" end) | redact | .[0:120])]
+			| @tsv' 2>/dev/null |
+		awk -F '\t' '
+			{ key = $2 "\t" $3; events[key]++; if (!seen[key SUBSEP $1]++) procs[key]++ }
+			END { for (k in events) { split(k, f, "\t"); printf "%s\t%d\t%d\t%s\n", f[1], events[k], procs[k], f[2] } }
+		' | sort -t $'\t' -k3,3nr -k2,2nr | awk 'NR <= 15'
+else
+	echo "(なし: $OMP_LOGS が存在しない)"
+fi
+
+echo
 echo "### Plugin / config drift"
 echo
 if [ -f "$OMP_CONFIG" ] && [ -f "$CANONICAL_CONFIG" ]; then
