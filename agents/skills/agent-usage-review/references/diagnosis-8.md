@@ -12,17 +12,18 @@
 |---|---|
 | `agents/global-instructions.md` | 高頻度、複数 repository 共通、毎回の行動を変える短い規範 |
 | 既存 skill | trigger が明確な手順、例外、診断表、詳細な判断基準 |
+| `agents/references/task-procedures.md` | どの skill にも属さない低頻度の作業手順。読む条件は `agents/global-instructions.md` に置く |
 | project instructions / project skill | 特定 repository でだけ再利用する規範と手順 |
 | local journal | session ID、生の計測、単発事例、未検証の仮説、証拠 |
 | archive | 現行判断に影響しない古い記録 |
 
 `Always-loaded instruction footprint` は前回値と比較する。
-増加だけで削減せず、常時必要な頻度、cache write、既存 skill へ移せるかを確認する。
+増加だけで削減せず、常時必要な頻度、cache write、既存 skill または `agents/references/task-procedures.md` へ移せるかを確認する。
 
 次も手動診断する。
 
 - **memory miss**: 過去に記録済みの調査や失敗を別 session で再計算した。
-- **retrieval miss**: skill や project memory に該当知識があったが、trigger または検索経路が弱く再利用されなかった。
+- **retrieval miss**: skill、`agents/references/task-procedures.md`、project memory に該当知識があったが、trigger または検索経路が弱く再利用されなかった。
 - **stale memory**: 記録された規範が現在の実装、API、設定と食い違った。
 
 本文の類似度だけでこれらを自動判定しない。

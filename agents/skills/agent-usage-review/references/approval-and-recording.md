@@ -19,6 +19,7 @@
 |---|---|
 | 高頻度・全 repository 共通の短い行動規範 | `agents/global-instructions.md` |
 | trigger が明確な手順、例外、詳細な判断基準 | 既存 skill |
+| どの skill にも属さない低頻度の作業手順 | `agents/references/task-procedures.md`。読む条件は `agents/global-instructions.md` に置く |
 | 機械的な強制（deny 等） | `claude/hooks/`、settings.json の PreToolUse |
 | モデルルーティング、OMP 挙動 | `omp/config.yml`、`omp/APPEND_SYSTEM.md`、extensions |
 | plugin の版、導入経路 | `./scripts/omp-plugins` |
@@ -31,7 +32,7 @@ plugin を更新する提案は、固定版で動作を確認できる場合だ�
 原因がプロジェクト固有なら、修正もそのリポジトリに落とす。
 
 一般化できたエッセンスだけを昇格する。
-詳細な手順は既存 skill、プロジェクト固有の事情は project instructions、毎回必要な短い規範だけを global instructions に置く。
+詳細な手順は既存 skill、どの skill にも属さない低頻度の作業手順は `agents/references/task-procedures.md`、プロジェクト固有の事情は project instructions、毎回必要な短い規範だけを global instructions に置く。
 
 ## 4. 承認
 
@@ -86,10 +87,11 @@ journal.md の先頭にエントリを追記する。
 
 journal は一次記録で、リポジトリは public である。
 
-知見は常時ロードする規範、オンデマンドで読む skill / project instructions、ローカル journal / archive に住み分ける。
+知見は常時ロードする規範、オンデマンドで読む skill / 参照手順 / project instructions、ローカル journal / archive に住み分ける。
 
 - **journal（ローカル）**: セッション ID、費用、プロジェクト名、個別の実行経路、単発事例、未検証の仮説。
 - **skill / project instructions**: trigger または適用範囲が明確で、再利用が確認された手順と判断基準。
+- **参照手順（`agents/references/task-procedures.md`）**: どの skill にも属さない低頻度の作業手順。読む条件は global instructions に置く。
 - **global instructions**: 高頻度かつ複数 repository 共通で、毎回の行動を変える短い規範だけ。
 - **archive**: 現行判断に影響しない古い記録。
 

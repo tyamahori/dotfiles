@@ -284,9 +284,13 @@ CLIs on this machine (Claude Code, OpenAI Codex, GitHub Copilot CLI, and OMP).
 - Copilot CLI → `~/.copilot/copilot-instructions.md`
 - OMP         → discovers the Claude and Codex user-level files above
 
-Edit that one file to change the rules for all four. It currently tells the
-agents to default to the uv-managed Python (`scripts/python`) rather than system,
-Homebrew, or nix interpreters.
+Edit that one file to change the always-loaded rules for all four. It currently
+tells the agents to default to the uv-managed Python (`scripts/python`) rather
+than system, Homebrew, or nix interpreters.
+
+Infrequent procedures live in `agents/references/task-procedures.md`. No host
+loads it automatically, so `agents/global-instructions.md` names when to read
+each section. Edit the reference file to change those procedures.
 
 ### Playwright CLI and MCP
 
