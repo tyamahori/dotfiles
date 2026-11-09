@@ -222,6 +222,53 @@ OMP は起動時の作業ディレクトリを、セッション、project-local
 `/fork` は現在の文脈を複製するため、別案を試す分岐には向きますが、日跨ぎやコンテキスト肥大への対策には使いません。
 `/handoff` 後に `/quit` し、同日中に `omp --continue` する方法は、圧縮した同じセッションを続けたい場合に限って使います。
 
+### 引き継ぎの内容が新しいセッションへ渡るか確かめる
+
+`scripts/omp-handoff-scenario.ts` は、訂正後の依頼、変更してよい範囲、禁止事項、確認状態が、`/handoff-switch` で切り替えた新しいセッションへ渡るかを確かめます。
+確かめられることが違うので、手順は 2 つに分かれています。
+
+| 手順 | 分かること | 分からないこと | 費用 |
+| --- | --- | --- | --- |
+| `transfer` | メモの内容が新しいセッションの provider リクエストに入り、古いセッションの会話は入らないこと | モデルが内容に従うか、`handoff_switch` ツールからの自動切替が動くか | なし（実モデルを呼ばない） |
+| `seed` と `check` | 実モデルが 1 回の実行で訂正後の依頼に従い、保護したファイルを変更しなかったこと | 別のモデルや別の実行でも同じ結果になるか | 実モデルの利用枠 |
+
+`transfer` は実物の OMP を RPC モードで起動し、台本どおりに応答するローカルの provider で実際のリクエストを受けて検査します。
+OMP の `HOME` を一時ディレクトリに差し替え、環境変数も許可したものだけを渡すので、本人の認証情報、セッション、利用統計には触れません。
+
+```bash
+bun run --no-install scripts/omp-handoff-scenario.ts transfer
+```
+
+結果は JSON で標準出力へ出し、不合格なら終了コード 1 を返します。
+合格すると一時ディレクトリを消します。
+不合格なら `keptAt` の場所に `captured-requests.json` と `omp-stderr.log` を残すので、調べ終えたら削除します。
+OMP を更新した後は、`bun test` の中の同じ検査が引き継ぎ経路の変化を知らせます。
+
+実モデルでの確認は TUI で行い、次のように起動します。
+`check` がファイルとセッション記録を調べるので、モデルの完了報告は判定に使いません。
+
+```bash
+repo=$(git rev-parse --show-toplevel)
+dir=$(bun run --no-install "$repo/scripts/omp-handoff-scenario.ts" seed)
+cd "$dir/project"
+command omp --no-extensions -e "$repo/omp/extensions/handoff-switch.ts" \
+  --no-skills --no-rules --no-context-files --no-lsp \
+  --session-dir "$dir/sessions" --config "$dir/overlay.yml" \
+  --max-time 15m --max-cost 3 --model <モデル>
+```
+
+`$dir/prompts/` の `1.txt`、`2.txt`、`3.txt` を順に入力します。
+1 つ目は後で取り消す指示、2 つ目はその訂正と範囲と確認状態、3 つ目はメモの保存と `handoff_switch` の呼び出しの依頼で、それぞれの応答が終わってから次を入力します。
+自動で切り替わった新しいセッションが応答を終えたら、OMP を `/quit` で終了して判定します。
+モデルが `handoff_switch` を呼ばなかった場合は、`/handoff-switch handoff.md` を手で入力すると続けられますが、この実行は自動切替の確認になりません。
+
+```bash
+bun run --no-install "$repo/scripts/omp-handoff-scenario.ts" check "$dir"
+rm -rf "$dir"
+```
+
+`check` は、訂正後の値、保護したファイルのバイト列、範囲外のファイルの有無、切替後に変更されたこと、報告に残った確認状態を確かめ、すべて満たしたときだけ終了コード 0 を返します。
+
 ## この dotfiles でのモデル運用
 
 モデル運用の正本は `omp/config.yml` です。通常の割り当てを決める `modelRoles` と、障害・使用量制限時の退避先を決める `retry` を隣にまとめています。
@@ -711,6 +758,7 @@ omp-review --help
 | 学習レビューの起動方法 | `scripts/omp-learning-review` |
 | 学習レビューの週次通知 | `scripts/omp-learning-weekly` と `launchd/com.tyamahori.omp-learning-weekly.plist` |
 | 利用効率レビューの起動方法 | `scripts/omp-review` |
+| 引き継ぎの確認シナリオ | `scripts/omp-handoff-scenario.ts` と `omp/tests/fixtures/handoff-continuation/` |
 | symlink と初期配置 | `scripts/link` |
 
 このガイドと実装が食い違う場合は、上表の実装を正とし、この文書も同じ変更で更新してください。
