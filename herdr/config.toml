@@ -70,14 +70,22 @@ delivery = "off"
 [ui.sound]
 enabled = false
 
-# Hunk pane (レビュー面は Hunk に一本化。旧 reviewr plugin は撤去済み)。
-# type = "pane" は一時 pane を開き、hunk を q で抜けると pane も閉じる。
-# cwd は terminal.new_cwd = "follow" で作成元 pane と同じ worktree になる。
+# Hunk (レビュー面は Hunk に一本化。旧 reviewr plugin は撤去済み)。
+# type = "pane" は作業 pane を覆う zoom 表示になるため、shell から split / tab を
+# 作って作業 pane の隣で開く。cwd は作業 pane（worktree）を引き継ぐ。
+# q で hunk を抜けると pane も閉じる。起動失敗時はエラーを読めるよう shell を残す。
+# --agent-notes: hunk-review のエージェントコメントを最初から表示する。
 [[keys.command]]
 key = "cmd+r"
-type = "pane"
-command = "hunk diff --watch"
-description = "Hunk で working tree の差分を開く"
+type = "shell"
+command = '''p=$("$HERDR_BIN_PATH" pane split --pane "$HERDR_ACTIVE_PANE_ID" --direction right --cwd "$PWD" --focus | jq -r .result.pane.pane_id) && "$HERDR_BIN_PATH" pane run "$p" 'hunk diff --watch --agent-notes && exit' '''
+description = "Hunk を右隣の pane で開く"
+
+[[keys.command]]
+key = "cmd+shift+r"
+type = "shell"
+command = '''p=$("$HERDR_BIN_PATH" tab create --workspace "$HERDR_ACTIVE_WORKSPACE_ID" --cwd "$PWD" --label hunk --focus | jq -r .result.root_pane.pane_id) && "$HERDR_BIN_PATH" pane run "$p" 'hunk diff --watch --agent-notes && exit' '''
+description = "Hunk を新しいタブで開く"
 
 # scripts/tool-release-review の最新レポートを Claude で開く（承認した項目だけ適用）。
 [[keys.command]]

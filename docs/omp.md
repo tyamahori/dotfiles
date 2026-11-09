@@ -735,7 +735,7 @@ Claude Code・Codex・Copilot CLI のフック実行には、`scripts/devbox` �
 | 本文のない `git commit -m "subject"`（commit-msg-why が拒否するもの） | 本文付きで `git commit -F -` | 四 CLI |
 | `--ff-only` なしの `git pull` | `git pull --ff-only` | 四 CLI |
 | `sed -i` / `perl -pi` | `edit` / `write`、一括なら `ast_edit` | Claude Code、OMP |
-| `hunk diff --watch` | ユーザーに起動を頼み、`hunk-review` で操作 | 四 CLI |
+| `hunk diff --watch` | ユーザーに起動を頼み（Herdr では `cmd+r` で右隣、`cmd+shift+r` で新タブ）、`hunk-review` で操作 | 四 CLI |
 | Herdr の pane 内（`HERDR_ENV=1`）での素の `git worktree add` | `herdr worktree create` / `herdr worktree open` | OMP |
 
 ルール表とは別に、同じフック経路で `scripts/pr-template-check.ts` が `gh pr create --body` / `--body-file` を検査します。

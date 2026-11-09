@@ -200,7 +200,7 @@
       "commands": [{ "executables": ["hunk"], "subcommand": "diff", "anyArgPattern": "^--watch$" }],
       "clients": ["claude", "codex", "omp"],
       "replacement": { "type": "native-tool" },
-      "reason": "`hunk diff --watch` is the human's review surface; agents never launch it. Ask the user to open it, then use the `hunk-review` skill against the live session."
+      "reason": "`hunk diff --watch` is the human's review surface; agents never launch it. Ask the user to open it (Herdr: cmd+r beside the current pane, cmd+shift+r in a new tab), then use the `hunk-review` skill against the live session."
     }
   ]
 }
