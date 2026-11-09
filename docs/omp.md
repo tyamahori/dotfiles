@@ -224,16 +224,17 @@ OMP は起動時の作業ディレクトリを、セッション、project-local
 
 ### 引き継ぎの内容が新しいセッションへ渡るか確かめる
 
-`scripts/omp-handoff-scenario.ts` は、訂正後の依頼、変更してよい範囲、禁止事項、確認状態が、`/handoff-switch` で切り替えた新しいセッションへ渡るかを確かめます。
+`scripts/omp-handoff-scenario.ts` は、訂正後の依頼、変更してよい範囲、禁止事項、確認状態が、compaction と `/handoff-switch` を経て新しいセッションへ渡るかを確かめます。
 確かめられることが違うので、手順は 2 つに分かれています。
 
 | 手順 | 分かること | 分からないこと | 費用 |
 | --- | --- | --- | --- |
-| `transfer` | メモの内容が新しいセッションの provider リクエストに入り、古いセッションの会話は入らないこと | モデルが内容に従うか、`handoff_switch` ツールからの自動切替が動くか | なし（実モデルを呼ばない） |
-| `seed` と `check` | 実モデルが 1 回の実行で訂正後の依頼に従い、保護したファイルを変更しなかったこと | 別のモデルや別の実行でも同じ結果になるか | 実モデルの利用枠 |
+| `transfer` | 実物の OMP が compaction を記録し、切替後はメモの内容だけが新しいセッションの provider リクエストに入ること | モデルが内容に従うか、要約が内容を保つか（要約は台本の応答です）、`handoff_switch` ツールからの自動切替が動くか | なし（実モデルを呼ばない） |
+| `seed` と `check` | 通常のガードが効いた状態で、実モデルが 1 回の実行で compaction と切替を経ても訂正後の依頼に従い、保護したファイルを変更しなかったこと | 別のモデルや別の実行でも同じ結果になるか | 実モデルの利用枠 |
 
-`transfer` は実物の OMP を RPC モードで起動し、台本どおりに応答するローカルの provider で実際のリクエストを受けて検査します。
+`transfer` は実物の OMP を RPC モードで起動し、台本どおりに応答するローカルの provider で実際のリクエストを受けて、セッション記録とあわせて検査します。
 OMP の `HOME` を一時ディレクトリに差し替え、環境変数も許可したものだけを渡すので、本人の認証情報、セッション、利用統計には触れません。
+読み込むものを最小限にする `--no-extensions` などの指定は、この分離された環境でだけ使います。
 
 ```bash
 bun run --no-install scripts/omp-handoff-scenario.ts transfer
@@ -244,30 +245,57 @@ bun run --no-install scripts/omp-handoff-scenario.ts transfer
 不合格なら `keptAt` の場所に `captured-requests.json` と `omp-stderr.log` を残すので、調べ終えたら削除します。
 OMP を更新した後は、`bun test` の中の同じ検査が引き継ぎ経路の変化を知らせます。
 
-実モデルでの確認は TUI で行い、次のように起動します。
-`check` がファイルとセッション記録を調べるので、モデルの完了報告は判定に使いません。
+実モデルでの確認は、Herdr の pane で本人の通常の設定のまま TUI を動かします。
+Extension、スキル、ルール、コンテキストファイル、権限、既定のモデルと思考量を変える指定はしません。
+追加するのは、一時ディレクトリにセッションを置く `--session-dir`、上限を決める `--max-time` と `--max-cost`、上書き設定の `--config` だけです。
+上書き設定は、記憶と学習を止める指定と、`/compact` で訂正を要約させる `compaction.keepRecentTokens: 1` だけを持ちます。
+
+Herdr の pane の中で次のスクリプトを bash で実行します。
+待ち時間はすべて `--timeout` で区切り、失敗すると作成した pane を閉じて止まります。
 
 ```bash
+set -eu
 repo=$(git rev-parse --show-toplevel)
 dir=$(bun run --no-install "$repo/scripts/omp-handoff-scenario.ts" seed)
-cd "$dir/project"
-command omp --no-extensions -e "$repo/omp/extensions/handoff-switch.ts" \
-  --no-skills --no-rules --no-context-files --no-lsp \
-  --session-dir "$dir/sessions" --config "$dir/overlay.yml" \
-  --max-time 15m --max-cost 3 --model <モデル>
-```
-
-`$dir/prompts/` の `1.txt`、`2.txt`、`3.txt` を順に入力します。
-1 つ目は後で取り消す指示、2 つ目はその訂正と範囲と確認状態、3 つ目はメモの保存と `handoff_switch` の呼び出しの依頼で、それぞれの応答が終わってから次を入力します。
-自動で切り替わった新しいセッションが応答を終えたら、OMP を `/quit` で終了して判定します。
-モデルが `handoff_switch` を呼ばなかった場合は、`/handoff-switch handoff.md` を手で入力すると続けられますが、この実行は自動切替の確認になりません。
-
-```bash
+pane=$(herdr pane split --current --direction right --cwd "$dir/project" --no-focus | jq -er '.result.pane.pane_id')
+trap 'herdr pane close "$pane"' EXIT
+agent=handoff-live
+herdr agent start "$agent" --kind omp --pane "$pane" --timeout 60000 -- \
+  --session-dir "$dir/sessions" --config "$dir/overlay.yml" --max-time 15m --max-cost 3
+for n in 1 2 3; do
+  herdr agent prompt "$agent" "$(<"$dir/prompts/$n.txt")" --wait --timeout 180000
+done
+herdr agent prompt "$agent" /compact
+herdr pane wait-output "$pane" --source recent-unwrapped \
+  --regex 'compacted|Compaction (failed|cancelled)' --timeout 300000
+herdr agent prompt "$agent" "$(<"$dir/prompts/4.txt")" --wait --timeout 300000
+herdr agent wait "$agent" --until working --timeout 60000
+herdr agent wait "$agent" --timeout 300000
 bun run --no-install "$repo/scripts/omp-handoff-scenario.ts" check "$dir"
+jq -r 'select(.type == "message" and .message.role == "assistant") | "\(.message.provider)/\(.message.model)"' \
+  "$dir"/sessions/*.jsonl | sort -u
 rm -rf "$dir"
 ```
 
-`check` は、訂正後の値、保護したファイルのバイト列、範囲外のファイルの有無、切替後に変更されたこと、報告に残った確認状態を確かめ、すべて満たしたときだけ終了コード 0 を返します。
+`prompts/` の 4 つは順に、ガードの確認、後で取り消す指示、その訂正、メモの保存と `handoff_switch` の呼び出しの依頼です。
+Herdr は手動の compaction を作業中として扱わないので、`/compact` の完了は画面の出力で待ちます。
+メモの依頼の応答が終わると `handoff_switch` で新しいセッションへ切り替わるので、もう一度 `working` を待ってから、その応答の完了を待ちます。
+切り替わらなければ、`--until working` の時間切れで止まります。
+`--wait` が承認や質問の画面（`blocked`）で返った場合も、後続のコマンドが失敗して止まります。自動で回答しないでください。
+最後の `jq` は実際に応答したモデルを表示します。`omp config get modelRoles --json` の `default` と比べて、指定どおりの既定で動いたことを確かめます。利用枠の退避が起きると別のモデルも表示されます。
+
+`check` はモデルの完了報告を使わず、次のすべてをファイルとセッション記録で確かめて、満たしたときだけ終了コード 0 を返します。
+出力は検査の名前と範囲外のパスだけで、記録の本文は表示しません。
+
+- 通常のガードが効いていること: 一時ディレクトリのダミーの `.env` を、`read` も `cat` も拒否され、その値がどの記録にも現れないこと
+- 訂正と compaction の順序: 先の指示、訂正、compaction、メモの依頼の順に記録され、compaction が訂正を要約していること
+- 新しいセッションであること: セッション ID が違い、古い依頼文と compaction の記録を持たないこと
+- メモの事実: メモのパスを渡した `read` の結果にある `HANDOFF_FACTS:` の行の JSON が、訂正後の値、取り消された値、変更してよい範囲、禁止事項、確認状態のすべてに一致すること
+- 結果: `target.txt` が切替後に訂正後の値へ変わり、保護したファイルのバイト列が同じで、範囲外のファイルがなく、報告の確認状態が正しいこと
+
+不合格なら `$dir` を残すので、調べ終えたら削除します。
+この手順はサンドボックスではありません。本人の権限で動くので、モデルのシェル実行は一時ディレクトリに閉じ込められず、依頼文と通常のガードで範囲を守らせています。
+既定の設定で `tools.approvalMode` が `yolo` の環境では、実行前の承認もありません。
 
 ## この dotfiles でのモデル運用
 
