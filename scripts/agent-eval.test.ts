@@ -319,6 +319,46 @@ describe("a bug fix run", () => {
   );
 });
 
+describe("a bunfig.toml the evaluator did not write", () => {
+  test("the summary ignores one in the current directory, which an ordinary launch would preload", () => {
+    const dir = join(base, `bunfig${harnessCount++}`);
+    const bin = join(dir, "bin");
+    mkdirSync(bin, { recursive: true });
+    symlinkSync(process.execPath, join(bin, "bun"));
+    const marker = join(dir, "preload-ran");
+    writeFileSync(join(dir, "bunfig.toml"), 'preload = ["./preload.ts"]\n');
+    writeFileSync(
+      join(dir, "preload.ts"),
+      `import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(marker)}, "ran");\n`,
+    );
+    writeFileSync(join(dir, "entry.ts"), "");
+    const options = { cwd: dir, env: { HOME: dir, PATH: `${bin}:/usr/bin:/bin` }, encoding: "utf8" } as const;
+
+    spawnSync(process.execPath, ["run", "--no-install", "--no-env-file", join(dir, "entry.ts")], options);
+    expect(existsSync(marker)).toBe(true);
+    rmSync(marker);
+
+    const run = spawnSync(join(import.meta.dir, "agent-eval"), ["summary"], options);
+    expect(run.status).toBe(0);
+    expect(run.stdout.trim()).toBe(NO_RECORDS);
+    expect(existsSync(marker)).toBe(false);
+  });
+
+  test(
+    "the behaviour check ignores one the agent wrote, so its preload cannot print before the harness starts",
+    async () => {
+      const config = write("bunfig.toml", 'preload = ["./preload.ts"]');
+      const preload = write("preload.ts", `console.error("${CANARY}");`, "process.exit(1);");
+      const h = harness([REPAIR, config, preload, finish()].join("\n"));
+      expect(await main(["run", "bug-fix", "--variant", "baseline"], h.ctx)).toBe(1);
+      const record = onlyRecord(h);
+      expect(failedIds(record)).toEqual(["no-unexpected-changes"]);
+      expect(existsSync(join(evidencePath(h, record), "check.stderr.log"))).toBe(false);
+    },
+    SLOW,
+  );
+});
+
 describe("stopping a run", () => {
   const alive = (pid: number) => {
     try {

@@ -71,6 +71,9 @@ const TREE_OVERFLOW = "<too-many-files>";
 const CHECK_SCRIPT = join(import.meta.dir, "agent-eval-check.ts");
 const CASES_SOURCE = join(import.meta.dir, "agent-eval-cases.ts");
 const SYSTEM_PATH = "/usr/bin:/bin";
+// The check runs with the agent's workspace as its working directory, where a bunfig.toml could
+// preload code ahead of the harness. An explicit empty config replaces it (measured on Bun 1.4.4).
+const BUN_RUN = ["run", "--config=/dev/null", "--no-install", "--no-env-file"];
 // By-products the agent's own instructions send to .agent-msgs/ are not changes to the fixture.
 const NOT_FIXTURE = new Set([".git", ".agent-msgs"]);
 
@@ -454,9 +457,7 @@ async function runBehaviourChecks(ctx: Ctx, plan: Plan): Promise<ChecksResult> {
       plan.workspace,
       "--",
       process.execPath,
-      "run",
-      "--no-install",
-      "--no-env-file",
+      ...BUN_RUN,
       CHECK_SCRIPT,
       plan.workspace,
       JSON.stringify(checks),
