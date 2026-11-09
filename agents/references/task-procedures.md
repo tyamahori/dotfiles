@@ -7,8 +7,9 @@ loads this file automatically. Its rules bind like the always-loaded ones.
 ## Branches and pull requests
 
 - To reach the fresh tip of the intended base: fetch, then `origin/main`, or
-  the parent PR branch for a stacked PR (declare it as the PR base; before the
-  first push, `git config branch.<branch>.gh-merge-base <parent>`).
+  the parent PR branch for a stacked PR (declare it as the PR base).
+- Before the first push of a stacked branch, including one an earlier session
+  created, run `git config branch.<branch>.gh-merge-base <parent>`.
 - `gh pr create --body` skips the repo's template, so follow it yourself and
   tick only verified checkboxes. Either way, state what is out of scope and
   what else the change could affect. Keep the description readable in a

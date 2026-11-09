@@ -135,9 +135,9 @@ the criteria.
 - `gh` gains flags between releases, so before a `gh` subcommand you haven't
   checked this session, read `gh help <command> <subcommand>` for the
   installed version instead of relying on memory.
-- Before creating a branch, opening or editing a PR, or adding an image or
-  video to a PR or issue, read "Branches and pull requests" in
-  `$HOME/dotfiles/agents/references/task-procedures.md`.
+- Before creating a branch, pushing a branch for the first time, opening or
+  editing a PR, or adding an image or video to a PR or issue, read "Branches
+  and pull requests" in `$HOME/dotfiles/agents/references/task-procedures.md`.
 
 ## Quality gates
 
