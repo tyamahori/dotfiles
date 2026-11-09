@@ -393,7 +393,7 @@ function spawnOmp(ompBin: string, paths: TransferPaths) {
 }
 type RpcProcess = ReturnType<typeof spawnOmp>;
 
-async function readFrames(stream: ReadableStream<Uint8Array>, frames: Frame[]): Promise<void> {
+async function readFrames(stream: ReadableStream<Uint8Array>, onFrame: (frame: Frame) => void): Promise<void> {
   const decoder = new TextDecoder();
   let buffer = "";
   for await (const chunk of stream) {
@@ -401,72 +401,96 @@ async function readFrames(stream: ReadableStream<Uint8Array>, frames: Frame[]): 
     const lines = buffer.split("\n");
     buffer = lines.pop() ?? "";
     for (const value of lines.map((line) => parseJson(line))) {
-      if (isRecord(value)) frames.push(value);
+      if (isRecord(value)) onFrame(value);
     }
   }
 }
 
-function createRpc(proc: RpcProcess, deadline: number) {
+function createRpc(proc: RpcProcess, timeoutMs: number) {
+  const deadline = Date.now() + timeoutMs;
   const frames: Frame[] = [];
-  void readFrames(proc.stdout, frames);
+  const waiters = new Set<() => void>();
+  const wake = () => {
+    for (const waiter of waiters) waiter();
+  };
+  let closed = false;
+  const reader = readFrames(proc.stdout, (frame) => {
+    frames.push(frame);
+    wake();
+  });
+  // stdout を読み切ってから閉じたと扱う。終了直前に届いたフレームを見落として「終了した」と誤報しないため。
+  void Promise.allSettled([reader, proc.exited]).then(() => {
+    closed = true;
+    wake();
+  });
   const send = (command: Frame) => {
     proc.stdin.write(`${JSON.stringify(command)}\n`);
     proc.stdin.flush();
   };
-  const wait = async <T>(probe: () => T | undefined, what: string): Promise<T> => {
-    while (Date.now() < deadline) {
-      const value = probe();
-      if (value !== undefined) return value;
-      if (proc.exitCode !== null) throw new Error(`omp exited with ${proc.exitCode} while waiting for ${what}`);
-      await Bun.sleep(20);
-    }
-    throw new Error(`timed out waiting for ${what}`);
-  };
-  return { frames, send, wait, deadline };
+  const waitFor = (matches: (frame: Frame) => boolean, what: string, from = 0) =>
+    new Promise<Frame>((done, fail) => {
+      const finish = (settle: () => void) => {
+        clearTimeout(timer);
+        waiters.delete(evaluate);
+        settle();
+      };
+      const evaluate = () => {
+        const frame = frames.slice(from).find(matches);
+        if (frame) finish(() => done(frame));
+        else if (closed) finish(() => fail(new Error(`omp exited with ${proc.exitCode} while waiting for ${what}`)));
+      };
+      const timer = setTimeout(
+        () => finish(() => fail(new Error(`timed out waiting for ${what}`))),
+        Math.max(0, deadline - Date.now()),
+      );
+      waiters.add(evaluate);
+      evaluate();
+    });
+  return { frames, send, waitFor };
 }
 type Rpc = ReturnType<typeof createRpc>;
 
+const isSessionSettled = (frame: Frame) => frame.type === "session_settled";
+
+async function request(rpc: Rpc, type: string, id = type): Promise<Frame> {
+  rpc.send({ id, type });
+  const response = await rpc.waitFor((frame) => frame.type === "response" && frame.id === id, `the ${id} response`);
+  if (response.success !== true) throw new Error(`${id} failed: ${JSON.stringify(response.error)}`);
+  return isRecord(response.data) ? response.data : {};
+}
+
 async function prompt(rpc: Rpc, id: string, message: string): Promise<void> {
+  const sentAt = rpc.frames.length;
   rpc.send({ id, type: "prompt", message });
   const isOutcome = (frame: Frame) =>
     frame.id === id && (frame.type === "prompt_result" || (frame.type === "response" && frame.success === false));
-  const outcome = await rpc.wait(() => rpc.frames.find(isOutcome), `prompt ${id}`);
+  const outcome = await rpc.waitFor(isOutcome, `prompt ${id}`);
   if (outcome.status !== "completed") throw new Error(`prompt ${id} failed: ${JSON.stringify(outcome.error)}`);
-}
-
-async function settledState(rpc: Rpc, label: string): Promise<Frame> {
-  for (let poll = 0; Date.now() < rpc.deadline; poll++) {
-    const id = `state-${label}-${poll}`;
-    rpc.send({ id, type: "get_state" });
-    const response = await rpc.wait(() => rpc.frames.find((frame) => frame.id === id), "get_state");
-    if (isRecord(response.data) && response.data.isSettled === true) return response.data;
-    await Bun.sleep(50);
-  }
-  throw new Error(`timed out waiting for the session to settle (${label})`);
+  // 次の待ちが、この実行の session_settled を切替後のものと取り違えないよう、ここで受け切る。
+  await rpc.waitFor(isSessionSettled, `the session to settle after prompt ${id}`, sentAt);
 }
 
 const sessionIdOf = (state: Frame) => (typeof state.sessionId === "string" ? state.sessionId : undefined);
 
 async function stopProcess(proc: RpcProcess): Promise<void> {
   proc.kill();
-  const exited = await Promise.race([proc.exited.then(() => true), Bun.sleep(3000).then(() => false)]);
-  if (!exited) proc.kill("SIGKILL");
+  const escalate = setTimeout(() => proc.kill("SIGKILL"), 3000);
+  await proc.exited;
+  clearTimeout(escalate);
 }
 
 async function driveScenario(rpc: Rpc, requests: CapturedRequest[], memoPath: string, project: string) {
-  await rpc.wait(() => rpc.frames.find((frame) => frame.type === "ready"), "the RPC ready frame");
+  await rpc.waitFor((frame) => frame.type === "ready", "the RPC ready frame");
   for (const [index, message] of TRANSFER_PROMPTS.entries()) {
     await prompt(rpc, `session-a-${index}`, message);
   }
-  const before = await settledState(rpc, "before");
+  const before = await request(rpc, "get_state", "state-before");
   const switchIndex = requests.length;
+  const sentAt = rpc.frames.length;
   // TUI の自動切替(handoff_switch ツール)は terminal UI が要るので、同じ extension command を直接呼ぶ。
   rpc.send({ id: "switch", type: "prompt", message: `/handoff-switch ${memoPath}` });
-  await rpc.wait(
-    () => (requests.slice(switchIndex).some(hasToolResult) ? true : undefined),
-    "the new session to read the memo",
-  );
-  const after = await settledState(rpc, "after");
+  await rpc.waitFor(isSessionSettled, "the new session to settle", sentAt);
+  const after = await request(rpc, "get_state", "state-after");
   return {
     beforeSwitch: requests.slice(0, switchIndex),
     afterSwitch: requests.slice(switchIndex),
@@ -488,7 +512,7 @@ export async function runTransfer(options: { ompBin?: string; timeoutMs?: number
     if (!ompBin) throw new Error("omp was not found on PATH");
     const paths = prepareTransfer(root, provider.baseUrl);
     proc = spawnOmp(ompBin, paths);
-    const rpc = createRpc(proc, Date.now() + (options.timeoutMs ?? 120_000));
+    const rpc = createRpc(proc, options.timeoutMs ?? 120_000);
     const facts = await driveScenario(rpc, provider.requests, memoPath, paths.project);
     result = summarize("handoff-transfer", "deterministic-transfer", evaluateTransfer(facts));
   } catch (error) {

@@ -414,19 +414,38 @@ test.skipIf(!Bun.which("false"))("fails when omp exits before the RPC handshake"
   expect(result.error).toContain("omp exited");
 });
 
-test("fails and stops the process when omp never answers", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "omp-handoff-hang-"));
+function ompStub(body: (dir: string) => string): { stub: string; dir: string } {
+  const dir = mkdtempSync(join(tmpdir(), "omp-handoff-stub-"));
   scratchDirs.push(dir);
   const stub = join(dir, "omp");
-  writeFileSync(stub, "#!/bin/sh\nexec sleep 30\n");
+  writeFileSync(stub, `#!/bin/sh\n${body(dir)}\n`);
   chmodSync(stub, 0o755);
+  return { stub, dir };
+}
+
+test("fails at once, without waiting for the deadline, when omp exits in the middle of a prompt", async () => {
+  const { stub } = ompStub(() => `printf '{"type":"ready"}\\n'\nread line\nexit 3`);
   const startedAt = Date.now();
 
-  const result = kept(await runTransfer({ ompBin: stub, timeoutMs: 200 }));
+  const result = kept(await runTransfer({ ompBin: stub, timeoutMs: 60_000 }));
+
+  expect(result.pass).toBe(false);
+  expect(result.error).toContain("omp exited with 3");
+  expect(Date.now() - startedAt).toBeLessThan(30_000);
+});
+
+test.each([
+  ["stops on TERM", ""],
+  ["ignores TERM, so it needs SIGKILL", "trap '' TERM\n"],
+])("fails and leaves no process behind when omp never answers and %s", async (_name, setup) => {
+  const { stub, dir } = ompStub((home) => `${setup}echo $$ > ${home}/pid\nexec sleep 30`);
+
+  const result = kept(await runTransfer({ ompBin: stub, timeoutMs: 500 }));
 
   expect(result.pass).toBe(false);
   expect(result.error).toContain("timed out");
-  expect(Date.now() - startedAt).toBeLessThan(10_000);
+  const pid = Number(readFileSync(join(dir, "pid"), "utf8").trim());
+  expect(() => process.kill(pid, 0)).toThrow();
 });
 
 // 実物の OMP を動かす統合テスト。実モデルは呼ばない。OMP が更新で引き継ぎ経路を変えるとここで落ちる。
