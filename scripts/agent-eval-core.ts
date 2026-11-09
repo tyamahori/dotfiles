@@ -482,9 +482,10 @@ function latestStart(group: Group): number {
 
 function comparisonOf(group: Group, groups: readonly Group[]): string {
   const others = groups.filter((other) => other.caseId === group.caseId && other.variant !== group.variant);
-  if (others.length === 0) return "no-counterpart";
+  const [first] = others;
+  if (first === undefined) return "no-counterpart";
   if (others.some((other) => incomparableReasons(group, other, groups).length === 0)) return "comparable";
-  const newest = others.reduce((best, other) => (latestStart(other) > latestStart(best) ? other : best));
+  const newest = others.reduce((best, other) => (latestStart(other) > latestStart(best) ? other : best), first);
   return `incomparable:${incomparableReasons(group, newest, groups).join("+")}`;
 }
 
