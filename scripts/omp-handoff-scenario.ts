@@ -201,7 +201,12 @@ function parseMemoFacts(memoRead: string): Record<string, unknown> {
   return isRecord(parsed) ? parsed : {};
 }
 
-const canonical = (value: unknown) => JSON.stringify(Array.isArray(value) ? [...value].sort() : value);
+const isStringList = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === "string");
+
+// 順序だけを無視する。期待値は文字列か文字列の配列なので、他の要素を含む配列は並べ替えずに残し、一致させない。
+const canonical = (value: unknown) =>
+  JSON.stringify(isStringList(value) ? [...value].sort((a, b) => Number(a > b) - Number(a < b)) : value);
 
 function memoFactChecks(memoRead: string): Check[] {
   const facts = parseMemoFacts(memoRead);

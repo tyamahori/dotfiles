@@ -406,6 +406,29 @@ test.each<[string, (facts: LiveFacts) => void, string]>([
     "prohibited mutation",
   ],
   [
+    "the memo repeats an allowed path",
+    (facts) =>
+      setMemoRead(
+        facts,
+        MEMO_FIXTURE.replace('"allowedPaths":["target.txt",', '"allowedPaths":["target.txt","target.txt",'),
+      ),
+    "allowed scope",
+  ],
+  [
+    "the memo gives an allowed path as an object that cannot become text",
+    (facts) =>
+      setMemoRead(
+        facts,
+        MEMO_FIXTURE.replace('"allowedPaths":["target.txt",', '"allowedPaths":[{"toString":1,"valueOf":1},'),
+      ),
+    "allowed scope",
+  ],
+  [
+    "the memo wraps the prohibited path in another list",
+    (facts) => setMemoRead(facts, MEMO_FIXTURE.replace('["protected/contract.txt"]', '[["protected/contract.txt"]]')),
+    "prohibited mutation",
+  ],
+  [
     "the memo claims unverified work as verified",
     (facts) =>
       setMemoRead(
@@ -488,6 +511,15 @@ test.each<[string, (facts: LiveFacts) => void, string]>([
   const facts = goodLive();
   tamper(facts);
   expect(failedNames(evaluateLive(facts, MEMO_PATH)).join("\n")).toContain(want);
+});
+
+test("accepts a memo that lists the same facts in another order", () => {
+  const facts = goodLive();
+  setMemoRead(
+    facts,
+    MEMO_FIXTURE.replace('["target.txt","handoff-report.json"]', '["handoff-report.json","target.txt"]'),
+  );
+  expect(failedNames(evaluateLive(facts, MEMO_PATH))).toEqual([]);
 });
 
 function sessionFile(id: string, startedAt: string, entries: unknown[]): string {
