@@ -122,6 +122,7 @@
         "hooks": [
           {
             "command": "\"$HOME/.bun/bin/bun\" \"$HOME/dotfiles/scripts/deny-command-hook.ts\" claude",
+            "onFailure": "block",
             "timeout": 10,
             "type": "command"
           }
@@ -142,6 +143,7 @@
         "hooks": [
           {
             "command": "\"$HOME/.bun/bin/bun\" \"$HOME/dotfiles/scripts/deny-command-hook.ts\" claude",
+            "onFailure": "block",
             "timeout": 10,
             "type": "command"
           }

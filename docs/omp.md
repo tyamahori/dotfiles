@@ -742,6 +742,11 @@ Claude Code・Codex・Copilot CLI のフック実行には、`scripts/devbox` �
 リポジトリに PR テンプレートがあり、本文にその見出しが欠けていれば拒否します。見出しの直後の行に `<!-- pr-template:optional -->` がある節は省略できます。本文を `"$VAR"` で渡すと見出しを確認できず拒否されるので、インラインか `--body-file` で渡します。
 同じ経路で `scripts/slack-notice.ts` が Slack MCP の投稿系ツール（send / schedule / update。下書きは対象外）を検査し、本文が `[自動投稿です。玉堀の秘書システムによるものです。]` で終わらなければ拒否します。
 
+Claude Code では、`deny-command-hook.ts` を呼ぶ 2 つの PreToolUse フック（Bash と Slack MCP）だけに `onFailure: "block"` を付けています（`claude/settings.json`）。この設定には Claude Code 2.1.295 以降が必要です。
+フックの起動に失敗したとき、0 と 2 以外の終了コードで終わったとき、時間切れになったときも、Claude Code は対象の操作を拒否します（[公式の説明](https://code.claude.com/docs/en/hooks#block-the-action-when-a-hook-fails)）。
+フックの故障で拒否されたら、エラーの表示を見て、Bun（`~/.bun/bin/bun`。`scripts/devbox` で導入）、`~/dotfiles/scripts/deny-command-hook.ts` のパス、そこから読み込むファイルを直します。
+フックを無効にすると判定なしで操作が実行されるので、無効にして回避しないでください。
+
 uv、ax、brewUpdate への誘導は、代替コマンドが実行可能な場合だけ発動します。
 専用の閲覧・検索ツールの有無は、適用する CLI で区別します。
 ルールに `requireEnv` を書くと、指定した環境変数がすべてその値のときだけ適用します。Herdr 前提のルールはこれで Herdr の外では発動しません。
