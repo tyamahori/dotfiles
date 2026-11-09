@@ -1,5 +1,5 @@
-// The five fixed cases and what makes each one pass (docs/agent-eval.md). Every case's revision is
-// a hash of this file, so runs graded by different criteria or fixtures are never compared.
+// The five fixed cases and what makes each one pass (docs/agent-eval.md). This file is part of the
+// evaluation revision, so runs graded by different criteria or fixtures are never compared.
 // Fixtures are strings rather than files so that the review case's seeded defects stay inert to
 // this repository's own analyzers; each run writes them to a fresh workspace.
 import { isDeepStrictEqual } from "node:util";

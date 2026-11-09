@@ -1,6 +1,8 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import {
+  appendFileSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -609,6 +611,43 @@ describe("the time a run records", () => {
       expect(record.incompleteReason).toBe("harness-error");
       expect(record.elapsedMs).toBeGreaterThanOrEqual(AT_LEAST_MS);
       expect(record.identity.model).toBe("gpt-test");
+    },
+    SLOW,
+  );
+});
+
+describe("the evaluation revision", () => {
+  const SOURCES = ["agent-eval", "agent-eval.ts", "agent-eval-core.ts", "agent-eval-cases.ts", "agent-eval-check.ts"];
+
+  // A real run from a private copy of the evaluator. A failed turn is enough: every record has a revision.
+  function revisionOf(edited?: string): string {
+    const copy = join(base, `copy${harnessCount++}`);
+    mkdirSync(copy);
+    for (const name of SOURCES) copyFileSync(join(import.meta.dir, name), join(copy, name));
+    if (edited) appendFileSync(join(copy, edited), "\n// an edit\n");
+    const h = harness("exit 7");
+    const entry = join(copy, "agent-eval.ts");
+    const run = spawnSync(
+      process.execPath,
+      ["run", "--config=/dev/null", "--no-install", "--no-env-file", entry, "run", "bug-fix", "--variant", "baseline"],
+      { env: h.ctx.env as Record<string, string>, encoding: "utf8" },
+    );
+    expect(run.status).toBe(3);
+    return onlyRecord(h).caseRevision;
+  }
+
+  test(
+    "stays the same when nothing changed",
+    () => {
+      expect(revisionOf()).toBe(revisionOf());
+    },
+    SLOW,
+  );
+
+  test.each(SOURCES)(
+    "moves when %s changes",
+    (name) => {
+      expect(revisionOf(name)).not.toBe(revisionOf());
     },
     SLOW,
   );

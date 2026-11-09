@@ -21,6 +21,7 @@ import { dirname, isAbsolute, join } from "node:path";
 import { assertionIds, CASES, type EvalCase, expectedTree, grade, type Shape } from "./agent-eval-cases.ts";
 import {
   type Assertion,
+  type CaseId,
   type ChildResult,
   changedPaths,
   type FinalOutput,
@@ -70,7 +71,14 @@ const KILL_GRACE_MS = 5_000;
 const CLOSE_GRACE_MS = 2_000;
 const TREE_OVERFLOW = "<too-many-files>";
 const CHECK_SCRIPT = join(import.meta.dir, "agent-eval-check.ts");
-const CASES_SOURCE = join(import.meta.dir, "agent-eval-cases.ts");
+// Everything that can change a verdict or a time. Two runs compare only when all of it matches.
+const EVALUATOR_SOURCES = [
+  "agent-eval",
+  "agent-eval.ts",
+  "agent-eval-core.ts",
+  "agent-eval-cases.ts",
+  "agent-eval-check.ts",
+];
 const SYSTEM_PATH = "/usr/bin:/bin";
 // The check runs with the agent's workspace as its working directory, where a bunfig.toml could
 // preload code ahead of the harness. An explicit empty config replaces it (measured on Bun 1.4.4).
@@ -240,6 +248,7 @@ type Tools = { codex: string; git: string };
 type Plan = {
   command: RunCommand;
   evalCase: EvalCase;
+  revision: string;
   tools: Tools;
   root: string;
   runId: string;
@@ -272,6 +281,19 @@ function preflight(ctx: Ctx, command: RunCommand): Tools | string {
   return problem ?? { codex, git };
 }
 
+// Read before anything runs, so that it describes the code doing this run.
+function evaluationRevision(caseId: CaseId): string {
+  const hash = createHash("sha256").update(caseId);
+  for (const name of EVALUATOR_SOURCES) {
+    hash
+      .update("\0")
+      .update(name)
+      .update("\0")
+      .update(readFileSync(join(import.meta.dir, name)));
+  }
+  return hash.digest("hex").slice(0, 12);
+}
+
 function createPlan(ctx: Ctx, command: RunCommand, tools: Tools): Plan {
   const startedMs = performance.now();
   const startedAt = new Date();
@@ -289,6 +311,7 @@ function createPlan(ctx: Ctx, command: RunCommand, tools: Tools): Plan {
   return {
     command,
     evalCase,
+    revision: evaluationRevision(command.caseId),
     tools,
     root,
     runId,
@@ -522,21 +545,12 @@ async function attempt(ctx: Ctx, plan: Plan, progress: { turns?: TurnsResult }):
   return { outcome: outcomeOf(assertions), incompleteReason: null, assertions, turns };
 }
 
-function caseRevision(plan: Plan): string {
-  return createHash("sha256")
-    .update(plan.command.caseId)
-    .update("\0")
-    .update(readFileSync(CASES_SOURCE))
-    .digest("hex")
-    .slice(0, 12);
-}
-
 function buildRecord(ctx: Ctx, plan: Plan, result: Attempt, elapsedMs: number): RunRecord {
   return {
     schemaVersion: SCHEMA_VERSION,
     runId: plan.runId,
     caseId: plan.command.caseId,
-    caseRevision: caseRevision(plan),
+    caseRevision: plan.revision,
     variant: plan.command.variant,
     startedAt: plan.startedAt.toISOString(),
     elapsedMs,
