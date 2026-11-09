@@ -118,8 +118,11 @@ function readBounded(path: string, limit: number): string | undefined {
   }
 }
 
+// A value that is neither an Error nor text is reported by its kind alone. An object's text may hold whatever it
+// was given, and String() throws on some objects, which would escape the handlers that call this.
 function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  if (error instanceof Error) return error.message;
+  return typeof error === "string" ? error : `Error ではない値が投げられた (${typeof error})`;
 }
 
 // ---- Child processes.

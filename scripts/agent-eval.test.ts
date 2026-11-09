@@ -792,6 +792,25 @@ describe("refusing a run before anything starts", () => {
   });
 });
 
+describe("a value thrown instead of an Error", () => {
+  test.each<[string, unknown, string]>([
+    ["text", "disk full", "disk full"],
+    ["an object whose text would reveal what it holds", { toString: () => CANARY }, "object"],
+    ["an object that cannot become text", Object.create(null), "object"],
+  ])("reports %s and ends as a failure", async (_name, thrown, want) => {
+    const h = harness("");
+    const env = {
+      get XDG_STATE_HOME(): string {
+        throw thrown;
+      },
+    };
+    expect(await main(["summary"], { ...h.ctx, env })).toBe(1);
+    expect(h.err).toHaveLength(1);
+    expect(h.err[0]).toContain(want);
+    expect(h.err[0]).not.toContain(CANARY);
+  });
+});
+
 describe("the other fixed cases", () => {
   const investigate = (answer: object) => finish(JSON.stringify(answer));
   const RIGHT_ANSWER = { definingFile: "src/limits/active.ts", limitBytes: 3145728 };
