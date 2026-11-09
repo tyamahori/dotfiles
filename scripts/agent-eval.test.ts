@@ -23,6 +23,7 @@ import {
   changedPaths,
   type FinalOutput,
   type Identity,
+  judgeChecks,
   lightProfileProblem,
   NO_RECORDS,
   parseArgs,
@@ -148,6 +149,15 @@ const installLightProfile = (h: Harness, text = 'model_reasoning_effort = "mediu
   writeFileSync(join(h.codexHome, "light.config.toml"), text);
 
 const SLOW = 30_000;
+
+const clean: ChildResult = {
+  exitCode: 0,
+  signal: null,
+  timedOut: false,
+  interrupted: false,
+  overLimit: false,
+  launchError: false,
+};
 
 describe("a bug fix run", () => {
   test(
@@ -314,6 +324,104 @@ describe("a bug fix run", () => {
       const h = harness(`${quitting}\n${finish()}`);
       expect(await main(["run", "bug-fix", "--variant", "baseline"], h.ctx)).toBe(1);
       expect(failedIds(onlyRecord(h))).toContain("behaviour:empty-list");
+    },
+    SLOW,
+  );
+});
+
+describe("a module that tries to decide its own result", () => {
+  const RIGHT_VALUES = {
+    "empty-list": 0,
+    "one-item": 1,
+    "exact-page": 1,
+    "just-over-a-page": 2,
+    "exact-multiple": 2,
+    "partial-last-page": 3,
+    "report-footer": "2 page(s)",
+  };
+  const IDS = Object.keys(RIGHT_VALUES);
+  const print = (row: object) => `console.log(${JSON.stringify(JSON.stringify(row))});`;
+  const printValues = Object.entries(RIGHT_VALUES).map(([id, value]) => print({ agentEvalCheck: id, value }));
+  const wrongRepair = (...lines: string[]) => write("src/paginate.ts", ...lines, "export const pageCount = () => -1;");
+  const asBehaviour = (ids: string[]) => ids.map((id) => `behaviour:${id}`);
+
+  test.each<[string, string[], string[]]>([
+    [
+      "prints a passing verdict for every check and exits",
+      [
+        print({ agentEvalCheck: "started" }),
+        ...IDS.map((id) => print({ agentEvalCheck: id, pass: true })),
+        "process.exit(0);",
+      ],
+      IDS,
+    ],
+    [
+      "prints the right value for only one check and exits",
+      [print({ agentEvalCheck: "empty-list", value: 0 }), "process.exit(0);"],
+      IDS.filter((id) => id !== "empty-list"),
+    ],
+    ["prints the right value for every check and then fails", [...printValues, "process.exit(7);"], IDS],
+    [
+      "prints the right value for every check and then dies by signal",
+      [...printValues, 'process.kill(process.pid, "SIGKILL");'],
+      IDS,
+    ],
+  ])(
+    "fails when it %s",
+    async (_name, lines, failed) => {
+      const h = harness(`${wrongRepair(...lines)}\n${finish()}`);
+      expect(await main(["run", "bug-fix", "--variant", "baseline"], h.ctx)).toBe(1);
+      const record = onlyRecord(h);
+      expect(record.outcome).toBe("fail");
+      expect(failedIds(record)).toEqual(asBehaviour(failed));
+    },
+    SLOW,
+  );
+
+  test(
+    "a correct repair that also prints a value for one check fails that check",
+    async () => {
+      const repair = write(
+        "src/paginate.ts",
+        print({ agentEvalCheck: "exact-multiple", value: 2 }),
+        "export function pageCount(total, pageSize) {",
+        "  return Math.ceil(total / pageSize);",
+        "}",
+      );
+      const h = harness(`${repair}\n${finish()}`);
+      expect(await main(["run", "bug-fix", "--variant", "baseline"], h.ctx)).toBe(1);
+      expect(failedIds(onlyRecord(h))).toEqual(["behaviour:exact-multiple"]);
+    },
+    SLOW,
+  );
+
+  test(
+    "the expected values are not handed to the code being checked",
+    async () => {
+      const snooping = write(
+        "src/paginate.ts",
+        "export function pageCount(total, pageSize) {",
+        `  return process.argv.join(" ").includes('"want"') ? -1 : Math.ceil(total / pageSize);`,
+        "}",
+      );
+      const h = harness(`${snooping}\n${finish()}`);
+      expect(await main(["run", "bug-fix", "--variant", "baseline"], h.ctx)).toBe(0);
+    },
+    SLOW,
+  );
+
+  test(
+    "keeps how the check ended for diagnosis but nothing the code printed",
+    async () => {
+      const noisy = wrongRepair(`console.log("${CANARY}");`, `console.error("${CANARY}");`, "process.exit(7);");
+      const h = harness(`${noisy}\n${finish()}`);
+      expect(await main(["run", "bug-fix", "--variant", "baseline"], h.ctx)).toBe(1);
+      const evidence = evidencePath(h, onlyRecord(h));
+      const status = readFileSync(join(evidence, "check.status.json"), "utf8");
+      expect(JSON.parse(status)).toMatchObject({ exitCode: 7, signal: null });
+      expect(status).not.toContain(CANARY);
+      expect(existsSync(join(evidence, "check.stdout"))).toBe(false);
+      expect(existsSync(join(evidence, "check.stderr.log"))).toBe(false);
     },
     SLOW,
   );
@@ -897,14 +1005,6 @@ describe("parsing arguments", () => {
 });
 
 describe("reading the CLI's events", () => {
-  const clean: ChildResult = {
-    exitCode: 0,
-    signal: null,
-    timedOut: false,
-    interrupted: false,
-    overLimit: false,
-    launchError: false,
-  };
   const done = { threadId: THREAD, completed: 1, failed: 0 };
   const ok: FinalOutput = { state: "ok", value: {} };
 
@@ -1104,14 +1204,15 @@ describe("the light profile", () => {
 });
 
 describe("the behaviour check harness", () => {
-  const CHECK = { id: "c", module: "m.ts", fn: "f", args: [2], want: 4 };
+  const CALL = { id: "c", module: "m.ts", fn: "f", args: [2] };
+  const WANT = [{ id: "c", want: 4 }];
 
-  async function run(source: string | undefined, checks = [CHECK]): Promise<string[]> {
+  async function run(source: string | undefined): Promise<string[]> {
     const dir = join(base, `check${harnessCount++}`);
     mkdirSync(dir, { recursive: true });
     if (source !== undefined) writeFileSync(join(dir, "m.ts"), source);
     const lines: string[] = [];
-    await runChecks(dir, checks, (line) => lines.push(line));
+    await runChecks(dir, [CALL], (line) => lines.push(line));
     return lines;
   }
 
@@ -1120,30 +1221,46 @@ describe("the behaviour check harness", () => {
     ["an async function with the expected value", "export const f = async (n) => n * 2;", true],
     ["another value", "export const f = (n) => n * 3;", false],
     ["a value of another type", 'export const f = () => "4";', false],
+    ["no value", "export const f = () => undefined;", false],
+    ["a value JSON cannot carry", "export const f = () => 4n;", false],
+    ["a circular value", "export const f = () => { const a = {}; a.a = a; return a; };", false],
     ["a throw", 'export const f = () => { throw new Error("x"); };', false],
     ["no such export", "export const g = () => 4;", false],
     ["an export that is not a function", "export const f = 4;", false],
     ["a syntax error", "export const f = (", false],
     ["a missing module", undefined, false],
-  ])("reports %s", async (_name, source, pass) => {
+  ])("judges %s", async (_name, source, pass) => {
     const parsed = parseCheckOutput((await run(source)).join("\n"), ["c"]);
     expect(parsed.started).toBe(true);
-    expect(parsed.results.get("c")).toBe(pass);
+    expect(judgeChecks(WANT, parsed, clean).get("c")).toBe(pass);
   });
 
-  test("a line the check did not ask about is ignored and a repeated failure stays failed", () => {
-    const lines = [
-      '{"agentEvalCheck":"started"}',
-      "ordinary output",
-      '{"agentEvalCheck":"unknown","pass":true}',
-      '{"agentEvalCheck":"c","pass":false}',
-      '{"agentEvalCheck":"c","pass":true}',
-      '{"agentEvalCheck":"d","pass":"yes"}',
-    ].join("\n");
-    const parsed = parseCheckOutput(lines, ["c", "d"]);
-    expect(parsed.results.get("c")).toBe(false);
-    expect(parsed.results.has("d")).toBe(false);
-    expect(parsed.results.has("unknown")).toBe(false);
+  test("the expected value comes from the parent, whatever a line claims", () => {
+    const parsed = parseCheckOutput('{"agentEvalCheck":"c","value":5,"pass":true}', ["c"]);
+    expect(judgeChecks(WANT, parsed, clean).get("c")).toBe(false);
+  });
+
+  test("a value reported twice counts for nothing, even when both are right", () => {
+    const value = '{"agentEvalCheck":"c","value":4}';
+    const parsed = parseCheckOutput([value, value, value].join("\n"), ["c"]);
+    expect(judgeChecks(WANT, parsed, clean).get("c")).toBe(false);
+  });
+
+  test("a line about a check nobody asked for is ignored", () => {
+    const lines = ["ordinary output", '{"agentEvalCheck":"other","value":1}', '{"agentEvalCheck":"c","value":4}'];
+    const parsed = parseCheckOutput(lines.join("\n"), ["c"]);
+    expect([...parsed.values.keys()]).toEqual(["c"]);
+  });
+
+  test.each<[string, Partial<ChildResult>, boolean]>([
+    ["a run that ended by itself", {}, true],
+    ["a nonzero exit", { exitCode: 7 }, false],
+    ["death by signal", { exitCode: null, signal: "SIGKILL" }, false],
+    ["a timeout", { timedOut: true }, false],
+    ["too much output", { overLimit: true }, false],
+  ])("the right value after %s counts as %j", (_name, child, pass) => {
+    const parsed = parseCheckOutput('{"agentEvalCheck":"c","value":4}', ["c"]);
+    expect(judgeChecks(WANT, parsed, { ...clean, ...child }).get("c")).toBe(pass);
   });
 
   test("output that never says it started means the harness did not run", () => {

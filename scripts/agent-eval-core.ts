@@ -1,6 +1,7 @@
 // Decisions for scripts/agent-eval (docs/agent-eval.md): pure functions over parsed data, so each
 // verdict can be shown with literals. Processes and files stay in agent-eval.ts; what makes a case
 // pass stays in agent-eval-cases.ts.
+import { isDeepStrictEqual } from "node:util";
 
 export const CASE_IDS = ["investigation", "bug-fix", "cross-file", "review", "continuation"] as const;
 export type CaseId = (typeof CASE_IDS)[number];
@@ -353,21 +354,47 @@ export function changedPaths(
   return [...changed].sort();
 }
 
+export type CheckOutput = { started: boolean; values: ReadonlyMap<string, unknown> };
+
+// The child reports what it saw and this reads nothing else, so a `pass` on a line means nothing.
 // `started` separates a harness that never ran from agent code that broke it. Lines naming anything
-// else are ignored, and a check reported twice has to pass both times.
-export function parseCheckOutput(
-  text: string,
-  ids: readonly string[],
-): { started: boolean; results: Map<string, boolean> } {
-  const results = new Map<string, boolean>();
+// else are ignored, and a check reported twice has no value: one of the two came from the agent.
+export function parseCheckOutput(text: string, ids: readonly string[]): CheckOutput {
+  const values = new Map<string, unknown>();
+  const repeated = new Set<string>();
   let started = false;
   for (const line of text.split("\n")) {
     const row = asRow(parseJson(line));
     const id = row[CHECK_MARKER];
     if (id === CHECK_STARTED) started = true;
-    else if (isMember(ids, id) && typeof row.pass === "boolean") results.set(id, row.pass && results.get(id) !== false);
+    else if (isMember(ids, id)) {
+      if (values.has(id)) repeated.add(id);
+      values.set(id, row.value);
+    }
   }
-  return { started, results };
+  for (const id of repeated) values.delete(id);
+  return { started, values };
+}
+
+const endedByItself = (child: ChildResult) =>
+  child.exitCode === 0 &&
+  child.signal === null &&
+  !child.timedOut &&
+  !child.interrupted &&
+  !child.overLimit &&
+  !child.launchError;
+
+// A value counts only from a run that ended by itself with success, so code that crashes or stops the
+// harness early earns nothing for what it printed first.
+// ponytail: a module that prints every right value and exits 0 still passes. That is the same as
+// hard-coding the fixed table, which no black-box check can tell apart; random inputs if it ever matters.
+export function judgeChecks(
+  checks: readonly { id: string; want: unknown }[],
+  output: CheckOutput,
+  child: ChildResult,
+): Map<string, boolean> {
+  const clean = endedByItself(child);
+  return new Map(checks.map(({ id, want }) => [id, clean && isDeepStrictEqual(output.values.get(id), want)]));
 }
 
 // ---- Summary: counts per comparable group. It prints no speed difference, so a small sample

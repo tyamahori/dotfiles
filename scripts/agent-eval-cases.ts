@@ -4,7 +4,9 @@
 // this repository's own analyzers; each run writes them to a fresh workspace.
 import { type Assertion, asRow, type CaseId } from "./agent-eval-core.ts";
 
-export type Check = { id: string; module: string; fn: string; args: unknown[]; want: unknown };
+export type CheckCall = { id: string; module: string; fn: string; args: unknown[] };
+// `want` stays in the parent: the process running the agent's code only ever sees the call.
+export type Check = CheckCall & { want: unknown };
 
 export type EvalCase = {
   files: Readonly<Record<string, string>>;

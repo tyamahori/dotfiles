@@ -26,6 +26,7 @@ import {
   type FinalOutput,
   type Identity,
   type IncompleteReason,
+  judgeChecks,
   LIGHT_PROFILE,
   lightProfileProblem,
   type Outcome,
@@ -439,14 +440,16 @@ function readTree(root: string): Map<string, string | null> {
 type ChecksResult = { problem?: IncompleteReason; results: ReadonlyMap<string, boolean> };
 
 // Only the workspace's code runs here, and it can read what the agent could already read but neither
-// write nor reach the network. It gets no environment beyond these few variables. What it prints may
-// hold anything it read, so only the parsed verdicts survive this function. Stderr stays only when
-// the harness never started, which means no agent code ran.
+// write nor reach the network. It gets no environment beyond these few variables and none of the
+// expected values. What it prints may hold anything it read, so only the comparison and a status file
+// of fixed fields survive this function. Stderr stays only when the harness never started, which
+// means no agent code ran.
 async function runBehaviourChecks(ctx: Ctx, plan: Plan): Promise<ChecksResult> {
   const { checks } = plan.evalCase;
   if (checks.length === 0) return { results: new Map() };
   const stdoutPath = join(plan.evidence, "check.stdout");
   const stderrPath = join(plan.evidence, "check.stderr.log");
+  const calls = checks.map(({ id, module, fn, args }) => ({ id, module, fn, args }));
   const child = await runChild({
     argv: [
       plan.tools.codex,
@@ -460,7 +463,7 @@ async function runBehaviourChecks(ctx: Ctx, plan: Plan): Promise<ChecksResult> {
       ...BUN_RUN,
       CHECK_SCRIPT,
       plan.workspace,
-      JSON.stringify(checks),
+      JSON.stringify(calls),
     ],
     cwd: plan.workspace,
     env: { PATH: SYSTEM_PATH, HOME: plan.scratchHome, LC_ALL: "C", TZ: "UTC" },
@@ -469,14 +472,21 @@ async function runBehaviourChecks(ctx: Ctx, plan: Plan): Promise<ChecksResult> {
     timeoutMs: CHECK_TIMEOUT_MS,
     signal: ctx.signal,
   });
-  const { started, results } = parseCheckOutput(
+  const output = parseCheckOutput(
     readBounded(stdoutPath, MAX_STDOUT_BYTES) ?? "",
     checks.map((check) => check.id),
   );
   rmSync(stdoutPath, { force: true });
-  if (started) rmSync(stderrPath, { force: true });
-  if (child.interrupted) return { problem: "interrupted", results };
-  return started ? { results } : { problem: "harness-error", results };
+  if (output.started) rmSync(stderrPath, { force: true });
+  const { exitCode, signal, timedOut, overLimit } = child;
+  writeFileSync(
+    join(plan.evidence, "check.status.json"),
+    `${JSON.stringify({ exitCode, signal, timedOut, overLimit, reported: [...output.values.keys()] })}\n`,
+    { mode: 0o600 },
+  );
+  if (child.interrupted) return { problem: "interrupted", results: new Map() };
+  if (!output.started) return { problem: "harness-error", results: new Map() };
+  return { results: judgeChecks(checks, output, child) };
 }
 
 function observeIdentity(ctx: Ctx, threadId: string | undefined): Identity {
