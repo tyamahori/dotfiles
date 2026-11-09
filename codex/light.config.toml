@@ -1,0 +1,10 @@
+# Explicitly selected lower-effort profile: `codex --profile light` or
+# `codex exec --profile light`. scripts/link places it at
+# ~/.codex/light.config.toml (profile v2). The default stays in codex/config.toml
+# and this file never applies unless selected.
+#
+# Only the effort belongs here. Model, service tier, approvals and sandbox stay
+# whatever the base configuration says, so scripts/agent-eval can compare this
+# profile with the default on the same model; it refuses a profile with any
+# other key.
+model_reasoning_effort = "medium"

@@ -226,6 +226,15 @@ mkdir -p "$HOME/.codex"
 ln -snfv "${REPO_ROOT}/codex/hooks.json" "$HOME/.codex/hooks.json"
 mkdir -p "$HOME/.codex/rules"
 ln -snfv "${REPO_ROOT}/codex/rules/default.rules" "$HOME/.codex/rules/default.rules"
+# Opt-in profile (codex --profile light); the default effort stays in
+# codex/config.toml. A regular file that differs from the repository copy is the
+# user's own profile of that name: report it and leave it.
+codex_light_profile="$HOME/.codex/light.config.toml"
+if [[ -e $codex_light_profile && ! -L $codex_light_profile ]] && ! cmp -s "${REPO_ROOT}/codex/light.config.toml" "$codex_light_profile"; then
+	echo "link: $codex_light_profile is a local profile; move it aside to use ${REPO_ROOT}/codex/light.config.toml" >&2
+else
+	ln -snfv "${REPO_ROOT}/codex/light.config.toml" "$codex_light_profile"
+fi
 # codex/config.toml is the system config layer (/etc/codex/config.toml): Codex
 # never writes there, unlike ~/.codex/config.toml. /etc needs root, so only
 # verify the link here and print the one-time command instead of running sudo.
