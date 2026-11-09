@@ -1110,3 +1110,124 @@ describe("the behaviour check harness", () => {
     expect(parseCheckOutput("sandbox unavailable", ["c"]).started).toBe(false);
   });
 });
+
+describe("the usage snapshot", () => {
+  const SNAPSHOT = join(import.meta.dir, "../agents/skills/agent-usage-review/scripts/snapshot.sh");
+  const SNAPSHOT_TIMEOUT = 60_000;
+  const now = () => new Date().toISOString();
+
+  // Only the named tools and the base system: ccusage, omp, and jbcontext stay out of the run, so
+  // their sections come out empty instead of reaching the network.
+  function snapshotHome(tools: Record<string, string>): { home: string; bin: string } {
+    const home = join(base, `snapshot${harnessCount++}`);
+    const bin = join(home, "bin");
+    mkdirSync(bin, { recursive: true });
+    for (const [name, target] of Object.entries(tools)) symlinkSync(target, join(bin, name));
+    return { home, bin };
+  }
+
+  function runSnapshot(paths: { home: string; bin: string }, env: Record<string, string> = {}) {
+    return spawnSync(Bun.which("bash")!, [SNAPSHOT, "--days", "7"], {
+      env: { HOME: paths.home, PATH: `${paths.bin}:/usr/bin:/bin`, LC_ALL: "C", ...env },
+      encoding: "utf8",
+    });
+  }
+
+  function writeRecords(dir: string, rows: RunRecord[]): void {
+    mkdirSync(dir, { recursive: true });
+    for (const row of rows) writeFileSync(join(dir, `${row.runId}.json`), JSON.stringify(row));
+  }
+
+  const sectionBody = (stdout: string) =>
+    (stdout.split("### 固定タスク評価")[1] ?? "")
+      .split("\n### ")[0]!
+      .split("\n")
+      .filter((line) => line !== "" && !line.startsWith(">"));
+
+  const JQ_AND_BUN = () => ({ jq: Bun.which("jq")!, bun: process.execPath });
+  const defaultRuns = (home: string) => join(home, ".local/state/agent-eval/runs");
+
+  test(
+    "lists runs per comparable group within the period, counts a malformed file apart, and keeps the other sections",
+    () => {
+      const paths = snapshotHome(JQ_AND_BUN());
+      const dir = defaultRuns(paths.home);
+      const lightIdentity = { ...IDENTITY, effort: "medium" };
+      writeRecords(dir, [
+        record({ startedAt: now(), elapsedMs: 2000 }),
+        record({ ...failing, startedAt: now(), elapsedMs: 1000 }),
+        record({ variant: "light", identity: lightIdentity, startedAt: now(), elapsedMs: 500 }),
+        record({ caseId: "review", startedAt: "2020-01-01T00:00:00.000Z" }),
+      ]);
+      writeFileSync(join(dir, "broken.json"), '{"outcome":"pass"');
+
+      const run = runSnapshot(paths);
+
+      expect(run.status).toBe(0);
+      const [header, ...rest] = sectionBody(run.stdout);
+      const names = header!.split("\t");
+      const rows = rest
+        .filter((line) => !line.startsWith("malformed_records"))
+        .map((line) => Object.fromEntries(line.split("\t").map((cell, index) => [names[index], cell])));
+      expect(rows.map((row) => [row.case, row.variant, row.runs, row.pass, row.fail, row.comparison])).toEqual([
+        ["bug-fix", "baseline", "2", "1", "1", "comparable"],
+        ["bug-fix", "light", "1", "1", "0", "comparable"],
+      ]);
+      expect(rest.at(-1)).toBe("malformed_records: 1 (pass に数えない)");
+      for (const section of ["## 日次合計", "### 繰り返し失敗", "### Plugin / config drift", "### 制約"]) {
+        expect(run.stdout).toContain(section);
+      }
+    },
+    SNAPSHOT_TIMEOUT,
+  );
+
+  test(
+    "says there is no evaluation when there are no records, even without bun",
+    () => {
+      const paths = snapshotHome({ jq: Bun.which("jq")! });
+      const run = runSnapshot(paths);
+      expect(run.status).toBe(0);
+      expect(sectionBody(run.stdout)).toEqual([NO_RECORDS]);
+    },
+    SNAPSHOT_TIMEOUT,
+  );
+
+  test(
+    "says the records could not be read when bun is missing, rather than reporting no failures",
+    () => {
+      const paths = snapshotHome({ jq: Bun.which("jq")! });
+      writeRecords(defaultRuns(paths.home), [record({ startedAt: now() })]);
+      const run = runSnapshot(paths);
+      expect(run.status).toBe(0);
+      expect(sectionBody(run.stdout)).toEqual(["- 取得不能（bun がない）"]);
+    },
+    SNAPSHOT_TIMEOUT,
+  );
+
+  test(
+    "follows an absolute XDG_STATE_HOME to the records",
+    () => {
+      const paths = snapshotHome(JQ_AND_BUN());
+      const state = join(paths.home, "custom-state");
+      writeRecords(join(state, "agent-eval/runs"), [record({ startedAt: now() })]);
+      const run = runSnapshot(paths, { XDG_STATE_HOME: state });
+      expect(sectionBody(run.stdout)[1]).toStartWith("bug-fix\tbaseline");
+    },
+    SNAPSHOT_TIMEOUT,
+  );
+
+  test(
+    "treats a record holding a command as data and runs nothing from it",
+    () => {
+      const paths = snapshotHome(JQ_AND_BUN());
+      const marker = join(paths.home, "executed");
+      const hostile = record({ startedAt: now(), identity: { ...IDENTITY, model: `$(touch ${marker})` } });
+      writeRecords(defaultRuns(paths.home), [hostile]);
+      const run = runSnapshot(paths);
+      expect(run.status).toBe(0);
+      expect(sectionBody(run.stdout)).toEqual([NO_RECORDS, "malformed_records: 1 (pass に数えない)"]);
+      expect(existsSync(marker)).toBe(false);
+    },
+    SNAPSHOT_TIMEOUT,
+  );
+});

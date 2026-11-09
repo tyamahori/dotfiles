@@ -1018,6 +1018,28 @@ else
 fi
 
 echo
+echo "### 固定タスク評価"
+echo
+# shellcheck disable=SC2016 # backticks are literal markdown code-span text, not expansion
+echo '> `scripts/agent-eval` の記録を、課題・variant・実測の CLI と model と effort の組ごとに数える（docs/agent-eval.md）。集計期間は上記と同じ。少数の標本なので、本番の作業が速くなる根拠にはしない。comparison が comparable でない組の時間は比べない。プロンプト・出力本文・パスは出力しない。'
+echo
+# The XDG specification says a relative XDG_STATE_HOME must be ignored; agent-eval does the same.
+case "${XDG_STATE_HOME:-}" in
+/*) AGENT_EVAL_RUNS="$XDG_STATE_HOME/agent-eval/runs" ;;
+*) AGENT_EVAL_RUNS="$HOME/.local/state/agent-eval/runs" ;;
+esac
+if [ ! -d "$AGENT_EVAL_RUNS" ]; then
+	echo "(評価記録なし)"
+elif ! command -v bun >/dev/null 2>&1; then
+	echo "- 取得不能（bun がない）"
+elif ! AGENT_EVAL_SUMMARY="$("$REPO_ROOT/scripts/agent-eval" summary --since-ms "$CUTOFF_MS" 2>/dev/null)"; then
+	# shellcheck disable=SC2016 # backticks are literal markdown code-span text, not expansion
+	echo '- 取得不能（`scripts/agent-eval summary` が失敗した）'
+else
+	printf '%s\n' "$AGENT_EVAL_SUMMARY"
+fi
+
+echo
 echo "### 制約"
 echo
 # shellcheck disable=SC2016 # backticks are literal markdown code-span text, not expansion
@@ -1027,4 +1049,5 @@ echo "- skill activation は明示的な起動または読込シグナルであ�
 echo "- instruction footprint は canonical file の byte/line 数であり、実リクエストの token count ではない。増加だけで削減を提案せず、cache write と再利用頻度を照合する。"
 echo "- persistent memory footprint は snapshot 時点の容量であり、期間内の増分や参照回数ではない。参照履歴がない store は利用 0 と判定しない。"
 echo "- jbcontext analyze は Claude Code / Codex / Junie のセッションだけを見る(OMP は対象外)。window は 30 日固定で --days と一致しない。usage % の増減は効果量ではない。"
+echo "- 固定タスク評価の malformed_records は期間に関係なく数える。壊れた記録からは実行時刻を信用できないため。"
 echo "- この snapshot は計測と drift 検出だけを行い、設定・plugin・セッションを変更しない。"
