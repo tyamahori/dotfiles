@@ -17,8 +17,6 @@ export const LIGHT_PROFILE = "light";
 export const UNKNOWN = "unknown";
 export const MIXED = "mixed";
 export const NO_RECORDS = "(評価記録なし)";
-export const CHECK_MARKER = "agentEvalCheck";
-export const CHECK_STARTED = "started";
 export const USAGE =
   "usage: agent-eval run <investigation|bug-fix|cross-file|review|continuation> --variant <baseline|light> [--timeout-seconds N]\n" +
   "       agent-eval summary [--since-ms N]";
@@ -376,29 +374,7 @@ export function changedPaths(
   return [...changed].sort();
 }
 
-export type CheckOutput = { started: boolean; values: ReadonlyMap<string, unknown> };
-
-// The child reports what it saw and this reads nothing else, so a `pass` on a line means nothing.
-// `started` separates a harness that never ran from agent code that broke it. Lines naming anything
-// else are ignored, and a check reported twice has no value: one of the two came from the agent.
-export function parseCheckOutput(text: string, ids: readonly string[]): CheckOutput {
-  const values = new Map<string, unknown>();
-  const repeated = new Set<string>();
-  let started = false;
-  for (const line of text.split("\n")) {
-    const row = asRow(parseJson(line));
-    const id = row[CHECK_MARKER];
-    if (id === CHECK_STARTED) started = true;
-    else if (isMember(ids, id)) {
-      if (values.has(id)) repeated.add(id);
-      values.set(id, row.value);
-    }
-  }
-  for (const id of repeated) values.delete(id);
-  return { started, values };
-}
-
-const endedByItself = (child: ChildResult) =>
+export const endedByItself = (child: ChildResult) =>
   child.exitCode === 0 &&
   child.signal === null &&
   !child.timedOut &&
@@ -406,17 +382,13 @@ const endedByItself = (child: ChildResult) =>
   !child.overLimit &&
   !child.launchError;
 
-// A value counts only from a run that ended by itself with success, so code that crashes or stops the
-// harness early earns nothing for what it printed first.
-// ponytail: a module that prints every right value and exits 0 still passes. That is the same as
-// hard-coding the fixed table, which no black-box check can tell apart; random inputs if it ever matters.
-export function judgeChecks(
-  checks: readonly { id: string; want: unknown }[],
-  output: CheckOutput,
-  child: ChildResult,
-): Map<string, boolean> {
-  const clean = endedByItself(child);
-  return new Map(checks.map(({ id, want }) => [id, clean && isDeepStrictEqual(output.values.get(id), want)]));
+// All of stdout has to be one JSON value equal to what the parent expects, from a process that ended by
+// itself with success. So another line beside the answer, an answer followed by a crash, and a verdict in
+// any shape earn nothing. Stderr is diagnostics and is not read.
+// ponytail: the inputs are fixed, so code hard-coded to answer them passes. That meets the public contract,
+// which is all this checks: it does not show that any internal function ran. Random inputs if it ever matters.
+export function checkPasses(want: unknown, stdout: string, child: ChildResult): boolean {
+  return endedByItself(child) && isDeepStrictEqual(parseJson(stdout), want);
 }
 
 // ---- Summary: counts per comparable group. It prints no speed difference, so a small sample

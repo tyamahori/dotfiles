@@ -5,9 +5,9 @@
 import { isDeepStrictEqual } from "node:util";
 import { type Assertion, asRow, type CaseId, parseJson, type Row } from "./agent-eval-core.ts";
 
-export type CheckCall = { id: string; module: string; fn: string; args: unknown[] };
-// `want` stays in the parent: the process running the agent's code only ever sees the call.
-export type Check = CheckCall & { want: unknown };
+// One request an outside consumer makes of the fixture's public CLI. `want` stays in the parent: the
+// process running the agent's code sees only the operation and its input.
+export type Check = { id: string; operation: string; input: unknown; want: unknown };
 
 // One declaration of a final answer gives both the schema handed to the CLI and the check repeated on
 // what the CLI wrote, so the two cannot drift. Only the types these five answers use exist here.
@@ -19,7 +19,7 @@ export type EvalCase = {
   change: Readonly<Record<string, string>>;
   prompts: readonly string[];
   output: Shape;
-  // Run against the agent's code once it finishes, from outside the workspace it could edit.
+  // Asked of the fixture's public CLI once the agent finishes.
   checks: readonly Check[];
   changes: { required: readonly string[]; allowed: readonly string[] };
   gradeOutput(output: unknown): Assertion[];
@@ -31,6 +31,34 @@ const LINE_TOLERANCE = 2;
 const LIMIT_BYTES = 3145728;
 
 const source = (...lines: string[]) => `${lines.join("\n")}\n`;
+
+export const PUBLIC_CLI = "cli.ts";
+
+// What a fixture with behaviour checks promises its consumers. No case allows editing it, and its table
+// is fixed, so nothing in a request names a path or a command. Each operation imports its library on
+// demand so that one broken library leaves the others answering, and the explicit exit means a handle a
+// library left open cannot hold the answer back.
+const publicCli = (...operations: string[]) =>
+  source(
+    "// Public interface: bun run cli.ts <operation> '<json-input>'",
+    "// Prints the result as one JSON value and exits 0. Nothing else may reach stdout.",
+    "const OPERATIONS = new Map([",
+    ...operations.map((operation) => `  ${operation},`),
+    "]);",
+    'const [name = "", input = ""] = process.argv.slice(2);',
+    "const operation = OPERATIONS.get(name);",
+    "if (!operation) {",
+    '  console.error("usage: bun run cli.ts <operation> <json-input>");',
+    "  process.exit(2);",
+    "}",
+    "console.log(JSON.stringify(await operation(JSON.parse(input))));",
+    "process.exit(0);",
+  );
+
+const CLI_CONTRACT =
+  " cli.ts is this repository's public interface, already written for the result asked for, and it must stay " +
+  "unchanged: bun run cli.ts <operation> '<json-input>' prints the result as one JSON value and exits 0, so " +
+  "nothing else may reach stdout.";
 
 const STRING: Shape = { schema: { type: "string" }, accepts: (value) => typeof value === "string" };
 const INTEGER: Shape = { schema: { type: "integer" }, accepts: (value) => Number.isInteger(value) };
@@ -104,14 +132,17 @@ const INVESTIGATION: EvalCase = {
 
 const paginateCheck = (id: string, total: number, want: number): Check => ({
   id,
-  module: "src/paginate.ts",
-  fn: "pageCount",
-  args: [total, 10],
+  operation: "pageCount",
+  input: { total, pageSize: 10 },
   want,
 });
 
 const BUG_FIX: EvalCase = {
   files: {
+    [PUBLIC_CLI]: publicCli(
+      '["pageCount", async ({ total, pageSize }) => (await import("./src/paginate")).pageCount(total, pageSize)]',
+      '["footer", async ({ total, pageSize }) => (await import("./src/report")).footer(total, pageSize)]',
+    ),
     "src/paginate.ts": source(
       "export function pageCount(total: number, pageSize: number): number {",
       "  return Math.floor(total / pageSize) + 1;",
@@ -128,7 +159,8 @@ const BUG_FIX: EvalCase = {
   change: {},
   prompts: [
     "pageCount in src/paginate.ts is wrong: 20 items at 10 per page reports 3 pages, and an empty list should have " +
-      "0 pages. Fix the root cause in src/paginate.ts only. Do not change any other file and do not commit.",
+      "0 pages. Fix the root cause in src/paginate.ts only. Do not change any other file and do not commit." +
+      CLI_CONTRACT,
   ],
   output: SUMMARY,
   checks: [
@@ -138,7 +170,7 @@ const BUG_FIX: EvalCase = {
     paginateCheck("just-over-a-page", 11, 2),
     paginateCheck("exact-multiple", 20, 2),
     paginateCheck("partial-last-page", 25, 3),
-    { id: "report-footer", module: "src/report.ts", fn: "footer", args: [20, 10], want: "2 page(s)" },
+    { id: "report-footer", operation: "footer", input: { total: 20, pageSize: 10 }, want: "2 page(s)" },
   ],
   changes: { required: ["src/paginate.ts"], allowed: ["src/paginate.ts"] },
   gradeOutput: notGraded,
@@ -148,6 +180,12 @@ const CROSS_FILE_PATHS = ["src/money.ts", "src/cart.ts", "src/invoice.ts", "src/
 
 const CROSS_FILE: EvalCase = {
   files: {
+    [PUBLIC_CLI]: publicCli(
+      '["formatPrice", async ({ cents, currency }) => (await import("./src/money")).formatPrice({ cents, currency })]',
+      '["cartTotal", async ({ items }) => (await import("./src/cart")).cartTotal(items)]',
+      '["invoiceLine", async ({ label, cents, currency }) => (await import("./src/invoice")).invoiceLine(label, cents, currency)]',
+      '["receiptFooter", async ({ cents }) => (await import("./src/receipt")).receiptFooter(cents)]',
+    ),
     "src/money.ts": source(
       "export function formatPrice(cents: number): string {",
       '  return "USD " + (cents / 100).toFixed(2);',
@@ -180,40 +218,27 @@ const CROSS_FILE: EvalCase = {
     "Change formatPrice in src/money.ts to take one object argument { cents, currency } and return the currency " +
       "code, a space, and the amount with two decimals, for example EUR 1.50. Update every consumer under src/ so " +
       "that it keeps working. cartTotal and receiptFooter keep their signatures and stay in USD. invoiceLine gains " +
-      "a third argument: invoiceLine(label, cents, currency). Do not commit.",
+      "a third argument: invoiceLine(label, cents, currency). Do not commit." +
+      CLI_CONTRACT,
   ],
   output: SUMMARY,
   checks: [
-    {
-      id: "format-eur",
-      module: "src/money.ts",
-      fn: "formatPrice",
-      args: [{ cents: 150, currency: "EUR" }],
-      want: "EUR 1.50",
-    },
-    {
-      id: "format-usd",
-      module: "src/money.ts",
-      fn: "formatPrice",
-      args: [{ cents: 150, currency: "USD" }],
-      want: "USD 1.50",
-    },
-    { id: "cart-usd", module: "src/cart.ts", fn: "cartTotal", args: [[100, 50]], want: "USD 1.50" },
+    { id: "format-eur", operation: "formatPrice", input: { cents: 150, currency: "EUR" }, want: "EUR 1.50" },
+    { id: "format-usd", operation: "formatPrice", input: { cents: 150, currency: "USD" }, want: "USD 1.50" },
+    { id: "cart-usd", operation: "cartTotal", input: { items: [100, 50] }, want: "USD 1.50" },
     {
       id: "invoice-eur",
-      module: "src/invoice.ts",
-      fn: "invoiceLine",
-      args: ["Tea", 250, "EUR"],
+      operation: "invoiceLine",
+      input: { label: "Tea", cents: 250, currency: "EUR" },
       want: "Tea: EUR 2.50",
     },
     {
       id: "invoice-usd",
-      module: "src/invoice.ts",
-      fn: "invoiceLine",
-      args: ["Tea", 250, "USD"],
+      operation: "invoiceLine",
+      input: { label: "Tea", cents: 250, currency: "USD" },
       want: "Tea: USD 2.50",
     },
-    { id: "receipt-usd", module: "src/receipt.ts", fn: "receiptFooter", args: [999], want: "Paid USD 9.99" },
+    { id: "receipt-usd", operation: "receiptFooter", input: { cents: 999 }, want: "Paid USD 9.99" },
   ],
   changes: { required: CROSS_FILE_PATHS, allowed: CROSS_FILE_PATHS },
   gradeOutput: notGraded,
@@ -427,13 +452,18 @@ const REVIEW: EvalCase = {
 
 const CONTINUATION: EvalCase = {
   files: {
+    [PUBLIC_CLI]: publicCli(
+      '["slugify", async ({ title }) => (await import("./src/slug")).slugify(title)]',
+      '["normalizeTag", async ({ tag }) => (await import("./src/tags")).normalizeTag(tag)]',
+    ),
     "CHANGELOG.md": source("# Changelog"),
     "src/tags.ts": source("export function normalizeTag(tag: string): string {", "  return tag.toLowerCase();", "}"),
   },
   change: {},
   prompts: [
     "Add src/slug.ts exporting slugify(title: string): string. It trims surrounding whitespace, lowercases the " +
-      "text, and joins the words with a hyphen. Also add a line about it to CHANGELOG.md. Do not commit.",
+      "text, and joins the words with a hyphen. Also add a line about it to CHANGELOG.md. Do not commit." +
+      CLI_CONTRACT,
     "Correction to your previous work: slugify must join the words with an underscore, not a hyphen. CHANGELOG.md " +
       "must be exactly what the last commit has, so undo your edit there. Everything else you were asked for still " +
       "applies. Do not commit.",
@@ -442,13 +472,12 @@ const CONTINUATION: EvalCase = {
   checks: [
     {
       id: "corrected-separator",
-      module: "src/slug.ts",
-      fn: "slugify",
-      args: ["  Hello Big World "],
+      operation: "slugify",
+      input: { title: "  Hello Big World " },
       want: "hello_big_world",
     },
-    { id: "single-word", module: "src/slug.ts", fn: "slugify", args: ["One"], want: "one" },
-    { id: "existing-code-intact", module: "src/tags.ts", fn: "normalizeTag", args: ["AbC"], want: "abc" },
+    { id: "single-word", operation: "slugify", input: { title: "One" }, want: "one" },
+    { id: "existing-code-intact", operation: "normalizeTag", input: { tag: "AbC" }, want: "abc" },
   ],
   changes: { required: ["src/slug.ts"], allowed: ["src/slug.ts"] },
   gradeOutput: notGraded,

@@ -18,22 +18,22 @@ import {
   writeSync,
 } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
-import { assertionIds, CASES, type EvalCase, expectedTree, grade, type Shape } from "./agent-eval-cases.ts";
+import { assertionIds, CASES, type EvalCase, expectedTree, grade, PUBLIC_CLI, type Shape } from "./agent-eval-cases.ts";
 import {
   type Assertion,
   type CaseId,
   type ChildResult,
   changedPaths,
+  checkPasses,
+  endedByItself,
   type FinalOutput,
   type Identity,
   type IncompleteReason,
-  judgeChecks,
   LIGHT_PROFILE,
   lightProfileProblem,
   type Outcome,
   outcomeOf,
   parseArgs,
-  parseCheckOutput,
   parseEvents,
   parseJson,
   parseRecord,
@@ -70,18 +70,12 @@ const GIT_TIMEOUT_MS = 30_000;
 const KILL_GRACE_MS = 5_000;
 const CLOSE_GRACE_MS = 2_000;
 const TREE_OVERFLOW = "<too-many-files>";
-const CHECK_SCRIPT = join(import.meta.dir, "agent-eval-check.ts");
-// Everything that can change a verdict or a time. Two runs compare only when all of it matches.
-const EVALUATOR_SOURCES = [
-  "agent-eval",
-  "agent-eval.ts",
-  "agent-eval-core.ts",
-  "agent-eval-cases.ts",
-  "agent-eval-check.ts",
-];
+// Everything that can change a verdict or a time, the fixtures' public CLIs included. Two runs compare only
+// when all of it matches.
+const EVALUATOR_SOURCES = ["agent-eval", "agent-eval.ts", "agent-eval-core.ts", "agent-eval-cases.ts"];
 const SYSTEM_PATH = "/usr/bin:/bin";
 // The check runs with the agent's workspace as its working directory, where a bunfig.toml could
-// preload code ahead of the harness. An explicit empty config replaces it (measured on Bun 1.4.4).
+// preload code ahead of the public CLI. An explicit empty config replaces it (measured on Bun 1.4.4).
 const BUN_RUN = ["run", "--config=/dev/null", "--no-install", "--no-env-file"];
 // By-products the agent's own instructions send to .agent-msgs/ are not changes to the fixture.
 const NOT_FIXTURE = new Set([".git", ".agent-msgs"]);
@@ -461,56 +455,80 @@ function readTree(root: string): Map<string, string | null> {
 }
 
 type ChecksResult = { problem?: IncompleteReason; results: ReadonlyMap<string, boolean> };
+type SandboxRequest = { cwd: string; command: readonly string[]; timeoutMs: number };
 
-// Only the workspace's code runs here, and it can read what the agent could already read but neither
-// write nor reach the network. It gets no environment beyond these few variables and none of the
-// expected values. What it prints may hold anything it read, so only the comparison and a status file
-// of fixed fields survive this function. That goes for stderr without a start marker too: a missing
-// marker does not prove that no workspace code ran, so a sandbox failure is reproduced by hand instead.
-async function runBehaviourChecks(ctx: Ctx, plan: Plan): Promise<ChecksResult> {
-  const { checks } = plan.evalCase;
-  if (checks.length === 0) return { results: new Map() };
+// The workspace's code may run here. It can read what the agent could already read but neither write nor
+// reach the network, and it gets no environment beyond these few variables. What it prints may hold
+// anything it read, so none of that outlives this call, however the process ended.
+async function runInSandbox(ctx: Ctx, plan: Plan, request: SandboxRequest) {
+  const { cwd, command, timeoutMs } = request;
   const stdoutPath = join(plan.evidence, "check.stdout");
   const stderrPath = join(plan.evidence, "check.stderr.log");
-  const calls = checks.map(({ id, module, fn, args }) => ({ id, module, fn, args }));
   const child = await runChild({
-    argv: [
-      plan.tools.codex,
-      "sandbox",
-      "-P",
-      ":read-only",
-      "-C",
-      plan.workspace,
-      "--",
-      process.execPath,
-      ...BUN_RUN,
-      CHECK_SCRIPT,
-      plan.workspace,
-      JSON.stringify(calls),
-    ],
-    cwd: plan.workspace,
+    argv: [plan.tools.codex, "sandbox", "-P", ":read-only", "-C", cwd, "--", process.execPath, ...command],
+    cwd,
     env: { PATH: SYSTEM_PATH, HOME: plan.scratchHome, LC_ALL: "C", TZ: "UTC" },
     stdoutPath,
     stderrPath,
-    timeoutMs: CHECK_TIMEOUT_MS,
+    timeoutMs,
     signal: ctx.signal,
   });
-  const output = parseCheckOutput(
-    readBounded(stdoutPath, MAX_STDOUT_BYTES) ?? "",
-    checks.map((check) => check.id),
-  );
+  const stdout = readBounded(stdoutPath, MAX_STDOUT_BYTES) ?? "";
   rmSync(stdoutPath, { force: true });
   rmSync(stderrPath, { force: true });
-  const { started } = output;
-  const { exitCode, signal, timedOut, overLimit } = child;
+  return { child, stdout };
+}
+
+type Answer = { id: string; pass: boolean; child: ChildResult };
+
+// One request per process, the way any consumer would call the CLI. It receives the operation and its
+// input, never the expected value or the name of the check. Past the deadline nothing else starts, so a
+// hanging library costs one timeout rather than one for each check.
+async function askPublicCli(ctx: Ctx, plan: Plan, deadline: number): Promise<Answer[]> {
+  const cli = join(plan.workspace, PUBLIC_CLI);
+  const answers: Answer[] = [];
+  for (const { id, operation, input, want } of plan.evalCase.checks) {
+    const timeoutMs = deadline - performance.now();
+    if (timeoutMs <= 0) {
+      answers.push({ id, pass: false, child: { ...notStarted(), timedOut: true } });
+      continue;
+    }
+    const command = [...BUN_RUN, cli, operation, JSON.stringify(input)];
+    const { child, stdout } = await runInSandbox(ctx, plan, { cwd: plan.workspace, command, timeoutMs });
+    answers.push({ id, pass: checkPasses(want, stdout, child), child });
+    if (child.interrupted) break;
+  }
+  return answers;
+}
+
+const howItEnded = ({ exitCode, signal, timedOut, overLimit }: ChildResult) => ({
+  exitCode,
+  signal,
+  timedOut,
+  overLimit,
+});
+
+// Only the comparison and a status file of fixed fields survive this function. Bun is started once with
+// nothing of the workspace involved, because that failing is this machine's problem rather than the agent's,
+// and no output from the workspace's code could say which of the two it was.
+async function runBehaviourChecks(ctx: Ctx, plan: Plan): Promise<ChecksResult> {
+  if (plan.evalCase.checks.length === 0) return { results: new Map() };
+  const deadline = performance.now() + CHECK_TIMEOUT_MS;
+  const probe = { cwd: plan.scratchHome, command: ["--version"], timeoutMs: CHECK_TIMEOUT_MS };
+  const { child: sandbox } = await runInSandbox(ctx, plan, probe);
+  const ready = endedByItself(sandbox);
+  const answers = ready ? await askPublicCli(ctx, plan, deadline) : [];
+  const checks = answers.map(({ id, pass, child }) => ({ id, pass, ...howItEnded(child) }));
   writeFileSync(
     join(plan.evidence, "check.status.json"),
-    `${JSON.stringify({ started, exitCode, signal, timedOut, overLimit, reported: [...output.values.keys()] })}\n`,
+    `${JSON.stringify({ sandbox: howItEnded(sandbox), checks })}\n`,
     { mode: 0o600 },
   );
-  if (child.interrupted) return { problem: "interrupted", results: new Map() };
-  if (!output.started) return { problem: "harness-error", results: new Map() };
-  return { results: judgeChecks(checks, output, child) };
+  if (sandbox.interrupted || answers.some(({ child }) => child.interrupted)) {
+    return { problem: "interrupted", results: new Map() };
+  }
+  if (!ready) return { problem: "harness-error", results: new Map() };
+  return { results: new Map(answers.map(({ id, pass }) => [id, pass])) };
 }
 
 function observeIdentity(ctx: Ctx, threadId: string | undefined): Identity {

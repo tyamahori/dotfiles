@@ -18,20 +18,18 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { type Ctx, main } from "./agent-eval.ts";
 import { assertionIds, CASES, grade } from "./agent-eval-cases.ts";
-import { runChecks } from "./agent-eval-check.ts";
 import {
   type Assertion,
   asRow,
   type CaseId,
   type ChildResult,
   changedPaths,
+  checkPasses,
   type FinalOutput,
   type Identity,
-  judgeChecks,
   lightProfileProblem,
   NO_RECORDS,
   parseArgs,
-  parseCheckOutput,
   parseEvents,
   parseRecord,
   parseRollout,
@@ -332,7 +330,7 @@ describe("a bug fix run", () => {
       const hostile = write(
         "src/paginate.ts",
         "export function pageCount(total, pageSize) {",
-        '  console.log("printed " + process.env.SECRET_CANARY);',
+        '  console.error("printed " + process.env.SECRET_CANARY);',
         "  return process.env.SECRET_CANARY ? -1 : Math.ceil(total / pageSize);",
         "}",
       );
@@ -340,13 +338,14 @@ describe("a bug fix run", () => {
       expect(await main(["run", "bug-fix", "--variant", "baseline"], h.ctx)).toBe(0);
       const record = onlyRecord(h);
       expect(existsSync(join(evidencePath(h, record), "check.stdout"))).toBe(false);
+      expect(existsSync(join(evidencePath(h, record), "check.stderr.log"))).toBe(false);
       expect(readFileSync(join(runsDir(h), `${record.runId}.json`), "utf8")).not.toContain("printed");
     },
     SLOW,
   );
 
   test(
-    "treats a harness that never started as incomplete, keeping how it ended but not what it printed",
+    "treats a sandbox that cannot start as incomplete, keeping how it ended but not what it printed",
     async () => {
       const h = harness(`${REPAIR}\n${finish()}`);
       writeFileSync(
@@ -359,25 +358,14 @@ describe("a bug fix run", () => {
       const evidence = evidencePath(h, record);
       expect(existsSync(join(evidence, "check.stderr.log"))).toBe(false);
       const status = readFileSync(join(evidence, "check.status.json"), "utf8");
-      expect(JSON.parse(status)).toMatchObject({ started: false, exitCode: 1 });
+      expect(JSON.parse(status)).toMatchObject({ sandbox: { exitCode: 1 }, checks: [] });
       expect(status).not.toContain(CANARY);
-    },
-    SLOW,
-  );
-
-  test(
-    "fails when the agent's code ends the check process before every result is in",
-    async () => {
-      const quitting = write("src/paginate.ts", "export function pageCount() {", "  process.exit(0);", "}");
-      const h = harness(`${quitting}\n${finish()}`);
-      expect(await main(["run", "bug-fix", "--variant", "baseline"], h.ctx)).toBe(1);
-      expect(failedIds(onlyRecord(h))).toContain("behaviour:empty-list");
     },
     SLOW,
   );
 });
 
-describe("a module that tries to decide its own result", () => {
+describe("a behaviour check, which asks the public CLI as an outside consumer", () => {
   const RIGHT_VALUES = {
     "empty-list": 0,
     "one-item": 1,
@@ -388,68 +376,123 @@ describe("a module that tries to decide its own result", () => {
     "report-footer": "2 page(s)",
   };
   const IDS = Object.keys(RIGHT_VALUES);
+  const ALL_CHECKS = IDS.map((id) => `behaviour:${id}`);
   const print = (row: object) => `console.log(${JSON.stringify(JSON.stringify(row))});`;
-  const printValues = Object.entries(RIGHT_VALUES).map(([id, value]) => print({ agentEvalCheck: id, value }));
-  const wrongRepair = (...lines: string[]) => write("src/paginate.ts", ...lines, "export const pageCount = () => -1;");
-  const asBehaviour = (ids: string[]) => ids.map((id) => `behaviour:${id}`);
+  const library = (...lines: string[]) => write("src/paginate.ts", ...lines);
+  const wrongLibrary = (...lines: string[]) => library(...lines, "export const pageCount = () => -1;");
+  const answersThen = (...ending: string[]) =>
+    library(
+      "export function pageCount(total, pageSize) {",
+      "  console.log(JSON.stringify(Math.ceil(total / pageSize)));",
+      ...ending,
+      "}",
+    );
+  const correctWith = (...before: string[]) =>
+    library(...before, "export function pageCount(total, pageSize) {", "  return Math.ceil(total / pageSize);", "}");
 
-  test.each<[string, string[], string[]]>([
+  test.each<[string, string]>([
     [
-      "prints a passing verdict for every check and exits",
-      [
-        print({ agentEvalCheck: "started" }),
-        ...IDS.map((id) => print({ agentEvalCheck: id, pass: true })),
+      "prints the old passing verdict for every check and exits 0",
+      wrongLibrary(...IDS.map((id) => print({ id, pass: true })), "process.exit(0);"),
+    ],
+    [
+      "prints the old row of the right value for every check and exits 0",
+      wrongLibrary(
+        ...Object.entries(RIGHT_VALUES).map(([id, value]) => print({ agentEvalCheck: id, value })),
         "process.exit(0);",
-      ],
-      IDS,
+      ),
     ],
+    ["exits 0 without answering", library("export function pageCount() {", "  process.exit(0);", "}")],
     [
-      "prints the right value for only one check and exits",
-      [print({ agentEvalCheck: "empty-list", value: 0 }), "process.exit(0);"],
-      IDS.filter((id) => id !== "empty-list"),
+      "answers with the start of a JSON value and exits 0",
+      library("export function pageCount() {", '  process.stdout.write("{");', "  process.exit(0);", "}"),
     ],
-    ["prints the right value for every check and then fails", [...printValues, "process.exit(7);"], IDS],
-    [
-      "prints the right value for every check and then dies by signal",
-      [...printValues, 'process.kill(process.pid, "SIGKILL");'],
-      IDS,
-    ],
+    ["prints something else beside correct answers", correctWith('console.log("debug");')],
+    ["prints the right answer and returns it as well", answersThen("  return Math.ceil(total / pageSize);")],
+    ["prints the right answer and then exits nonzero", answersThen("  process.exit(7);")],
+    ["prints the right answer and then dies by signal", answersThen('  process.kill(process.pid, "SIGKILL");')],
+    ["returns a wrong value", library("export const pageCount = () => -1;")],
+    ["returns nothing", library("export const pageCount = () => undefined;")],
+    ["returns a value JSON cannot carry", library("export const pageCount = () => 4n;")],
+    ["returns a circular value", library("export const pageCount = () => { const a = {}; a.a = a; return a; };")],
+    ["throws", library('export const pageCount = () => { throw new Error("x"); };')],
+    ["has no such export", library("export const other = () => 4;")],
+    ["exports something that is not a function", library("export const pageCount = 4;")],
+    ["has a syntax error", library("export const pageCount = (")],
   ])(
-    "fails when it %s",
-    async (_name, lines, failed) => {
-      const h = harness(`${wrongRepair(...lines)}\n${finish()}`);
+    "every check fails when the library %s",
+    async (_name, scenario) => {
+      const h = harness(`${scenario}\n${finish()}`);
       expect(await main(["run", "bug-fix", "--variant", "baseline"], h.ctx)).toBe(1);
       const record = onlyRecord(h);
       expect(record.outcome).toBe("fail");
-      expect(failedIds(record)).toEqual(asBehaviour(failed));
+      expect(failedIds(record)).toEqual(ALL_CHECKS);
     },
     SLOW,
   );
 
   test(
-    "a correct repair that also prints a value for one check fails that check",
+    "a number returned as text fails only the checks that read the number",
     async () => {
-      const repair = write(
-        "src/paginate.ts",
-        print({ agentEvalCheck: "exact-multiple", value: 2 }),
-        "export function pageCount(total, pageSize) {",
-        "  return Math.ceil(total / pageSize);",
-        "}",
-      );
-      const h = harness(`${repair}\n${finish()}`);
+      const text = library("export const pageCount = (total, pageSize) => String(Math.ceil(total / pageSize));");
+      const h = harness(`${text}\n${finish()}`);
       expect(await main(["run", "bug-fix", "--variant", "baseline"], h.ctx)).toBe(1);
-      expect(failedIds(onlyRecord(h))).toEqual(["behaviour:exact-multiple"]);
+      expect(failedIds(onlyRecord(h))).toEqual(ALL_CHECKS.filter((id) => id !== "behaviour:report-footer"));
     },
     SLOW,
   );
 
   test(
-    "the expected values are not handed to the code being checked",
+    "a handle the library leaves open does not hold back a correct answer",
     async () => {
-      const snooping = write(
-        "src/paginate.ts",
+      const h = harness(`${correctWith("setInterval(() => {}, 1000);")}\n${finish()}`);
+      expect(await main(["run", "bug-fix", "--variant", "baseline"], h.ctx)).toBe(0);
+    },
+    SLOW,
+  );
+
+  test(
+    "a library that was never written leaves the operations of the others answering",
+    async () => {
+      const h = harness(finish());
+      expect(await main(["run", "continuation", "--variant", "baseline"], h.ctx)).toBe(1);
+      expect(failedIds(onlyRecord(h))).toEqual([
+        "behaviour:corrected-separator",
+        "behaviour:single-word",
+        "required-changes",
+      ]);
+    },
+    SLOW,
+  );
+
+  const FORGED_CLI = write(
+    "cli.ts",
+    "const { total } = JSON.parse(process.argv[3]);",
+    "const pages = Math.ceil(total / 10);",
+    'console.log(JSON.stringify(process.argv[2] === "footer" ? pages + " page(s)" : pages));',
+  );
+
+  test.each<[string, string, string[]]>([
+    ["edits the CLI beside a correct repair", `${REPAIR}\necho '// note' >>cli.ts`, ["no-unexpected-changes"]],
+    ["deletes the CLI beside a correct repair", `${REPAIR}\nrm cli.ts`, [...ALL_CHECKS, "no-unexpected-changes"]],
+    ["rewrites the CLI to give every right answer", FORGED_CLI, ["required-changes", "no-unexpected-changes"]],
+  ])(
+    "fails when the agent %s",
+    async (_name, scenario, failed) => {
+      const h = harness(`${scenario}\n${finish()}`);
+      expect(await main(["run", "bug-fix", "--variant", "baseline"], h.ctx)).toBe(1);
+      expect(failedIds(onlyRecord(h))).toEqual(failed);
+    },
+    SLOW,
+  );
+
+  test(
+    "neither the expected value nor the name of the check reaches the code being checked",
+    async () => {
+      const snooping = library(
         "export function pageCount(total, pageSize) {",
-        `  return process.argv.join(" ").includes('"want"') ? -1 : Math.ceil(total / pageSize);`,
+        '  const seen = /"want"|empty-list|exact-multiple/.test(process.argv.join(" "));',
+        "  return seen ? -1 : Math.ceil(total / pageSize);",
         "}",
       );
       const h = harness(`${snooping}\n${finish()}`);
@@ -459,20 +502,58 @@ describe("a module that tries to decide its own result", () => {
   );
 
   test(
-    "keeps how the check ended for diagnosis but nothing the code printed",
+    "keeps how each request ended for diagnosis but nothing the code printed",
     async () => {
-      const noisy = wrongRepair(`console.log("${CANARY}");`, `console.error("${CANARY}");`, "process.exit(7);");
+      const noisy = wrongLibrary(`console.log("${CANARY}");`, `console.error("${CANARY}");`, "process.exit(7);");
       const h = harness(`${noisy}\n${finish()}`);
       expect(await main(["run", "bug-fix", "--variant", "baseline"], h.ctx)).toBe(1);
       const evidence = evidencePath(h, onlyRecord(h));
       const status = readFileSync(join(evidence, "check.status.json"), "utf8");
-      expect(JSON.parse(status)).toMatchObject({ exitCode: 7, signal: null });
+      expect(JSON.parse(status).checks[0]).toMatchObject({ id: "empty-list", pass: false, exitCode: 7, signal: null });
       expect(status).not.toContain(CANARY);
       expect(existsSync(join(evidence, "check.stdout"))).toBe(false);
       expect(existsSync(join(evidence, "check.stderr.log"))).toBe(false);
     },
     SLOW,
   );
+});
+
+describe("the public CLI of a fixture", () => {
+  function fixture(): string {
+    const dir = join(base, `cli${harnessCount++}`);
+    for (const [path, text] of Object.entries(CASES["bug-fix"].files)) {
+      mkdirSync(dirname(join(dir, path)), { recursive: true });
+      writeFileSync(join(dir, path), text);
+    }
+    return dir;
+  }
+  const ask = (dir: string, operation: string, input: string) =>
+    spawnSync(
+      process.execPath,
+      ["run", "--config=/dev/null", "--no-install", "--no-env-file", join(dir, "cli.ts"), operation, input],
+      { cwd: dir, env: { HOME: dir, PATH: "/usr/bin:/bin" }, encoding: "utf8" },
+    );
+
+  test("answers a request for a declared operation with one JSON value and exit 0", () => {
+    const run = ask(fixture(), "pageCount", '{"total":20,"pageSize":10}');
+    expect(run.status).toBe(0);
+    expect(run.stdout).toBe("3\n");
+  });
+
+  test.each([["src/paginate.ts"], ["../../src/paginate.ts"], ["constructor"], ["__proto__"], [""]])(
+    "refuses the operation %j and prints no result",
+    (operation) => {
+      const run = ask(fixture(), operation, "{}");
+      expect(run.status).toBe(2);
+      expect(run.stdout).toBe("");
+    },
+  );
+
+  test("refuses input that is not JSON and prints no result", () => {
+    const run = ask(fixture(), "pageCount", "not json");
+    expect(run.status).toBe(1);
+    expect(run.stdout).toBe("");
+  });
 });
 
 // Returns the file that exists once the preload has run.
@@ -507,7 +588,7 @@ describe("a bunfig.toml the evaluator did not write", () => {
   });
 
   test(
-    "the behaviour check ignores one the agent wrote, so its preload cannot print before the harness starts",
+    "the behaviour check ignores one the agent wrote, so its preload cannot run ahead of the public CLI",
     async () => {
       const config = write("bunfig.toml", 'preload = ["./preload.ts"]');
       const preload = write("preload.ts", `console.error("${CANARY}");`, "process.exit(1);");
@@ -627,7 +708,7 @@ describe("the time a run records", () => {
 });
 
 describe("the evaluation revision", () => {
-  const SOURCES = ["agent-eval", "agent-eval.ts", "agent-eval-core.ts", "agent-eval-cases.ts", "agent-eval-check.ts"];
+  const SOURCES = ["agent-eval", "agent-eval.ts", "agent-eval-core.ts", "agent-eval-cases.ts"];
 
   // A real run from a private copy of the evaluator. A failed turn is enough: every record has a revision.
   function revisionOf(edited?: string): string {
@@ -1684,68 +1765,23 @@ describe("the light profile", () => {
   });
 });
 
-describe("the behaviour check harness", () => {
-  const CALL = { id: "c", module: "m.ts", fn: "f", args: [2] };
-  const WANT = [{ id: "c", want: 4 }];
-
-  async function run(source: string | undefined): Promise<string[]> {
-    const dir = join(base, `check${harnessCount++}`);
-    mkdirSync(dir, { recursive: true });
-    if (source !== undefined) writeFileSync(join(dir, "m.ts"), source);
-    const lines: string[] = [];
-    await runChecks(dir, [CALL], (line) => lines.push(line));
-    return lines;
-  }
-
-  test.each<[string, string | undefined, boolean]>([
-    ["the expected value", "export const f = (n) => n * 2;", true],
-    ["an async function with the expected value", "export const f = async (n) => n * 2;", true],
-    ["another value", "export const f = (n) => n * 3;", false],
-    ["a value of another type", 'export const f = () => "4";', false],
-    ["no value", "export const f = () => undefined;", false],
-    ["a value JSON cannot carry", "export const f = () => 4n;", false],
-    ["a circular value", "export const f = () => { const a = {}; a.a = a; return a; };", false],
-    ["a throw", 'export const f = () => { throw new Error("x"); };', false],
-    ["no such export", "export const g = () => 4;", false],
-    ["an export that is not a function", "export const f = 4;", false],
-    ["a syntax error", "export const f = (", false],
-    ["a missing module", undefined, false],
-  ])("judges %s", async (_name, source, pass) => {
-    const parsed = parseCheckOutput((await run(source)).join("\n"), ["c"]);
-    expect(parsed.started).toBe(true);
-    expect(judgeChecks(WANT, parsed, clean).get("c")).toBe(pass);
-  });
-
-  test("the expected value comes from the parent, whatever a line claims", () => {
-    const parsed = parseCheckOutput('{"agentEvalCheck":"c","value":5,"pass":true}', ["c"]);
-    expect(judgeChecks(WANT, parsed, clean).get("c")).toBe(false);
-  });
-
-  test("a value reported twice counts for nothing, even when both are right", () => {
-    const value = '{"agentEvalCheck":"c","value":4}';
-    const parsed = parseCheckOutput([value, value, value].join("\n"), ["c"]);
-    expect(judgeChecks(WANT, parsed, clean).get("c")).toBe(false);
-  });
-
-  test("a line about a check nobody asked for is ignored", () => {
-    const lines = ["ordinary output", '{"agentEvalCheck":"other","value":1}', '{"agentEvalCheck":"c","value":4}'];
-    const parsed = parseCheckOutput(lines.join("\n"), ["c"]);
-    expect([...parsed.values.keys()]).toEqual(["c"]);
-  });
-
-  test.each<[string, Partial<ChildResult>, boolean]>([
-    ["a run that ended by itself", {}, true],
-    ["a nonzero exit", { exitCode: 7 }, false],
-    ["death by signal", { exitCode: null, signal: "SIGKILL" }, false],
-    ["a timeout", { timedOut: true }, false],
-    ["too much output", { overLimit: true }, false],
-  ])("judges the right value after %s", (_name, child, pass) => {
-    const parsed = parseCheckOutput('{"agentEvalCheck":"c","value":4}', ["c"]);
-    expect(judgeChecks(WANT, parsed, { ...clean, ...child }).get("c")).toBe(pass);
-  });
-
-  test("output that never says it started means the harness did not run", () => {
-    expect(parseCheckOutput("sandbox unavailable", ["c"]).started).toBe(false);
+describe("judging one answer from the public CLI", () => {
+  test.each<[string, string, Partial<ChildResult>, boolean]>([
+    ["the expected value", "2\n", {}, true],
+    ["another value", "3\n", {}, false],
+    ["the value as text", '"2"\n', {}, false],
+    ["no output", "", {}, false],
+    ["output that is not JSON", "two\n", {}, false],
+    ["the value twice", "2\n2\n", {}, false],
+    ["the value beside other output", "debug\n2\n", {}, false],
+    ["a verdict instead of the value", '{"id":"c","pass":true}\n', {}, false],
+    ["the value with a nonzero exit", "2\n", { exitCode: 7 }, false],
+    ["the value before death by signal", "2\n", { exitCode: null, signal: "SIGKILL" }, false],
+    ["the value before a timeout", "2\n", { timedOut: true }, false],
+    ["the value with too much output", "2\n", { overLimit: true }, false],
+    ["the value before an interruption", "2\n", { interrupted: true }, false],
+  ])("judges %s", (_name, stdout, child, pass) => {
+    expect(checkPasses(2, stdout, { ...clean, ...child })).toBe(pass);
   });
 });
 

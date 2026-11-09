@@ -42,12 +42,14 @@ done
 | 課題 | 確かめること | passの条件 |
 | --- | --- | --- |
 | `investigation` | 読むだけの調査ができるか | 再exportをたどった先の定義ファイルと上限値が正しい。古いドキュメントと未使用のファイルは別の値を持つ。ファイルを変更していない |
-| `bug-fix` | 狭い範囲のバグを直せるか | `pageCount`が境界値で正しい値を返し、呼び出し元も正しく動く。変更したのは`src/paginate.ts`だけ |
-| `cross-file` | 複数ファイルのAPI変更をやり切れるか | 新しい引数の`formatPrice`と3つの呼び出し元がすべて正しく動く。ほかのファイルを変更していない |
-| `review` | 仕込んだ欠陥を見つけ、誤検知しないか | 3つの欠陥すべてを反例で示し、誤検知が0件。各指摘にファイル、行（±2行）、関数名、入力、正しい結果、実際の結果を書かせ、親プロセスが既知のfixtureの動作から両方の結果を計算して照合する。SQLの欠陥で正しい結果として受け付けるのは、fixtureの正しいクエリ（`SELECT id FROM notes WHERE title = ?`）とプレースホルダ違いだけで、`params`は入力と一致しなければならない。行が合っていても、反例が空や誤りならその欠陥は未発見で、その指摘は誤検知に数える。説明の文面は判定に使わない。正しい書き換えも1つ混ぜてあり、そこへの指摘は誤検知に数える |
-| `continuation` | 保存済みの会話を再開して、途中の訂正に従えるか | 2ターン目が同じスレッドで続く。訂正後の区切り文字で動き、元に戻すよう指示した`CHANGELOG.md`が変更されていない。1ターン目のほかの要件も残っている |
+| `bug-fix` | 狭い範囲のバグを直せるか | 公開CLIの`pageCount`が境界値で正しい値を返し、`footer`も正しく動く。変更したのは`src/paginate.ts`だけ |
+| `cross-file` | 複数ファイルのAPI変更をやり切れるか | 公開CLIを通して、新しい引数の`formatPrice`と3つの呼び出し元がすべて正しく動く。ほかのファイルを変更していない |
+| `review` | 仕込んだ欠陥を見つけ、誤検知しないか | 3つの欠陥すべてを反例で示し、誤検知が0件。各指摘にファイル、行（±2行）、関数名、入力、正しい結果、実際の結果を書かせ、親プロセスが既知のfixtureの動作から両方の結果を計算して照合する。SQLの欠陥で正しい結果として受け付けるのは、fixtureの正しいクエリ（`SELECT id FROM notes WHERE title = ?`）と、プレースホルダの書き方だけが違うものに限り、`params`は入力と一致しなければならない。行が合っていても、反例が空や誤りならその欠陥は未発見で、その指摘は誤検知に数える。説明の文面は判定に使わない。正しい書き換えも1つ混ぜてあり、そこへの指摘は誤検知に数える |
+| `continuation` | 保存済みの会話を再開して、途中の訂正に従えるか | 2ターン目が同じスレッドで続く。公開CLIを通して訂正後の区切り文字で動き、元に戻すよう指示した`CHANGELOG.md`が変更されていない。1ターン目のほかの要件も残っている |
 
 どの課題でも、各ターンの最終出力は決まった形でなければならない。`null`、配列、必須項目の欠落、型の違い、余分な項目は`output-malformed`のincompleteになり、コードが正しくても判定に進まない。
+
+`bug-fix`、`cross-file`、`continuation`のfixtureには、公開CLIの`cli.ts`がある。`bun run cli.ts <操作> '<JSON入力>'`で呼ぶと、結果を1つのJSON値として標準出力に出し、終了コード0で終わる。この使い方はプロンプトで伝える。エージェントには変更を許していないので、変更すると`no-unexpected-changes`でfailになる。
 
 ## 結果を読む
 
@@ -62,7 +64,7 @@ agent-eval summary --since-ms 1767225600000
 | --- | --- |
 | `pass` `fail` `incomplete` | 実行の結果ごとの件数 |
 | `median_pass_ms` | passした実行の所要時間の中央値 |
-| `ms_per_pass` | pass、fail、incompleteの全実行の所要時間の合計をpass数で割った値。失敗や時間切れでやり直す時間を含む。passがなければ`-`、帰属できない試行（下の`incomparable:unattributed-attempts`）があれば`unavailable`と出る |
+| `ms_per_pass` | pass、fail、incompleteの全実行の所要時間の合計をpass数で割った値。失敗や時間切れでやり直す時間を含む。passがなければ`-`、どのmodelのものか分からない非passの試行（下の`incomparable:unattributed-attempts`）があれば`unavailable`と出る |
 | `total_ms` | 全実行の所要時間の合計。passがない組でも、かかった時間はここに出る |
 | `comparison` | 反対のvariantと比べてよいか |
 
@@ -122,8 +124,10 @@ agent-eval summary --since-ms 1767225600000
 - Codexには設定どおりのsandbox、承認、hook、rulesを適用する。`--dangerously-*`、`--skip-git-repo-check`、`--ignore-rules`、`--ignore-user-config`は付けない
 - 子プロセスはshellを通さず引数の配列で起動する。stdoutが32MiBを超えるか時間切れになると、プロセスグループごと止める
 - エージェントが書いたコードの動作確認は、`codex sandbox -P :read-only`の中で最小限の環境変数だけを渡して動かす。ファイルの書き込みとネットワーク接続はできないが、読み取りはできる
-- 動作確認の子プロセスは呼び出しごとの戻り値を標準出力で返すだけで、期待値を受け取らない。親プロセスが期待値と比べ、子が自分で正常終了し、全項目の値が1つずつそろったときだけ合格にする
-- 確認の標準出力と標準エラーは残さない。読み取ったファイルの中身が混ざることがあるため。`check.status.json`には、開始の印が出たか、終了コード、シグナル、時間切れ、出力超過、値がそろった項目のIDだけを残す
+- 動作確認では、親プロセスが外部の利用者として公開CLIを呼ぶ。1リクエストにつき1プロセスで、全体の期限は60秒。子プロセスが受け取るのは操作名と入力だけで、期待値と判定項目のIDは受け取らない
+- 標準出力の全体が期待値と等しい1つのJSON値で、子プロセスが自分で終了コード0で終わったときだけ合格にする。余分な出力、誤った値、出力なし、時間切れ、シグナル、0以外の終了コードは不合格になる。標準エラーは判定に使わない
+- 動作確認の前に、ワークスペースの外の空のディレクトリで`bun --version`をsandboxの中で実行する。これが失敗したら、エージェントのコードの問題ではないので`harness-error`のincompleteにする
+- 確認の標準出力と標準エラーは、起動に失敗したときも含めて残さない。読み取ったファイルの中身が混ざることがあるため。`check.status.json`には、`sandbox`に`bun --version`の終わり方を、`checks`に項目ごとのIDと判定と終わり方を残す。終わり方は、終了コード、シグナル、時間切れ、出力超過の4つ
 - Bunは起動スクリプトの`scripts/agent-eval`と動作確認の両方で`--config=/dev/null`を付けて起動し、カレントディレクトリの`bunfig.toml`を読まない（そのpreloadはコードを実行できるため）。ユーザーのグローバル設定は変えない
 - エージェントの実行後はワークスペースでGitを実行せず、ファイルを直接比べる（`.git/config`を書き換えられていると、Gitが任意のコマンドを実行しかねないため）
 - `summary`とsnapshotは記録を読んで数えるだけで、記録の中身をコマンドとして実行しない
@@ -142,7 +146,7 @@ bun test scripts/agent-eval.test.ts
 2. `agent-eval run investigation --variant baseline`を実行する（Codexのモデル呼び出しを確かめる）
 3. `agent-eval run investigation --variant light`を実行する
 4. `agent-eval summary`を実行し、2行の`effort`が違い、`settings`が同じで、`comparison`が`comparable`であることを見る
-5. `agent-eval run bug-fix --variant light`を実行し、`evidence/<runId>/check.status.json`の`exitCode`が0であることを見る（`codex sandbox`の中で動作確認が動き、その終了コードを親プロセスが受け取れることを確かめる）
+5. `agent-eval run bug-fix --variant light`を実行し、`evidence/<runId>/check.status.json`の`sandbox`と`checks`の`exitCode`がすべて0であることを見る（`codex sandbox`の中で公開CLIが動き、その終了コードを親プロセスが受け取れることを確かめる）
 6. `agent-eval run continuation --variant light`を実行し、`mixed`が出ないことを見る（resumeでもプロファイルのeffortが使われることを確かめる）
 7. `agent-eval run review --variant baseline`を実行し、結果と`evidence/<runId>/turn-1.final.json`を見る（モデルが決められた形で反例を書けることを確かめる）
 8. `agent-eval run bug-fix --variant baseline --timeout-seconds 1`を実行し、終了コード3で`incompleteReason`が`timeout`になることを見る
@@ -153,7 +157,8 @@ bun test scripts/agent-eval.test.ts
 - 実行順序やモデルの応答のばらつきは制御していない
 - `effort`はCLIが記録した要求値で、APIの内部でどう処理されたかは確かめられない
 - レビューは、決められた形で反例を書けなければ、説明が正しくても未発見になる。親プロセスが照合できるのは、仕込んだ3つの欠陥の反例だけ。SQLはパーサーで解釈しないので、同じ意味でも別の書き方の正しいクエリは未発見になる
-- 動作確認は敵対的なモデルへの防御ではない。エージェントのコードは確認プロセスの中で動く。合否を標準出力に書いても親プロセスは読まないが、全項目の正しい値を書いて終了コード0で終わるコードは合格する。固定の入力に対する答えを埋め込むのと同じで、外から動作だけを見る確認では区別できない。sandboxが防ぐのは、書き込み、ネットワーク、呼び出し元の環境変数の持ち出しだけ
+- 動作確認が示すのは、固定の入力に公開CLIが正しい応答を返すことだけで、内部の関数が実行されたことは示さない。固定の入力への答えを埋め込んだプログラムも、応答が正しければ合格する。外から動作だけを見る確認では区別できない
+- 動作確認は敵対的なモデルへの防御ではない。sandboxが防ぐのは、書き込み、ネットワーク、呼び出し元の環境変数の持ち出しだけ
 - CLIのセッション記録を読めなかった実行は、特定のmodelに割り当てず、別の行に集計する。その時間は、その行の`total_ms`に出る。passしなかった実行なら、同じ課題、variant、課題の版の`ms_per_pass`は`unavailable`になり、反対のvariantとは比べない
 - `agent-eval`自身が`SIGKILL`で止まると、記録は残らず、Codexが動き続けることがある
 - 止められるのは起動したプロセスグループだけで、別のグループやセッションを作った子孫は動き続けることがある。`agent-eval`はその終了を待たない
@@ -167,9 +172,9 @@ bun test scripts/agent-eval.test.ts
 | `light.config.toml を読めない`と出る | `scripts/link`を実行する |
 | `model_reasoning_effort だけを設定していない`と出る | `~/.codex/light.config.toml`から、ほかの設定を外す |
 | `incompleteReason`が`exit-nonzero` | `evidence/<runId>/turn-1.stderr.log`を見る。認証切れなら`codex login`を実行する |
-| `incompleteReason`が`harness-error` | `evidence/<runId>/harness-error.log`か`check.status.json`を見る。`started`が`false`なら動作確認が始まっていないので、`codex sandbox -P :read-only -C <空のディレクトリ> -- bun --version`を手で実行して理由を確かめる |
+| `incompleteReason`が`harness-error` | `evidence/<runId>/harness-error.log`か`check.status.json`を見る。`sandbox`の`exitCode`が0でなければ動作確認が始まっていないので、`codex sandbox -P :read-only -C <空のディレクトリ> -- bun --version`を手で実行して理由を確かめる |
 | `incompleteReason`が`output-malformed` | `evidence/<runId>/turn-*.final.json`の形を確かめる |
-| 動作確認の項目がまとめてfailになる | `evidence/<runId>/check.status.json`を見る。`exitCode`が0でなければ、確認のプロセスが途中で止まっている |
+| 動作確認の項目がまとめてfailになる | `evidence/<runId>/check.status.json`の`checks`を見る。`exitCode`が0でなければ、公開CLIが途中で止まっている。0なら、応答の値が違うか、ライブラリが標準出力に余分なものを出している |
 | `incomparable:cli-version`が出る | 同じバージョンのCLIで両方の設定を実行し直す |
 | `incomparable:unattributed-attempts`が出る | `model`が`unknown`の行の実行を`evidence/<runId>/`で確かめる。集計から外すと決めたら、その記録を「記録の場所」の手順で消す。消すとその時間も集計から消える |
 | `malformed_records`が0でない | `runs/`の中で`<runId>.json`の形でないファイル、壊れたファイル、古い`schemaVersion`の記録を確かめ、不要なら消す |
@@ -180,5 +185,5 @@ bun test scripts/agent-eval.test.ts
 | 用語 | 意味 |
 | --- | --- |
 | variant | 実行の設定。`baseline`は既定、`light`はプロファイルを指定した実行 |
-| 課題の版（`revision`） | 課題のIDと、評価器の5つのファイル（`scripts/agent-eval`、`scripts/agent-eval.ts`、`scripts/agent-eval-core.ts`、`scripts/agent-eval-cases.ts`、`scripts/agent-eval-check.ts`）のハッシュ。fixture、判定、計時、実行の処理のどれを変えても変わり、変更前の記録とは比べられなくなる |
+| 課題の版（`revision`） | 課題のIDと、評価器の4つのファイル（`scripts/agent-eval`、`scripts/agent-eval.ts`、`scripts/agent-eval-core.ts`、`scripts/agent-eval-cases.ts`）のハッシュ。fixture（公開CLIを含む）、判定、計時、実行の処理のどれを変えても変わり、変更前の記録とは比べられなくなる |
 | incomplete | 判定まで進めなかった実行。時間切れ、中断、異常終了、最終出力なしや不正な形などが該当し、passにもfailにも数えない。かかった時間は`ms_per_pass`と`total_ms`に入る |
