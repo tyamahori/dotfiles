@@ -450,7 +450,7 @@ function readTree(root: string): Map<string, string | null> {
   while (pending.length > 0 && tree.size < MAX_TREE_ENTRIES) {
     const dir = pending.pop() ?? "";
     for (const entry of listFixtureEntries(root, dir)) {
-      const path = dir === "" ? entry.name : `${dir}/${entry.name}`;
+      const path = join(dir, entry.name);
       if (entry.isDirectory()) pending.push(path);
       else tree.set(path, entry.isFile() ? (readBounded(join(root, path), MAX_TREE_FILE_BYTES) ?? null) : null);
     }
