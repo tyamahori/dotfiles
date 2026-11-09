@@ -251,7 +251,7 @@ Extension、スキル、ルール、コンテキストファイル、権限、�
 上書き設定は、記憶と学習を止める指定と、`/compact` で訂正を要約させる `compaction.keepRecentTokens: 1` だけを持ちます。
 
 Herdr の pane の中で次のスクリプトを bash で実行します。
-待ち時間はすべて `--timeout` で区切り、失敗すると作成した pane を閉じて止まります。
+待ち時間にはすべて上限があり（`--timeout`、`wait-report` は 10 分）、失敗すると作成した pane を閉じて止まります。
 
 ```bash
 set -eu
@@ -259,30 +259,42 @@ repo=$(git rev-parse --show-toplevel)
 dir=$(bun run --no-install "$repo/scripts/omp-handoff-scenario.ts" seed)
 pane=$(herdr pane split --current --direction right --cwd "$dir/project" --no-focus | jq -er '.result.pane.pane_id')
 trap 'herdr pane close "$pane"' EXIT
+herdr pane wait-output "$pane" --source visible --regex '(?m)^>' --timeout 60000
 agent=handoff-live
 herdr agent start "$agent" --kind omp --pane "$pane" --timeout 60000 -- \
   --session-dir "$dir/sessions" --config "$dir/overlay.yml" --max-time 15m --max-cost 3
+herdr pane wait-output "$pane" --source visible --match '⇧⇥ to change thinking effort' --timeout 60000
 for n in 1 2 3; do
   herdr agent prompt "$agent" "$(<"$dir/prompts/$n.txt")" --wait --timeout 180000
 done
 herdr agent prompt "$agent" /compact
 herdr pane wait-output "$pane" --source recent-unwrapped \
   --regex 'compacted|Compaction (failed|cancelled)' --timeout 300000
-herdr agent prompt "$agent" "$(<"$dir/prompts/4.txt")" --wait --timeout 300000
-herdr agent wait "$agent" --until working --timeout 60000
+herdr agent prompt "$agent" "$(<"$dir/prompts/4.txt")"
+bun run --no-install "$repo/scripts/omp-handoff-scenario.ts" wait-report "$dir"
 herdr agent wait "$agent" --timeout 300000
-bun run --no-install "$repo/scripts/omp-handoff-scenario.ts" check "$dir"
 jq -r 'select(.type == "message" and .message.role == "assistant") | "\(.message.provider)/\(.message.model)"' \
   "$dir"/sessions/*.jsonl | sort -u
+bun run --no-install "$repo/scripts/omp-handoff-scenario.ts" check "$dir"
 rm -rf "$dir"
 ```
 
 `prompts/` の 4 つは順に、ガードの確認、後で取り消す指示、その訂正、メモの保存と `handoff_switch` の呼び出しの依頼です。
+
+`herdr agent start` は、pane がシェルのプロンプトを表示していることを前提にしています。新しい pane は作成の直後にはプロンプトを表示していないことがあるので、`>`（`starship/starship.toml` の `character`）が画面に出るのを待ちます。
+`agent start` が `interactive_ready` を返した直後に最初の依頼を送ると `agent_prompt_stalled` で失敗し、入力欄が画面に出てから送ると成功しました。そのため、入力欄の `⇧⇥ to change thinking effort` が画面に出るのも待ちます。
+どちらも画面の文字列なので、プロンプトや OMP の表示が変わると時間切れで止まります。その場合は、実際の画面に合わせて待つ文字列を直します。
+
 Herdr は手動の compaction を作業中として扱わないので、`/compact` の完了は画面の出力で待ちます。
-メモの依頼の応答が終わると `handoff_switch` で新しいセッションへ切り替わるので、もう一度 `working` を待ってから、その応答の完了を待ちます。
-切り替わらなければ、`--until working` の時間切れで止まります。
-`--wait` が承認や質問の画面（`blocked`）で返った場合も、後続のコマンドが失敗して止まります。自動で回答しないでください。
-最後の `jq` は実際に応答したモデルを表示します。`omp config get modelRoles --json` の `default` と比べて、指定どおりの既定で動いたことを確かめます。利用枠の退避が起きると別のモデルも表示されます。
+
+メモの依頼の後は、新しいセッションが書く `handoff-report.json` を `wait-report` で待ちます。Herdr の `--wait` はターンを追わないので、`working` を待つと、待ち始める前に切替後の応答が終わっていたときに時間切れで止まります。
+`wait-report` はファイルの変更の監視を始めてから今の中身を確かめるので、待ち始める前に書かれた報告も見落としません。JSON として読める報告が 10 分以内に書かれなければ、終了コード 1 で止まります。
+`wait-report` の成功は合格を意味しません。報告の中身は確かめないので、続けて `herdr agent wait` で応答の完了を待ってから、`check` で判定します。
+
+切り替わらないときや、メモの依頼の後に承認や質問の画面（`blocked`）で止まったときも、`wait-report` の時間切れで止まります。それより前の依頼の `--wait` が `blocked` で返ったときは、次の依頼が `agent_blocked` で拒否されて止まります。自動で回答しないでください。
+
+`jq` は実際に応答したモデルを表示します。`check` の前に置いているので、不合格でも表示されます。
+既定のモデルを変える指定をしていなくても、`omp config get modelRoles --json` の `default` と同じモデルが応答するとは限りません。OMP 18.18.3 で確認したときは、`default` は Anthropic のモデルでしたが、`openai-codex/gpt-6-astra` が応答しました。原因は調べていません。`default` との一致を前提にせず、実際に応答したモデルを結果と一緒に記録します。利用枠の退避が起きると別のモデルも表示されます。
 
 `check` はモデルの完了報告を使わず、次のすべてをファイルとセッション記録で確かめて、満たしたときだけ終了コード 0 を返します。
 出力は検査の名前と範囲外のパスだけで、記録の本文は表示しません。
@@ -293,7 +305,10 @@ Herdr は手動の compaction を作業中として扱わないので、`/compac
 - メモの事実: メモのパスを渡した `read` の結果にある `HANDOFF_FACTS:` の行の JSON が、訂正後の値、取り消された値、変更してよい範囲、禁止事項、確認状態のすべてに一致すること
 - 結果: `target.txt` が切替後に訂正後の値へ変わり、保護したファイルのバイト列が同じで、範囲外のファイルがなく、報告の確認状態が正しいこと
 
-不合格なら `$dir` を残すので、調べ終えたら削除します。
+パスは symlink を解決した実体で比べます。OMP は作業ディレクトリを `/var/...` のまま記録するので、macOS では依頼文と `read` のパスが、`seed` の返す `/private/var/...` と文字列では一致しないためです。
+同じ名前の別のファイルは一致しません。比べるのは `check` を実行した時点の実体です。依頼文のパスは空白で区切って読むので、空白を含むパスは一致せず不合格になります。
+
+不合格や途中の失敗なら `$dir` を残すので、調べ終えたら削除します。
 この手順はサンドボックスではありません。本人の権限で動くので、モデルのシェル実行は一時ディレクトリに閉じ込められず、依頼文と通常のガードで範囲を守らせています。
 既定の設定で `tools.approvalMode` が `yolo` の環境では、実行前の承認もありません。
 
