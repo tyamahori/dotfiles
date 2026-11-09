@@ -485,6 +485,7 @@ describe("stopping a run", () => {
       expect(await main(["run", "bug-fix", "--variant", "baseline", "--timeout-seconds", "1"], h.ctx)).toBe(3);
       const record = onlyRecord(h);
       expect(record.incompleteReason).toBe("timeout");
+      expect(record.elapsedMs).toBeGreaterThanOrEqual(1000);
       await Bun.sleep(100);
       expect(alive(Number(readFileSync(join(h.root, "grandchild"), "utf8")))).toBe(false);
     },
@@ -516,6 +517,56 @@ describe("stopping a run", () => {
       const record = onlyRecord(h);
       expect(record.incompleteReason).toBe("output-limit");
       expect(statSync(join(evidencePath(h, record), "turn-1.events.jsonl")).size).toBeLessThanOrEqual(32 * 1024 * 1024);
+    },
+    SLOW,
+  );
+});
+
+describe("the time a run records", () => {
+  // Each scenario spends this long in one named step, far more than the rest of a stubbed run.
+  const SPENT_SECONDS = 0.8;
+  const AT_LEAST_MS = 750;
+
+  test(
+    "includes fixture setup, and survives a failure there",
+    async () => {
+      const h = harness(finish());
+      rmSync(join(h.root, "bin/git"));
+      writeFileSync(join(h.root, "bin/git"), `#!/bin/sh\nsleep ${SPENT_SECONDS}\nexit 1\n`, { mode: 0o755 });
+      expect(await main(["run", "bug-fix", "--variant", "baseline"], h.ctx)).toBe(3);
+      const record = onlyRecord(h);
+      expect(record.incompleteReason).toBe("harness-error");
+      expect(record.elapsedMs).toBeGreaterThanOrEqual(AT_LEAST_MS);
+    },
+    SLOW,
+  );
+
+  test(
+    "includes the behaviour checks",
+    async () => {
+      const slowToLoad = write(
+        "src/paginate.ts",
+        `await Bun.sleep(${SPENT_SECONDS * 1000});`,
+        "export function pageCount(total, pageSize) {",
+        "  return Math.ceil(total / pageSize);",
+        "}",
+      );
+      const h = harness(`${slowToLoad}\n${finish()}`);
+      expect(await main(["run", "bug-fix", "--variant", "baseline"], h.ctx)).toBe(0);
+      expect(onlyRecord(h).elapsedMs).toBeGreaterThanOrEqual(AT_LEAST_MS);
+    },
+    SLOW,
+  );
+
+  test(
+    "a failure after the turns keeps the time spent and the model the CLI recorded",
+    async () => {
+      const h = harness(`sleep ${SPENT_SECONDS}\nworkspace=$PWD\ncd /\nrm -rf "$workspace"\n${finish()}`);
+      expect(await main(["run", "bug-fix", "--variant", "baseline"], h.ctx)).toBe(3);
+      const record = onlyRecord(h);
+      expect(record.incompleteReason).toBe("harness-error");
+      expect(record.elapsedMs).toBeGreaterThanOrEqual(AT_LEAST_MS);
+      expect(record.identity.model).toBe("gpt-test");
     },
     SLOW,
   );
@@ -938,7 +989,7 @@ describe("comparing variants", () => {
     expect(comparisonOf([record(), light(), old])[0]).toBe("comparable");
   });
 
-  test("charges failed runs to the cost of a pass and leaves incomplete runs out", () => {
+  test("charges failed and incomplete runs to the cost of a pass and still counts each outcome apart", () => {
     const rows = renderSummary({
       records: [
         record({ elapsedMs: 1000 }),
@@ -957,15 +1008,16 @@ describe("comparing variants", () => {
       fail: "1",
       incomplete: "1",
       median_pass_ms: "2000",
-      ms_per_pass: "4000",
+      ms_per_pass: "49000",
+      total_ms: "98000",
     });
   });
 
-  test("shows no time for a group with no pass", () => {
-    const cells = renderSummary({ records: [record(failing)], malformed: 0, omitted: 0 })
+  test("shows no time per pass for a group with no pass, but keeps what it spent", () => {
+    const cells = renderSummary({ records: [record(incomplete)], malformed: 0, omitted: 0 })
       .split("\n")[1]!
       .split("\t");
-    expect(cells.slice(11, 13)).toEqual(["-", "-"]);
+    expect(cells.slice(11, 14)).toEqual(["-", "-", "1000"]);
   });
 
   test("states how many old records it did not read", () => {

@@ -244,6 +244,7 @@ type Plan = {
   root: string;
   runId: string;
   startedAt: Date;
+  startedMs: number;
   evidence: string;
   workspace: string;
   scratchHome: string;
@@ -272,9 +273,10 @@ function preflight(ctx: Ctx, command: RunCommand): Tools | string {
 }
 
 function createPlan(ctx: Ctx, command: RunCommand, tools: Tools): Plan {
+  const startedMs = performance.now();
+  const startedAt = new Date();
   const root = stateRoot(ctx);
   for (const dir of [root, join(root, "runs"), join(root, "evidence")]) ensurePrivateDir(dir);
-  const startedAt = new Date();
   const runId = runIdFor(startedAt, command.caseId, command.variant, randomBytes(4).toString("hex"));
   const evidence = join(root, "evidence", runId);
   // Not recursive: a collision fails here rather than mixing two runs.
@@ -291,6 +293,7 @@ function createPlan(ctx: Ctx, command: RunCommand, tools: Tools): Plan {
     root,
     runId,
     startedAt,
+    startedMs,
     evidence,
     schemaPath,
     scratchHome,
@@ -395,12 +398,10 @@ type TurnsResult = {
   exitCode: number | null;
   signal: string | null;
   output: unknown;
-  elapsedMs: number;
 };
 
 async function runTurns(ctx: Ctx, plan: Plan): Promise<TurnsResult> {
-  const started = performance.now();
-  const result: TurnsResult = { exitCode: null, signal: null, output: undefined, elapsedMs: 0 };
+  const result: TurnsResult = { exitCode: null, signal: null, output: undefined };
   for (const [index, prompt] of plan.evalCase.prompts.entries()) {
     const turn = await runTurn(ctx, plan, { index, prompt, threadId: result.threadId });
     result.threadId ??= turn.threadId;
@@ -410,7 +411,6 @@ async function runTurns(ctx: Ctx, plan: Plan): Promise<TurnsResult> {
     result.output = turn.output.state === "ok" ? turn.output.value : undefined;
     if (turn.problem) break;
   }
-  result.elapsedMs = Math.round(performance.now() - started);
   return result;
 }
 
@@ -509,9 +509,10 @@ type Attempt = {
   turns?: TurnsResult;
 };
 
-async function attempt(ctx: Ctx, plan: Plan): Promise<Attempt> {
+async function attempt(ctx: Ctx, plan: Plan, progress: { turns?: TurnsResult }): Promise<Attempt> {
   prepareWorkspace(plan);
   const turns = await runTurns(ctx, plan);
+  progress.turns = turns;
   if (turns.problem) return { outcome: "incomplete", incompleteReason: turns.problem, assertions: [], turns };
   // Read before the checks run: this is the state the agent left.
   const changed = changedPaths(expectedTree(plan.evalCase), readTree(plan.workspace));
@@ -530,7 +531,7 @@ function caseRevision(plan: Plan): string {
     .slice(0, 12);
 }
 
-function buildRecord(ctx: Ctx, plan: Plan, result: Attempt): RunRecord {
+function buildRecord(ctx: Ctx, plan: Plan, result: Attempt, elapsedMs: number): RunRecord {
   return {
     schemaVersion: SCHEMA_VERSION,
     runId: plan.runId,
@@ -538,7 +539,7 @@ function buildRecord(ctx: Ctx, plan: Plan, result: Attempt): RunRecord {
     caseRevision: caseRevision(plan),
     variant: plan.command.variant,
     startedAt: plan.startedAt.toISOString(),
-    elapsedMs: result.turns?.elapsedMs ?? 0,
+    elapsedMs,
     outcome: result.outcome,
     incompleteReason: result.incompleteReason,
     exitCode: result.turns?.exitCode ?? null,
@@ -558,12 +559,14 @@ function publishRecord(plan: Plan, record: RunRecord): string {
   return path;
 }
 
+// A failure after the turns keeps what they showed, so the run stays in its model's and effort's group.
 async function attemptRecordingFailure(ctx: Ctx, plan: Plan): Promise<Attempt> {
+  const progress: { turns?: TurnsResult } = {};
   try {
-    return await attempt(ctx, plan);
+    return await attempt(ctx, plan, progress);
   } catch (error) {
     writeFileSync(join(plan.evidence, "harness-error.log"), `${errorText(error)}\n`, { mode: 0o600 });
-    return { outcome: "incomplete", incompleteReason: "harness-error", assertions: [] };
+    return { outcome: "incomplete", incompleteReason: "harness-error", assertions: [], ...progress };
   }
 }
 
@@ -576,7 +579,11 @@ async function runCase(ctx: Ctx, command: RunCommand): Promise<number> {
     return EXIT.failed;
   }
   const plan = createPlan(ctx, command, tools);
-  const record = buildRecord(ctx, plan, await attemptRecordingFailure(ctx, plan));
+  const result = await attemptRecordingFailure(ctx, plan);
+  // Taken here so that a run that threw keeps the time it spent. The clock stopped at final grading:
+  // reading the session record and publishing are this tool's bookkeeping.
+  const elapsedMs = Math.round(performance.now() - plan.startedMs);
+  const record = buildRecord(ctx, plan, result, elapsedMs);
   const path = publishRecord(plan, record);
   ctx.out(
     JSON.stringify({

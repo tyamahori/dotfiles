@@ -414,6 +414,7 @@ const SUMMARY_HEADER = [
   "incomplete",
   "median_pass_ms",
   "ms_per_pass",
+  "total_ms",
   "comparison",
 ].join("\t");
 
@@ -485,10 +486,9 @@ function median(values: readonly number[]): number | undefined {
 function renderGroup(group: Group, groups: readonly Group[]): string {
   const count = (outcome: Outcome) => group.runs.filter((run) => run.outcome === outcome).length;
   const passTimes = group.runs.filter((run) => run.outcome === "pass").map((run) => run.elapsedMs);
-  // Failed runs stay in the cost of a pass: a faster setting that needs a rerun is not faster.
-  const judgedMs = group.runs
-    .filter((run) => run.outcome !== "incomplete")
-    .reduce((sum, run) => sum + run.elapsedMs, 0);
+  // Every attempt stays in the cost of a pass, however it ended: a faster setting that fails or times
+  // out and needs a rerun is not faster. The counts keep the outcomes apart.
+  const totalMs = group.runs.reduce((sum, run) => sum + run.elapsedMs, 0);
   return [
     group.caseId,
     group.variant,
@@ -502,7 +502,8 @@ function renderGroup(group: Group, groups: readonly Group[]): string {
     count("fail"),
     count("incomplete"),
     median(passTimes) ?? "-",
-    passTimes.length > 0 ? Math.round(judgedMs / passTimes.length) : "-",
+    passTimes.length > 0 ? Math.round(totalMs / passTimes.length) : "-",
+    totalMs,
     comparisonOf(group, groups),
   ].join("\t");
 }
