@@ -29,7 +29,7 @@ const RUN_ID = /^[0-9]{8}T[0-9]{6}Z-[a-z-]{1,32}-[a-z]{1,16}-[0-9a-f]{8}$/;
 const REVISION = /^[0-9a-f]{12}$/;
 const ASSERTION_ID = /^[a-z0-9][a-z0-9:_-]{0,63}$/;
 
-type Row = Record<string, unknown>;
+export type Row = Record<string, unknown>;
 
 export function asRow(value: unknown): Row {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Row) : {};

@@ -13,12 +13,13 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { type Ctx, main } from "./agent-eval.ts";
 import { CASES, grade } from "./agent-eval-cases.ts";
 import { runChecks } from "./agent-eval-check.ts";
 import {
   type Assertion,
+  asRow,
   type ChildResult,
   changedPaths,
   type FinalOutput,
@@ -158,6 +159,37 @@ const clean: ChildResult = {
   overLimit: false,
   launchError: false,
 };
+
+const evidence = (fn: string, input: unknown, expected: unknown, observed: unknown) => ({
+  function: fn,
+  input: JSON.stringify(input),
+  expected: JSON.stringify(expected),
+  observed: JSON.stringify(observed),
+});
+// "the evidence the grader accepts" below runs the fixture against these.
+const SESSION_INPUT = { session: { userId: "u", expiresAtMs: 100 }, nowMs: 100 };
+const TERM = "x' OR '1'='1";
+const SEARCH_BOUND = { sql: "SELECT id FROM notes WHERE title = ?", params: [TERM] };
+const SEARCH_BUILT = { sql: `SELECT id FROM notes WHERE title = '${TERM}'`, params: [] };
+const FOUND_SESSION = {
+  file: "src/session.ts",
+  line: 8,
+  summary: "",
+  counterexample: evidence("isExpired", SESSION_INPUT, true, false),
+};
+const FOUND_RETRY = {
+  file: "src/retry.ts",
+  line: 4,
+  summary: "",
+  counterexample: evidence("withRetry", { maxAttempts: 3 }, 3, 4),
+};
+const FOUND_SEARCH = {
+  file: "src/search.ts",
+  line: 4,
+  summary: "",
+  counterexample: evidence("searchNotes", { term: TERM }, SEARCH_BOUND, SEARCH_BUILT),
+};
+const FOUND = [FOUND_SESSION, FOUND_RETRY, FOUND_SEARCH];
 
 describe("a bug fix run", () => {
   test(
@@ -708,16 +740,12 @@ describe("the other fixed cases", () => {
     SLOW,
   );
 
-  const FOUND = [
-    { file: "src/session.ts", line: 8, summary: "expiry is inverted" },
-    { file: "src/retry.ts", line: 4, summary: "one attempt too many" },
-    { file: "src/search.ts", line: 4, summary: "query built from input" },
-  ];
-
   test(
     "a review run reviews the seeded commit and passes when every seed is found",
     async () => {
-      const h = harness(finish(JSON.stringify({ findings: FOUND })));
+      // The answer travels through a single-quoted shell word, and a JSON escape carries the quote past it.
+      const answer = JSON.stringify({ findings: FOUND }).replaceAll("'", "\\u0027");
+      const h = harness(finish(answer));
       expect(await main(["run", "review", "--variant", "baseline"], h.ctx)).toBe(0);
       const workspace = join(evidencePath(h, onlyRecord(h)), "workspace");
       const shown = spawnSync(Bun.which("git")!, ["log", "--oneline"], { cwd: workspace, encoding: "utf8" });
@@ -1152,13 +1180,181 @@ describe("grading", () => {
     grade(CASES.review, { output: { findings }, changed: [], checks: new Map() });
   const failedOf = (assertions: Assertion[]) => assertions.filter((a) => !a.pass).map((a) => a.id);
   const countOf = (assertions: Assertion[]) => assertions.find((a) => a.id === "false-positives")?.count;
-  const session = { file: "src/session.ts", line: 8, summary: "" };
-  const retry = { file: "src/retry.ts", line: 4, summary: "" };
-  const search = { file: "src/search.ts", line: 4, summary: "" };
+  const session = FOUND_SESSION;
+  const retry = FOUND_RETRY;
+  const search = FOUND_SEARCH;
 
   test("a review with every seed and nothing else passes, however it is worded", () => {
-    expect(failedOf(review([session, retry, search]))).toEqual([]);
+    expect(failedOf(review(FOUND))).toEqual([]);
+    expect(failedOf(review([{ ...session, summary: "any words at all" }, retry, search]))).toEqual([]);
     expect(failedOf(review([{ ...session, file: "./src/session.ts", line: 9 }, retry, search]))).toEqual([]);
+  });
+
+  test.each<[string, object]>([
+    [
+      "a time past the expiry",
+      { ...session, counterexample: evidence("isExpired", { session: { expiresAtMs: 100 }, nowMs: 200 }, true, false) },
+    ],
+    [
+      "a time before the expiry",
+      { ...session, counterexample: evidence("isExpired", { session: { expiresAtMs: 100 }, nowMs: 50 }, false, true) },
+    ],
+    ["no attempts allowed", { ...retry, counterexample: evidence("withRetry", { maxAttempts: 0 }, 0, 1) }],
+    [
+      "another placeholder style in the correct query",
+      {
+        ...search,
+        counterexample: evidence(
+          "searchNotes",
+          { term: TERM },
+          { sql: "SELECT id FROM notes WHERE title = $1", params: [TERM] },
+          SEARCH_BUILT,
+        ),
+      },
+    ],
+  ])("accepts a counterexample with %s", (_name, finding) => {
+    const file = asRow(finding).file;
+    expect(failedOf(review(FOUND.map((found) => (found.file === file ? finding : found))))).toEqual([]);
+  });
+
+  test.each<[string, typeof session, string]>([
+    [
+      "empty evidence",
+      { ...session, counterexample: { function: "", input: "", expected: "", observed: "" } },
+      "seed:inverted-expiry",
+    ],
+    [
+      "text that is not JSON",
+      {
+        ...session,
+        counterexample: { function: "isExpired", input: "an expired session", expected: "true", observed: "false" },
+      },
+      "seed:inverted-expiry",
+    ],
+    [
+      "another function's name",
+      { ...session, counterexample: evidence("remainingMs", SESSION_INPUT, true, false) },
+      "seed:inverted-expiry",
+    ],
+    [
+      "expected and observed swapped",
+      { ...session, counterexample: evidence("isExpired", SESSION_INPUT, false, true) },
+      "seed:inverted-expiry",
+    ],
+    [
+      "no difference between expected and observed",
+      { ...session, counterexample: evidence("isExpired", SESSION_INPUT, true, true) },
+      "seed:inverted-expiry",
+    ],
+    [
+      "an input without the session",
+      { ...session, counterexample: evidence("isExpired", { nowMs: 100 }, true, false) },
+      "seed:inverted-expiry",
+    ],
+    [
+      "a time given as text",
+      {
+        ...session,
+        counterexample: evidence("isExpired", { session: { expiresAtMs: 100 }, nowMs: "100" }, true, false),
+      },
+      "seed:inverted-expiry",
+    ],
+    [
+      "the same count on both sides",
+      { ...retry, counterexample: evidence("withRetry", { maxAttempts: 3 }, 3, 3) },
+      "seed:extra-retry",
+    ],
+    [
+      "a count the code does not produce",
+      { ...retry, counterexample: evidence("withRetry", { maxAttempts: 3 }, 3, 5) },
+      "seed:extra-retry",
+    ],
+    [
+      "a fractional limit",
+      { ...retry, counterexample: evidence("withRetry", { maxAttempts: 1.5 }, 1.5, 2.5) },
+      "seed:extra-retry",
+    ],
+    [
+      "a negative limit",
+      { ...retry, counterexample: evidence("withRetry", { maxAttempts: -1 }, -1, 0) },
+      "seed:extra-retry",
+    ],
+    [
+      "a term that cannot leave the quoted text",
+      {
+        ...search,
+        counterexample: evidence(
+          "searchNotes",
+          { term: "tea" },
+          { sql: "SELECT id FROM notes WHERE title = ?", params: ["tea"] },
+          { sql: "SELECT id FROM notes WHERE title = 'tea'", params: [] },
+        ),
+      },
+      "seed:sql-from-input",
+    ],
+    [
+      "a query the code does not build",
+      {
+        ...search,
+        counterexample: evidence("searchNotes", { term: TERM }, SEARCH_BOUND, { sql: "SELECT 1", params: [] }),
+      },
+      "seed:sql-from-input",
+    ],
+    [
+      "a correct query that still holds the term",
+      { ...search, counterexample: evidence("searchNotes", { term: TERM }, SEARCH_BUILT, SEARCH_BUILT) },
+      "seed:sql-from-input",
+    ],
+    [
+      "a correct query that does not pass the term",
+      {
+        ...search,
+        counterexample: evidence(
+          "searchNotes",
+          { term: TERM },
+          { sql: "SELECT id FROM notes WHERE title = ?", params: [] },
+          SEARCH_BUILT,
+        ),
+      },
+      "seed:sql-from-input",
+    ],
+  ])("a finding on the right line with %s does not establish the defect", (_name, finding, seedId) => {
+    const assertions = review(FOUND.map((found) => (found.file === finding.file ? finding : found)));
+    expect(failedOf(assertions)).toEqual([seedId, "false-positives"]);
+    expect(countOf(assertions)).toBe(1);
+  });
+
+  test("the evidence the grader accepts is what the fixture really does", async () => {
+    const load = async (files: Readonly<Record<string, string>>) => {
+      const dir = join(base, `fixture${harnessCount++}`);
+      for (const [path, text] of Object.entries(files)) {
+        mkdirSync(dirname(join(dir, path)), { recursive: true });
+        writeFileSync(join(dir, path), text);
+      }
+      return {
+        session: await import(join(dir, "src/session.ts")),
+        retry: await import(join(dir, "src/retry.ts")),
+        search: await import(join(dir, "src/search.ts")),
+      };
+    };
+    const callsOfFailingTask = async (retryModule: { withRetry: Function }) => {
+      let calls = 0;
+      const task = async () => {
+        calls += 1;
+        throw new Error("always fails");
+      };
+      await retryModule.withRetry(task, 3).catch(() => undefined);
+      return calls;
+    };
+    const committed = await load(CASES.review.change);
+    const correct = await load(CASES.review.files);
+
+    expect(committed.session.isExpired(SESSION_INPUT.session, SESSION_INPUT.nowMs)).toBe(false);
+    expect(correct.session.isExpired(SESSION_INPUT.session, SESSION_INPUT.nowMs)).toBe(true);
+    expect(await callsOfFailingTask(committed.retry)).toBe(4);
+    expect(await callsOfFailingTask(correct.retry)).toBe(3);
+    expect(committed.search.searchNotes(TERM)).toEqual(SEARCH_BUILT);
+    expect(correct.search.searchNotes(TERM)).toEqual(SEARCH_BOUND);
   });
 
   test("a missed seed fails that seed", () => {
@@ -1169,8 +1365,14 @@ describe("grading", () => {
     expect(failedOf(review([]))).toEqual(["seed:inverted-expiry", "seed:extra-retry", "seed:sql-from-input"]);
   });
 
-  test("flagging the correct decoy rewrite is a false positive", () => {
-    const assertions = review([session, retry, search, { file: "src/total.ts", line: 2, summary: "" }]);
+  test("flagging the correct decoy rewrite is a false positive, whatever evidence comes with it", () => {
+    const decoy = {
+      file: "src/total.ts",
+      line: 2,
+      summary: "",
+      counterexample: evidence("sum", { values: [1] }, 1, 2),
+    };
+    const assertions = review([session, retry, search, decoy]);
     expect(failedOf(assertions)).toEqual(["false-positives"]);
     expect(countOf(assertions)).toBe(1);
   });
@@ -1205,7 +1407,8 @@ describe("grading", () => {
 describe("the shape of a final answer", () => {
   const SUMMARY_CASES = ["bug-fix", "cross-file", "continuation"] as const;
   const accepts = (caseId: keyof typeof CASES, value: unknown) => CASES[caseId].output.accepts(value);
-  const FINDING = { file: "src/a.ts", line: 1, summary: "s" };
+  const EVIDENCE = { function: "f", input: "{}", expected: "1", observed: "2" };
+  const FINDING = { file: "src/a.ts", line: 1, summary: "s", counterexample: EVIDENCE };
 
   test.each(SUMMARY_CASES)("%s accepts a summary, in any words", (caseId) => {
     expect(accepts(caseId, { summary: "" })).toBe(true);
@@ -1246,7 +1449,11 @@ describe("the shape of a final answer", () => {
     [{ findings: ["looks bad"] }],
     [{ findings: [{ ...FINDING, line: "1" }] }],
     [{ findings: [{ ...FINDING, line: 1.5 }] }],
-    [{ findings: [{ file: "src/a.ts", line: 1 }] }],
+    [{ findings: [{ file: "src/a.ts", line: 1, counterexample: EVIDENCE }] }],
+    [{ findings: [{ file: "src/a.ts", line: 1, summary: "s" }] }],
+    [{ findings: [{ ...FINDING, counterexample: null }] }],
+    [{ findings: [{ ...FINDING, counterexample: { ...EVIDENCE, input: {} } }] }],
+    [{ findings: [{ ...FINDING, counterexample: { function: "f" } }] }],
     [{ findings: [{ ...FINDING, extra: 1 }] }],
   ])("a review refuses %j", (value) => {
     expect(accepts("review", value)).toBe(false);

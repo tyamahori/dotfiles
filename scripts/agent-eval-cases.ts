@@ -2,7 +2,8 @@
 // a hash of this file, so runs graded by different criteria or fixtures are never compared.
 // Fixtures are strings rather than files so that the review case's seeded defects stay inert to
 // this repository's own analyzers; each run writes them to a fresh workspace.
-import { type Assertion, asRow, type CaseId } from "./agent-eval-core.ts";
+import { isDeepStrictEqual } from "node:util";
+import { type Assertion, asRow, type CaseId, parseJson, type Row } from "./agent-eval-core.ts";
 
 export type CheckCall = { id: string; module: string; fn: string; args: unknown[] };
 // `want` stays in the parent: the process running the agent's code only ever sees the call.
@@ -285,41 +286,94 @@ const REVIEW_CHANGE = {
   ),
 };
 
+type Counterexample = { input: Row; expected: unknown; observed: unknown };
+
+// Each of these recomputes both sides from the finding's own input, using what the fixture is known to
+// do, so a finding cannot pass on its claim. A test runs the fixture to keep these honest.
+function showsInvertedExpiry({ input, expected, observed }: Counterexample): boolean {
+  const { nowMs } = input;
+  const { expiresAtMs } = asRow(input.session);
+  if (typeof nowMs !== "number" || typeof expiresAtMs !== "number") return false;
+  return expected === nowMs >= expiresAtMs && observed === nowMs < expiresAtMs;
+}
+
+// Counts the calls of a task that always fails.
+function showsExtraRetry({ input, expected, observed }: Counterexample): boolean {
+  const { maxAttempts } = input;
+  if (typeof maxAttempts !== "number" || !Number.isSafeInteger(maxAttempts) || maxAttempts < 0) return false;
+  return expected === maxAttempts && observed === maxAttempts + 1;
+}
+
+const SEEDED_QUERY_START = "SELECT id FROM notes WHERE title = '";
+
+// A quote is what lets the input leave the literal it was pasted into. Any placeholder style will do
+// for the correct query, as long as the input travels as a parameter.
+function showsSqlFromInput({ input, expected, observed }: Counterexample): boolean {
+  const { term } = input;
+  if (typeof term !== "string" || !term.includes("'")) return false;
+  const { sql, params } = asRow(expected);
+  if (typeof sql !== "string" || sql.includes(term) || !isDeepStrictEqual(params, [term])) return false;
+  return isDeepStrictEqual(observed, { sql: `${SEEDED_QUERY_START}${term}'`, params: [] });
+}
+
 const REVIEW_SEEDS = [
   {
     id: "inverted-expiry",
     file: "src/session.ts",
     line: lineOf(REVIEW_CHANGE["src/session.ts"], "nowMs < session.expiresAtMs"),
+    fn: "isExpired",
+    shows: showsInvertedExpiry,
   },
   {
     id: "extra-retry",
     file: "src/retry.ts",
     line: lineOf(REVIEW_CHANGE["src/retry.ts"], "attempt <= maxAttempts"),
+    fn: "withRetry",
+    shows: showsExtraRetry,
   },
   {
     id: "sql-from-input",
     file: "src/search.ts",
     line: lineOf(REVIEW_CHANGE["src/search.ts"], "+ term +"),
+    fn: "searchNotes",
+    shows: showsSqlFromInput,
   },
 ];
 
 type Seed = (typeof REVIEW_SEEDS)[number];
 
-function hitsSeed(finding: unknown, seed: Seed): boolean {
-  const { file, line } = asRow(finding);
+const parseText = (value: unknown) => (typeof value === "string" ? parseJson(value) : undefined);
+
+function isAtSeed({ file, line }: Row, seed: Seed): boolean {
   return samePath(file, seed.file) && typeof line === "number" && Math.abs(line - seed.line) <= LINE_TOLERANCE;
 }
 
-// Matched by location alone, so the wording of a finding neither helps nor hurts. Several findings
-// on one seed are one finding; anything that hits no seed is a false positive.
+function establishes(finding: unknown, seed: Seed): boolean {
+  const row = asRow(finding);
+  const evidence = asRow(row.counterexample);
+  return (
+    isAtSeed(row, seed) &&
+    evidence.function === seed.fn &&
+    seed.shows({
+      input: asRow(parseText(evidence.input)),
+      expected: parseText(evidence.expected),
+      observed: parseText(evidence.observed),
+    })
+  );
+}
+
+// A seed counts as found only when a finding at its location shows the defect, with an input whose
+// right and wrong results this file can work out. The summary is never read, so its wording neither
+// helps nor hurts. Several findings on one seed are one finding; a finding that establishes no seed is
+// a false positive, even beside a real defect.
 function gradeReview(output: unknown): Assertion[] {
   const answer = asRow(output).findings;
   const findings: unknown[] = Array.isArray(answer) ? answer : [];
-  const falsePositives = findings.filter((finding) => !REVIEW_SEEDS.some((seed) => hitsSeed(finding, seed))).length;
+  const falsePositives = findings.filter((finding) => !REVIEW_SEEDS.some((seed) => establishes(finding, seed))).length;
   return [
     ...REVIEW_SEEDS.map((seed) => ({
       id: `seed:${seed.id}`,
-      pass: findings.some((finding) => hitsSeed(finding, seed)),
+      pass: findings.some((finding) => establishes(finding, seed)),
     })),
     { id: "false-positives", pass: falsePositives === 0, count: falsePositives },
   ];
@@ -342,10 +396,26 @@ const REVIEW: EvalCase = {
   prompts: [
     "Review the most recent commit in this repository (git show HEAD). Report only defects that this commit " +
       "introduces and that make the code behave wrongly or unsafely, not style. Give each finding as the " +
-      "repository-relative file, the line number in the current version of that file, and a short summary. Report " +
+      "repository-relative file, the line number in the current version of that file, a short summary, and a " +
+      "counterexample that shows the defect. In the counterexample, function is the name of the function with the " +
+      "defect, and input, expected, and observed are each JSON text: input is an object of that function's " +
+      "parameters by name, leaving out any callback; expected is what correct code would return for that input and " +
+      "observed is what the committed code returns. When the defect is how many times a callback runs rather than " +
+      "what is returned, expected and observed are the number of calls when the callback always fails. Report " +
       "nothing for code that is correct. Do not modify any file and do not commit.",
   ],
-  output: objectOf({ findings: arrayOf(objectOf({ file: STRING, line: INTEGER, summary: STRING })) }),
+  output: objectOf({
+    findings: arrayOf(
+      objectOf({
+        file: STRING,
+        line: INTEGER,
+        summary: STRING,
+        // Text, because a schema the CLI enforces cannot leave a field's type open, and a field per function
+        // would name the seeded defects.
+        counterexample: objectOf({ function: STRING, input: STRING, expected: STRING, observed: STRING }),
+      }),
+    ),
+  }),
   checks: [],
   changes: { required: [], allowed: [] },
   gradeOutput: gradeReview,
