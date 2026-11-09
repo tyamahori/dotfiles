@@ -1663,7 +1663,7 @@ describe("the behaviour check harness", () => {
     ["death by signal", { exitCode: null, signal: "SIGKILL" }, false],
     ["a timeout", { timedOut: true }, false],
     ["too much output", { overLimit: true }, false],
-  ])("the right value after %s counts as %j", (_name, child, pass) => {
+  ])("judges the right value after %s", (_name, child, pass) => {
     const parsed = parseCheckOutput('{"agentEvalCheck":"c","value":4}', ["c"]);
     expect(judgeChecks(WANT, parsed, { ...clean, ...child }).get("c")).toBe(pass);
   });

@@ -294,7 +294,9 @@ function showsInvertedExpiry({ input, expected, observed }: Counterexample): boo
   const { nowMs } = input;
   const { expiresAtMs } = asRow(input.session);
   if (typeof nowMs !== "number" || typeof expiresAtMs !== "number") return false;
-  return expected === nowMs >= expiresAtMs && observed === nowMs < expiresAtMs;
+  const correct = nowMs >= expiresAtMs;
+  const committed = nowMs < expiresAtMs;
+  return expected === correct && observed === committed;
 }
 
 // Counts the calls of a task that always fails.
