@@ -8,12 +8,16 @@ export type CheckCall = { id: string; module: string; fn: string; args: unknown[
 // `want` stays in the parent: the process running the agent's code only ever sees the call.
 export type Check = CheckCall & { want: unknown };
 
+// One declaration of a final answer gives both the schema handed to the CLI and the check repeated on
+// what the CLI wrote, so the two cannot drift. Only the types these five answers use exist here.
+export type Shape = { schema: object; accepts(value: unknown): boolean };
+
 export type EvalCase = {
   files: Readonly<Record<string, string>>;
   // Committed on top of `files`: what the review case is asked to review.
   change: Readonly<Record<string, string>>;
   prompts: readonly string[];
-  outputSchema: object;
+  output: Shape;
   // Run against the agent's code once it finishes, from outside the workspace it could edit.
   checks: readonly Check[];
   changes: { required: readonly string[]; allowed: readonly string[] };
@@ -27,17 +31,37 @@ const LIMIT_BYTES = 3145728;
 
 const source = (...lines: string[]) => `${lines.join("\n")}\n`;
 
-const objectSchema = (properties: Record<string, object>) => ({
-  type: "object",
-  properties,
-  required: Object.keys(properties),
-  additionalProperties: false,
+const STRING: Shape = { schema: { type: "string" }, accepts: (value) => typeof value === "string" };
+const INTEGER: Shape = { schema: { type: "integer" }, accepts: (value) => Number.isInteger(value) };
+
+const arrayOf = (item: Shape): Shape => ({
+  schema: { type: "array", items: item.schema },
+  accepts: (value) => Array.isArray(value) && value.every((entry) => item.accepts(entry)),
 });
 
-const SUMMARY_SCHEMA = objectSchema({ summary: { type: "string" } });
+const objectOf = (fields: Record<string, Shape>): Shape => {
+  const entries = Object.entries(fields);
+  return {
+    schema: {
+      type: "object",
+      properties: Object.fromEntries(entries.map(([name, field]) => [name, field.schema])),
+      required: Object.keys(fields),
+      additionalProperties: false,
+    },
+    accepts: (value) => {
+      const row = asRow(value);
+      return (
+        Object.keys(row).length === entries.length &&
+        entries.every(([name, field]) => Object.hasOwn(row, name) && field.accepts(row[name]))
+      );
+    },
+  };
+};
 
-// The final message is required but not graded in the cases with behaviour checks: saying "done"
-// earns nothing, and only what the code does counts.
+const SUMMARY = objectOf({ summary: STRING });
+
+// The final message has to have its shape but is not graded in the cases with behaviour checks: saying
+// "done" earns nothing, and only what the code does counts.
 const notGraded = (): Assertion[] => [];
 
 const samePath = (value: unknown, path: string) => typeof value === "string" && value.replace(/^\.\//, "") === path;
@@ -71,7 +95,7 @@ const INVESTIGATION: EvalCase = {
       "actually enforce, and which file defines that number? Answer with the repository-relative path of the " +
       "defining file and the limit in bytes.",
   ],
-  outputSchema: objectSchema({ definingFile: { type: "string" }, limitBytes: { type: "integer" } }),
+  output: objectOf({ definingFile: STRING, limitBytes: INTEGER }),
   checks: [],
   changes: { required: [], allowed: [] },
   gradeOutput: gradeInvestigation,
@@ -105,7 +129,7 @@ const BUG_FIX: EvalCase = {
     "pageCount in src/paginate.ts is wrong: 20 items at 10 per page reports 3 pages, and an empty list should have " +
       "0 pages. Fix the root cause in src/paginate.ts only. Do not change any other file and do not commit.",
   ],
-  outputSchema: SUMMARY_SCHEMA,
+  output: SUMMARY,
   checks: [
     paginateCheck("empty-list", 0, 0),
     paginateCheck("one-item", 1, 1),
@@ -157,7 +181,7 @@ const CROSS_FILE: EvalCase = {
       "that it keeps working. cartTotal and receiptFooter keep their signatures and stay in USD. invoiceLine gains " +
       "a third argument: invoiceLine(label, cents, currency). Do not commit.",
   ],
-  outputSchema: SUMMARY_SCHEMA,
+  output: SUMMARY,
   checks: [
     {
       id: "format-eur",
@@ -289,8 +313,8 @@ function hitsSeed(finding: unknown, seed: Seed): boolean {
 // Matched by location alone, so the wording of a finding neither helps nor hurts. Several findings
 // on one seed are one finding; anything that hits no seed is a false positive.
 function gradeReview(output: unknown): Assertion[] {
-  const findings = asRow(output).findings;
-  if (!Array.isArray(findings)) return [{ id: "findings-present", pass: false }];
+  const answer = asRow(output).findings;
+  const findings: unknown[] = Array.isArray(answer) ? answer : [];
   const falsePositives = findings.filter((finding) => !REVIEW_SEEDS.some((seed) => hitsSeed(finding, seed))).length;
   return [
     ...REVIEW_SEEDS.map((seed) => ({
@@ -321,12 +345,7 @@ const REVIEW: EvalCase = {
       "repository-relative file, the line number in the current version of that file, and a short summary. Report " +
       "nothing for code that is correct. Do not modify any file and do not commit.",
   ],
-  outputSchema: objectSchema({
-    findings: {
-      type: "array",
-      items: objectSchema({ file: { type: "string" }, line: { type: "integer" }, summary: { type: "string" } }),
-    },
-  }),
+  output: objectOf({ findings: arrayOf(objectOf({ file: STRING, line: INTEGER, summary: STRING })) }),
   checks: [],
   changes: { required: [], allowed: [] },
   gradeOutput: gradeReview,
@@ -345,7 +364,7 @@ const CONTINUATION: EvalCase = {
       "must be exactly what the last commit has, so undo your edit there. Everything else you were asked for still " +
       "applies. Do not commit.",
   ],
-  outputSchema: SUMMARY_SCHEMA,
+  output: SUMMARY,
   checks: [
     {
       id: "corrected-separator",

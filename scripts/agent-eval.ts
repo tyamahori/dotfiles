@@ -18,7 +18,7 @@ import {
   writeSync,
 } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
-import { CASES, type EvalCase, expectedTree, grade } from "./agent-eval-cases.ts";
+import { CASES, type EvalCase, expectedTree, grade, type Shape } from "./agent-eval-cases.ts";
 import {
   type Assertion,
   type ChildResult,
@@ -283,7 +283,7 @@ function createPlan(ctx: Ctx, command: RunCommand, tools: Tools): Plan {
   mkdirSync(evidence, { mode: 0o700 });
   const evalCase = CASES[command.caseId];
   const schemaPath = join(evidence, "output-schema.json");
-  writeFileSync(schemaPath, JSON.stringify(evalCase.outputSchema), { mode: 0o600 });
+  writeFileSync(schemaPath, JSON.stringify(evalCase.output.schema), { mode: 0o600 });
   const scratchHome = join(evidence, "scratch-home");
   mkdirSync(scratchHome, { mode: 0o700 });
   return {
@@ -359,11 +359,11 @@ function agentEnv(ctx: Ctx): Record<string, string> {
   return env;
 }
 
-function readFinalOutput(path: string): FinalOutput {
+function readFinalOutput(path: string, shape: Shape): FinalOutput {
   const text = readBounded(path, MAX_OUTPUT_BYTES);
   if (text === undefined) return { state: "missing" };
   const value = parseJson(text);
-  return value === undefined ? { state: "malformed" } : { state: "ok", value };
+  return shape.accepts(value) ? { state: "ok", value } : { state: "malformed" };
 }
 
 type TurnInput = { index: number; prompt: string; threadId?: string };
@@ -388,7 +388,7 @@ async function runTurn(ctx: Ctx, plan: Plan, turn: TurnInput) {
     signal: ctx.signal,
   });
   const facts = parseEvents(readBounded(stdoutPath, MAX_STDOUT_BYTES) ?? "");
-  const output = readFinalOutput(outputPath);
+  const output = readFinalOutput(outputPath, plan.evalCase.output);
   return { child, output, threadId: facts.threadId, problem: turnProblem(child, facts, output, turn.threadId) };
 }
 

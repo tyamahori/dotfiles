@@ -216,6 +216,14 @@ describe("a bug fix run", () => {
     ["the CLI exits nonzero", `${REPAIR}\n${finish()}\nexit 7`, "exit-nonzero"],
     ["no final output is written", `${REPAIR}\ncomplete_turn`, "output-missing"],
     ["the final output is not JSON", `${REPAIR}\nfinal 'all done'\ncomplete_turn`, "output-malformed"],
+    ["the final output is null", `${REPAIR}\nfinal 'null'\ncomplete_turn`, "output-malformed"],
+    ["the final output is an array", `${REPAIR}\nfinal '[]'\ncomplete_turn`, "output-malformed"],
+    ["the final output lacks its required field", `${REPAIR}\nfinal '{}'\ncomplete_turn`, "output-malformed"],
+    [
+      "the final output has a field of the wrong type",
+      `${REPAIR}\nfinal '{"summary":1}'\ncomplete_turn`,
+      "output-malformed",
+    ],
     [
       "the turn reports failure",
       `${REPAIR}\nfinal '{"summary":"x"}'\ncomplete_turn\nprintf '%s\\n' '{"type":"turn.failed"}'`,
@@ -770,6 +778,17 @@ ${finish()}`;
   );
 
   test(
+    "a continuation with a malformed first answer stops there instead of resuming",
+    async () => {
+      const h = harness(`final 'null'\ncomplete_turn`);
+      expect(await main(["run", "continuation", "--variant", "baseline"], h.ctx)).toBe(3);
+      expect(onlyRecord(h).incompleteReason).toBe("output-malformed");
+      expect(readFileSync(argvLog(h), "utf8").trim().split("\n")).toHaveLength(1);
+    },
+    SLOW,
+  );
+
+  test(
     "a continuation stays incomplete when the second turn starts a different thread",
     async () => {
       const h = harness(`[ "$turn" = 2 ] && thread=${OTHER_THREAD}\n${finish()}`);
@@ -1172,11 +1191,6 @@ describe("grading", () => {
     expect(countOf(review([session, retry, search, "looks bad", { file: 1, line: "x" }]))).toBe(2);
   });
 
-  test("a review output without findings fails", () => {
-    const assertions = grade(CASES.review, { output: { summary: "all good" }, changed: [], checks: new Map() });
-    expect(failedOf(assertions)).toEqual(["findings-present"]);
-  });
-
   test("a behaviour check with no result fails", () => {
     const assertions = grade(CASES["bug-fix"], {
       output: {},
@@ -1185,6 +1199,66 @@ describe("grading", () => {
     });
     expect(failedOf(assertions)).toContain("behaviour:exact-multiple");
     expect(failedOf(assertions)).not.toContain("behaviour:empty-list");
+  });
+});
+
+describe("the shape of a final answer", () => {
+  const SUMMARY_CASES = ["bug-fix", "cross-file", "continuation"] as const;
+  const accepts = (caseId: keyof typeof CASES, value: unknown) => CASES[caseId].output.accepts(value);
+  const FINDING = { file: "src/a.ts", line: 1, summary: "s" };
+
+  test.each(SUMMARY_CASES)("%s accepts a summary, in any words", (caseId) => {
+    expect(accepts(caseId, { summary: "" })).toBe(true);
+  });
+
+  test.each([[null], [[]], ["text"], [1], [{}], [{ summary: 1 }], [{ summary: null }], [{ summary: "s", extra: 1 }]])(
+    "the summary cases refuse %j",
+    (value) => {
+      for (const caseId of SUMMARY_CASES) expect(accepts(caseId, value)).toBe(false);
+    },
+  );
+
+  test("an investigation accepts a path and a whole number", () => {
+    expect(accepts("investigation", { definingFile: "a", limitBytes: 1 })).toBe(true);
+  });
+
+  test.each([
+    [null],
+    [{ definingFile: "a" }],
+    [{ limitBytes: 1 }],
+    [{ definingFile: 1, limitBytes: 1 }],
+    [{ definingFile: "a", limitBytes: "1" }],
+    [{ definingFile: "a", limitBytes: 1.5 }],
+  ])("an investigation refuses %j", (value) => {
+    expect(accepts("investigation", value)).toBe(false);
+  });
+
+  test.each([[{ findings: [] }], [{ findings: [FINDING] }]])("a review accepts %j", (value) => {
+    expect(accepts("review", value)).toBe(true);
+  });
+
+  test.each([
+    [null],
+    [{ summary: "all good" }],
+    [{ findings: null }],
+    [{ findings: {} }],
+    [{ findings: [null] }],
+    [{ findings: ["looks bad"] }],
+    [{ findings: [{ ...FINDING, line: "1" }] }],
+    [{ findings: [{ ...FINDING, line: 1.5 }] }],
+    [{ findings: [{ file: "src/a.ts", line: 1 }] }],
+    [{ findings: [{ ...FINDING, extra: 1 }] }],
+  ])("a review refuses %j", (value) => {
+    expect(accepts("review", value)).toBe(false);
+  });
+
+  test("the schema given to the CLI requires the same fields the answer is checked for", () => {
+    expect(CASES["bug-fix"].output.schema).toEqual({
+      type: "object",
+      properties: { summary: { type: "string" } },
+      required: ["summary"],
+      additionalProperties: false,
+    });
   });
 });
 
