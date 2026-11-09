@@ -98,7 +98,7 @@ agent-eval summary --since-ms 1767225600000
 | 場所 | 中身 |
 | --- | --- |
 | `${XDG_STATE_HOME:-$HOME/.local/state}/agent-eval/runs/<runId>.json` | 1実行につき1つの記録。件数の集計に使う |
-| `${XDG_STATE_HOME:-$HOME/.local/state}/agent-eval/evidence/<runId>/` | イベント、最終出力、標準エラー、実行後のワークスペース、動作確認の終わり方（`check.status.json`） |
+| `${XDG_STATE_HOME:-$HOME/.local/state}/agent-eval/evidence/<runId>/` | イベント、最終出力、CLIの標準エラー、実行後のワークスペース、動作確認の終わり方（`check.status.json`） |
 
 - ディレクトリは本人だけが開ける`0700`、記録とログは`0600`で作る
 - evidenceにはコマンドや出力がそのまま残るので、公開リポジトリへ写さない
@@ -122,7 +122,7 @@ agent-eval summary --since-ms 1767225600000
 - 子プロセスはshellを通さず引数の配列で起動する。stdoutが32MiBを超えるか時間切れになると、プロセスグループごと止める
 - エージェントが書いたコードの動作確認は、`codex sandbox -P :read-only`の中で最小限の環境変数だけを渡して動かす。ファイルの書き込みとネットワーク接続はできないが、読み取りはできる
 - 動作確認の子プロセスは呼び出しごとの戻り値を標準出力で返すだけで、期待値を受け取らない。親プロセスが期待値と比べ、子が自分で正常終了し、全項目の値が1つずつそろったときだけ合格にする
-- 確認の標準出力は比較のあと消す。`check.status.json`には終了コード、シグナル、時間切れ、出力超過、値がそろった項目のIDだけを残す
+- 確認の標準出力と標準エラーは残さない。読み取ったファイルの中身が混ざることがあるため。`check.status.json`には、開始の印が出たか、終了コード、シグナル、時間切れ、出力超過、値がそろった項目のIDだけを残す
 - Bunは起動スクリプトの`scripts/agent-eval`と動作確認の両方で`--config=/dev/null`を付けて起動し、カレントディレクトリの`bunfig.toml`を読まない（そのpreloadはコードを実行できるため）。ユーザーのグローバル設定は変えない
 - エージェントの実行後はワークスペースでGitを実行せず、ファイルを直接比べる（`.git/config`を書き換えられていると、Gitが任意のコマンドを実行しかねないため）
 - `summary`とsnapshotは記録を読んで数えるだけで、記録の中身をコマンドとして実行しない
@@ -155,6 +155,7 @@ bun test scripts/agent-eval.test.ts
 - 動作確認は敵対的なモデルへの防御ではない。エージェントのコードは確認プロセスの中で動く。合否を標準出力に書いても親プロセスは読まないが、全項目の正しい値を書いて終了コード0で終わるコードは合格する。固定の入力に対する答えを埋め込むのと同じで、外から動作だけを見る確認では区別できない。sandboxが防ぐのは、書き込み、ネットワーク、呼び出し元の環境変数の持ち出しだけ
 - CLIのセッション記録を読めなかった実行は別の行に集計され、同じ設定の`ms_per_pass`に入らない。その時間は、その行の`total_ms`に出る
 - `agent-eval`自身が`SIGKILL`で止まると、記録は残らず、Codexが動き続けることがある
+- 止められるのは起動したプロセスグループだけで、別のグループやセッションを作った子孫は動き続けることがある。`agent-eval`はその終了を待たない
 - `codex sandbox`を実際に試したのはmacOSだけ。Linuxで起動できなければ`incomplete`になり、sandboxなしには切り替えない
 - トークン量は記録に入れない。`evidence/<runId>/turn-*.events.jsonl`には残る
 
@@ -165,7 +166,7 @@ bun test scripts/agent-eval.test.ts
 | `light.config.toml を読めない`と出る | `scripts/link`を実行する |
 | `model_reasoning_effort だけを設定していない`と出る | `~/.codex/light.config.toml`から、ほかの設定を外す |
 | `incompleteReason`が`exit-nonzero` | `evidence/<runId>/turn-1.stderr.log`を見る。認証切れなら`codex login`を実行する |
-| `incompleteReason`が`harness-error` | `evidence/<runId>/check.stderr.log`か`harness-error.log`を見る |
+| `incompleteReason`が`harness-error` | `evidence/<runId>/harness-error.log`か`check.status.json`を見る。`started`が`false`なら動作確認が始まっていないので、`codex sandbox -P :read-only -C <空のディレクトリ> -- bun --version`を手で実行して理由を確かめる |
 | `incompleteReason`が`output-malformed` | `evidence/<runId>/turn-*.final.json`の形を確かめる |
 | 動作確認の項目がまとめてfailになる | `evidence/<runId>/check.status.json`を見る。`exitCode`が0でなければ、確認のプロセスが途中で止まっている |
 | `incomparable:cli-version`が出る | 同じバージョンのCLIで両方の設定を実行し直す |

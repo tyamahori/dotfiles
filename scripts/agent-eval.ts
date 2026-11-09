@@ -465,8 +465,8 @@ type ChecksResult = { problem?: IncompleteReason; results: ReadonlyMap<string, b
 // Only the workspace's code runs here, and it can read what the agent could already read but neither
 // write nor reach the network. It gets no environment beyond these few variables and none of the
 // expected values. What it prints may hold anything it read, so only the comparison and a status file
-// of fixed fields survive this function. Stderr stays only when the harness never started, which
-// means no agent code ran.
+// of fixed fields survive this function. That goes for stderr without a start marker too: a missing
+// marker does not prove that no workspace code ran, so a sandbox failure is reproduced by hand instead.
 async function runBehaviourChecks(ctx: Ctx, plan: Plan): Promise<ChecksResult> {
   const { checks } = plan.evalCase;
   if (checks.length === 0) return { results: new Map() };
@@ -500,11 +500,12 @@ async function runBehaviourChecks(ctx: Ctx, plan: Plan): Promise<ChecksResult> {
     checks.map((check) => check.id),
   );
   rmSync(stdoutPath, { force: true });
-  if (output.started) rmSync(stderrPath, { force: true });
+  rmSync(stderrPath, { force: true });
+  const { started } = output;
   const { exitCode, signal, timedOut, overLimit } = child;
   writeFileSync(
     join(plan.evidence, "check.status.json"),
-    `${JSON.stringify({ exitCode, signal, timedOut, overLimit, reported: [...output.values.keys()] })}\n`,
+    `${JSON.stringify({ started, exitCode, signal, timedOut, overLimit, reported: [...output.values.keys()] })}\n`,
     { mode: 0o600 },
   );
   if (child.interrupted) return { problem: "interrupted", results: new Map() };

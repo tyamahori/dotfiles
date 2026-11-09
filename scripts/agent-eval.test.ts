@@ -346,17 +346,21 @@ describe("a bug fix run", () => {
   );
 
   test(
-    "treats a harness that never started as incomplete rather than the agent's failure",
+    "treats a harness that never started as incomplete, keeping how it ended but not what it printed",
     async () => {
       const h = harness(`${REPAIR}\n${finish()}`);
       writeFileSync(
         join(h.root, "bin/codex"),
-        readFileSync(join(h.root, "bin/codex"), "utf8").replace('exec "$@"', "echo 'no sandbox here' >&2\nexit 1"),
+        readFileSync(join(h.root, "bin/codex"), "utf8").replace('exec "$@"', `echo '${CANARY}' >&2\nexit 1`),
       );
       expect(await main(["run", "bug-fix", "--variant", "baseline"], h.ctx)).toBe(3);
       const record = onlyRecord(h);
       expect(record.incompleteReason).toBe("harness-error");
-      expect(readFileSync(join(evidencePath(h, record), "check.stderr.log"), "utf8")).toContain("no sandbox here");
+      const evidence = evidencePath(h, record);
+      expect(existsSync(join(evidence, "check.stderr.log"))).toBe(false);
+      const status = readFileSync(join(evidence, "check.status.json"), "utf8");
+      expect(JSON.parse(status)).toMatchObject({ started: false, exitCode: 1 });
+      expect(status).not.toContain(CANARY);
     },
     SLOW,
   );
@@ -471,18 +475,24 @@ describe("a module that tries to decide its own result", () => {
   );
 });
 
+// Returns the file that exists once the preload has run.
+function plantPreload(dir: string): string {
+  const marker = join(dir, "preload-ran");
+  writeFileSync(join(dir, "bunfig.toml"), 'preload = ["./preload.ts"]\n');
+  writeFileSync(
+    join(dir, "preload.ts"),
+    `import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(marker)}, "ran");\n`,
+  );
+  return marker;
+}
+
 describe("a bunfig.toml the evaluator did not write", () => {
   test("the summary ignores one in the current directory, which an ordinary launch would preload", () => {
     const dir = join(base, `bunfig${harnessCount++}`);
     const bin = join(dir, "bin");
     mkdirSync(bin, { recursive: true });
     symlinkSync(process.execPath, join(bin, "bun"));
-    const marker = join(dir, "preload-ran");
-    writeFileSync(join(dir, "bunfig.toml"), 'preload = ["./preload.ts"]\n');
-    writeFileSync(
-      join(dir, "preload.ts"),
-      `import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(marker)}, "ran");\n`,
-    );
+    const marker = plantPreload(dir);
     writeFileSync(join(dir, "entry.ts"), "");
     const options = { cwd: dir, env: { HOME: dir, PATH: `${bin}:/usr/bin:/bin` }, encoding: "utf8" } as const;
 
@@ -1688,8 +1698,9 @@ describe("the usage snapshot", () => {
     return { home, bin };
   }
 
-  function runSnapshot(paths: { home: string; bin: string }, env: Record<string, string> = {}) {
+  function runSnapshot(paths: { home: string; bin: string }, env: Record<string, string> = {}, cwd?: string) {
     return spawnSync(Bun.which("bash")!, [SNAPSHOT, "--days", "7"], {
+      cwd,
       env: { HOME: paths.home, PATH: `${paths.bin}:/usr/bin:/bin`, LC_ALL: "C", ...env },
       encoding: "utf8",
     });
@@ -1774,6 +1785,20 @@ describe("the usage snapshot", () => {
       writeRecords(join(state, "agent-eval/runs"), [record({ startedAt: now() })]);
       const run = runSnapshot(paths, { XDG_STATE_HOME: state });
       expect(sectionBody(run.stdout)[1]).toStartWith("bug-fix\tbaseline");
+    },
+    SNAPSHOT_TIMEOUT,
+  );
+
+  test(
+    "still lists the records but runs no preload when started from a directory holding a bunfig.toml",
+    () => {
+      const paths = snapshotHome(JQ_AND_BUN());
+      writeRecords(defaultRuns(paths.home), [record({ startedAt: now() })]);
+      const marker = plantPreload(paths.home);
+      const run = runSnapshot(paths, {}, paths.home);
+      expect(run.status).toBe(0);
+      expect(sectionBody(run.stdout)[1]).toStartWith("bug-fix\tbaseline");
+      expect(existsSync(marker)).toBe(false);
     },
     SNAPSHOT_TIMEOUT,
   );
