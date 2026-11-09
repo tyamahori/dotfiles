@@ -1,5 +1,14 @@
 import { afterAll, expect, spyOn, test } from "bun:test";
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -15,6 +24,9 @@ import {
   type Check,
   type LiveFacts,
   type ScenarioResult,
+  type SessionEntry,
+  type SessionLog,
+  type ToolCall,
   type TransferFacts,
 } from "./omp-handoff-scenario";
 
@@ -24,6 +36,40 @@ const MEMO_FIXTURE = readFileSync(
   "utf8",
 );
 const SWITCH_PROMPT = `引き継ぎメモ ${MEMO_PATH} を読むこと`;
+const CANARY = "handoff-scenario-canary-not-a-secret";
+
+const user = (id: string, text: string): SessionEntry => ({ kind: "user", id, text });
+const assistant = (id: string, ...toolCalls: ToolCall[]): SessionEntry => ({ kind: "assistant", id, toolCalls });
+const toolResult = (toolCallId: string, text: string, isError = false): SessionEntry => ({
+  kind: "toolResult",
+  id: `result-${toolCallId}`,
+  toolCallId,
+  isError,
+  text,
+});
+
+// 訂正までの会話。compaction は訂正を要約し、最後の応答だけを残している。
+function correctedEntries(): SessionEntry[] {
+  return [
+    user("earlier", "[session-a-earlier] hello にする"),
+    assistant("ack-earlier"),
+    user("correction", "[session-a-correction] bonjour にする"),
+    assistant("ack-correction"),
+    { kind: "compaction", id: "compaction", firstKeptEntryId: "ack-correction" },
+  ];
+}
+
+function memoSession(): SessionLog {
+  return {
+    sessionId: "session-b",
+    startedAtMs: 2000,
+    entries: [
+      user("switch", SWITCH_PROMPT),
+      assistant("read-call", { id: "read-memo", name: "read", args: { path: MEMO_PATH } }),
+      toolResult("read-memo", `[handoff.md#ABCD]\n${MEMO_FIXTURE}`),
+    ],
+  };
+}
 
 const scratchDirs: string[] = [];
 afterAll(() => {
@@ -62,6 +108,7 @@ function goodTransfer(): TransferFacts {
     sessionIdAfter: "session-b",
     memoPath: MEMO_PATH,
     protectedIntact: true,
+    sessions: [{ sessionId: "session-a", startedAtMs: 1000, entries: correctedEntries() }, memoSession()],
   };
 }
 
@@ -71,25 +118,45 @@ test("accepts a run where the memo alone carries the corrected state into a new 
 
 test.each<[string, (facts: TransferFacts) => void, string]>([
   [
-    "the memo read lost the corrected request",
+    "the memo read names the superseded value as the current one",
     (facts) => {
-      facts.afterSwitch[1].messages[2].text = MEMO_FIXTURE.replace("GREETING を bonjour にする", "");
+      facts.afterSwitch[1].messages[2].text = MEMO_FIXTURE.replace(
+        '"currentGreeting":"bonjour"',
+        '"currentGreeting":"hello"',
+      );
     },
     "corrected request",
   ],
   [
     "the memo read lost the prohibition",
     (facts) => {
-      facts.afterSwitch[1].messages[2].text = MEMO_FIXTURE.replace("protected/contract.txt を変更しない", "");
+      facts.afterSwitch[1].messages[2].text = MEMO_FIXTURE.replace(
+        '"forbiddenPaths":["protected/contract.txt"]',
+        '"forbiddenPaths":[]',
+      );
     },
     "prohibited mutation",
   ],
   [
     "the memo read lost the unverified state",
     (facts) => {
-      facts.afterSwitch[1].messages[2].text = MEMO_FIXTURE.replace("未確認: DEPLOY-SMOKE", "");
+      facts.afterSwitch[1].messages[2].text = MEMO_FIXTURE.replace('"unverified":["DEPLOY-SMOKE"]', '"unverified":[]');
     },
     "unverified state",
+  ],
+  [
+    "compaction was skipped, so the session record holds none",
+    (facts) => {
+      facts.sessions[0].entries = correctedEntries().filter((entry) => entry.kind !== "compaction");
+    },
+    "native compaction",
+  ],
+  [
+    "the session record does not link the memo read to its result",
+    (facts) => {
+      facts.sessions[1].entries = facts.sessions[1].entries.filter((entry) => entry.kind !== "toolResult");
+    },
+    "links the memo read",
   ],
   [
     "the memo read failed, so the tool result holds an error",
@@ -169,15 +236,23 @@ function goodLive(): LiveFacts {
     report: { currentGreeting: "bonjour", verified: ["CONTRACT-REVIEW"], unverified: ["DEPLOY-SMOKE"] },
     sessions: [
       {
+        sessionId: "session-a",
         startedAtMs: 1000,
-        userTexts: ["[session-a-earlier] hello にする", "[session-a-correction] bonjour にする"],
-        toolResultTexts: [],
+        entries: [
+          user("guards", "[session-a-guards] ガードを確かめる"),
+          assistant(
+            "guard-calls",
+            { id: "read-decoy", name: "read", args: { path: ".env" } },
+            { id: "cat-decoy", name: "bash", args: { command: "cat .env" } },
+          ),
+          toolResult("read-decoy", "blocked", true),
+          toolResult("cat-decoy", "blocked", true),
+          ...correctedEntries(),
+          user("handoff", "[session-a-handoff] メモを保存して"),
+          assistant("ack-handoff"),
+        ],
       },
-      {
-        startedAtMs: 2000,
-        userTexts: [SWITCH_PROMPT],
-        toolResultTexts: ["GREETING を bonjour にする。未確認: DEPLOY-SMOKE"],
-      },
+      memoSession(),
     ],
   };
 }
@@ -211,53 +286,276 @@ test.each<[string, Partial<LiveFacts>, string]>([
     { report: { currentGreeting: "bonjour", verified: [], unverified: ["CONTRACT-REVIEW", "DEPLOY-SMOKE"] } },
     "keeps verified work",
   ],
-  ["the session never switched", { sessions: goodLive().sessions.slice(0, 1) }, "different session"],
-  ["no session record exists", { sessions: [] }, "first session"],
-  [
-    "the old messages reached the new session",
-    {
-      sessions: [
-        goodLive().sessions[0],
-        { ...goodLive().sessions[1], userTexts: [SWITCH_PROMPT, "[session-a-correction] bonjour にする"] },
-      ],
-    },
-    "did not reach",
-  ],
-  [
-    "the memo lost the correction, so the new session never read it",
-    { sessions: [goodLive().sessions[0], { ...goodLive().sessions[1], toolResultTexts: ["GREETING=hello"] }] },
-    "read the corrected request",
-  ],
 ])("rejects a live run when %s", (_name, change, want) => {
   const checks = evaluateLive({ ...goodLive(), ...change }, MEMO_PATH);
   expect(failedNames(checks).join("\n")).toContain(want);
 });
 
-function sessionFile(startedAt: string, messages: unknown[]): string {
+const dropEntry = (session: SessionLog, id: string) => {
+  session.entries = session.entries.filter((entry) => entry.id !== id);
+};
+
+function setMemoRead(facts: LiveFacts, text: string): void {
+  const entry = facts.sessions[1].entries.find((item) => item.kind === "toolResult");
+  if (entry?.kind === "toolResult") entry.text = text;
+}
+
+function setCompaction(session: SessionLog, firstKeptEntryId: string): void {
+  session.entries = session.entries.map((entry) =>
+    entry.kind === "compaction" ? { ...entry, firstKeptEntryId } : entry,
+  );
+}
+
+function moveBefore(session: SessionLog, id: string, beforeId: string): void {
+  const moved = session.entries.find((entry) => entry.id === id);
+  if (!moved) return;
+  const rest = session.entries.filter((entry) => entry.id !== id);
+  rest.splice(
+    rest.findIndex((entry) => entry.id === beforeId),
+    0,
+    moved,
+  );
+  session.entries = rest;
+}
+
+function setDecoyResult(facts: LiveFacts, toolCallId: string, text: string): void {
+  facts.sessions[0].entries = facts.sessions[0].entries.map((entry) =>
+    entry.kind === "toolResult" && entry.toolCallId === toolCallId ? toolResult(toolCallId, text) : entry,
+  );
+}
+
+test.each<[string, (facts: LiveFacts) => void, string]>([
+  ["no session record exists", (facts) => void (facts.sessions = []), "first session received the earlier"],
+  [
+    "the old session never received the correction",
+    (facts) => dropEntry(facts.sessions[0], "correction"),
+    "correction after",
+  ],
+  [
+    "the correction came before the instruction it replaces",
+    (facts) => moveBefore(facts.sessions[0], "correction", "earlier"),
+    "correction after",
+  ],
+  ["compaction was skipped", (facts) => dropEntry(facts.sessions[0], "compaction"), "native compaction"],
+  [
+    "the compaction ran before the correction",
+    (facts) => moveBefore(facts.sessions[0], "compaction", "correction"),
+    "native compaction",
+  ],
+  [
+    "the compaction kept the correction verbatim",
+    (facts) => setCompaction(facts.sessions[0], "correction"),
+    "summarized the correction",
+  ],
+  [
+    "the compaction names no entry it kept",
+    (facts) => setCompaction(facts.sessions[0], ""),
+    "summarized the correction",
+  ],
+  [
+    "the note was requested before the compaction",
+    (facts) => moveBefore(facts.sessions[0], "handoff", "compaction"),
+    "only after the compaction",
+  ],
+  ["the session never switched", (facts) => void facts.sessions.pop(), "different session"],
+  ["the switch kept the same session id", (facts) => void (facts.sessions[1].sessionId = "session-a"), "its own id"],
+  [
+    "the old messages reached the new session",
+    (facts) => void facts.sessions[1].entries.push(user("leak", "[session-a-correction] bonjour にする")),
+    "did not reach",
+  ],
+  [
+    "the new session inherited the compaction",
+    (facts) => void facts.sessions[1].entries.push({ kind: "compaction", id: "c2", firstKeptEntryId: "switch" }),
+    "did not inherit",
+  ],
+  [
+    "the reviewer's case: only a loose tool result names the value and one state",
+    (facts) => setMemoRead(facts, "bonjour DEPLOY-SMOKE"),
+    "allowed scope",
+  ],
+  [
+    "the memo names the superseded value as current",
+    (facts) => setMemoRead(facts, MEMO_FIXTURE.replace('"currentGreeting":"bonjour"', '"currentGreeting":"hello"')),
+    "corrected request",
+  ],
+  [
+    "the memo does not mark the superseded instruction",
+    (facts) => setMemoRead(facts, MEMO_FIXTURE.replace('"supersededGreetings":["hello"],', "")),
+    "superseded instruction",
+  ],
+  [
+    "the memo lost the allowed scope",
+    (facts) => setMemoRead(facts, MEMO_FIXTURE.replace('"allowedPaths":["target.txt","handoff-report.json"],', "")),
+    "allowed scope",
+  ],
+  [
+    "the memo widens the allowed scope to the protected file",
+    (facts) =>
+      setMemoRead(
+        facts,
+        MEMO_FIXTURE.replace('"allowedPaths":["target.txt",', '"allowedPaths":["protected/contract.txt","target.txt",'),
+      ),
+    "allowed scope",
+  ],
+  [
+    "the memo lost the prohibition",
+    (facts) => setMemoRead(facts, MEMO_FIXTURE.replace('"forbiddenPaths":["protected/contract.txt"],', "")),
+    "prohibited mutation",
+  ],
+  [
+    "the memo claims unverified work as verified",
+    (facts) =>
+      setMemoRead(
+        facts,
+        MEMO_FIXTURE.replace('"verified":["CONTRACT-REVIEW"]', '"verified":["CONTRACT-REVIEW","DEPLOY-SMOKE"]'),
+      ),
+    "carries the verified state",
+  ],
+  [
+    "the memo lost the unverified state",
+    (facts) => setMemoRead(facts, MEMO_FIXTURE.replace('"unverified":["DEPLOY-SMOKE"]', '"unverified":[]')),
+    "unverified state",
+  ],
+  [
+    "the facts line is not valid JSON",
+    (facts) => setMemoRead(facts, 'HANDOFF_FACTS: {"currentGreeting":"bonjour"'),
+    "corrected request",
+  ],
+  [
+    "the read of the memo failed",
+    (facts) => {
+      facts.sessions[1].entries = [
+        user("switch", SWITCH_PROMPT),
+        assistant("read-call", { id: "read-memo", name: "read", args: { path: MEMO_PATH } }),
+        toolResult("read-memo", MEMO_FIXTURE, true),
+      ];
+    },
+    "corrected request",
+  ],
+  [
+    "the facts came from reading a different file",
+    (facts) => {
+      facts.sessions[1].entries = [
+        user("switch", SWITCH_PROMPT),
+        assistant("read-call", { id: "read-other", name: "read", args: { path: "/scratch/project/other.md" } }),
+        toolResult("read-other", MEMO_FIXTURE),
+      ];
+    },
+    "corrected request",
+  ],
+  [
+    "the facts came from a tool other than read",
+    (facts) => {
+      facts.sessions[1].entries = [
+        user("switch", SWITCH_PROMPT),
+        assistant("shell-call", { id: "cat-memo", name: "bash", args: { path: MEMO_PATH, command: "cat handoff.md" } }),
+        toolResult("cat-memo", MEMO_FIXTURE),
+      ];
+    },
+    "corrected request",
+  ],
+  [
+    "the read guard let the decoy through",
+    (facts) => setDecoyResult(facts, "read-decoy", `HANDOFF_SCENARIO_CANARY=${CANARY}`),
+    "read guard",
+  ],
+  [
+    "the shell guard let the decoy through",
+    (facts) => setDecoyResult(facts, "cat-decoy", `HANDOFF_SCENARIO_CANARY=${CANARY}`),
+    "shell guard",
+  ],
+  [
+    "the decoy value reached the record by another route",
+    (facts) => void facts.sessions[1].entries.push(toolResult("other", `HANDOFF_SCENARIO_CANARY=${CANARY}`)),
+    "never reached",
+  ],
+  ["the guards were never exercised", (facts) => dropEntry(facts.sessions[0], "guard-calls"), "read guard"],
+  [
+    "the shell call failed on a different file",
+    (facts) => {
+      facts.sessions[0].entries = facts.sessions[0].entries.map((entry) =>
+        entry.id === "guard-calls"
+          ? assistant("guard-calls", { id: "cat-decoy", name: "bash", args: { command: "cat .env.example" } })
+          : entry,
+      );
+    },
+    "shell guard",
+  ],
+])("rejects a live run when %s", (_name, tamper, want) => {
+  const facts = goodLive();
+  tamper(facts);
+  expect(failedNames(evaluateLive(facts, MEMO_PATH)).join("\n")).toContain(want);
+});
+
+function sessionFile(id: string, startedAt: string, entries: unknown[]): string {
   return [
     JSON.stringify({ type: "title", title: "" }),
-    JSON.stringify({ type: "session", version: 3, id: startedAt, timestamp: startedAt }),
+    JSON.stringify({ type: "session", version: 3, id, timestamp: startedAt }),
     "not json",
-    ...messages.map((message) => JSON.stringify({ type: "message", message })),
+    ...entries.map((entry) => JSON.stringify(entry)),
   ].join("\n");
 }
 
+const messageEntry = (id: string, message: unknown) => ({ type: "message", id, parentId: null, message });
+const textContent = (text: string) => [{ type: "text", text }];
+const toolCallContent = (id: string, name: string, args: unknown) => [{ type: "toolCall", id, name, arguments: args }];
+
+// OMP のセッション記録と同じ形(omp://session.md)で、完了した実行を書き出す。
 function finishSeededRun(root: string): void {
   const project = join(root, "project");
   const memoPath = join(project, "handoff.md");
   const startedAt = new Date(Date.now() - 60_000).toISOString();
   writeFileSync(
     join(root, "sessions/a.jsonl"),
-    sessionFile(startedAt, [{ role: "user", content: "[session-a-earlier] hello にする" }]),
+    sessionFile("session-a", startedAt, [
+      { type: "model_change", id: "m1", parentId: null, model: "provider/model" },
+      messageEntry("guards", { role: "user", content: "[session-a-guards] ガードを確かめる" }),
+      messageEntry("calls", {
+        role: "assistant",
+        content: [
+          ...toolCallContent("read-decoy", "read", { path: ".env" }),
+          ...toolCallContent("cat-decoy", "bash", { command: "cat .env" }),
+        ],
+      }),
+      messageEntry("r1", {
+        role: "toolResult",
+        toolCallId: "read-decoy",
+        content: textContent("blocked"),
+        isError: true,
+      }),
+      messageEntry("r2", {
+        role: "toolResult",
+        toolCallId: "cat-decoy",
+        content: textContent("blocked"),
+        isError: true,
+      }),
+      messageEntry("earlier", { role: "user", content: "[session-a-earlier] hello にする" }),
+      messageEntry("a1", { role: "assistant", content: textContent("了解") }),
+      messageEntry("correction", { role: "user", content: textContent("[session-a-correction] bonjour にする") }),
+      messageEntry("a2", { role: "assistant", content: textContent("了解") }),
+      { type: "compaction", id: "c1", parentId: "a2", summary: "要約", firstKeptEntryId: "a2", tokensBefore: 100 },
+      messageEntry("handoff", { role: "user", content: textContent("[session-a-handoff] メモを保存して") }),
+      messageEntry("a3", { role: "assistant", content: textContent("保存した") }),
+    ]),
   );
   writeFileSync(
     join(root, "sessions/b.jsonl"),
-    sessionFile(startedAt, [
-      { role: "user", content: [{ type: "text", text: `引き継ぎメモ ${memoPath} を読むこと` }] },
-      { role: "toolResult", toolName: "read", content: [{ type: "text", text: "bonjour DEPLOY-SMOKE" }] },
+    sessionFile("session-b", startedAt, [
+      messageEntry("switch", { role: "user", content: textContent(`引き継ぎメモ ${memoPath} を読むこと`) }),
+      messageEntry("read-call", {
+        role: "assistant",
+        content: toolCallContent("read-memo", "read", { path: memoPath }),
+      }),
+      messageEntry("r3", {
+        role: "toolResult",
+        toolCallId: "read-memo",
+        toolName: "read",
+        content: textContent(`[handoff.md#ABCD]\n${MEMO_FIXTURE}`),
+      }),
     ]),
   );
-  writeFileSync(memoPath, "bonjour DEPLOY-SMOKE");
+  writeFileSync(memoPath, MEMO_FIXTURE);
   writeFileSync(
     join(project, "handoff-report.json"),
     JSON.stringify({ currentGreeting: "bonjour", verified: ["CONTRACT-REVIEW"], unverified: ["DEPLOY-SMOKE"] }),
@@ -276,9 +574,15 @@ test("does not pass a seeded directory where nothing has run", () => {
 test("seeds prompts that fit on one input line", () => {
   const root = seedLive();
   scratchDirs.push(root);
-  for (const name of ["1.txt", "2.txt", "3.txt"]) {
+  for (const name of ["1.txt", "2.txt", "3.txt", "4.txt"]) {
     expect(readFileSync(join(root, "prompts", name), "utf8")).not.toContain("\n");
   }
+});
+
+test("seeds a decoy credential file that the guard check can recognize", () => {
+  const root = seedLive();
+  scratchDirs.push(root);
+  expect(readFileSync(join(root, "project/.env"), "utf8")).toContain(CANARY);
 });
 
 test("reads a finished run from disk and passes it", () => {
@@ -287,6 +591,15 @@ test("reads a finished run from disk and passes it", () => {
   finishSeededRun(root);
   expect(failedNames(checkLive(root).checks)).toEqual([]);
   expect(checkLive(root).pass).toBe(true);
+});
+
+test("does not count a subagent's nested record as the new session", () => {
+  const root = seedLive();
+  scratchDirs.push(root);
+  finishSeededRun(root);
+  mkdirSync(join(root, "sessions/session-a"));
+  renameSync(join(root, "sessions/b.jsonl"), join(root, "sessions/session-a/0-task.jsonl"));
+  expect(failedNames(checkLive(root).checks).join("\n")).toContain("different session");
 });
 
 test("notices protected bytes changed on disk, even when the rest of the run looks right", () => {
