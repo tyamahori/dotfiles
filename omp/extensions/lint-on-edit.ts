@@ -97,9 +97,12 @@ export default function lintOnEdit(pi: ExtensionApi): void {
       try {
         const decision = JSON.parse(stdout) as UnknownRecord;
         if (decision.decision === "block" && typeof decision.reason === "string") {
-          pi.sendUserMessage?.(`[lint-on-edit] ${decision.reason}`, {
-            deliverAs: "steer",
-          });
+          // omp 18.18.2 以降、ターン開始前に破棄されると reject する。try/catch では拾えないので .catch で受ける。
+          void Promise.resolve(
+            pi.sendUserMessage?.(`[lint-on-edit] ${decision.reason}`, {
+              deliverAs: "steer",
+            }),
+          ).catch(() => {});
         }
       } catch {
         // 共有スクリプトの出力が JSON でない場合は黙って続行する。

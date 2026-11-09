@@ -73,8 +73,11 @@ export default function skillTriggerHint(pi: ExtensionApi): void {
     if (pending.length === 0) return;
     for (const name of pending) done.add(name);
     const uris = pending.map((name) => "skill://" + name).join("、");
-    pi.sendUserMessage?.(`[skill-trigger-hint] この操作は ${uris} の適用条件に当たる。未読なら読んでから続ける。`, {
-      deliverAs: "steer",
-    });
+    // omp 18.18.2 以降、ターン開始前に破棄されると reject する。注入失敗は無視する。
+    void Promise.resolve(
+      pi.sendUserMessage?.(`[skill-trigger-hint] この操作は ${uris} の適用条件に当たる。未読なら読んでから続ける。`, {
+        deliverAs: "steer",
+      }),
+    ).catch(() => {});
   });
 }

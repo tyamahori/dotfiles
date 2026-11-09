@@ -32,10 +32,13 @@ export default function failFast(pi: ExtensionHandlerApi): void {
     const count = (failures.get(command) ?? 0) + 1;
     failures.set(command, count);
     if (count < 2) return;
-    pi.sendUserMessage?.(
-      `[fail-fast] このコマンドはこのセッションで${count}回連続して同じように失敗した。` +
-        "再試行をやめ、根本原因とユーザーが適用すべき正確な修正を報告してターンを終えること。変更なしで再実行しないこと。",
-      { deliverAs: "steer" },
-    );
+    // omp 18.18.2 以降、ターン開始前に破棄されると reject する。注入失敗は無視する。
+    void Promise.resolve(
+      pi.sendUserMessage?.(
+        `[fail-fast] このコマンドはこのセッションで${count}回連続して同じように失敗した。` +
+          "再試行をやめ、根本原因とユーザーが適用すべき正確な修正を報告してターンを終えること。変更なしで再実行しないこと。",
+        { deliverAs: "steer" },
+      ),
+    ).catch(() => {});
   });
 }

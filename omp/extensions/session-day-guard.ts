@@ -137,17 +137,20 @@ export default function (pi: ExtensionHandlerApi): void {
     nudgedDates.add(today);
     ctx.ui?.notify?.(`session-day-guard: 日付を跨いだ(${start} 開始)。この依頼の後、手仕舞いを提案する`);
     try {
-      pi.sendUserMessage?.(
-        `[session-day-guard] このセッションは ${start} に開始し、今日は ${today}。` +
-          `有人セッションは日次で使い捨てる規範に従い、いまの依頼が一区切りしたら手仕舞いする: ` +
-          `(1) 引き継ぎ文脈(未完タスク・決定事項・宿題)を日誌として書く。` +
-          `置き場はリポジトリが明示的に定義していればそこ、なければ gitignore 済みの .agent-msgs/handoff/。` +
-          `(2) handoff_switch ツールに日誌のパスを渡して呼ぶ。応答完了後に自動で新セッションへ切り替わり、日誌が読み込まれる。` +
-          `resume で持ち越さないこと。`,
-        // followUp は run 終了後に届くため、同じ run で handoff_switch 済みだと
-        // 余分な 1 ターンと重複 switch を生む (measured 2026-09-28: 4 件中 2 件)。
-        { deliverAs: "aside" },
-      );
+      // omp 18.18.2 以降、ターン開始前に破棄されると reject する。try/catch では拾えないので .catch で受ける。
+      void Promise.resolve(
+        pi.sendUserMessage?.(
+          `[session-day-guard] このセッションは ${start} に開始し、今日は ${today}。` +
+            `有人セッションは日次で使い捨てる規範に従い、いまの依頼が一区切りしたら手仕舞いする: ` +
+            `(1) 引き継ぎ文脈(未完タスク・決定事項・宿題)を日誌として書く。` +
+            `置き場はリポジトリが明示的に定義していればそこ、なければ gitignore 済みの .agent-msgs/handoff/。` +
+            `(2) handoff_switch ツールに日誌のパスを渡して呼ぶ。応答完了後に自動で新セッションへ切り替わり、日誌が読み込まれる。` +
+            `resume で持ち越さないこと。`,
+          // followUp は run 終了後に届くため、同じ run で handoff_switch 済みだと
+          // 余分な 1 ターンと重複 switch を生む (measured 2026-09-28: 4 件中 2 件)。
+          { deliverAs: "aside" },
+        ),
+      ).catch(() => {});
     } catch {
       // 注入に失敗しても通知は出ているので続行
     }

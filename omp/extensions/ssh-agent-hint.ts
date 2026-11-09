@@ -69,12 +69,15 @@ export default function (pi: ExtensionHandlerApi): void {
       return;
     }
     if (!SIGNATURE.test(serialized)) return;
-    pi.sendUserMessage?.(
-      "[ssh-agent-hint] この失敗は 1Password(このマシンの SSH agent)がロックされているだけで、" +
-        "ネットワークや認証設定の問題ではない。remote・SSH config・プロトコルの書き換えに走らないこと。" +
-        "ユーザーに 1Password の解錠(GUI 承認)を依頼し、解錠後に同じコマンドを1回だけ再試行する。" +
-        "同じエラーが再発したらそこで止めて報告する(fail-fast 規範)。",
-      { deliverAs: "steer" },
-    );
+    // omp 18.18.2 以降、ターン開始前に破棄されると reject する。注入失敗は無視する。
+    void Promise.resolve(
+      pi.sendUserMessage?.(
+        "[ssh-agent-hint] この失敗は 1Password(このマシンの SSH agent)がロックされているだけで、" +
+          "ネットワークや認証設定の問題ではない。remote・SSH config・プロトコルの書き換えに走らないこと。" +
+          "ユーザーに 1Password の解錠(GUI 承認)を依頼し、解錠後に同じコマンドを1回だけ再試行する。" +
+          "同じエラーが再発したらそこで止めて報告する(fail-fast 規範)。",
+        { deliverAs: "steer" },
+      ),
+    ).catch(() => {});
   });
 }
