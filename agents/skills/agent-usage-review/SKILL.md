@@ -41,7 +41,9 @@ snapshot に会話本文や認証情報を混ぜない。
 ローカル診断では session ID、費用、ローカルパスを扱い、必要なら journal に記録する。
 これらの固有値は public なコミット、共有物、会話への貼り付けから除く。
 
-出力は日次合計（モデル別）、コスト上位セッション、警告フラグ、cache 構成、ターン別 context 増分、大きな tool result、スキル発火シグナル、繰り返し失敗、常駐指示と外部記憶のサイズを含む。
+出力は日次合計（モデル別）、コスト上位セッション、警告フラグ、cache 構成、ターン別 context 増分、大きな tool result、スキル発火シグナル、繰り返し失敗、常駐指示と外部記憶のサイズ、固定タスク評価の集計を含む。
+
+固定タスク評価の節の読み方は `docs/agent-eval.md` にある。
 
 合計は [ccusage](https://github.com/ryoppippi/ccusage)（Claude、Codex、Grok、Qwen 対応）、警告フラグは raw JSONL、OMP 固有指標は `~/.omp/stats.db` と session event の集計で得る。
 

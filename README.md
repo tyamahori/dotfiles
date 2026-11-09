@@ -394,6 +394,15 @@ prefix に畳んで一回限りの行を消す。リポジトリ固有のコマ�
 `prompt` ルールをすり抜けるため。一覧表示はサンドボックス内でそのまま動く。
 設定・ルールの変更後は Codex を再起動する。
 
+### Codex fixed-task evaluation
+
+`scripts/agent-eval` (`agent-eval` once `scripts/link` has run) runs five fixed
+tasks through the real Codex CLI and records independently graded results and
+elapsed time, so the default settings and the opt-in `light` profile can be
+compared. A run calls the model and spends quota, so it starts only when you ask;
+records stay in private local state. Commands, what each task proves, and limits
+are in [`docs/agent-eval.md`](docs/agent-eval.md).
+
 ### Local SonarQube quality gate
 
 SonarQube Server、Scanner、runner、認証情報、AIエージェントの実行規約はdotfilesがmachine-globalに管理します。
