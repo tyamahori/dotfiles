@@ -143,10 +143,26 @@ const textOfRole = (request: CapturedRequest | undefined, role: string) =>
 const allText = (request: CapturedRequest | undefined) =>
   (request?.messages ?? []).map((message) => message.text).join("\n");
 
+// OMP は作業ディレクトリを symlink を解決しないまま記録するので(macOS の /var と /private/var)、同じファイルを実体で比べる。
+// 判定を実行した時点の実体であり、記録された操作の時点のものではない。実体がないパスは書かれたとおりに比べる。
+function realPathOf(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+}
+
+// 引き継ぎの依頼文はパスを空白で区切る。空白を含むパスは一致せず、不合格に倒れる。
+function namesFile(text: string, path: string): boolean {
+  const want = realPathOf(path);
+  return text.split(/\s+/).some((word) => word.startsWith("/") && realPathOf(word) === want);
+}
+
 // 偽 provider の台本。新しいセッションの最初の依頼文にメモのパスがあれば、実物の read ツールで読ませる。
 export function scriptedReply(request: CapturedRequest, memoPath: string): ScriptedReply {
   if (hasToolResult(request)) return { text: "scripted: memo received" };
-  if (textOfRole(request, "user").includes(memoPath)) return { readPath: memoPath };
+  if (namesFile(textOfRole(request, "user"), memoPath)) return { readPath: memoPath };
   return { text: "scripted: acknowledged" };
 }
 
@@ -198,7 +214,11 @@ const userIndex = (entries: SessionEntry[], text: string) =>
 
 function pickSessions(sessions: SessionLog[], memoPath: string) {
   const oldSession = sessions.find((session) => userIndex(session.entries, EARLIER_MARKER) >= 0);
-  const newSession = sessions.find((session) => session !== oldSession && userIndex(session.entries, memoPath) >= 0);
+  const newSession = sessions.find(
+    (session) =>
+      session !== oldSession &&
+      session.entries.some((entry) => entry.kind === "user" && namesFile(entry.text, memoPath)),
+  );
   return { oldSession, newSession };
 }
 
@@ -252,18 +272,22 @@ function toolExchanges(session: SessionLog | undefined) {
 
 // path の後ろの `:1-5` は OMP の read の行指定なので取り除く。
 const readTarget = (call: ToolCall, base: string) =>
-  call.name === "read" && typeof call.args.path === "string" ? resolve(base, call.args.path.split(":")[0]) : undefined;
+  call.name === "read" && typeof call.args.path === "string"
+    ? realPathOf(resolve(base, call.args.path.split(":")[0]))
+    : undefined;
 
 // 任意のツール出力を証拠にしない。メモのパスを渡した read が成功した結果だけを返す。
 function memoReadText(session: SessionLog | undefined, memoPath: string): string {
+  const memo = realPathOf(memoPath);
   return toolExchanges(session)
-    .filter(({ call, result }) => readTarget(call, dirname(memoPath)) === memoPath && result?.isError === false)
+    .filter(({ call, result }) => readTarget(call, dirname(memoPath)) === memo && result?.isError === false)
     .map(({ result }) => result?.text ?? "")
     .join("\n");
 }
 
 // 通常のガードが効いていれば、ダミーの .env は read でも bash でも拒否され、値はどの記録にも現れない。
 function guardChecks(sessions: SessionLog[], oldSession: SessionLog | undefined, project: string): Check[] {
+  const decoy = realPathOf(join(project, DECOY_FILE));
   const refused = toolExchanges(oldSession)
     .filter(({ result }) => result?.isError === true && !result.text.includes(DECOY_CANARY))
     .map(({ call }) => call);
@@ -275,7 +299,7 @@ function guardChecks(sessions: SessionLog[], oldSession: SessionLog | undefined,
   return [
     check(
       "the normal read guard refused the decoy credential file",
-      refused.some((call) => readTarget(call, project) === join(project, DECOY_FILE)),
+      refused.some((call) => readTarget(call, project) === decoy),
     ),
     check(
       "the normal shell guard refused reading the decoy credential file",
@@ -305,7 +329,7 @@ export function evaluateTransfer(facts: TransferFacts): Check[] {
       facts.beforeSwitch.some(holdsBothInstructions),
     ),
     check("the runtime moved to a different session id", switched),
-    check("the new session's first request names the memo", textOfRole(firstAfter, "user").includes(facts.memoPath)),
+    check("the new session's first request names the memo", namesFile(textOfRole(firstAfter, "user"), facts.memoPath)),
     check(
       "the first request alone does not carry the corrected request",
       !allText(firstAfter).includes(CORRECTED_VALUE),

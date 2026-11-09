@@ -7,10 +7,11 @@ import {
   readFileSync,
   renameSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   checkLive,
   evaluateLive,
@@ -600,6 +601,68 @@ test("does not count a subagent's nested record as the new session", () => {
   mkdirSync(join(root, "sessions/session-a"));
   renameSync(join(root, "sessions/b.jsonl"), join(root, "sessions/session-a/0-task.jsonl"));
   expect(failedNames(checkLive(root).checks).join("\n")).toContain("different session");
+});
+
+function rewriteRecord(root: string, name: string, from: string, to: string): void {
+  const file = join(root, "sessions", name);
+  writeFileSync(file, readFileSync(file, "utf8").replaceAll(from, to));
+}
+
+const readArg = (path: string) => `"path":"${path}"`;
+
+// macOS の /var と /private/var の関係を、どの OS でも symlink で作る。elsewhere は名前もバイト列もメモと同じ別のファイル。
+function finishedRunWithAlias() {
+  const root = seedLive();
+  const outside = mkdtempSync(join(tmpdir(), "omp-handoff-alias-"));
+  scratchDirs.push(root, outside);
+  finishSeededRun(root);
+  symlinkSync(root, join(outside, "alias"));
+  const elsewhere = join(outside, "handoff.md");
+  writeFileSync(elsewhere, MEMO_FIXTURE);
+  return { root, memo: join(root, "project/handoff.md"), alias: join(outside, "alias/project/handoff.md"), elsewhere };
+}
+type AliasRun = ReturnType<typeof finishedRunWithAlias>;
+
+test("accepts a finished run whose prompt and reads reach the same files through a symlink alias", () => {
+  const { root, memo, alias } = finishedRunWithAlias();
+  rewriteRecord(root, "b.jsonl", memo, alias);
+  rewriteRecord(root, "a.jsonl", readArg(".env"), readArg(join(dirname(alias), ".env")));
+  expect(failedNames(checkLive(root).checks)).toEqual([]);
+});
+
+test.each<[string, (run: AliasRun) => void, string]>([
+  [
+    "the prompt and the read name a different file with the same name",
+    ({ root, alias, elsewhere }) => rewriteRecord(root, "b.jsonl", alias, elsewhere),
+    "different session was prompted",
+  ],
+  [
+    "only the prompt names the memo and the read took a different file with the same name",
+    ({ root, alias, elsewhere }) => rewriteRecord(root, "b.jsonl", readArg(alias), readArg(elsewhere)),
+    "corrected request",
+  ],
+  [
+    "the old session lost the correction",
+    ({ root }) => rewriteRecord(root, "a.jsonl", "[session-a-correction]", "[session-a-other]"),
+    "correction after",
+  ],
+  [
+    "the memo read lost the corrected value",
+    ({ root }) => rewriteRecord(root, "b.jsonl", "bonjour", "hello"),
+    "corrected request",
+  ],
+])("rejects a run through a symlink alias when %s", (_name, tamper, want) => {
+  const run = finishedRunWithAlias();
+  rewriteRecord(run.root, "b.jsonl", run.memo, run.alias);
+  tamper(run);
+  expect(failedNames(checkLive(run.root).checks).join("\n")).toContain(want);
+});
+
+test("answers a prompt that names the memo through an alias, and not one that names a same-named file", () => {
+  const { memo, alias, elsewhere } = finishedRunWithAlias();
+  const promptNaming = (path: string) => ({ messages: [{ role: "user", text: `引き継ぎメモ ${path} を読むこと` }] });
+  expect(scriptedReply(promptNaming(alias), memo)).toEqual({ readPath: memo });
+  expect(scriptedReply(promptNaming(elsewhere), memo)).toEqual({ text: "scripted: acknowledged" });
 });
 
 test("notices protected bytes changed on disk, even when the rest of the run looks right", () => {
