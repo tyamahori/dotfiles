@@ -18,7 +18,7 @@ import {
   writeSync,
 } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
-import { CASES, type EvalCase, expectedTree, grade, type Shape } from "./agent-eval-cases.ts";
+import { assertionIds, CASES, type EvalCase, expectedTree, grade, type Shape } from "./agent-eval-cases.ts";
 import {
   type Assertion,
   type ChildResult,
@@ -602,7 +602,7 @@ async function runCase(ctx: Ctx, command: RunCommand): Promise<number> {
 
 function readRecordFile(dir: string, name: string): RunRecord | undefined {
   const text = readBounded(join(dir, name), MAX_RECORD_BYTES);
-  return text === undefined ? undefined : parseRecord(parseJson(text), name.slice(0, -".json".length));
+  return text === undefined ? undefined : parseRecord(parseJson(text), name.slice(0, -".json".length), assertionIds);
 }
 
 function listRecordNames(dir: string): string[] {

@@ -472,3 +472,9 @@ export function grade(evalCase: EvalCase, observed: Observed): Assertion[] {
     { id: "no-unexpected-changes", pass: unexpected.length === 0, count: unexpected.length },
   ];
 }
+
+// What a judged record of this case has to hold: exactly what `grade` produces, whatever it saw.
+export function assertionIds(caseId: CaseId): string[] {
+  const nothing: Observed = { output: undefined, changed: [], checks: new Map() };
+  return grade(CASES[caseId], nothing).map((assertion) => assertion.id);
+}

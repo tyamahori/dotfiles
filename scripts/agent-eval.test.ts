@@ -15,11 +15,12 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { type Ctx, main } from "./agent-eval.ts";
-import { CASES, grade } from "./agent-eval-cases.ts";
+import { assertionIds, CASES, grade } from "./agent-eval-cases.ts";
 import { runChecks } from "./agent-eval-check.ts";
 import {
   type Assertion,
   asRow,
+  type CaseId,
   type ChildResult,
   changedPaths,
   type FinalOutput,
@@ -212,7 +213,7 @@ describe("a bug fix run", () => {
         serviceTier: "default",
       });
       expect(record.elapsedMs).toBeGreaterThanOrEqual(0);
-      expect(parseRecord(record, record.runId)).toBeDefined();
+      expect(parseRecord(record, record.runId, assertionIds)).toBeDefined();
       expect(JSON.parse(h.out[0]!).outcome).toBe("pass");
     },
     SLOW,
@@ -240,6 +241,7 @@ describe("a bug fix run", () => {
       const record = onlyRecord(h);
       expect(record.outcome).toBe("fail");
       expect(failedIds(record)).toContain(failing);
+      expect(parseRecord(record, record.runId, assertionIds)).toBeDefined();
     },
     SLOW,
   );
@@ -669,6 +671,8 @@ describe("the other fixed cases", () => {
     async () => {
       const h = harness(investigate(RIGHT_ANSWER));
       expect(await main(["run", "investigation", "--variant", "baseline"], h.ctx)).toBe(0);
+      const record = onlyRecord(h);
+      expect(parseRecord(record, record.runId, assertionIds)).toBeDefined();
     },
     SLOW,
   );
@@ -747,7 +751,9 @@ describe("the other fixed cases", () => {
       const answer = JSON.stringify({ findings: FOUND }).replaceAll("'", "\\u0027");
       const h = harness(finish(answer));
       expect(await main(["run", "review", "--variant", "baseline"], h.ctx)).toBe(0);
-      const workspace = join(evidencePath(h, onlyRecord(h)), "workspace");
+      const record = onlyRecord(h);
+      expect(parseRecord(record, record.runId, assertionIds)).toBeDefined();
+      const workspace = join(evidencePath(h, record), "workspace");
       const shown = spawnSync(Bun.which("git")!, ["log", "--oneline"], { cwd: workspace, encoding: "utf8" });
       expect(shown.stdout.trim().split("\n")).toHaveLength(2);
       expect(readFileSync(join(workspace, "src/session.ts"), "utf8").split("\n")[7]).toContain("nowMs < session");
@@ -906,25 +912,54 @@ function record(overrides: Partial<RunRecord> = {}): RunRecord {
     exitCode: 0,
     signal: null,
     identity: IDENTITY,
-    assertions: [{ id: "required-changes", pass: true, count: 0 }],
+    assertions: allPassing(caseId),
     evidence: `evidence/${runId}`,
     ...overrides,
   };
 }
 
-const failing: Partial<RunRecord> = { outcome: "fail", assertions: [{ id: "behaviour:x", pass: false }] };
+const allPassing = (caseId: CaseId): Assertion[] => assertionIds(caseId).map((id) => ({ id, pass: true }));
+const withFirstFailed = (assertions: Assertion[]): Assertion[] =>
+  assertions.map((assertion, index) => (index === 0 ? { ...assertion, pass: false } : assertion));
+
+const failing: Partial<RunRecord> = { outcome: "fail", assertions: withFirstFailed(allPassing("bug-fix")) };
 const incomplete: Partial<RunRecord> = { outcome: "incomplete", incompleteReason: "timeout", assertions: [] };
 
 describe("reading records", () => {
   test("accepts a well-formed record of each outcome", () => {
-    for (const row of [record(), record(failing), record(incomplete)]) {
-      expect(parseRecord(row, row.runId)).toBeDefined();
+    for (const row of [record(), record(failing), record(incomplete), record({ caseId: "review" })]) {
+      expect(parseRecord(row, row.runId, assertionIds)).toBeDefined();
     }
   });
 
   test.each<[string, (row: RunRecord) => unknown]>([
-    ["a pass with a failed assertion", (row) => ({ ...row, assertions: [{ id: "x", pass: false }] })],
+    ["a pass with a failed assertion", (row) => ({ ...row, assertions: withFirstFailed(row.assertions) })],
     ["a pass with no assertions", (row) => ({ ...row, assertions: [] })],
+    [
+      "a pass with one invented assertion and a failed exit",
+      (row) => ({ ...row, assertions: [{ id: "x", pass: true }], exitCode: 7 }),
+    ],
+    ["a pass whose process failed", (row) => ({ ...row, exitCode: 7 })],
+    ["a pass whose process died by signal", (row) => ({ ...row, exitCode: null, signal: "SIGKILL" })],
+    ["a fail whose process failed", (row) => ({ ...row, ...failing, exitCode: 7 })],
+    ["a pass with an assertion missing", (row) => ({ ...row, assertions: row.assertions.slice(1) })],
+    [
+      "a pass with an assertion nobody grades",
+      (row) => ({ ...row, assertions: [...row.assertions, { id: "x", pass: true }] }),
+    ],
+    [
+      "a pass with one assertion repeated in place of another",
+      (row) => ({ ...row, assertions: [row.assertions[0], ...row.assertions.slice(0, -1)] }),
+    ],
+    ["a pass with another case's assertions", (row) => ({ ...row, assertions: allPassing("review") })],
+    [
+      "a passing assertion that counts problems",
+      (row) => ({
+        ...row,
+        assertions: row.assertions.map((a) => (a.id === "required-changes" ? { ...a, count: 2 } : a)),
+      }),
+    ],
+    ["an incomplete run that kept assertions", (row) => ({ ...row, ...incomplete, assertions: row.assertions })],
     ["a pass that also names an incomplete reason", (row) => ({ ...row, incompleteReason: "timeout" })],
     ["a fail whose assertions all pass", (row) => ({ ...row, outcome: "fail" })],
     ["an incomplete run with no reason", (row) => ({ ...row, outcome: "incomplete" })],
@@ -943,16 +978,14 @@ describe("reading records", () => {
     ["evidence pointing elsewhere", (row) => ({ ...row, evidence: "../../etc" })],
     ["a model name with a tab", (row) => ({ ...row, identity: { ...IDENTITY, model: "a\tb" } })],
     ["a missing identity field", (row) => ({ ...row, identity: { cli: "codex" } })],
-    ["free text in an assertion", (row) => ({ ...row, assertions: [{ id: "has space", pass: true }] })],
-    ["a non-boolean assertion", (row) => ({ ...row, assertions: [{ id: "x", pass: "yes" }] })],
-    ["too many assertions", (row) => ({ ...row, assertions: Array(65).fill({ id: "x", pass: true }) })],
+    ["a non-boolean assertion", (row) => ({ ...row, assertions: row.assertions.map((a) => ({ ...a, pass: "yes" })) })],
   ])("rejects %s", (_name, corrupt) => {
     const row = record();
-    expect(parseRecord(corrupt(row), row.runId)).toBeUndefined();
+    expect(parseRecord(corrupt(row), row.runId, assertionIds)).toBeUndefined();
   });
 
   test.each([[null], [[]], ["text"], [1]])("rejects %j", (value) => {
-    expect(parseRecord(value, "20261109T000000Z-bug-fix-baseline-00000000")).toBeUndefined();
+    expect(parseRecord(value, "20261109T000000Z-bug-fix-baseline-00000000", assertionIds)).toBeUndefined();
   });
 
   test("the summary never counts a malformed file as a pass and skips an unfinished one", async () => {

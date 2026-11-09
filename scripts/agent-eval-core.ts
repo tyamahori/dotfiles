@@ -8,6 +8,10 @@ export type CaseId = (typeof CASE_IDS)[number];
 export const VARIANTS = ["baseline", "light"] as const;
 export type Variant = (typeof VARIANTS)[number];
 
+// A version fixes a record's fields and each case's set of assertion IDs. Grading or fixture changes
+// that keep those only move the revision, so older records stay readable and are flagged as
+// incomparable. Changing the IDs means a new version: no history of old sets is kept, so records from
+// before it can no longer be checked and count as malformed.
 export const SCHEMA_VERSION = 1;
 export const LIGHT_PROFILE = "light";
 export const UNKNOWN = "unknown";
@@ -22,12 +26,10 @@ export const USAGE =
 const DEFAULT_TIMEOUT_SECONDS = 1200;
 const MAX_TIMEOUT_SECONDS = 7200;
 const MAX_ELAPSED_MS = 24 * 60 * 60 * 1000;
-const MAX_ASSERTIONS = 64;
 const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 const TOKEN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$/;
 const RUN_ID = /^[0-9]{8}T[0-9]{6}Z-[a-z-]{1,32}-[a-z]{1,16}-[0-9a-f]{8}$/;
 const REVISION = /^[0-9a-f]{12}$/;
-const ASSERTION_ID = /^[a-z0-9][a-z0-9:_-]{0,63}$/;
 
 export type Row = Record<string, unknown>;
 
@@ -297,10 +299,13 @@ export function outcomeOf(assertions: readonly Assertion[]): "pass" | "fail" {
   return assertions.length > 0 && assertions.every((assertion) => assertion.pass) ? "pass" : "fail";
 }
 
-function validAssertion(value: unknown): boolean {
+// Every count is of things that went wrong, so it has to agree with the verdict beside it.
+function validAssertion(value: unknown): value is Assertion {
   const row = asRow(value);
-  const countOk = row.count === undefined || (Number.isInteger(row.count) && Number(row.count) >= 0);
-  return typeof row.id === "string" && ASSERTION_ID.test(row.id) && typeof row.pass === "boolean" && countOk;
+  const countOk =
+    row.count === undefined ||
+    (Number.isInteger(row.count) && Number(row.count) >= 0 && row.pass === (row.count === 0));
+  return typeof row.id === "string" && typeof row.pass === "boolean" && countOk;
 }
 
 function validIdentity(value: unknown): boolean {
@@ -308,17 +313,34 @@ function validIdentity(value: unknown): boolean {
   return IDENTITY_FIELDS.every((field) => isToken(row[field]));
 }
 
-// The stated outcome has to follow from the assertions beside it, so a record cannot claim a pass
-// its own checks do not support.
-function outcomeConsistent(row: Row): boolean {
-  if (!Array.isArray(row.assertions) || row.assertions.length > MAX_ASSERTIONS) return false;
-  if (!row.assertions.every(validAssertion)) return false;
-  if (row.outcome === "incomplete") return isMember(INCOMPLETE_REASONS, row.incompleteReason);
-  const assertions = row.assertions as Assertion[];
-  return row.incompleteReason === null && assertions.length > 0 && row.outcome === outcomeOf(assertions);
+export type AssertionIds = (caseId: CaseId) => readonly string[];
+
+function sameMembers(a: readonly string[], b: readonly string[]): boolean {
+  return isDeepStrictEqual([...a].sort(), [...b].sort());
 }
 
-const RECORD_RULES: ((row: Row, stem: string) => boolean)[] = [
+// Grading only happens after every turn ended cleanly, so a verdict beside a failed exit is not one.
+function judgedConsistent(row: Row, assertions: readonly unknown[], known: readonly string[]): boolean {
+  if (!assertions.every(validAssertion)) return false;
+  const exactSet = sameMembers(
+    assertions.map((assertion) => assertion.id),
+    known,
+  );
+  const ranToTheEnd = row.incompleteReason === null && row.exitCode === 0 && row.signal === null;
+  return exactSet && ranToTheEnd && row.outcome === outcomeOf(assertions);
+}
+
+// The stated outcome has to follow from the facts beside it, so a record cannot claim a pass its own
+// checks do not support, and a broken or partly written one is never counted.
+function outcomeConsistent(row: Row, assertionIds: AssertionIds): boolean {
+  if (!Array.isArray(row.assertions)) return false;
+  if (row.outcome === "incomplete") {
+    return row.assertions.length === 0 && isMember(INCOMPLETE_REASONS, row.incompleteReason);
+  }
+  return judgedConsistent(row, row.assertions, assertionIds(row.caseId as CaseId));
+}
+
+const RECORD_RULES: ((row: Row, stem: string, assertionIds: AssertionIds) => boolean)[] = [
   (row) => row.schemaVersion === SCHEMA_VERSION,
   (row, stem) => row.runId === stem && RUN_ID.test(stem),
   (row) => isMember(CASE_IDS, row.caseId),
@@ -330,12 +352,12 @@ const RECORD_RULES: ((row: Row, stem: string) => boolean)[] = [
   (row) => row.signal === null || isToken(row.signal),
   (row) => validIdentity(row.identity),
   (row, stem) => row.evidence === `evidence/${stem}`,
-  (row) => outcomeConsistent(row),
+  (row, _stem, assertionIds) => outcomeConsistent(row, assertionIds),
 ];
 
-export function parseRecord(value: unknown, stem: string): RunRecord | undefined {
+export function parseRecord(value: unknown, stem: string, assertionIds: AssertionIds): RunRecord | undefined {
   const row = asRow(value);
-  return RECORD_RULES.every((rule) => rule(row, stem)) ? (row as unknown as RunRecord) : undefined;
+  return RECORD_RULES.every((rule) => rule(row, stem, assertionIds)) ? (row as unknown as RunRecord) : undefined;
 }
 
 // ---- Workspace and check results.
