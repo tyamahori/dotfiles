@@ -1265,6 +1265,10 @@ describe("grading", () => {
   const session = FOUND_SESSION;
   const retry = FOUND_RETRY;
   const search = FOUND_SEARCH;
+  const correctedTo = (sql: string) => ({
+    ...search,
+    counterexample: evidence("searchNotes", { term: TERM }, { sql, params: [TERM] }, SEARCH_BUILT),
+  });
 
   test("a review with every seed and nothing else passes, however it is worded", () => {
     expect(failedOf(review(FOUND))).toEqual([]);
@@ -1282,18 +1286,8 @@ describe("grading", () => {
       { ...session, counterexample: evidence("isExpired", { session: { expiresAtMs: 100 }, nowMs: 50 }, false, true) },
     ],
     ["no attempts allowed", { ...retry, counterexample: evidence("withRetry", { maxAttempts: 0 }, 0, 1) }],
-    [
-      "another placeholder style in the correct query",
-      {
-        ...search,
-        counterexample: evidence(
-          "searchNotes",
-          { term: TERM },
-          { sql: "SELECT id FROM notes WHERE title = $1", params: [TERM] },
-          SEARCH_BUILT,
-        ),
-      },
-    ],
+    ["a numbered placeholder in the correct query", correctedTo("SELECT id FROM notes WHERE title = $1")],
+    ["a named placeholder in the correct query", correctedTo("SELECT id FROM notes WHERE title = :term")],
   ])("accepts a counterexample with %s", (_name, finding) => {
     const file = asRow(finding).file;
     expect(failedOf(review(FOUND.map((found) => (found.file === file ? finding : found))))).toEqual([]);
@@ -1398,6 +1392,16 @@ describe("grading", () => {
           SEARCH_BUILT,
         ),
       },
+      "seed:sql-from-input",
+    ],
+    ["an empty correct query", correctedTo(""), "seed:sql-from-input"],
+    ["an unrelated correct query", correctedTo("SELECT 1"), "seed:sql-from-input"],
+    ["a correct query on another column", correctedTo("SELECT id FROM notes WHERE body = ?"), "seed:sql-from-input"],
+    ["a correct query on another table", correctedTo("SELECT id FROM users WHERE title = ?"), "seed:sql-from-input"],
+    ["a correct query selecting more", correctedTo("SELECT * FROM notes WHERE title = ?"), "seed:sql-from-input"],
+    [
+      "a correct query with a condition added",
+      correctedTo("SELECT id FROM notes WHERE title = ? OR 1 = 1"),
       "seed:sql-from-input",
     ],
   ])("a finding on the right line with %s does not establish the defect", (_name, finding, seedId) => {

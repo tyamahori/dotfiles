@@ -307,14 +307,16 @@ function showsExtraRetry({ input, expected, observed }: Counterexample): boolean
 }
 
 const SEEDED_QUERY_START = "SELECT id FROM notes WHERE title = '";
+// The fixture's own query in the placeholder styles drivers use, and nothing else. Telling whether some
+// other SQL means the same thing would take a parser, so other correct wordings go unrecognised.
+const CORRECT_QUERY = /^SELECT id FROM notes WHERE title = (\?1?|\$1|%s|[:$@](term|title))$/;
 
-// A quote is what lets the input leave the literal it was pasted into. Any placeholder style will do
-// for the correct query, as long as the input travels as a parameter.
+// A quote is what lets the input leave the literal it was pasted into.
 function showsSqlFromInput({ input, expected, observed }: Counterexample): boolean {
   const { term } = input;
   if (typeof term !== "string" || !term.includes("'")) return false;
   const { sql, params } = asRow(expected);
-  if (typeof sql !== "string" || sql.includes(term) || !isDeepStrictEqual(params, [term])) return false;
+  if (typeof sql !== "string" || !CORRECT_QUERY.test(sql) || !isDeepStrictEqual(params, [term])) return false;
   return isDeepStrictEqual(observed, { sql: `${SEEDED_QUERY_START}${term}'`, params: [] });
 }
 
