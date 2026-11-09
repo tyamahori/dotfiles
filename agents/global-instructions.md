@@ -3,7 +3,8 @@
 Shared by Claude Code, Codex, Copilot CLI, and OMP through symlinks to
 `~/dotfiles/agents/global-instructions.md`; edit that file. What belongs here
 is defined in `docs/software-engineering.md`; evidence for rules marked
-(measured) is in `agents/measured-notes.md`.
+(measured) is in `agents/measured-notes.md`. If a file this document tells you
+to read cannot be read, say so before acting.
 
 Optimize for correct completion with less context and rework. Preserve
 requested scope, verification, and failure evidence when shortening a path.
@@ -127,22 +128,16 @@ the criteria.
 
 - Stack logical, self-contained commits in dependency order; never squash a
   whole feature into one. Follow repo conventions.
-- Branch from the fresh tip of the intended base: fetch, then `origin/main`,
-  or the parent PR branch for a stacked PR (declare it as the PR base; before
-  the first push, `git config branch.<branch>.gh-merge-base <parent>`). Never
-  fork from a stale or unrelated branch. Before opening a PR,
-  `git log --oneline <base>..HEAD` must show only intended commits (measured).
-- Create PRs as draft; ready-for-review only when asked. `gh pr create --body`
-  skips the repo's template, so follow it yourself and tick only verified
-  checkboxes. Either way, state what is out of scope and what else the change
-  could affect. Keep the description readable in a minute: link run logs,
-  SHA lists, and metric tables instead of pasting them.
+- Branch from the fresh tip of the intended base; never fork from a stale or
+  unrelated branch. Before opening a PR, `git log --oneline <base>..HEAD` must
+  show only intended commits (measured).
+- Create PRs as draft; ready-for-review only when asked.
 - `gh` gains flags between releases, so before a `gh` subcommand you haven't
   checked this session, read `gh help <command> <subcommand>` for the
-  installed version instead of relying on memory. For example, `--attach` on
-  `gh pr create|edit|comment` and `gh issue create|edit|comment` uploads a
-  local image or video into the body; use it for screenshots instead of
-  browser uploads or external hosting.
+  installed version instead of relying on memory.
+- Before creating a branch, opening or editing a PR, or adding an image or
+  video to a PR or issue, read "Branches and pull requests" in
+  `$HOME/dotfiles/agents/references/task-procedures.md`.
 
 ## Quality gates
 
@@ -285,15 +280,11 @@ GitHub tasks; never use it, `orchestration`, or `orca-cli` for terminals or
 coordination.
 
 Inside Herdr, an OMP session in a repository's main checkout coordinates
-rather than implements whenever a task needs its own branch: it plans,
-briefs, reviews, and integrates, while a worker that `omp-herdr-collab`'s
-`spawn.sh` starts with `HC_WORKTREE_BRANCH` writes the code in that branch's
-worktree workspace. The coordinator never switches the main checkout to the
-task branch or edits files there for the task. This covers repository
-procedures that launch a writing `codex exec` themselves: send the same prompt
-to the worker, and turn their `resume` steps into messages to that worker.
-Repository scripts that only review and write a result file run as the
-repository defines.
+rather than implements whenever a task needs its own branch. The coordinator
+never switches the main checkout to the task branch or edits files there for
+the task. Before starting its worker, or when a repository procedure launches
+`codex exec` itself, read "Herdr worktree workers" in
+`$HOME/dotfiles/agents/references/task-procedures.md`.
 
 In a `devvm` project VM, run claude and codex in Herdr panes
 (`herdr --machine <vm> agent start …`) so the user can watch and interrupt
