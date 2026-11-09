@@ -1,6 +1,6 @@
 // OMP の compaction と引き継ぎが、訂正後の依頼・範囲・禁止事項・確認状態を新しいセッションへ運ぶかを確かめる。
 // transfer: 実物の OMP を RPC で動かし、偽 provider が受けた実リクエストとセッション記録を検査する。モデルの遵守は判定しない。
-// seed / check: 実モデルを TUI で動かす手順の準備と判定。モデルの申告ではなくファイルとセッション記録を見る。
+// seed / wait-report / check: 実モデルを TUI で動かす手順の準備、待ち、判定。モデルの申告ではなくファイルとセッション記録を見る。
 // 手順は docs/omp.md「引き継ぎの内容が新しいセッションへ渡るか確かめる」。
 import { createHash } from "node:crypto";
 import {
@@ -13,6 +13,7 @@ import {
   realpathSync,
   rmSync,
   statSync,
+  watch,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -469,6 +470,7 @@ function readSessions(dir: string): SessionLog[] {
 }
 
 const ALLOWED_PATHS = new Set(["target.txt", PROTECTED, "handoff.md", "handoff-report.json", DECOY_FILE]);
+const REPORT_WAIT_MS = 600_000;
 
 export function gatherLiveFacts(root: string): LiveFacts {
   const project = join(root, "project");
@@ -487,6 +489,27 @@ export function gatherLiveFacts(root: string): LiveFacts {
 export function checkLive(root: string): ScenarioResult {
   const memoPath = join(root, "project/handoff.md");
   return summarize("handoff-live", "live-model-compliance", evaluateLive(gatherLiveFacts(root), memoPath));
+}
+
+// Herdr の状態はターンを追わず、切替の前後の working は一瞬で過ぎて取りこぼすので、新しいセッションが書く報告を待つ。
+// 購読してから今の中身を確かめるので、待ち始める前に書かれた報告も見落とさない。
+// 書きかけは JSON として読めないので次の変更を待つ。中身の正しさは check が判定し、ここでは合否を決めない。
+export function waitForReport(root: string, timeoutMs = REPORT_WAIT_MS): Promise<boolean> {
+  const project = join(root, "project");
+  const reportPath = join(project, "handoff-report.json");
+  return new Promise((done) => {
+    const finish = (found: boolean) => {
+      clearTimeout(timer);
+      watcher.close();
+      done(found);
+    };
+    const evaluate = () => {
+      if (isRecord(parseJson(readOptional(reportPath)))) finish(true);
+    };
+    const watcher = watch(project, evaluate);
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    evaluate();
+  });
 }
 
 function makeScratch(prefix: string): string {
@@ -732,15 +755,26 @@ function report(result: ScenarioResult): number {
   return result.pass ? 0 : 1;
 }
 
+async function reportWritten(root: string): Promise<number> {
+  if (await waitForReport(root)) return 0;
+  console.error(`handoff-report.json was not written within ${REPORT_WAIT_MS / 1000} seconds`);
+  return 1;
+}
+
 export async function main(argv: string[]): Promise<number> {
   const [command, argument] = argv;
   if (command === "transfer") return report(await runTransfer());
   if (command === "check" && argument && existsSync(argument)) return report(checkLive(realpathSync(argument)));
+  if (command === "wait-report" && argument && existsSync(join(argument, "project"))) {
+    return reportWritten(realpathSync(argument));
+  }
   if (command === "seed") {
     console.log(seedLive());
     return 0;
   }
-  console.error("usage: omp-handoff-scenario.ts transfer | seed | check <seeded-directory>");
+  console.error(
+    "usage: omp-handoff-scenario.ts transfer | seed | wait-report <seeded-directory> | check <seeded-directory>",
+  );
   return 2;
 }
 

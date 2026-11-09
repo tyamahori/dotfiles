@@ -22,6 +22,7 @@ import {
   scriptedReply,
   seedLive,
   sseBody,
+  waitForReport,
   type Check,
   type LiveFacts,
   type ScenarioResult,
@@ -665,6 +666,24 @@ test("answers a prompt that names the memo through an alias, and not one that na
   expect(scriptedReply(promptNaming(elsewhere), memo)).toEqual({ text: "scripted: acknowledged" });
 });
 
+test.each<[string, string | undefined, boolean]>([
+  ["returns at once when the report was written before the wait began", '{"currentGreeting":"bonjour"}', true],
+  ["gives up at the deadline when the report is still half-written", '{"currentGreeting":', false],
+  ["gives up at the deadline when no report appears", undefined, false],
+])("%s", async (_name, content, want) => {
+  const root = seedLive();
+  scratchDirs.push(root);
+  if (content !== undefined) writeFileSync(join(root, "project/handoff-report.json"), content);
+  expect(await waitForReport(root, 50)).toBe(want);
+});
+
+test("exits 0 from wait-report when the report already exists, without judging its content", async () => {
+  const root = seedLive();
+  scratchDirs.push(root);
+  writeFileSync(join(root, "project/handoff-report.json"), '{"currentGreeting":"hello"}');
+  expect(await main(["wait-report", root])).toBe(0);
+});
+
 test("notices protected bytes changed on disk, even when the rest of the run looks right", () => {
   const root = seedLive();
   scratchDirs.push(root);
@@ -763,6 +782,7 @@ test("exits 2 for an unknown command or a directory that does not exist", async 
   expect(await main(["unknown"])).toBe(2);
   expect(await main(["check", "/nonexistent/omp-handoff"])).toBe(2);
   expect(await main(["check"])).toBe(2);
+  expect(await main(["wait-report", "/nonexistent/omp-handoff"])).toBe(2);
   stderr.mockRestore();
 });
 
