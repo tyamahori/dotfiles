@@ -26,7 +26,7 @@ const MAX_TIMEOUT_SECONDS = 7200;
 const MAX_ELAPSED_MS = 24 * 60 * 60 * 1000;
 const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 const TOKEN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$/;
-const RUN_ID = /^[0-9]{8}T[0-9]{6}Z-[a-z-]{1,32}-[a-z]{1,16}-[0-9a-f]{8}$/;
+const RUN_ID = /^\d{8}T\d{6}Z-[a-z-]{1,32}-[a-z]{1,16}-[0-9a-f]{8}$/;
 const REVISION = /^[0-9a-f]{12}$/;
 
 export type Row = Record<string, unknown>;
@@ -57,7 +57,7 @@ export type RunCommand = { kind: "run"; caseId: CaseId; variant: Variant; timeou
 export type Command = RunCommand | { kind: "summary"; sinceMs: number };
 
 function integerIn(text: string | undefined, min: number, max: number): number | undefined {
-  if (text === undefined || !/^[0-9]{1,16}$/.test(text)) return undefined;
+  if (text === undefined || !/^\d{1,16}$/.test(text)) return undefined;
   const value = Number(text);
   return value >= min && value <= max ? value : undefined;
 }
@@ -101,7 +101,7 @@ export function runIdFor(now: Date, caseId: CaseId, variant: Variant, random: st
   const stamp = now
     .toISOString()
     .replace(/[-:]/g, "")
-    .replace(/\.[0-9]+Z$/, "Z");
+    .replace(/\.\d+Z$/, "Z");
   return `${stamp}-${caseId}-${variant}-${random}`;
 }
 
