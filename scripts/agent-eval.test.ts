@@ -1062,6 +1062,12 @@ describe("reading records", () => {
     }
   });
 
+  test("accepts a record whose assertions are listed in another order", () => {
+    const row = record();
+    const reordered = { ...row, assertions: row.assertions.toReversed() };
+    expect(parseRecord(reordered, row.runId, assertionIds)).toBeDefined();
+  });
+
   test.each<[string, (row: RunRecord) => unknown]>([
     ["a pass with a failed assertion", (row) => ({ ...row, assertions: withFirstFailed(row.assertions) })],
     ["a pass with no assertions", (row) => ({ ...row, assertions: [] })],
@@ -1747,6 +1753,16 @@ describe("comparing the workspace", () => {
         ["__proto__", "x"],
       ],
       ["__proto__"],
+    ],
+    [
+      "several changes in one order, whatever order the walk found them in",
+      [
+        ["c", "3"],
+        ["a", "x"],
+        ["Z", "9"],
+        ["b", "2"],
+      ],
+      ["Z", "a", "c"],
     ],
   ])("finds %s", (_name, actual, want) => {
     expect(changedPaths(expected, new Map(actual))).toEqual(want);

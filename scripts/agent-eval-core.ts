@@ -51,6 +51,9 @@ function isToken(value: unknown): value is string {
   return typeof value === "string" && TOKEN.test(value);
 }
 
+// Not localeCompare: its order follows the machine's locale, and it can call two different strings equal.
+const byCodeUnit = (a: string, b: string) => Number(a > b) - Number(a < b);
+
 // ---- Command line: the one place a case or variant name is accepted.
 
 export type RunCommand = { kind: "run"; caseId: CaseId; variant: Variant; timeoutMs: number };
@@ -314,7 +317,7 @@ function validIdentity(value: unknown): boolean {
 export type AssertionIds = (caseId: CaseId) => readonly string[];
 
 function sameMembers(a: readonly string[], b: readonly string[]): boolean {
-  return isDeepStrictEqual([...a].sort(), [...b].sort());
+  return isDeepStrictEqual([...a].sort(byCodeUnit), [...b].sort(byCodeUnit));
 }
 
 // Grading only happens after every turn ended cleanly, so a verdict beside a failed exit is not one.
@@ -371,7 +374,7 @@ export function changedPaths(
   for (const path of actual.keys()) {
     if (!expected.has(path)) changed.add(path);
   }
-  return [...changed].sort();
+  return [...changed].sort(byCodeUnit);
 }
 
 export const endedByItself = (child: ChildResult) =>
