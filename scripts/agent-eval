@@ -1,0 +1,5 @@
+#!/bin/bash
+# Entry point for scripts/agent-eval.ts (docs/agent-eval.md).
+# realpath: ~/.local/bin/agent-eval is a symlink to this file.
+# --no-env-file: a .env in the current directory must not reach the agent or the records.
+exec bun run --no-install --no-env-file "$(dirname "$(realpath "$0")")/agent-eval.ts" "$@"

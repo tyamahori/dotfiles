@@ -222,6 +222,7 @@ ln -snfv "${REPO_ROOT}/scripts/sonar-quality-gate" "$HOME/.local/bin/sonar-quali
 ln -snfv "${REPO_ROOT}/scripts/semgrep-quality-gate" "$HOME/.local/bin/semgrep-quality-gate"
 ln -snfv "${REPO_ROOT}/scripts/devvm" "$HOME/.local/bin/devvm"
 ln -snfv "${REPO_ROOT}/scripts/tool-restart" "$HOME/.local/bin/tool-restart"
+ln -snfv "${REPO_ROOT}/scripts/agent-eval" "$HOME/.local/bin/agent-eval"
 mkdir -p "$HOME/.codex"
 ln -snfv "${REPO_ROOT}/codex/hooks.json" "$HOME/.codex/hooks.json"
 mkdir -p "$HOME/.codex/rules"
