@@ -384,6 +384,43 @@ compaction 回数・churn 率を macOS 通知で知らせます。気になる�
 公式資料と照合して項目ごとの承認後にだけ変更し、結果を
 `agents/skills/model-migration-review/journal.md` に残します。
 
+### 編集後の lint にかかる時間を測る
+
+`omp/extensions/lint-on-edit.ts` は、編集したファイルごとに lint を同期で実行します。
+この待ち時間を測りたいときだけ、`AGENT_HOOK_TIMING=1` を付けて OMP を起動します。
+値が `1` でなければ何も記録しません。
+
+```bash
+AGENT_HOOK_TIMING=1 omp
+```
+
+記録先は `${XDG_STATE_HOME:-$HOME/.local/state}/agent-eval/hooks/` です。
+起動ごとに別の `lint-on-edit-<pid>-<uuid>.jsonl` を作り、本人だけが読める権限で、1 回の起動につき 10,000 件まで書きます。
+1 行に持つのは `schemaVersion`、`hook`、`elapsedMs`、`outcome`、`timestamp` だけで、ファイルパス、ソースの内容、指摘の本文、セッション ID は記録しません。
+`outcome` は次のとおりです。
+
+| 値 | 意味 |
+| --- | --- |
+| `clean` | lint が指摘を出さなかった |
+| `findings` | lint が指摘を出し、エージェントへ伝えた |
+| `error` | lint の起動失敗、時間切れ、非ゼロ終了、不正な出力 |
+
+記録先に書き込めなくても、指摘の伝達と編集は止まりません。
+記録は自動では消えないので、不要になったら `lint-on-edit-*.jsonl` を削除します。
+
+結果ごとの回数と時間は `jq` で集計します。
+記録が 1 件もないと、zsh が `no matches found` で止まります。
+
+```bash
+jq -s 'group_by(.outcome) | map({
+    outcome: .[0].outcome,
+    count: length,
+    totalMs: (map(.elapsedMs) | add),
+    p95Ms: (map(.elapsedMs) | sort | .[length * 0.95 | floor]),
+    maxMs: (map(.elapsedMs) | max)
+  })' "${XDG_STATE_HOME:-$HOME/.local/state}"/agent-eval/hooks/lint-on-edit-*.jsonl
+```
+
 ## 設定を変更する
 
 このリポジトリでは、次のファイルだけを dotfiles で管理します。
