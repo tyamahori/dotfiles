@@ -27,7 +27,7 @@ writeFileSync(note, "# handoff\n");
 
 afterAll(() => rmSync(noteDir, { force: true, recursive: true }));
 
-function handoffHarness(onMessage?: () => void) {
+function handoffHarness(onMessage?: () => unknown) {
   let tool: Tool | undefined;
   let command: Command | undefined;
   let agentEnd: AgentEnd | undefined;
@@ -60,7 +60,7 @@ function handoffHarness(onMessage?: () => void) {
     },
     sendUserMessage(message: string) {
       messages.push(message);
-      onMessage?.();
+      return onMessage?.();
     },
     zod,
   } as never);
@@ -205,4 +205,20 @@ test("prompts the successful new session to read the saved handoff note", async 
   expect(steps).toEqual(["waitForIdle", "newSession", "sendUserMessage"]);
   expect(handoff.messages).toHaveLength(1);
   expect(handoff.messages[0]).toContain(note);
+});
+
+test("notifies when the handoff prompt is dropped before a turn begins", async () => {
+  const handoff = handoffHarness(() => Promise.reject(new Error("cost cap reached")));
+  const notifications: { level: string; message: string }[] = [];
+
+  await handoff.command().handler("handoff.md", {
+    cwd: noteDir,
+    newSession: async () => ({ cancelled: false }),
+    ui: { notify: (message: string, level: string) => notifications.push({ level, message }) },
+    waitForIdle: async () => {},
+  });
+
+  expect(notifications).toMatchObject([{ level: "error" }]);
+  expect(notifications[0].message).toContain(note);
+  expect(notifications[0].message).toContain("cost cap reached");
 });

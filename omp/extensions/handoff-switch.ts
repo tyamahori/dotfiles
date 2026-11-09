@@ -75,7 +75,8 @@ export default function handoffSwitch(pi: ExtensionAPI): void {
       }
       // 以前は「指示を待つ」固定で、メモに次の一手があっても毎回止まっていた。
       // 承認範囲はメモ側が区別する (handoff_switch の description)。
-      // omp 18.18.2 以降、ターン開始前に破棄されると reject する。握りつぶさず通知する。
+      // omp v18.18.2 以降、ターン開始前に破棄されると reject する。
+      // 誰も受けないと、新セッションがメモを読まないまま利用者にも伝わらない。
       try {
         await pi.sendUserMessage(
           `引き継ぎメモ ${path} を読み、未完タスク・決定事項・次の一手を短く要約してから作業を続けること。` +
@@ -84,11 +85,7 @@ export default function handoffSwitch(pi: ExtensionAPI): void {
             `続けられる一手がなければ、要約して指示を待つ。`,
         );
       } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        ctx.ui.notify(
-          `handoff-switch: 引き継ぎメモの投入に失敗した。手動で ${path} を読ませること: ${reason}`,
-          "error",
-        );
+        ctx.ui.notify(`handoff-switch: メモの投入に失敗した (${path}): ${String(error)}`, "error");
       }
     },
   });

@@ -137,7 +137,6 @@ export default function (pi: ExtensionHandlerApi): void {
     nudgedDates.add(today);
     ctx.ui?.notify?.(`session-day-guard: 日付を跨いだ(${start} 開始)。この依頼の後、手仕舞いを提案する`);
     try {
-      // omp 18.18.2 以降、ターン開始前に破棄されると reject する。try/catch では拾えないので .catch で受ける。
       void Promise.resolve(
         pi.sendUserMessage?.(
           `[session-day-guard] このセッションは ${start} に開始し、今日は ${today}。` +
@@ -150,7 +149,9 @@ export default function (pi: ExtensionHandlerApi): void {
           // 余分な 1 ターンと重複 switch を生む (measured 2026-09-28: 4 件中 2 件)。
           { deliverAs: "aside" },
         ),
-      ).catch(() => {});
+      ).catch(() => {
+        // 通知は出ているので、破棄されても続行する。
+      });
     } catch {
       // 注入に失敗しても通知は出ているので続行
     }

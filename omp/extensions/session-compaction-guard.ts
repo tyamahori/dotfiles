@@ -64,10 +64,11 @@ export default function (pi: ExtensionHandlerApi): void {
       const repeatedReminder =
         `[session-compaction-guard] 自動コンパクションが${autoCompactionEnds}回完了したが、セッション移行が未完了。` +
         "現在の依頼を完了して引き継ぎメモを保存し、handoff_switch ツールを呼ぶこと。新しい無関係な依頼をこのセッションで始めないこと。";
-      // omp 18.18.2 以降、ターン開始前に破棄されると reject する。try/catch では拾えないので .catch で受ける。
       void Promise.resolve(
         pi.sendUserMessage?.(autoCompactionEnds === 2 ? firstReminder : repeatedReminder, { deliverAs: "aside" }),
-      ).catch(() => {});
+      ).catch(() => {
+        // 通知済みなので、破棄されても現在の依頼は続行する。
+      });
     } catch {
       // 通知済みなので、注入に失敗しても現在の依頼は続行する。
     }
@@ -99,7 +100,9 @@ export default function (pi: ExtensionHandlerApi): void {
             "さらに別の依頼をこのセッションで始めないこと。",
           { deliverAs: "aside" },
         ),
-      ).catch(() => {});
+      ).catch(() => {
+        // UI通知済みなので、破棄されても入力処理を妨げない。
+      });
     } catch {
       // UI通知済みなので、follow-upの失敗は入力処理を妨げない。
     }
