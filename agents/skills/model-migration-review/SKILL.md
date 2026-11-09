@@ -38,6 +38,7 @@ scripts/model-pins check
 照合時は、必要に応じて次も対象にする。
 
 - `agents/global-instructions.md`
+- `agents/references/`
 - `omp/APPEND_SYSTEM.md`
 - `agents/skills/*/SKILL.md`
 - `codex/rules/`
