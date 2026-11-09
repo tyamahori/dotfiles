@@ -1142,6 +1142,68 @@ describe("comparing variants", () => {
     });
   });
 
+  describe("with an attempt its session record cannot attribute", () => {
+    const cellsOf = (rows: RunRecord[]) => {
+      const [header, ...lines] = renderSummary({ records: rows, malformed: 0, omitted: 0 }).split("\n");
+      const names = header!.split("\t");
+      return lines.map((line) => Object.fromEntries(line.split("\t").map((cell, index) => [names[index], cell])));
+    };
+    const UNKNOWN_TIMEOUT: Partial<RunRecord> = { ...incomplete, elapsedMs: 90000, identity: UNKNOWN_IDENTITY };
+
+    test("a 90 s timeout leaves no comparable 1 s cost beside it, and stays visible on its own row", () => {
+      const [known, unknown, paired] = cellsOf([
+        record({ elapsedMs: 1000 }),
+        record(UNKNOWN_TIMEOUT),
+        light({ elapsedMs: 2000 }),
+      ]);
+      expect(known).toMatchObject({
+        model: "gpt-test",
+        runs: "1",
+        pass: "1",
+        ms_per_pass: "unavailable",
+        total_ms: "1000",
+        comparison: "incomparable:unattributed-attempts",
+      });
+      expect(unknown).toMatchObject({
+        model: "unknown",
+        runs: "1",
+        pass: "0",
+        incomplete: "1",
+        ms_per_pass: "-",
+        total_ms: "90000",
+      });
+      expect(unknown!.comparison).toContain("unattributed-attempts");
+      expect(paired).toMatchObject({
+        variant: "light",
+        ms_per_pass: "2000",
+        comparison: "incomparable:unattributed-attempts",
+      });
+    });
+
+    test("a failed attempt without a session record is treated like a timeout", () => {
+      const [known] = cellsOf([
+        record({ elapsedMs: 1000 }),
+        record({ ...failing, elapsedMs: 90000, identity: UNKNOWN_IDENTITY }),
+        light(),
+      ]);
+      expect(known).toMatchObject({ ms_per_pass: "unavailable", comparison: "incomparable:unattributed-attempts" });
+    });
+
+    test("the cost is unavailable even with no other variant to compare with", () => {
+      const [known] = cellsOf([record({ elapsedMs: 1000 }), record(UNKNOWN_TIMEOUT)]);
+      expect(known).toMatchObject({ ms_per_pass: "unavailable", comparison: "no-counterpart" });
+    });
+
+    test.each<[string, Partial<RunRecord>]>([
+      ["another revision", { ...UNKNOWN_TIMEOUT, caseRevision: "bbbbbbbbbbbb" }],
+      ["another case", { ...UNKNOWN_TIMEOUT, caseId: "review" }],
+      ["a pass, which leaves nothing to redo", { elapsedMs: 90000, identity: UNKNOWN_IDENTITY }],
+    ])("the cost of a known run stays when the unknown attempt is in %s", (_name, overrides) => {
+      const [known] = cellsOf([record({ elapsedMs: 1000 }), record(overrides), light()]);
+      expect(known).toMatchObject({ model: "gpt-test", ms_per_pass: "1000", comparison: "comparable" });
+    });
+  });
+
   test("shows no time per pass for a group with no pass, but keeps what it spent", () => {
     const cells = renderSummary({ records: [record(incomplete)], malformed: 0, omitted: 0 })
       .split("\n")[1]!

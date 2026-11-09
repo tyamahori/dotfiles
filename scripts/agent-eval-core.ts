@@ -439,6 +439,7 @@ const SUMMARY_HEADER = [
   "total_ms",
   "comparison",
 ].join("\t");
+const COST_UNAVAILABLE = "unavailable";
 
 type Group = { caseId: CaseId; variant: Variant; revision: string; identity: Identity; runs: RunRecord[] };
 
@@ -473,13 +474,28 @@ function isObserved(identity: Identity): boolean {
   return IDENTITY_FIELDS.every((field) => identity[field] !== UNKNOWN && identity[field] !== MIXED);
 }
 
-function incomparableReasons(a: Group, b: Group): string[] {
+// An attempt that did not pass and whose session record cannot say what ran stays on its own row rather
+// than being charged to a guess, so every row of its case, variant, and revision may be missing what it
+// cost to reach a pass. A pass without a record leaves nothing for another row to redo.
+function hasUnattributedAttempt(group: Group, groups: readonly Group[]): boolean {
+  return groups.some(
+    (other) =>
+      other.caseId === group.caseId &&
+      other.variant === group.variant &&
+      other.revision === group.revision &&
+      !isObserved(other.identity) &&
+      other.runs.some((run) => run.outcome !== "pass"),
+  );
+}
+
+function incomparableReasons(a: Group, b: Group, groups: readonly Group[]): string[] {
   const rules: [string, boolean][] = [
     ["case-revision", a.revision !== b.revision],
     ["cli-version", a.identity.cliVersion !== b.identity.cliVersion],
     ["model", a.identity.model !== b.identity.model],
     ["settings", settingsOf(a.identity) !== settingsOf(b.identity)],
     ["unknown-identity", !isObserved(a.identity) || !isObserved(b.identity)],
+    ["unattributed-attempts", hasUnattributedAttempt(a, groups) || hasUnattributedAttempt(b, groups)],
     ["same-effort", a.identity.effort === b.identity.effort],
   ];
   return rules.filter(([, hit]) => hit).map(([reason]) => reason);
@@ -492,9 +508,9 @@ function latestStart(group: Group): number {
 function comparisonOf(group: Group, groups: readonly Group[]): string {
   const others = groups.filter((other) => other.caseId === group.caseId && other.variant !== group.variant);
   if (others.length === 0) return "no-counterpart";
-  if (others.some((other) => incomparableReasons(group, other).length === 0)) return "comparable";
+  if (others.some((other) => incomparableReasons(group, other, groups).length === 0)) return "comparable";
   const newest = others.reduce((best, other) => (latestStart(other) > latestStart(best) ? other : best));
-  return `incomparable:${incomparableReasons(group, newest).join("+")}`;
+  return `incomparable:${incomparableReasons(group, newest, groups).join("+")}`;
 }
 
 function median(values: readonly number[]): number | undefined {
@@ -505,11 +521,16 @@ function median(values: readonly number[]): number | undefined {
   return sorted.length % 2 === 1 ? upper : Math.round(((sorted[middle - 1] ?? 0) + upper) / 2);
 }
 
+// Every attempt stays in the cost of a pass, however it ended: a faster setting that fails or times
+// out and needs a rerun is not faster. The counts keep the outcomes apart.
+function msPerPass(passes: number, totalMs: number, unattributed: boolean): number | string {
+  if (passes === 0) return "-";
+  return unattributed ? COST_UNAVAILABLE : Math.round(totalMs / passes);
+}
+
 function renderGroup(group: Group, groups: readonly Group[]): string {
   const count = (outcome: Outcome) => group.runs.filter((run) => run.outcome === outcome).length;
   const passTimes = group.runs.filter((run) => run.outcome === "pass").map((run) => run.elapsedMs);
-  // Every attempt stays in the cost of a pass, however it ended: a faster setting that fails or times
-  // out and needs a rerun is not faster. The counts keep the outcomes apart.
   const totalMs = group.runs.reduce((sum, run) => sum + run.elapsedMs, 0);
   return [
     group.caseId,
@@ -524,7 +545,7 @@ function renderGroup(group: Group, groups: readonly Group[]): string {
     count("fail"),
     count("incomplete"),
     median(passTimes) ?? "-",
-    passTimes.length > 0 ? Math.round(totalMs / passTimes.length) : "-",
+    msPerPass(passTimes.length, totalMs, hasUnattributedAttempt(group, groups)),
     totalMs,
     comparisonOf(group, groups),
   ].join("\t");

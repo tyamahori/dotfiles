@@ -62,7 +62,7 @@ agent-eval summary --since-ms 1767225600000
 | --- | --- |
 | `pass` `fail` `incomplete` | 実行の結果ごとの件数 |
 | `median_pass_ms` | passした実行の所要時間の中央値 |
-| `ms_per_pass` | pass、fail、incompleteの全実行の所要時間の合計をpass数で割った値。失敗や時間切れでやり直す時間を含む |
+| `ms_per_pass` | pass、fail、incompleteの全実行の所要時間の合計をpass数で割った値。失敗や時間切れでやり直す時間を含む。passがなければ`-`、帰属できない試行（下の`incomparable:unattributed-attempts`）があれば`unavailable`と出る |
 | `total_ms` | 全実行の所要時間の合計。passがない組でも、かかった時間はここに出る |
 | `comparison` | 反対のvariantと比べてよいか |
 
@@ -81,6 +81,7 @@ agent-eval summary --since-ms 1767225600000
 | `incomparable:model` | modelが違う |
 | `incomparable:settings` | provider、承認、レビュー担当、sandbox、service tierのどれかが違う |
 | `incomparable:unknown-identity` | 実測値に`unknown`か`mixed`が含まれる |
+| `incomparable:unattributed-attempts` | どちらかのvariantの同じ課題の版に、実測値が`unknown`か`mixed`でpassしなかった試行がある。その時間はどのmodelの費用にも入らないので、比べない |
 | `incomparable:same-effort` | effortが同じで、比べる意味がない |
 
 理由は`+`でつないで複数出ることがある。`malformed_records`は壊れた記録の数で、passには数えない。
@@ -153,7 +154,7 @@ bun test scripts/agent-eval.test.ts
 - `effort`はCLIが記録した要求値で、APIの内部でどう処理されたかは確かめられない
 - レビューは、決められた形で反例を書けなければ、説明が正しくても未発見になる。親プロセスが照合できるのは、仕込んだ3つの欠陥の反例だけ。SQLはパーサーで解釈しないので、同じ意味でも別の書き方の正しいクエリは未発見になる
 - 動作確認は敵対的なモデルへの防御ではない。エージェントのコードは確認プロセスの中で動く。合否を標準出力に書いても親プロセスは読まないが、全項目の正しい値を書いて終了コード0で終わるコードは合格する。固定の入力に対する答えを埋め込むのと同じで、外から動作だけを見る確認では区別できない。sandboxが防ぐのは、書き込み、ネットワーク、呼び出し元の環境変数の持ち出しだけ
-- CLIのセッション記録を読めなかった実行は別の行に集計され、同じ設定の`ms_per_pass`に入らない。その時間は、その行の`total_ms`に出る
+- CLIのセッション記録を読めなかった実行は、特定のmodelに割り当てず、別の行に集計する。その時間は、その行の`total_ms`に出る。passしなかった実行なら、同じ課題、variant、課題の版の`ms_per_pass`は`unavailable`になり、反対のvariantとは比べない
 - `agent-eval`自身が`SIGKILL`で止まると、記録は残らず、Codexが動き続けることがある
 - 止められるのは起動したプロセスグループだけで、別のグループやセッションを作った子孫は動き続けることがある。`agent-eval`はその終了を待たない
 - `codex sandbox`を実際に試したのはmacOSだけ。Linuxで起動できなければ`incomplete`になり、sandboxなしには切り替えない
@@ -170,6 +171,7 @@ bun test scripts/agent-eval.test.ts
 | `incompleteReason`が`output-malformed` | `evidence/<runId>/turn-*.final.json`の形を確かめる |
 | 動作確認の項目がまとめてfailになる | `evidence/<runId>/check.status.json`を見る。`exitCode`が0でなければ、確認のプロセスが途中で止まっている |
 | `incomparable:cli-version`が出る | 同じバージョンのCLIで両方の設定を実行し直す |
+| `incomparable:unattributed-attempts`が出る | `model`が`unknown`の行の実行を`evidence/<runId>/`で確かめる。集計から外すと決めたら、その記録を「記録の場所」の手順で消す。消すとその時間も集計から消える |
 | `malformed_records`が0でない | `runs/`の中で`<runId>.json`の形でないファイル、壊れたファイル、古い`schemaVersion`の記録を確かめ、不要なら消す |
 | snapshotに`取得不能（bun がない）`と出る | `bun`のある`PATH`でsnapshotを実行する |
 
