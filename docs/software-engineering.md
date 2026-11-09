@@ -1,10 +1,12 @@
 # ソフトウェア工学の知識はどこにあるか
 
-このマシンのエージェント（Claude Code、Codex、Copilot CLI、OMP）が設計・実装・テスト・レビューで参照する規範は、常時注入される共有指示、必要なときだけ読む skill、運用手順を書いた `docs/` の三層に分かれている。この文書はその地図であってルール本文は持たないので、直すべきは表に挙げた正本のほうで、この地図は置き場所が変わったときだけ更新する。
+このマシンのエージェント（Claude Code、Codex、Copilot CLI、OMP）が設計・実装・テスト・レビューで参照する規範は、常時注入される共有指示、必要なときだけ読む skill と `agents/references/`、運用手順を書いた `docs/` の三層に分かれている。この文書はその地図であってルール本文は持たないので、直すべきは表に挙げた正本のほうで、この地図は置き場所が変わったときだけ更新する。
 
 ## 三層に分ける理由は毎ターンの文脈コストにある
 
 `agents/global-instructions.md` は全ホストで毎ターン読み込まれる。ここに手順や規範を足すと、その行数分がすべてのセッションの全ターンに課金される（実測は `agents/measured-notes.md`）。そのため共有指示には「どの skill をいつ読むか」の一行ポインタまでしか置かず、規範の本文は skill に、導入・運用の手順は `docs/` に置く。ponytail の YAGNI ラダーだけはプラグインが毎ターン注入するので、共有指示にも skill にも転記しない（`docs/ponytail.md`）。
+
+どの skill にも属さない低頻度の作業手順は `agents/references/task-procedures.md` に置き、共有指示にはそれを読む条件と path、節名だけを残す。ユーザーの権限、安全、共通の検証、よく使うツールの選び方に関わる規則は共有指示に残す。移した分だけ共有指示のバイト数は減るが、応答が同じ割合で速くなるとは限らないので、効果は読むべき手順を選べたかと所要時間で別に確かめる。以前の記録で共有指示の PR の項としている規則の一部は、いまはこの参照手順にある。
 
 ## 地図
 
@@ -27,6 +29,7 @@
 | 構造的な編集（rename、参照列挙、codemod） | 共有指示の「Structural edits」、`structural-edit`、OMP `lsp` / `ast_edit` | 複数箇所に及ぶ書き換え |
 | 言語別のスクリプト作法 | `efficient-python`、`efficient-ts-js` | スクリプトを書く・実行する前 |
 | 品質ゲート（semgrep、gitleaks、zizmor、SonarQube、ruff、commit-msg の Why 検査、このリポジトリの CI での全体検査） | `docs/semgrep.md`、`docs/sonarqube.md`、`ruff/ruff.toml`、`git/global-hooks/`、`.github/workflows/ci.yml` | commit 時、完了報告前、push 後の CI |
+| 低頻度の作業手順（ブランチの切り方と stacked PR の宣言、PR 本文、`gh` の `--attach`、Herdr の worktree worker） | `agents/references/task-procedures.md`。読む条件は共有指示の「Commits and pull requests」と「Parallel work and collaboration」 | 条件に当たる作業の前 |
 | 判断の形式化（機械化できるか試す、`Mechanized:` の更新義務） | 本書「形式化のサイクルを回す」節、`agents/measured-notes.md` | 同じ判断を二度目にする前、hook/permission/schema を足したとき |
 
 ## 意図的に書いていないもの
@@ -61,7 +64,7 @@
 
 ## 追加するときの判断
 
-新しい規範を書きたくなったら、まず既存の skill の節として足せないかを見る。毎ターン読ませたい一行ポインタだけを `agents/global-instructions.md` に置き、手順や判断基準は skill、導入・運用の手順は `docs/` に書く。skill を増やしたら `scripts/link` を実行して各ホストの skills ディレクトリへ symlink し、`omp -p --no-session "read skill://<name>"` で新しいセッションから読めることを確かめる。
+新しい規範を書きたくなったら、まず既存の skill の節として足せないかを見る。毎ターン読ませたい一行ポインタだけを `agents/global-instructions.md` に置き、手順や判断基準は skill、導入・運用の手順は `docs/` に書く。どの skill にも属さない低頻度の作業手順は `agents/references/task-procedures.md` の節に足し、共有指示からは `$HOME/dotfiles/...` の path と節名で指す（`scripts/link` が `$HOME/dotfiles` を用意する）。skill を増やしたら `scripts/link` を実行して各ホストの skills ディレクトリへ symlink し、`omp -p --no-session "read skill://<name>"` で新しいセッションから読めることを確かめる。
 
 ## 形式化のサイクルを回す
 
