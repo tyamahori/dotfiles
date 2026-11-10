@@ -105,5 +105,5 @@ requests failed with `getaddrinfo ENOTFOUND` throughout, and the last error
 was logged within a second of the wake. Retry backoff had grown to about 17
 minutes by then. No work was lost, only wall time.
 
-Mechanized: no — depends on the host exposing the Adrafinil MCP tool and on
-the agent judging that the work will run unattended.
+Mechanized: no — depends on the agent judging that the work will run
+unattended, and on the user keeping the lid open.

@@ -52,15 +52,6 @@
             "type": "command"
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil release $CLAUDE_CODE_SESSION_ID --tool claude-code",
-            "type": "command"
-          }
-        ],
-        "matcher": "idle_prompt"
       }
     ],
     "PostToolUse": [
@@ -160,14 +151,6 @@
             "type": "command"
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil release $CLAUDE_CODE_SESSION_ID --tool claude-code",
-            "type": "command"
-          }
-        ]
       }
     ],
     "SessionStart": [
@@ -199,15 +182,6 @@
       {
         "hooks": [
           {
-            "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil acquire $CLAUDE_CODE_SESSION_ID --tool claude-code",
-            "type": "command"
-          }
-        ],
-        "matcher": "clear"
-      },
-      {
-        "hooks": [
-          {
             "command": "bash \"$HOME/.claude/hooks/herdr-agent-state.sh\" session",
             "timeout": 10,
             "type": "command"
@@ -234,14 +208,6 @@
             "type": "command"
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil release $CLAUDE_CODE_SESSION_ID --tool claude-code",
-            "type": "command"
-          }
-        ]
       }
     ],
     "SubagentStart": [
@@ -250,14 +216,6 @@
           {
             "command": "\"$HOME/dotfiles/claude/hooks/herdr-subagents.sh\"",
             "timeout": 10,
-            "type": "command"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil acquire --tool claude-code --subagent",
             "type": "command"
           }
         ]
@@ -272,14 +230,6 @@
             "type": "command"
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil release --tool claude-code --subagent",
-            "type": "command"
-          }
-        ]
       }
     ],
     "UserPromptSubmit": [
@@ -288,14 +238,6 @@
           {
             "command": "\"$HOME/dotfiles/scripts/herdr-title\" claude",
             "timeout": 10,
-            "type": "command"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "command": "/Applications/Adrafinil.app/Contents/Helpers/adrafinil acquire $CLAUDE_CODE_SESSION_ID --tool claude-code",
             "type": "command"
           }
         ]
