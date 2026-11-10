@@ -100,7 +100,7 @@ Brave mode（Run shell commands or run configurations without confirmation）は
 3. 直後に `git -C ~/dotfiles status` を確認する。
    setup-agentは共有指示ファイル（`agents/global-instructions.md`）を単一エージェント向けに書き換えることがある。差分が出たら、既存の作業を残してリポジトリ管理の中立版へ再マージする。
    Claudeの `SessionStart` / `SessionEnd` に追加されたインデックス用フックは、`~/.claude/settings.local.json` の同名イベントへ移す。他のフックは保持し、`claude/settings.json` からは移設した分だけを除く。コマンドは `"$HOME/.jbcontext/bin/jbcontext" index --silent`、`async` は `true` とする。
-   `codex/hooks.json` も確認し、消えた起動フックがあれば既存の作業を残して復元する。Codexの自動インデックス設定は `~/.codex/config.toml` に入るため、`hooks.json` に重複追加しない。
+   `codex/hooks.json` も確認し、消えた起動フックがあれば既存の作業を残して復元する。Codexのjbcontextフック（起動時のインデックスと `hook pre-tool-use` / `hook user-prompt-submit`）は `codex/hooks.json` に置いてある。setup-agentが `~/.codex/config.toml` に `# jbcontext-hook:` ブロックを足したら削除する。フックが両方のファイルにあると、Codexは起動時に二重定義の警告を出す。
 4. `jbcontext config set skip-agents-on-upgrade true --global` を実行する（0.9.12以降）。
    自動更新のたびに走る agent prompt の refresh（instructions / hooks の書き換え）を止める。これがないと 2026-09-09 の 0.9.12 更新のように、`agents/global-instructions.md`・`claude/settings.json`・`codex/hooks.json`（検知フック自体が消える）が更新ごとに書き換わる。
    `jbcontext config get skip-agents-on-upgrade` が `true` を返すことを確認する。この設定は `~/.jbcontext/config.json` にあり dotfiles 管理外。手動の `setup-agent` 再実行は対象外なので、走らせたら3の手順を繰り返す。
