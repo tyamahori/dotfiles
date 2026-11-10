@@ -1,6 +1,33 @@
 # model migration journal
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
+## 2026-11-11 Claude Code 既定: Opus 5.5 → Fable 5.2
+
+- 契機: ユーザー自身が `claude/settings.json` の `model` を `claude-fable-5-2` に変え、
+  `modelSettings."claude-fable-5-2".effortLevel: "xhigh"` を加えて push した(7938b73)。
+  レビュー前に push したため事後レビューになった。
+- 収集(取得日 2026-11-11、取得失敗なし): platform.claude.com の models/overview、
+  models/fable-5-2/migration-guide、prompting-claude-fable-5-2、Claude Code CHANGELOG(2.1.322)。
+  要点: overview は迷ったら Opus 5.5、Fable 5.2 は難しい推論と長時間のエージェント作業向けとする。
+  料金は Fable $8/$40、Opus $4/$20。rate limit は別枠で Opus より低い。Fable の既定 effort は high
+  (Opus は medium)。prompting guide は high から始め、xhigh は計測で効果を確かめた難しい長時間作業に
+  限るよう勧め、xhigh 以上では自己レビュー用サブエージェントを起動すると書いている。
+  CHANGELOG 2.1.322 で Fable 5.2 が既定の Fable モデルになった。
+- 照合: 指示文は 11-10 の棚卸しを再利用し、変更提案なし(「考えるな」系の行、所有権の文、
+  「前の回答は完了扱い」の行は見つからなかった)。11-10 に作った `~/.claude/agents/Explore.md` と
+  `deep-solver.md` は消えていた。
+- 提案と承認(すべて判断。ユーザーが項目ごとに選択した):
+  - 既定モデル Fable 5.2 を維持。承認。
+  - Fable 5.2 の `modelSettings` effort を xhigh → high。承認(公式の出発点で、11-10 の Opus 判断と揃う)。
+  - `~/.claude/agents/Explore.md`(model: haiku、Read/Grep/Glob のみ、ローカルのみ)を作り直す。承認。
+    `deep-solver.md` は既定が Fable になり不要なので戻さない。
+- 検証: 新規 `claude -p` の stream-json で init の model が `claude-fable-5-2`、Explore サブエージェントが
+  `claude-haiku-5-5` で動いた。effort は `-p` の出力に出ないため未確認。検証後に
+  `scripts/model-pins ack`、直後の `check` は exit 0。
+- 1週間後: 11-18 以降、`agent-usage-weekly` で Claude の週次消費と rate limit 到達を 11-10〜11-11 の
+  Opus 期間と比べる。消費が倍近くになり難所以外でも Fable を使っているなら、既定を Opus 5.5 に戻し
+  難所だけ Fable にする案を提示する。Explore 経由の Haiku 比率も確認する。
+
 ## 2026-11-10 モデル選択ガイドとの照合(Fable 5.2・effort・Explore)
 
 - 契機: ユーザーが Anthropic のモデル選択ガイドとの照合と設定の改善を依頼。

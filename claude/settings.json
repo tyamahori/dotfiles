@@ -247,7 +247,7 @@
   "model": "claude-fable-5-2",
   "modelSettings": {
     "claude-fable-5-2": {
-      "effortLevel": "xhigh"
+      "effortLevel": "high"
     },
     "claude-haiku-5-5": {
       "effortLevel": "medium"
@@ -329,7 +329,6 @@
       "Bash(gh api *-X DELETE*)",
       "Bash(gh api *-XDELETE*)",
       "Bash(gh repo archive *)",
-      "Bash(gh repo delete *)",
       "Bash(gh repo edit *)",
       "Bash(gh repo rename *)",
       "Bash(git * push *--force*)",
@@ -340,8 +339,6 @@
       "Bash(git clean *-*f*)",
       "Bash(git push * +*)",
       "Bash(git push * -f*)",
-      "Bash(git push *--force*)",
-      "Bash(git push -f*)",
       "Bash(git reset *--hard*)",
       "Bash(git worktree remove * -f*)",
       "Bash(git worktree remove *--force*)",
@@ -350,6 +347,9 @@
     "blockWritesOutsideWorkingDirectories": true,
     "defaultMode": "auto",
     "deny": [
+      "Bash(gh repo delete *)",
+      "Bash(git push *--force*)",
+      "Bash(git push -f*)",
       "Read(//**/*.env)",
       "Read(//**/.env.*)",
       "Read(~/.ssh/id_*)",
