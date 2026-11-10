@@ -27,6 +27,57 @@
   Explore 経由の Haiku 消費比率も確認する。品質が落ちたと感じたら、Opus を xhigh に戻すのではなく
   deep-solver(Fable 5.2)への委譲を先に試す。
 
+## 2026-11-10 OMP plan: Fable 5.1 → Fable 5.2
+
+- Approval: the user requested the Fable 5.2 configuration update.
+  Updated only `omp/config.yml`'s `modelRoles.plan` from
+  `anthropic/claude-fable-5-1` to `anthropic/claude-fable-5-2`.
+  Other roles, fallback chains, instructions, and thinking level remain unchanged.
+- Official sources retrieved on 2026-11-10, with no retrieval failures:
+  [model catalog](https://platform.claude.com/docs/en/models/overview),
+  [migration guide](https://platform.claude.com/docs/en/models/fable-5-2/migration-guide),
+  and [prompting guide](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-2).
+  The ID is confirmed; adaptive thinking and default high effort carry over.
+  Thinking-prefix validation now applies to all accounts.
+- Comparison: retain `defaultThinkingLevel: high` and `task.maxEffort: high`.
+  The prompting guide recommends starting at high and measuring higher effort.
+  `omp/APPEND_SYSTEM.md:3-5` and `agents/global-instructions.md:260-268` already
+  restrict delegation to substantial independent work. The prose and self-contained
+  reporting rules at `agents/global-instructions.md:14-20` match the new guidance.
+  No additional setting or instruction changes are proposed.
+- Workaround inventory: reused the September 10 and 22 reviews and October 2
+  planning-role decision. Exact searches of global instructions, OMP additions,
+  and measured notes found no Fable-specific workaround, "think less" instruction,
+  "treat the earlier answer as done" instruction, or code-ownership invitation.
+  Keep measured failure-stop rules, machine facts, writing preferences, and the
+  Codex-family review route. No deletion is proposed; no new provenance claim
+  is made for every skill or historical rule.
+- Verification correction: fresh configuration loading resolves plan to
+  `anthropic/claude-fable-5-2`. A fresh RPC `get_state` also resolves that model
+  and its adaptive-thinking/prefix-binding capabilities before any request.
+  However, a fresh `--model @plan --mode json` request reports
+  `no credential for anthropic`, falls back to `openai-codex/gpt-6-astra`, and
+  records Astra as the responding model. The earlier text-only `OK` is not
+  proof of a Fable response. Catalog searches were empty even after refresh.
+- Skill verification is incomplete: two tool-disabled print probes returned
+  `SKILL_MISSING`; the installed RPC interface rejects `get_commands` as unknown.
+  These probes do not establish whether ordinary interactive discovery works.
+  The current session's explicit skill invocation is not a fresh-session test.
+- Completion after `omp login anthropic` by the user: a fresh
+  `omp -p --no-session --model @plan --mode json` request had no fallback event;
+  the assistant message recorded `anthropic` / `claude-fable-5-2`. With tools
+  enabled, the same session listed `model-migration-review` and its trigger
+  description (`SKILL_FOUND`). The earlier `SKILL_MISSING` probes disabled
+  tools, which hid the skill list. Then `scripts/model-pins ack`; `check` exit 0.
+  Existing OMP sessions require a restart to load the changed role.
+- Not verified: long-running conversations, prefix edits, instruction effectiveness,
+  and relative quality/cost. No compatibility bypass is added. The CLI's missing
+  Adrafinil helper warning is outside this migration.
+- One-week follow-up: compare November 10–16 with November 3–9 using
+  `agent-usage-weekly`: planning usage, retries, rework, and delegation counts
+  where available. Mark missing metrics or changed task mix as inconclusive;
+  do not attribute a change to the model without comparable Fable runs.
+
 ## 2026-11-07 このマシンの user 層と ack を pin に揃える
 
 - 契機: `scripts/model-pins check` が 3 件の差分を報告。
