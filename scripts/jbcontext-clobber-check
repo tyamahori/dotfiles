@@ -7,7 +7,8 @@
 # instructions block and churned claude/settings.json). Detecting the dirt at
 # session start turns a mystery diff hunted days later into an immediate,
 # attributable warning. Prints plain text; Claude injects SessionStart stdout
-# as context.
+# as context. The first character must not be `[` or `{`: Codex parses such
+# stdout as JSON and fails the hook ("invalid session start JSON output").
 set -euo pipefail
 
 repo="$HOME/dotfiles"
@@ -19,7 +20,7 @@ dirty=$(git -C "$repo" status --porcelain -- \
 [ -n "$dirty" ] || exit 0
 
 cat <<EOF
-[jbcontext-clobber-check] Repo-managed agent files in ~/dotfiles have
+jbcontext-clobber-check: Repo-managed agent files in ~/dotfiles have
 uncommitted changes:
 $dirty
 If these were not edited intentionally in a current session, a jbcontext
