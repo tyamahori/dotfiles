@@ -1,6 +1,32 @@
 # model migration journal
 
 新しいサイクルを上に追記。書式は SKILL.md「記録」を参照。
+## 2026-11-10 モデル選択ガイドとの照合(Fable 5.2・effort・Explore)
+
+- 契機: ユーザーが Anthropic のモデル選択ガイドとの照合と設定の改善を依頼。
+- 収集(取得日 2026-11-10、取得失敗なし):
+  https://claude.dev/blog/which-claude-model-should-you-build-with/ (2026-11-09 公開)。
+  要点: GA は Haiku/Sonnet/Opus 5.5 と Fable 5.2。Opus 5.5 は medium 起点で、次は high。
+  SWE-bench Pro では xhigh が high の 2.5 倍のコストで +1.4pt。high を超える前に上位モデルを
+  低い effort で試すよう勧めている。サブエージェントは Haiku/Sonnet の既定 effort。
+  Claude Code の組み込み Explore はセッションのモデルで動くため、`model: haiku` の
+  `Explore` を自分で定義するよう勧めている。
+- 提案と承認(すべて判断。ユーザーが項目ごとに選択した):
+  - OMP `modelRoles.plan` とローカルの `~/.claude/agents/deep-solver.md` を Fable 5.1 → 5.2。承認。
+  - Claude Code の Opus 5.5 effort(`effortLevel` と `modelSettings`)を xhigh → high。承認。
+    11-06 に xhigh へ上げた判断を、ガイドの数値を根拠に見直した。
+  - Haiku/Sonnet 5.5 の `modelSettings` を xhigh → medium。承認。
+  - `~/.claude/agents/Explore.md`(model: haiku、読み取り専用、ローカルのみ)を追加。承認。
+  - 変更なし: OMP `defaultThinkingLevel: high`、task=Sonnet、smol/commit=Haiku、
+    vision=Sonnet(単発の画像読み取りに使い、長い computer-use ループではないため)。
+- 検証: 新規プロセスの `omp config get modelRoles --json` が plan に
+  `anthropic/claude-fable-5-2` を返した。`omp -p --model anthropic/claude-fable-5-2` も応答した。
+  新規 `claude -p` の stream-json で、Explore サブエージェントが `claude-haiku-5-5` で
+  動いていた。Claude Code で解決される effort は `-p` の出力に出ないため未確認。
+- 1週間後: 11-06 エントリの xhigh 期間と比べ、Claude の週次消費と cache hit を見る。
+  Explore 経由の Haiku 消費比率も確認する。品質が落ちたと感じたら、Opus を xhigh に戻すのではなく
+  deep-solver(Fable 5.2)への委譲を先に試す。
+
 ## 2026-11-07 このマシンの user 層と ack を pin に揃える
 
 - 契機: `scripts/model-pins check` が 3 件の差分を報告。

@@ -3,7 +3,7 @@ modelRoles:
   smol: anthropic/claude-haiku-5-5
   task: anthropic/claude-sonnet-5-5
   commit: anthropic/claude-haiku-5-5
-  plan: anthropic/claude-fable-5-1
+  plan: anthropic/claude-fable-5-2
   slow: openai-codex/gpt-6-astra
   advisor: openai-codex/gpt-6.1-terra
   default: anthropic/claude-opus-5-5
