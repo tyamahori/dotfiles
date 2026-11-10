@@ -524,7 +524,9 @@ a review pane opens unfocused (`TOOL_RELEASE_REVIEW_PANE=off` disables it).
 same `--restricted` confinement (file tools only, no shell, web, or MCP; every
 edit asks for permission) and edits only the items you approve; run `--ack`
 yourself to record the versions as reviewed. The first run only records a
-baseline.
+baseline, and so does the first sight of a tool the baseline has never held.
+A tool that is not found on a run (mid-upgrade, off `PATH`) keeps its reviewed
+version, so its next review starts from there.
 
 Global skills that were removed on purpose (Cloudflare vendor packs,
 `orchestration` from stablyai/orca) are listed in `retired_global_skills` in

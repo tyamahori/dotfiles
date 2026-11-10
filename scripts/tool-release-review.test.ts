@@ -71,16 +71,77 @@ test("a failing --ack keeps the reviewed baseline", () => {
   }
 });
 
-test("a tool that disappeared moves the baseline without a review", () => {
-  // claude would fail the run if asked to review.
+// claude at 2.0.0 that fails the run if it is asked to review.
+const idleClaude = '[ "$1" = --version ] && { echo "2.0.0 (Claude Code)"; exit 0; }\nexit 1';
+const stub = (home: string, name: string, body: string) => {
+  writeFileSync(join(home, "bin", name), `#!/bin/bash\n${body}\n`);
+  chmodSync(join(home, "bin", name), 0o755);
+};
+const reviewed = (state: string) => JSON.parse(readFileSync(join(state, "reviewed.json"), "utf8"));
+const reports = (state: string, prefix: string) => readdirSync(state).filter((f) => f.startsWith(prefix));
+
+test("--ack records the tools it finds and keeps the reviewed version of one it does not", () => {
+  const { home, state, run } = sandbox(idleClaude, '{"claude":"1.0.0","codex":"1.0.0"}');
+  try {
+    expect(run("--ack").exitCode).toBe(0);
+    expect(reviewed(state)).toEqual({ claude: "2.0.0", codex: "1.0.0" });
+  } finally {
+    rmSync(home, { force: true, recursive: true });
+  }
+});
+
+test("--ack replaces a baseline that was left empty by an interrupted write", () => {
+  const { home, state, run } = sandbox(idleClaude, "");
+  try {
+    expect(run("--ack").exitCode).toBe(0);
+    expect(reviewed(state)).toEqual({ claude: "2.0.0" });
+  } finally {
+    rmSync(home, { force: true, recursive: true });
+  }
+});
+
+test("a tool that is not found keeps its reviewed version and starts no review", () => {
+  const { home, state, run } = sandbox(idleClaude, '{"claude":"2.0.0","codex":"1.0.0"}');
+  try {
+    expect(run().exitCode).toBe(0);
+    expect(reviewed(state)).toEqual({ claude: "2.0.0", codex: "1.0.0" });
+    expect(reports(state, "report-")).toEqual([]);
+  } finally {
+    rmSync(home, { force: true, recursive: true });
+  }
+});
+
+test("a tool the baseline has never seen is recorded at its current version without a review", () => {
+  const { home, state, run } = sandbox(idleClaude, '{"claude":"2.0.0"}');
+  try {
+    stub(home, "codex", 'echo "codex-cli 1.5.0"');
+    expect(run().exitCode).toBe(0);
+    expect(reviewed(state)).toEqual({ claude: "2.0.0", codex: "1.5.0" });
+    expect(reports(state, "report-")).toEqual([]);
+  } finally {
+    rmSync(home, { force: true, recursive: true });
+  }
+});
+
+test("a tool found again is reviewed from the version kept while it was missing", () => {
   const { home, state, run } = sandbox(
-    '[ "$1" = --version ] && { echo "2.0.0 (Claude Code)"; exit 0; }\nexit 1',
+    '[ "$1" = --version ] && { echo "2.0.0 (Claude Code)"; exit 0; }\ncat >/dev/null\necho report',
     '{"claude":"2.0.0","codex":"1.0.0"}',
   );
   try {
+    expect(run().exitCode).toBe(0); // codex is not found on this run
+    stub(home, "codex", 'echo "codex-cli 1.2.0"');
+    stub(
+      home,
+      "gh",
+      'case "$2" in list) printf "rust-v%s\\n" 1.2.0 1.1.0 1.0.0 0.9.0 ;; view) echo "notes of $3" ;; esac',
+    );
     expect(run().exitCode).toBe(0);
-    expect(JSON.parse(readFileSync(join(state, "reviewed.json"), "utf8"))).toEqual({ claude: "2.0.0" });
-    expect(readdirSync(state).filter((f) => f.startsWith("report-"))).toEqual([]);
+    const [notes] = reports(state, "notes-");
+    expect(readFileSync(join(state, notes), "utf8").match(/notes of \S+/g)).toEqual([
+      "notes of rust-v1.2.0",
+      "notes of rust-v1.1.0",
+    ]);
   } finally {
     rmSync(home, { force: true, recursive: true });
   }

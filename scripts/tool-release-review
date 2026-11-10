@@ -26,7 +26,10 @@ umask 077
 mkdir -p "$STATE_DIR"
 chmod 700 "$STATE_DIR"
 
-# Missing tools are left out; a tool appearing later shows up as a change.
+# Tools that are not found are left out. The baseline keeps their reviewed
+# version (a tool can be unresolvable for a moment, e.g. mid-upgrade), and a
+# tool the baseline has never seen is recorded without a review: with no
+# earlier version, "everything since 0" would be the last 100 releases.
 versions_json() {
 	local herdr="" omp="" claude="" codex=""
 	command -v herdr >/dev/null 2>&1 && herdr="$(herdr --version | awk '{print $NF}')"
@@ -88,8 +91,16 @@ open_pane() {
 case "${1:-}" in
 --apply) apply ;;
 --ack)
-	# A failing --version must not truncate the reviewed baseline.
+	# A failing --version must not truncate the reviewed baseline; called in
+	# this shell because errexit does not reach into a command substitution.
+	# A tool that is not found right now keeps the version reviewed before; a
+	# baseline that is not a JSON object (truncated write) is replaced instead.
 	versions_json >"$REVIEWED.tmp"
+	if [[ -f $REVIEWED ]] &&
+		jq -ce --slurpfile new "$REVIEWED.tmp" 'objects | . + $new[0]' "$REVIEWED" >"$REVIEWED.merged" 2>/dev/null; then
+		mv "$REVIEWED.merged" "$REVIEWED.tmp"
+	fi
+	rm -f "$REVIEWED.merged"
 	mv "$REVIEWED.tmp" "$REVIEWED"
 	echo "tool-release-review: reviewed $(cat "$REVIEWED")" >&2
 	exit 0
@@ -108,10 +119,16 @@ if [[ ! -f $REVIEWED ]]; then
 	echo "tool-release-review: baseline recorded $current" >&2
 	exit 0
 fi
-reviewed="$(cat "$REVIEWED")"
-if [[ $(jq -S . <<<"$current") == $(jq -S . <<<"$reviewed") ]]; then
-	exit 0
+# Tools seen for the first time join the baseline at their current version;
+# known tools keep their reviewed version, found or not.
+reviewed="$(jq -c --argjson new "$current" '$new + .' "$REVIEWED")"
+if [[ $(jq -S . <<<"$reviewed") != $(jq -S . "$REVIEWED") ]]; then
+	printf '%s\n' "$reviewed" >"$REVIEWED"
+	echo "tool-release-review: baseline recorded $reviewed" >&2
 fi
+changes="$(jq -rn --argjson old "$reviewed" --argjson new "$current" \
+	'$new | to_entries[] | select($old[.key] != .value) | "- \(.key): \($old[.key]) → \(.value)"')"
+[[ -n $changes ]] || exit 0
 if [[ -f $REPORTED && -f $(latest_report) ]] && [[ $(jq -S .versions "$REPORTED") == $(jq -S . <<<"$current") ]]; then
 	notify "未確認のレポートがあります: $(latest_report)"
 	exit 0
@@ -149,13 +166,6 @@ release_notes() {
 	done <<<"$tags"
 }
 
-changes="$(jq -rn --argjson old "$reviewed" --argjson new "$current" \
-	'$new | to_entries[] | select($old[.key] != .value) | "- \(.key): \($old[.key] // "未導入") → \(.value)"')"
-if [[ -z $changes ]]; then
-	# Only a tool went missing: nothing to review, so move the baseline.
-	printf '%s\n' "$current" >"$REVIEWED"
-	exit 0
-fi
 stamp="$(date +%Y-%m-%d-%H%M%S)"
 report="$STATE_DIR/report-$stamp.md"
 notes="$STATE_DIR/notes-$stamp.md"
@@ -165,10 +175,10 @@ for tool in herdr omp claude codex; do
 	new="$(jq -r --arg t "$tool" '.[$t] // ""' <<<"$current")"
 	[[ -n $new && $old != "$new" ]] || continue
 	case $tool in
-	herdr) release_notes herdrdev/herdr v "${old:-0}" "$new" ;;
-	omp) release_notes can1357/oh-my-pi v "${old:-0}" "$new" ;;
-	claude) release_notes anthropics/claude-code v "${old:-0}" "$new" ;;
-	codex) release_notes openai/codex rust-v "${old:-0}" "$new" ;;
+	herdr) release_notes herdrdev/herdr v "$old" "$new" ;;
+	omp) release_notes can1357/oh-my-pi v "$old" "$new" ;;
+	claude) release_notes anthropics/claude-code v "$old" "$new" ;;
+	codex) release_notes openai/codex rust-v "$old" "$new" ;;
 	esac >>"$notes" || {
 		rm -f "$notes"
 		notify "$tool のリリースノートを取得できませんでした。次回の実行で再試行します"
