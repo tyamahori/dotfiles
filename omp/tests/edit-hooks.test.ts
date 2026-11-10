@@ -253,6 +253,22 @@ test("blocks a failed Japanese prose hook once, then recovers", () => {
   expect(stop?.({}, { cwd: "/project" })).toBeUndefined();
 });
 
+test("prose edits in a subagent's own session start no review hook; the main session's and an advisor's do", () => {
+  const extension = capturedExtension();
+  japaneseProse(extension.api as never);
+  spawn.mockReturnValue(hookResult());
+  const edit = (agent: { kind: string; id: string }) => {
+    const event = { toolName: "write", input: { path: "note.md" } };
+    extension.hooks.get("tool_call")?.(event, { cwd: "/project", agent });
+    extension.hooks.get("tool_result")?.(event, { cwd: "/project", agent });
+    return spawn.mock.calls.length;
+  };
+
+  expect(edit({ kind: "sub", id: "task-1" })).toBe(0);
+  expect(edit({ kind: "main", id: "main" })).toBe(2);
+  expect(edit({ kind: "sub", id: "advisor" })).toBe(4);
+});
+
 test("blocks a failed Japanese prose Stop hook once, then passes", () => {
   const extension = capturedExtension();
   japaneseProse(extension.api as never);

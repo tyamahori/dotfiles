@@ -22,7 +22,13 @@ type ToolEvent = {
 
 type ExtensionContext = {
   cwd?: string;
+  agent?: { kind?: string; id?: string };
 };
+
+// session_stop never fires in a subagent's own session, so nothing would read
+// what its edits record. An advisor's tool calls are tagged "sub" too but arrive
+// in the parent session, whose stop review does cover them.
+const unreviewed = (ctx: ExtensionContext) => ctx.agent?.kind === "sub" && ctx.agent.id !== "advisor";
 
 type StopResult = { decision: "block"; reason: string } | { continue: true; additionalContext: string } | undefined;
 
@@ -74,6 +80,7 @@ export default function japaneseProse(pi: ExtensionApi): void {
   pi.on("session_switch", reset);
 
   pi.on("tool_call", (event, ctx) => {
+    if (unreviewed(ctx)) return;
     const cwd = ctx.cwd || process.cwd();
     for (const path of editedPaths(event).filter((p) => PROSE_EXTENSION.test(p))) {
       runEditHook("PreToolUse", path, cwd);
@@ -81,7 +88,7 @@ export default function japaneseProse(pi: ExtensionApi): void {
   });
 
   pi.on("tool_result", (event, ctx) => {
-    if (event.isError === true) return;
+    if (event.isError === true || unreviewed(ctx)) return;
     const cwd = ctx.cwd || process.cwd();
     for (const path of editedPaths(event).filter((p) => PROSE_EXTENSION.test(p))) {
       runEditHook("PostToolUse", path, cwd);
