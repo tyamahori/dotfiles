@@ -41,8 +41,9 @@ for (const row of [
   {
     name: "semgrep scans a staged file whose name starts with a dash",
     hook: "pre-commit-semgrep",
-    files: { "-notes.txt": "hi\n" },
-    stage: ["-notes.txt"],
+    // A shell script: without a repo config, only paths the machine-global rules include reach semgrep.
+    files: { "-notes.sh": "echo hi\n" },
+    stage: ["-notes.sh"],
     blockedWith: null,
   },
   {

@@ -23,8 +23,32 @@ ulimit -s unlimited 2>/dev/null || true
 repo_root=$(git rev-parse --show-toplevel)
 DOTFILES_ROOT=${DOTFILES_ROOT:-"$HOME/dotfiles"}
 config="$repo_root/.semgrep.yaml"
-[[ -f $config ]] || config="$DOTFILES_ROOT/semgrep/default.yaml"
+# Without a repo config only the machine-global rules run, and every one of
+# them is limited to these path globs (semgrep/default.yaml and
+# semgrep/security-compose.yaml). semgrep takes ~2 s just to start, so a path
+# none of them can match is not handed over. A glob counts when it matches any
+# path component, as semgrep's paths.include does (a directory named x.sh
+# includes its files); `*` below also crosses `/`, so the filter can only keep
+# too much. scripts/global-hooks.test.ts fails when the rule files and this
+# list drift apart.
+machine_rule_globs=()
+if [[ ! -f $config ]]; then
+	config="$DOTFILES_ROOT/semgrep/default.yaml"
+	machine_rule_globs=('*.sh' '*.bash' 'compose*.yml' 'compose*.yaml' 'docker-compose*.yml' 'docker-compose*.yaml')
+fi
 [[ -f $config ]] || exit 0
+
+in_rule_scope() {
+	((${#machine_rule_globs[@]})) || return 0
+	# Match bytes: a multibyte locale other than the file name's own encoding
+	# (EUC with a UTF-8 name) would swallow the `.` or `/` after a high byte.
+	local glob LC_ALL=C
+	for glob in "${machine_rule_globs[@]}"; do
+		# shellcheck disable=SC2053 # $glob is a pattern on purpose
+		[[ /$1/ == */$glob/* ]] && return 0
+	done
+	return 1
+}
 
 cd "$repo_root"
 targets=()
@@ -33,11 +57,12 @@ while IFS= read -r -d '' file; do
 	# them as scan roots with exit 2; the target is scanned when it is
 	# staged itself), and the rule file (generic-language patterns would
 	# match their own source text).
-	[[ -f $file && ! -L $file && $file != .semgrep.yaml ]] && targets+=("$file")
+	[[ -f $file && ! -L $file && $file != .semgrep.yaml ]] && in_rule_scope "$file" && targets+=("$file")
 done < <(git diff --cached --name-only --diff-filter=ACMR -z)
 ((${#targets[@]})) || exit 0
 
-# --metrics=off keeps the scan local (see scripts/semgrep-quality-gate).
+# --metrics=off and --disable-version-check keep the scan local (see
+# scripts/semgrep-quality-gate).
 # Output is captured instead of --quiet: --quiet also swallows rule-file parse
 # errors (exit 7 with zero output), which would fail every commit undiagnosably.
 # Exit status: 0 clean, 1 findings (tab-separated rows on stdout, see
@@ -49,7 +74,7 @@ semgrep_rows() (
 	json=$(mktemp) && log=$(mktemp) || exit 2
 	trap 'rm -f "$json" "$log"' EXIT
 	rc=0
-	semgrep scan --config "$config" --config "$DOTFILES_ROOT/semgrep/security-compose.yaml" --metrics=off --error --json-output "$json" -- "$@" >"$log" 2>&1 || rc=$?
+	semgrep scan --config "$config" --config "$DOTFILES_ROOT/semgrep/security-compose.yaml" --metrics=off --disable-version-check --error --json-output "$json" -- "$@" >"$log" 2>&1 || rc=$?
 	((rc == 0)) && exit 0
 	if ((rc == 1)) && command -v jq >/dev/null && rows=$(jq -r '.results[] | [.path, (.start.line | tostring), (.end.line | tostring), (.check_id | split(".") | last), "\(.path):\(.start.line): \(.check_id): \(.extra.message | gsub("[\t\r\n]+"; " "))"] | @tsv' "$json"); then
 		printf '%s\n' "$rows"

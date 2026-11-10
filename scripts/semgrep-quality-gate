@@ -31,6 +31,8 @@ cd "$project_root"
 # --metrics=off keeps the scan fully local, which restricts --config to local
 # rule files: registry packs (p/...) refuse to load without metrics, so repos
 # vendor them into .semgrep.yaml instead (see docs/semgrep.md).
+# --disable-version-check: the version is pinned (devbox flake lock, CI), and
+# the check otherwise contacts semgrep.dev from a scan meant to stay local.
 # The rules file excludes itself because generic-language patterns would
 # otherwise match their own source text.
 # Output is captured and shown only on failure: success costs one line of
@@ -46,6 +48,7 @@ if semgrep scan \
 	--config "$DOTFILES_ROOT/semgrep/security-compose.yaml" \
 	--exclude .semgrep.yaml \
 	--metrics=off \
+	--disable-version-check \
 	--error >"$log" 2>&1; then
 	echo "semgrep-quality-gate: passed ($config)"
 else

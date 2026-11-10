@@ -1,7 +1,16 @@
 import { afterEach, expect, test } from "bun:test";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const checks = resolve(import.meta.dir, "../git/global-hooks/checks");
 let dir: string | undefined;
@@ -234,6 +243,57 @@ test("a tool failure is blocked and its output shown", () => {
   const r = baselineRun("old\tOLD\n", "old\tOLD\n", `rows() { echo boom; return 2; }`);
   expect(r.status).toBe(1);
   expect(r.out).toContain("boom");
+});
+
+// checks/pre-commit-semgrep with a stub semgrep; true when the hook started it for the staged path.
+function semgrepStarts(staged: string, ownRules = false) {
+  dir = mkdtempSync(join(tmpdir(), "global-hooks-"));
+  const bin = join(dir, "bin");
+  const repo = join(dir, "repo");
+  mkdirSync(bin);
+  mkdirSync(dirname(join(repo, staged)), { recursive: true });
+  writeFileSync(join(bin, "semgrep"), `#!/bin/bash\n: >"${dir}/semgrep-started"\n`, { mode: 0o755 });
+  writeFileSync(join(repo, staged), "x\n");
+  if (ownRules) writeFileSync(join(repo, ".semgrep.yaml"), "rules: []\n");
+  sh(repo, `git init -q && git add -- '${staged}'`);
+  const r = sh(repo, join(checks, "pre-commit-semgrep"), {
+    PATH: `${bin}:${process.env.PATH}`,
+    DOTFILES_ROOT: resolve(checks, "../../.."),
+  });
+  expect(r).toEqual({ status: 0, out: "" });
+  return existsSync(join(dir, "semgrep-started"));
+}
+
+type SemgrepRule = { id: string; paths?: { include?: string[] } };
+const machineRules = ["default.yaml", "security-compose.yaml"].flatMap(
+  (file) =>
+    (Bun.YAML.parse(readFileSync(resolve(checks, "../../../semgrep", file), "utf8")) as { rules: SemgrepRule[] }).rules,
+);
+// One file name per glob the machine-global rules include, e.g. `*.sh` becomes `x.sh`.
+const includedNames = [...new Set(machineRules.flatMap((rule) => rule.paths?.include ?? []))].map((glob) =>
+  glob.replaceAll("*", "x"),
+);
+
+test("every machine-global semgrep rule is limited to path globs", () => {
+  expect(machineRules.filter((rule) => !rule.paths?.include?.length).map((rule) => rule.id)).toEqual([]);
+});
+
+test.each(["src/app.ts", "docs/notes.md", "shell.sh.txt"])(
+  "with only the machine-global rules, staging %s does not start semgrep",
+  (staged) => {
+    expect(semgrepStarts(staged)).toBe(false);
+  },
+);
+
+test.each(includedNames.flatMap((name) => [`deploy/${name}`, `${name}/notes.md`]))(
+  "with only the machine-global rules, staging %s still reaches semgrep",
+  (staged) => {
+    expect(semgrepStarts(staged)).toBe(true);
+  },
+);
+
+test("a repository with its own semgrep rules sends every staged file to semgrep", () => {
+  expect(semgrepStarts("docs/notes.md", true)).toBe(true);
 });
 
 // checks/pre-commit-oxlint in a repo whose HEAD holds `committed`, then `staged` is staged.
