@@ -473,9 +473,9 @@ Each vendored skill has `.openskills.json` (`repoUrl`, `subpath`, synced
 upstream. A GitHub gist is a git repository too: `japanese-tech-writing`
 tracks `https://gist.github.com/<id>.git` with `subpath: "."`. `humanizer`
 also uses `subpath: "."` (its `SKILL.md` sits at the repo root next to
-`README.md`/`LICENSE`/CI scaffolding), so its `local.patch` is
-deletion-only: it drops everything but `SKILL.md` on every sync instead of
-editing content.
+`README.md`/`LICENSE`/CI scaffolding), so its `local.patch` drops
+everything but `SKILL.md` on every sync; its only content edit is one
+description line pointing Japanese prose to `natural-japanese`.
 
 When a globally installed skill moves into `agents/skills/`, drop it from
 `global_skills`; `scripts/link` then deletes the installer's leftover
@@ -535,7 +535,8 @@ Global skills that were removed on purpose (Cloudflare vendor packs,
 Claude Code caps its skill listing at `contextWindow × 4 × 0.01` characters
 (8k) and drops whole descriptions past that cap, priority order; this machine
 lists 53 skills (~17k chars, 9 of them name-only at 16k), so
-`claude/settings.json` raises `skillListingBudgetFraction` to `0.03`.
+`claude/settings.json` raises `skillListingBudgetFraction` to `0.03125`
+(1/32: exact in binary, so every JSON writer prints the same text).
 
 ### Runtime guard hooks
 

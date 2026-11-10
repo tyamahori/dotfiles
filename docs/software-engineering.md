@@ -22,7 +22,7 @@
 | セキュリティ（実装前に守る条件を答える、拒否されるべきケースを許可されるケースと並べてテストする、独立レビュー、実行サンドボックスの条件、未検証を安全と言わない） | `software-design` の「Security gate」節、`test-design` の振る舞い一覧の冒頭にある triage、レビューは `security-audit` の guidance mode（フル監査は依頼されたときだけ） | 認証・認可、秘密情報、信頼できない入力、ファイルやコマンドの実行、外部への通信、CI やデプロイの権限に触れる変更の前 |
 | 依頼の枠組み（背景・課題・ゴール・スコープ・成果物、実行すれば分かる問いは聞かずに試す） | `task-briefing`、前提を問い直すなら `grill-me`（docs 付きなら用語集と ADR も書く） | 着手前、依頼が曖昧なとき |
 | 複雑タスクの工程（調査 → 計画 → 独立レビュー → 証拠つき納品） | `sureforge` | 複数ファイル・複数段階の実装 |
-| バグ診断（仮説と再現、根本原因の証拠、同じ前提の修正が二度失敗したら前提を検証する）と指標の改善（一変更ずつ計測して残すか戻す Hillclimb、測った数値を報告前に検める） | `diagnosing-bugs`（vendoring して節を追加）、共有指示の「Root-cause claims need reproduction」 | 障害・不具合・性能劣化、数値を目標まで改善するとき、測った数値を報告するとき |
+| バグ診断（仮説と再現、根本原因の証拠、同じ前提の修正が二度失敗したら前提を検証する）と指標の改善（一変更ずつ計測して残すか戻す Hillclimb、測った数値を報告前に検める） | `diagnosing-bugs`（vendoring して節を追加）、共有指示の「Diagnosis and failures」 | 障害・不具合・性能劣化、数値を目標まで改善するとき、測った数値を報告するとき |
 | アプリ固有の検証手順（起動・Doctor・操作・証拠・後片付けと機能の地図を、対象リポジトリの project-local skill として生成・保守する） | `create-verification-skill`、汎用のブラウザ経路は `browser-verify` | 振る舞いを証明する手順がスクリプト化されていないアプリ |
 | 判断の記録（判断ごとの TSV、transcript との突き合わせ、別モデル系統の Attention 節） | `show-me-your-work` | 長時間・放置前提・全面委任の作業 |
 | レビュー（変更種別ごとの必須質問、fresh context での反証、読み手の理解と着手できるかの観点、指摘への作者側の仕分け、差分の外への波及範囲、Copilot 事前確認、過剰設計の摘出、ローカル差分の証拠つきレビュー） | `github-pr-review`、`evidence-code-review`、`adversarial-verification`、`copilot-preflight`、`ponytail-review` / `ponytail-audit`、OMP の `reviewer` / `security-reviewer` | PR の前後 |

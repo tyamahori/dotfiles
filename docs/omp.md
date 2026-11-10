@@ -663,9 +663,9 @@ omp read skill://omp-learning-loop
 readlink ~/.agents/skills/omp-learning-loop
 ```
 
-### `/context` などの plugin command がない
+### `/plannotator-annotate` などの plugin command がない
 
-plugin の導入状態を確認し、宣言済み plugin と patch を再適用します。
+plugin の導入状態を確認し、宣言済み plugin を再適用します。
 
 ```bash
 omp plugin list

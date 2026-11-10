@@ -53,7 +53,7 @@ snapshot に会話本文や認証情報を混ぜない。
   `cache_creation_input_tokens` はコンテキスト書き直し量であり、churn の代理指標となる。
 - Codex: `~/.codex/sessions/YYYY/MM/DD/*.jsonl` の `token_count` イベントにある `last_token_usage`。
   `total_token_usage` はセッション内累積値なので、合計すると過大計上になる。
-- OMP: `~/.omp/stats.db` の正規化済み message / tool call と、session event、設定、plugin、patch。
+- OMP: `~/.omp/stats.db` の正規化済み message / tool call と、session event、設定、plugin。
   fresh input、cache read/write、価格表換算、ターン別 context、tool result size を分けて扱う。
   OMP 固有の数値がない項目は、実動経路と設定の照合で評価する。
 - 外部記憶: OMP の namespace、Claude Code の project memory、Codex の memory file / DB。

@@ -96,10 +96,10 @@ Git rootを検出して、次の処理を順に行う。
 4. 未作成のprojectをlocal Serverへ登録する。
 5. `sonar-scanner`を実行し、Quality Gateの判定を最大300秒待つ。
 
-成功時はScanner logに次の行が出る。
+成功時は次の1行だけを出力する。Scanner logは失敗したときにだけ表示する。
 
 ```text
-QUALITY GATE STATUS: PASSED
+sonar-quality-gate: passed (<project key>)
 ```
 
 Claude Code、Codex、OMPは、rootに`sonar-project.properties`があるリポジトリで、通常の検証後にこのcommandを一度実行する。
@@ -235,7 +235,7 @@ Docker volumesとKeychainのどちらか一方だけを削除すると、Server�
 
 warningだけでは失敗ではない。
 未commit fileのblame情報不足やScanner内部のJava warningは、Quality Gateの成否とは別である。
-最後の`QUALITY GATE STATUS`とcommandのexit statusで結果を判断する。
+commandのexit statusと、失敗時に表示されるScanner logの`QUALITY GATE STATUS`で結果を判断する。
 
 ## commandの役割を区別する
 

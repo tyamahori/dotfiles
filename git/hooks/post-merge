@@ -1,6 +1,6 @@
 #!/bin/bash
-# After `git pull` in dotfiles, run the follow-up steps AGENTS.md lists instead
-# of relying on the agent or human to remember them: relink when agents/ or
+# After `git pull` in dotfiles, run the follow-up steps here instead of
+# relying on the agent or human to remember them: relink when agents/ or
 # omp/ changed, rerun agent-tools when it changed, and say when running OMP
 # sessions need a restart. Never blocks: post-merge cannot undo the merge.
 set -uo pipefail

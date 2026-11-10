@@ -20,7 +20,7 @@
 | 高頻度・全 repository 共通の短い行動規範 | `agents/global-instructions.md` |
 | trigger が明確な手順、例外、詳細な判断基準 | 既存 skill |
 | どの skill にも属さない低頻度の作業手順 | `agents/references/task-procedures.md`。読む条件は `agents/global-instructions.md` に置く |
-| 機械的な強制（deny 等） | `claude/hooks/`、settings.json の PreToolUse |
+| 機械的な強制（deny 等） | `agents/command-rules.json`、settings.json の PreToolUse |
 | モデルルーティング、OMP 挙動 | `omp/config.yml`、`omp/APPEND_SYSTEM.md`、extensions |
 | plugin の版、導入経路 | `./scripts/omp-plugins` |
 | プロジェクト固有の原因 | 当該リポジトリの AGENTS.md、CLAUDE.md、`.claude/skills/`、`.claude/settings.json` |
@@ -38,7 +38,7 @@ plugin を更新する提案は、固定版で動作を確認できる場合だ�
 
 提案を項目ごとに提示し、各項目の承認を取ってから適用する。
 
-規範ファイル、config、plugin、patch を無承認で書き換えない。
+規範ファイル、config、plugin を無承認で書き換えない。
 
 却下された案と保留された案も journal に一行残し、根拠が変わらない限り次サイクルで再提案しない。
 
@@ -62,7 +62,7 @@ CLAUDE.md などに計測由来の規範を追加する場合は、計測値と�
 
 設定変更なら実際に OMP を新規起動して読み込まれた設定と対象経路を確認する。
 
-plugin または patch の変更なら、固定版と patch の整合を確認したうえで、新しい session で対象機能を動かす。
+plugin の変更なら、新しい session で対象機能を動かす。
 
 モデル routing、subagent、prewalk、tool error、handoff の変更なら、対象の起動経路を実行して意図した分岐、委譲、復旧、引き継ぎが起きることを観測する。
 
