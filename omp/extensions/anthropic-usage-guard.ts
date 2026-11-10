@@ -100,14 +100,14 @@ function latestUsageRows(): UsageRow[] {
 					        CAST(u.used_fraction * 100 + 0.5 AS INTEGER) AS pct,
 					        u.resets_at AS resetsAt
 					 FROM usage_history u
+					 -- 枠ごとの最新時刻は1回の走査で求める。行ごとの相関サブクエリは lower() で
+					 -- 索引が効かず、履歴の行数に比例して遅くなる（1.2万行で約0.3秒）。
+					 JOIN (SELECT lower(provider) AS p, coalesce(account_key, '') AS a,
+					              lower(limit_id) AS l, MAX(recorded_at) AS r
+					       FROM usage_history GROUP BY p, a, l) m
+					   ON lower(u.provider) = m.p AND coalesce(u.account_key, '') = m.a
+					  AND lower(u.limit_id) = m.l AND u.recorded_at = m.r
 					 WHERE (u.resets_at IS NULL OR u.resets_at > ?1)
-					   AND u.recorded_at = (
-					     SELECT MAX(x.recorded_at)
-					     FROM usage_history x
-					     WHERE lower(x.provider) = lower(u.provider)
-					       AND coalesce(x.account_key, '') = coalesce(u.account_key, '')
-					       AND lower(x.limit_id) = lower(u.limit_id)
-					   )
 					 ORDER BY u.limit_id`,
         )
         .all(Date.now()) as UsageRow[];

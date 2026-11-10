@@ -176,14 +176,14 @@ _agent_usage_refresh() {
              CAST((strftime('%s','now')*1000 - MAX(u.recorded_at))/60000 AS INTEGER),
              COALESCE(CAST((MAX(u.resets_at) - strftime('%s','now')*1000)/60000 AS INTEGER), -1)
       FROM usage_history u
+      -- 枠ごとの最新時刻は1回の走査で求める。行ごとの相関サブクエリは lower() で
+      -- 索引が効かず、履歴の行数に比例して遅くなる（1.2万行で約0.3秒）。
+      JOIN (SELECT lower(provider) AS p, account_key AS a, lower(limit_id) AS l,
+                   MAX(recorded_at) AS r
+            FROM usage_history GROUP BY p, a, l) m
+        ON lower(u.provider)=m.p AND u.account_key=m.a
+       AND lower(u.limit_id)=m.l AND u.recorded_at=m.r
       WHERE (u.resets_at IS NULL OR u.resets_at > strftime('%s','now')*1000)
-        AND u.recorded_at = (
-          SELECT MAX(x.recorded_at)
-          FROM usage_history x
-          WHERE lower(x.provider)=lower(u.provider)
-            AND x.account_key=u.account_key
-            AND lower(x.limit_id)=lower(u.limit_id)
-        )
         AND lower(u.limit_id) IN
             ('anthropic:7d:fable','anthropic:7d','anthropic:5h','openai-codex:primary')
       GROUP BY acct, key

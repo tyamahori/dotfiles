@@ -139,6 +139,22 @@ test("shows one widget line per logged-in Claude organisation, then Codex", asyn
   expect(lines).toEqual(["Claude personal A:10%(60m)", "Claude team A:60%(60m)", "Codex 3%(60m)"]);
 });
 
+test("shows each pool's newest usage sample, not an older higher one", async () => {
+  const guard = usageHarness(
+    () => ({ provider: "anthropic", id: "claude-opus-5-5" }),
+    () => undefined,
+  );
+  blockNetwork();
+
+  seedUsage([
+    { provider: "anthropic", account: "oauth|account:a|org:org-p", limitId: "anthropic:7d", pct: 90 },
+    { provider: "anthropic", account: "oauth|account:a|org:org-p", limitId: "anthropic:7d", pct: 10 },
+  ]);
+  await guard.sessionStart();
+  const lines = (guard.widgets.at(-1) ?? []).map(stripVTControlCharacters);
+  expect(lines).toEqual(["Claude personal A:10%(60m)"]);
+});
+
 test("warns about the Codex weekly pool once each time it crosses the reserve line", async () => {
   blockNetwork();
   const guard = usageHarness(
