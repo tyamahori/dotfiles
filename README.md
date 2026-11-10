@@ -740,7 +740,7 @@ current or as an update to restart for.
 | Command | What it does |
 | --- | --- |
 | `tool-restart`, `--status`, `--json` | Reports installed and running versions, pending and unknown processes, each affected session, and why it would be deferred. The JSON carries no conversation references or argv. |
-| `--notify` | Sends one `terminal-notifier` alert per stale state and stops nothing. `launchd/com.tyamahori.tool-restart.plist` runs it at load and every 5 minutes. |
+| `--notify` | Sends one `terminal-notifier` alert per stale state and stops nothing. `launchd/com.tyamahori.tool-restart.plist` runs it at load and every 30 minutes. |
 | `--cleanup-check` | Exits nonzero while an old or unidentifiable executable could still be using a Homebrew keg. `scripts/brewUpdate` skips `brew cleanup` then; rerun it after restarting. |
 | `--apply` | Shows the plan, asks for `yes` once, and restarts what is ready. There is no unattended form. |
 | `--apply --session <name>` | The same for one local session; other sessions and the GUI are left alone even when stale. |
