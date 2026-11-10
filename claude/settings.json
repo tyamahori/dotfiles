@@ -1,6 +1,6 @@
 {
   "cleanupPeriodDays": 365,
-  "effortLevel": "xhigh",
+  "effortLevel": "high",
   "enabledPlugins": {
     "claude-md-management@claude-plugins-official": true,
     "phpstorm-plugin@phpstorm-marketplace": true,
@@ -305,13 +305,13 @@
   "model": "claude-opus-5-5",
   "modelSettings": {
     "claude-haiku-5-5": {
-      "effortLevel": "xhigh"
+      "effortLevel": "medium"
     },
     "claude-opus-5-5": {
-      "effortLevel": "xhigh"
+      "effortLevel": "high"
     },
     "claude-sonnet-5-5": {
-      "effortLevel": "xhigh"
+      "effortLevel": "medium"
     }
   },
   "permissions": {
