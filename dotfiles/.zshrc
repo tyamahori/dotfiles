@@ -262,9 +262,9 @@ export PATH="$PATH:${HOME}/.jbcontext/bin"
 # cd 自体を zoxide にする（通常のパスは従来どおり、それ以外は訪問履歴から飛ぶ）。
 (( $+commands[zoxide] )) && eval "$(zoxide init zsh --cmd cd)"
 
-# precmd/chpwd フックは環境変数と違い子シェルへ継承されないので、
-# 非 login の対話シェル向けにここでも張る（.zprofile は `zsh -lc 'cd x && …'` 用。
-# direnv の hook は登録済みなら足さない）。
+# precmd/chpwd フックは環境変数と違い子シェルへ継承されないので、対話シェルごとに
+# ここで張る。.zprofile には置かない: direnv 2.38 の hook は非対話シェルでは何もせず
+# （`zsh -lc 'cd x && …'` で .envrc は読まれない）、login 対話シェルで二重起動になる。
 (( $+commands[direnv] )) && eval "$(direnv hook zsh)"
 
 # reload 時に ZLE widget のラッパーを重ねず、終了状態の取得を使用率更新より先に行う。

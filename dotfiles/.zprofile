@@ -7,17 +7,22 @@
 
 
 [ -x /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
+# devbox global shellenv は 1 回 ~140ms かかるので、親から環境を継いだ login shell
+# （DEVBOX_PACKAGES_DIR あり）では省く。.zshrc と同じ条件。パッケージ追加で増えた
+# 環境変数を継いだシェルへ反映するには refresh-global か新しいターミナルを使う。
+# refresh-global は shellenv が定義する alias なので、省いたシェルにはここで用意する。
 if [[ -z "$CODEX_SHELL" && -z "$CODEX_SANDBOX" ]]; then
-  command -v devbox >/dev/null 2>&1 && eval "$(devbox global shellenv)"
+  if [[ -z "$DEVBOX_PACKAGES_DIR" ]]; then
+    command -v devbox >/dev/null 2>&1 && eval "$(devbox global shellenv)"
+  else
+    alias refresh-global='eval "$(devbox global shellenv)" && hash -r'
+  fi
 fi
-command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"
 
 
 typeset -U path PATH
 path=(
         $HOME/.npm-global/bin
-        $HOME/.composer/vendor/bin
-        $HOME/.go-tools/bin
         $HOME/go/bin
         $HOME/.local/bin
         $HOME/.orbstack/bin
