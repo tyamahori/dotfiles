@@ -440,7 +440,9 @@ HTML are reviewed with Plannotator before sharing when that extra pass matters.
 For stakeholder handoff, the preferred presentation layer is a Claude artifact;
 the repository-owned source of truth stays the diagram JSON IR or Markdown. The
 daily workflow, host wiring, verification commands, and anti-"AIっぽさ" rules
-are in [`docs/diagram-workflow.md`](docs/diagram-workflow.md).
+are in [`docs/diagram-workflow.md`](docs/diagram-workflow.md). Which design
+skill handles new screens, existing app screens (`unslop`), and reading
+documents is in [`docs/design-skills.md`](docs/design-skills.md).
 
 ### Japanese prose review
 

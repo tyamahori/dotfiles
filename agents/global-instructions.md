@@ -106,13 +106,18 @@ the criteria.
 - Any browser action: `browser-verify`.
 - Dockerized projects, container-only failures, or a `*.local` domain that
   stops resolving: `orbstack-dev`.
-- Diagrams: `archify` (typed JSON IR is the source, HTML is generated).
-  Hand-written HTML: `frontend-design`, plus `ja-html-typography` for
-  Japanese. Reading documents use plain HTML + CSS without a component
-  library (measured); interactive pages use React + shadcn/ui; both share
-  role-named CSS custom properties. Audit with `nondesigner-design` before
-  finishing or on layout complaints. Don't restyle `visual-html-renderer`
-  output or archify diagrams.
+- Diagrams and UI design: `archify` for diagrams (typed JSON IR is the
+  source, HTML is generated).
+  New screens and hand-written HTML: `frontend-design`. Polishing an
+  existing app screen, dashboard, or landing page that looks AI-made:
+  `unslop`, without its bundled scripts. Reading documents (Artifacts,
+  reports, slides): audit with `nondesigner-design` before finishing or on
+  layout complaints; never `unslop`. Japanese adds `ja-html-typography`,
+  which wins on Japanese text. Reading documents use plain HTML + CSS
+  without a component library (measured); interactive pages use React +
+  shadcn/ui; both share role-named CSS custom properties. Don't restyle
+  `visual-html-renderer` output or archify diagrams. Full routing and
+  conflicts: `$HOME/dotfiles/docs/design-skills.md`.
 - PR review in Japanese: `github-pr-review`; comments on your own PR:
   `github-pr-respond`.
 - Long, unattended, or fully handed-over work the user reviews later:

@@ -526,14 +526,14 @@ jq -s 'group_by(.outcome) | map({
 
 authored skill 以外のサードパーティ skill は原則として dotfiles 管理外です。
 例外は、機械共通のワークフローとして global に維持する skill です。宣言の正本は `scripts/agent-tools` の `global_skills` 配列で、新しいマシンでは `scripts/agent-tools` が未導入のものを入れます。
-現在の対象は **archify**、**frontend-design** と **mcp-builder**（anthropics/skills）、**prototype**（emilkowalski/skills）、**sureforge**（Da7-Tech/SureForge）、**evidence-code-review**（akkie76/code-review-skills）、**typesafe-ai**（typesafe-ai/skills）、**find-skills**（vercel-labs/skills）、**imozuru**（MaryCache/imozuru）、**security-audit**（cloudflare/security-audit-skill）、**portless** と **oauth**（vercel-labs/portless。CLI 本体は Brewfile）と、Strix のセキュリティ検査 skill 9 本（usestrix/strix）です。マーケティング skill 一式（coreyhaines31/marketingskills）は個別に宣言せず、`scripts/agent-tools` がまとめて入れます。**plannotator の core skills** は Plannotator のインストーラーが入れます。
+現在の対象は **archify**、**frontend-design** と **mcp-builder**（anthropics/skills）、**unslop**（heydamir/unslop）、**prototype**（emilkowalski/skills）、**sureforge**（Da7-Tech/SureForge）、**evidence-code-review**（akkie76/code-review-skills）、**typesafe-ai**（typesafe-ai/skills）、**find-skills**（vercel-labs/skills）、**imozuru**（MaryCache/imozuru）、**security-audit**（cloudflare/security-audit-skill）、**portless** と **oauth**（vercel-labs/portless。CLI 本体は Brewfile）と、Strix のセキュリティ検査 skill 9 本（usestrix/strix）です。マーケティング skill 一式（coreyhaines31/marketingskills）は個別に宣言せず、`scripts/agent-tools` がまとめて入れます。**plannotator の core skills** は Plannotator のインストーラーが入れます。
 **diagnosing-bugs**（mattpocock/skills）は pstack 由来の Hillclimb と「前提を疑う」節を足したため、`agents/skills/` に vendoring し、差分を `local.patch` に置いています（README「Vendored third-party skills」）。
 更新はまとめて `npx -y skills@latest update -g` で行います。`@latest` を外すと、PATH 上の同名の別コマンドが実行されることがあります。
 sureforge は「Use SureForge for this task」（高リスクなら「in full mode」）と指示したときだけ使います。
 evidence-code-review の PR への投稿は `github-pr-review` が担い、ラベルは同スキルの読み替えに従います。
 typesafe-ai は Claude Code plugin ではなくこの global skill として一本化し、Claude Code・Codex・OMP の三つから同じコピーを使います。
 それ以外のサードパーティ skill は、対象プロジェクトのルートで `npx -y skills@latest add <owner/repo>` を実行し、project scope に必要な skill だけ導入します。
-図表まわりの使い分けと更新手順は `docs/diagram-workflow.md` を参照してください。
+図表まわりの使い分けと更新手順は `docs/diagram-workflow.md`、画面と資料のデザイン系 skill の使い分けは `docs/design-skills.md` を参照してください。
 
 永続的な共通設定は、このリポジトリの正本を編集します。
 `~/.omp/agent/` は配置先です。

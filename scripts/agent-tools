@@ -42,9 +42,12 @@ fi
 #   its full six-phase audit only on an explicit request.
 # - portless, oauth: the upstream `npx skills add vercel-labs/portless` set for
 #   the portless CLI (installed from ~/.Brewfile).
+# - unslop: polishes existing app screens and landing pages that look
+#   AI-made (docs/design-skills.md). Its bundled scripts are not used.
 global_skills=(
 	"archify tt-a1i/archify"
 	"frontend-design anthropics/skills"
+	"unslop heydamir/unslop"
 	"mcp-builder anthropics/skills"
 	"prototype emilkowalski/skills --agent claude-code codex"
 	"sureforge Da7-Tech/SureForge"

@@ -70,7 +70,7 @@ gh auth login
 - Codex：`codex` を起動してログインし、`/hooks` を開いてリンク済みフック定義と ponytail / plannotator のライフサイクルフックを trust する（README の「Japanese prose review」節、`docs/ponytail.md`、`docs/diagram-workflow.md`）。
 - OMP：`omp` を起動して各プロバイダにログインする。資格情報は `~/.omp/agent/agent.db` に入る（機械ローカル）。
 
-ponytail は 6節までのスクリプトで自動導入される（OMP は `scripts/omp-plugins`、Codex は `scripts/agent-tools`、Claude Code は `claude/settings.json` の宣言）。図表/レビュー系では、plannotator も `scripts/agent-tools` でバイナリと共通 skills、Claude Code は `claude/settings.json` で plugin、OMP は `scripts/omp-plugins` で pi-extension を再現する。archify は `scripts/agent-tools` が global skill として補完する。Codex の hook trust だけ手動。詳細は `docs/ponytail.md` と `docs/diagram-workflow.md`。
+ponytail は 6節までのスクリプトで自動導入される（OMP は `scripts/omp-plugins`、Codex は `scripts/agent-tools`、Claude Code は `claude/settings.json` の宣言）。図表/レビュー系では、plannotator も `scripts/agent-tools` でバイナリと共通 skills、Claude Code は `claude/settings.json` で plugin、OMP は `scripts/omp-plugins` で pi-extension を再現する。archify と frontend-design・unslop などのデザイン系 skill は `scripts/agent-tools` が global skill として補完する。Codex の hook trust だけ手動。詳細は `docs/ponytail.md`、`docs/diagram-workflow.md`、`docs/design-skills.md`。
 
 Playwright CLI/MCP の導入、再起動後の検出、ブラウザ操作の使い分けは README の
 「Playwright CLI and MCP」節に従う。ここでは個別の導入手順を重複して管理しない。
@@ -165,7 +165,7 @@ sleepwatcher本体はBrewfileで入るが、サービスの起動は手動：`br
 | brew bundle | `brew bundle check --file dotfiles/.Brewfile` | 依存が満たされている |
 | リンク | `ls -l ~/dotfiles ~/.claude/CLAUDE.md` | 本リポジトリを指すsymlink |
 | SSH | `ssh -T git@github.com` | 1Password承認の後に認証成功 |
-| skills | `ls ~/.claude/skills` | authored skillsのsymlinkと `archify` / `plannotator-*` が見える |
+| skills | `ls ~/.claude/skills` | authored skillsのsymlinkと `archify` / `frontend-design` / `unslop` / `plannotator-*` が見える |
 | Claudeプロファイル | `ls -l ~/.claude-team ~/.claude-personal` | `settings.json`・`CLAUDE.md` が本リポジトリを、`settings.local.json`・`agents`・`commands`・`skills` が `~/.claude` の同名を指す（`claude-team` / `claude-personal` aliasの `CLAUDE_CONFIG_DIR`。ログイン・履歴・pluginはプロファイルごと） |
 | plannotator | `plannotator --version` | バージョンが表示される |
 | archify | `node ~/.agents/skills/archify/bin/archify.mjs doctor` | `Archify is ready.` |
