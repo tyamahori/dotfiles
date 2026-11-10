@@ -1,34 +1,10 @@
 #!/bin/bash
 
-# Homebrew upgrades replace omp's Cellar path while existing sessions keep
+# Homebrew upgrades replace a tool's Cellar path while existing sessions keep
 # spawning through the old absolute path (measured 2026-08-27: two hub starts
-# failed after 18.0.3 was removed). Keep automatic cleanup disabled during the
-# upgrade, then clean only when no process still uses an old omp keg.
-stale_omp_executable() {
-	local current_omp=$1
-	local command executable processes mapped
-
-	if ! processes=$(ps -Ao command=); then
-		return 2
-	fi
-	# A session started through PATH shows argv[0] as plain `omp`, so also read
-	# the executable each omp process maps (lsof prints nothing when none run).
-	mapped=$(lsof -nP -c omp -a -d txt -Fn 2>/dev/null | sed -n 's/^n//p')
-	while IFS= read -r command; do
-		command=${command#"${command%%[![:space:]]*}"}
-		executable=${command%%[[:space:]]*}
-		case "$executable" in
-		*/Cellar/omp/*/bin/omp)
-			if [ "$executable" != "$current_omp" ]; then
-				printf '%s\n' "$executable"
-				return 0
-			fi
-			;;
-		esac
-	done <<<"$processes
-$mapped"
-	return 1
-}
+# failed after omp 18.0.3 was removed). Keep automatic cleanup disabled during
+# the upgrade, then clean only when tool-restart finds no running process on
+# an old keg.
 
 # Later steps still run after a failed update (a partial upgrade still needs
 # its release review), but the first failure's status becomes the exit status.
@@ -40,32 +16,13 @@ if [ "$(uname)" = Darwin ]; then
 	if HOMEBREW_NO_INSTALL_CLEANUP=1 brew update &&
 		HOMEBREW_NO_INSTALL_CLEANUP=1 brew upgrade &&
 		HOMEBREW_NO_INSTALL_CLEANUP=1 brew upgrade --cask --greedy; then
-		current_omp=
-		if command -v omp >/dev/null 2>&1; then
-			current_omp=$(realpath "$(command -v omp)")
+		# Nonzero also covers "could not inspect": cleanup is the part that can wait.
+		if "$(dirname "$0")/tool-restart" --cleanup-check; then
+			brew cleanup
+		else
+			echo "brewUpdate: skipping brew cleanup; old or unknown tool executables may still be running" >&2
+			echo "brewUpdate: restart them (tool-restart --apply), then run scripts/brewUpdate again" >&2
 		fi
-
-		stale_omp=
-		stale_status=0
-		stale_omp=$(stale_omp_executable "$current_omp") || stale_status=$?
-		case "$stale_status" in
-		0)
-			echo "brewUpdate: skipping brew cleanup; a running OMP session still uses $stale_omp" >&2
-			echo "brewUpdate: close old OMP sessions, then run scripts/brewUpdate again" >&2
-			;;
-		2)
-			echo "brewUpdate: skipping brew cleanup; running OMP processes could not be inspected" >&2
-			;;
-		*)
-			# The other tools' old kegs stay mapped by running sessions the same way.
-			# Nonzero also covers "could not inspect": cleanup is the part that can wait.
-			if "$(dirname "$0")/tool-restart" --cleanup-check; then
-				brew cleanup
-			else
-				echo "brewUpdate: skipping brew cleanup; old or unknown tool executables may still be running" >&2
-			fi
-			;;
-		esac
 	else
 		status=$?
 		echo "brewUpdate: brew update/upgrade failed (exit $status); skipped brew cleanup" >&2
@@ -82,6 +39,18 @@ else
 			echo "brewUpdate: omp update failed (exit $status)" >&2
 		}
 	fi
+fi
+
+# Hook state no session reads again: prose-review baselines of sessions that
+# ended without a stop (scripts/japanese-prose-hook-*) and fail-fast counters
+# (scripts/fail-fast-hook). Nothing else removes them, and leftovers keep the
+# stop hook's "nothing recorded" exit from firing.
+hook_cache=${XDG_CACHE_HOME:-$HOME/.cache}
+if [ -d "$hook_cache/agent-japanese-prose" ]; then
+	find "$hook_cache/agent-japanese-prose" -mindepth 2 -maxdepth 2 -type d -mtime +7 -exec rm -rf {} +
+fi
+if [ -d "$hook_cache/agent-fail-fast" ]; then
+	find "$hook_cache/agent-fail-fast" -maxdepth 1 -type f -name '*.count' -mtime +7 -delete
 fi
 
 # herdr upgrades ship a new bundled agent skill; keep the local copy in sync

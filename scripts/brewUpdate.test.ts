@@ -1,47 +1,23 @@
 import { afterAll, expect, test } from "bun:test";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const dir = mkdtempSync(join(tmpdir(), "brew-update-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-// Only the function: running the whole script would upgrade Homebrew.
-const source = readFileSync(resolve(import.meta.dir, "brewUpdate"), "utf8");
-const fn = /^stale_omp_executable\(\) \{\n[\s\S]*?^\}\n/m.exec(source)![0];
-
-function stale(ps: string, lsof: string) {
-  for (const [name, out] of [
-    ["ps", ps],
-    ["lsof", lsof],
-  ]) {
-    writeFileSync(join(dir, name), `#!/bin/sh\nprintf '%s' '${out}'\n`, { mode: 0o755 });
-  }
-  const r = Bun.spawnSync(["/bin/bash", "-c", `${fn}stale_omp_executable /c/Cellar/omp/2/bin/omp`], {
-    env: { PATH: `${dir}:/usr/bin:/bin` },
-  });
-  return { status: r.exitCode, out: r.stdout.toString().trim() };
-}
-
-test("a session launched as plain `omp` on an old keg blocks brew cleanup", () => {
-  expect(stale("omp --allow-home\n", "p42\nn/c/Cellar/omp/1/bin/omp\n")).toEqual({
-    status: 0,
-    out: "/c/Cellar/omp/1/bin/omp",
-  });
-  expect(stale("omp --allow-home\n", "p42\nn/c/Cellar/omp/2/bin/omp\n").status).toBe(1);
-  expect(stale("/c/Cellar/omp/1/bin/omp worker\n", "").status).toBe(0);
-});
-
 // The whole script against stubs: a copy beside stub siblings, and stub
-// brew/uname/ps/lsof/omp. FAIL names the one step that exits 3.
-test.each([
-  ["Darwin", "none", 0, true],
-  ["Darwin", "upgrade", 3, false],
-  ["Darwin", "python", 3, true],
-  ["Darwin", "bun", 3, true],
-  ["Darwin", "tool-restart", 0, false],
-  ["Linux", "omp", 3, false],
-])("on %s, a failing %s step sets exit %i (brew cleanup ran: %p)", (os, fail, status, cleaned) => {
+// brew/uname/omp. FAIL names the one step that exits 3.
+function sandbox() {
   const home = mkdtempSync(join(dir, "home-"));
   const scripts = join(home, "scripts");
   const bin = join(home, ".local/bin");
@@ -57,14 +33,57 @@ test.each([
   stub(join(home, ".bun/bin/bun"), '[ "$FAIL" = bun ] && exit 3; exit 0');
   stub(join(bin, "brew"), 'echo "$*" >>"$HOME/brew.log"; [ "$FAIL" = "$1" ] && exit 3; exit 0');
   stub(join(bin, "uname"), 'echo "$OS"');
-  for (const name of ["ps", "lsof"]) stub(join(bin, name), "exit 0");
+  const run = (os: string, fail: string) =>
+    Bun.spawnSync(["/bin/bash", join(scripts, "brewUpdate")], {
+      env: { HOME: home, PATH: `${bin}:/usr/bin:/bin`, OS: os, FAIL: fail },
+      timeout: 10_000,
+    });
+  return { home, run };
+}
 
-  const result = Bun.spawnSync(["/bin/bash", join(scripts, "brewUpdate")], {
-    env: { HOME: home, PATH: `${bin}:/usr/bin:/bin`, OS: os, FAIL: fail },
-    timeout: 10_000,
-  });
+test.each([
+  ["Darwin", "none", 0, true],
+  ["Darwin", "upgrade", 3, false],
+  ["Darwin", "python", 3, true],
+  ["Darwin", "bun", 3, true],
+  // tool-restart --cleanup-check reports a process still on an old keg.
+  ["Darwin", "tool-restart", 0, false],
+  ["Linux", "omp", 3, false],
+])("on %s, a failing %s step sets exit %i (brew cleanup ran: %p)", (os, fail, status, cleaned) => {
+  const { home, run } = sandbox();
+  const result = run(os, fail);
   expect(result.exitCode).toBe(status);
   const log = existsSync(join(home, "brew.log")) ? readFileSync(join(home, "brew.log"), "utf8") : "";
   expect(log.includes("cleanup")).toBe(cleaned);
   if (fail === "upgrade" || fail === "omp") expect(result.stderr.toString()).toContain("brewUpdate: ");
+});
+
+test("hook state older than a week is removed and newer state is kept", () => {
+  const { home, run } = sandbox();
+  const cache = join(home, ".cache");
+  const monthAgo = new Date(Date.now() - 30 * 86_400_000);
+  // Children first: adding one would bring a directory's own mtime back to now.
+  const entry = (path: string, old: boolean) => {
+    if (path.endsWith(".count")) {
+      mkdirSync(join(cache, "agent-fail-fast"), { recursive: true });
+      writeFileSync(join(cache, path), "1");
+    } else {
+      mkdirSync(join(cache, path, "files"), { recursive: true });
+    }
+    if (old) utimesSync(join(cache, path), monthAgo, monthAgo);
+  };
+  entry("agent-japanese-prose/omp/old-session", true);
+  entry("agent-japanese-prose/omp/new-session", false);
+  entry("agent-fail-fast/old.count", true);
+  entry("agent-fail-fast/new.count", false);
+
+  expect(run("Darwin", "none").exitCode).toBe(0);
+
+  const left = (path: string) => existsSync(join(cache, path));
+  expect({
+    oldSession: left("agent-japanese-prose/omp/old-session"),
+    newSession: left("agent-japanese-prose/omp/new-session"),
+    oldCount: left("agent-fail-fast/old.count"),
+    newCount: left("agent-fail-fast/new.count"),
+  }).toEqual({ oldSession: false, newSession: true, oldCount: false, newCount: true });
 });

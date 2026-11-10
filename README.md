@@ -1055,8 +1055,11 @@ rerun the command. Open a new shell or agent session to load updated settings.
 This command does not schedule updates or upgrade Homebrew/Devbox packages.
 
 The interactive `brewup` alias invokes `scripts/brewUpdate`. It defers
-`brew cleanup` when a running OMP session still uses an old Cellar executable.
-Close those OMP sessions and rerun the script to finish cleanup.
+`brew cleanup` while `tool-restart --cleanup-check` finds a running tool on
+an old or unidentifiable executable. Restart those sessions
+(`tool-restart --apply`) and rerun the script to finish cleanup. It also
+removes agent hook state older than a week from `~/.cache`
+(`agent-japanese-prose`, `agent-fail-fast`).
 If `brew update`/`brew upgrade` (or `omp update` on Linux) fails, the script
 still runs the remaining steps, then exits with the first failure's status.
 
