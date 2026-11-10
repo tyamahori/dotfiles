@@ -43,6 +43,11 @@ case "$file" in
   *.zsh) exit 0 ;;
   *)
     shebang=$(head -1 "$file")
+    # Most files that reach this branch (.md, .toml, .txt) have no shebang.
+    case "$shebang" in
+      '#!'*) ;;
+      *) exit 0 ;;
+    esac
     if printf '%s' "$shebang" | grep -Eq '^#!.*\b(ba)?sh\b'; then
       linter=shellcheck
     elif printf '%s' "$shebang" | grep -Eq '^#!.*\bpython'; then

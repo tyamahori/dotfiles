@@ -4,28 +4,35 @@
 set -euo pipefail
 
 payload=$(cat)
+# The extension gate comes first: this runs before and after every edit, most
+# edits are not prose, and each field read below is a jq process.
+file=$(jq -r '.tool_input.file_path // empty' <<<"$payload")
+case "$file" in
+  *.md|*.markdown|*.txt) ;;
+  *) exit 0 ;;
+esac
 event=$(jq -r '.hook_event_name // empty' <<<"$payload")
 session_id=$(jq -r '.session_id // empty' <<<"$payload")
-file=$(jq -r '.tool_input.file_path // empty' <<<"$payload")
 cwd=$(jq -r '.cwd // "."' <<<"$payload")
 runtime=${JAPANESE_PROSE_RUNTIME:-claude}
 case "$runtime" in
   ""|*[!A-Za-z0-9._-]*) exit 0 ;;
 esac
 
-[ -n "$session_id" ] && [ -n "$file" ] || exit 0
-case "$file" in
-  *.md|*.markdown|*.txt) ;;
-  *) exit 0 ;;
-esac
+[ -n "$session_id" ] || exit 0
 case "$file" in
   /*) ;;
   *) file="$cwd/$file" ;;
 esac
 
 cache_base=${XDG_CACHE_HOME:-$HOME/.cache}
-session_key=$(printf '%s' "$session_id" | shasum -a 256 | cut -d ' ' -f 1)
-file_key=$(printf '%s' "$file" | shasum -a 256 | cut -d ' ' -f 1)
+# shasum is a Perl script (~20 ms to start); sha256sum prints the same digest.
+sha256=(sha256sum)
+command -v sha256sum >/dev/null 2>&1 || sha256=(shasum -a 256)
+session_key=$(printf '%s' "$session_id" | "${sha256[@]}")
+session_key=${session_key%% *}
+file_key=$(printf '%s' "$file" | "${sha256[@]}")
+file_key=${file_key%% *}
 cache_dir="$cache_base/agent-japanese-prose/$runtime/$session_key"
 baseline_dir="$cache_dir/baselines"
 files_dir="$cache_dir/files"

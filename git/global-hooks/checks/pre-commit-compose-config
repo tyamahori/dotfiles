@@ -16,9 +16,6 @@
 # ponytail: validates the working tree, not the index (see pre-commit-semgrep).
 set -euo pipefail
 
-command -v docker >/dev/null || exit 0
-docker compose version >/dev/null 2>&1 || exit 0
-
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
 targets=()
@@ -29,6 +26,11 @@ while IFS= read -r -d '' file; do
 	esac
 done < <(git diff --cached --name-only --diff-filter=ACMR -z)
 ((${#targets[@]})) || exit 0
+
+# Probed only once a Compose file is staged: `docker compose version` takes
+# ~80 ms, and every commit on the machine runs this check.
+command -v docker >/dev/null || exit 0
+docker compose version >/dev/null 2>&1 || exit 0
 
 # Run `docker compose config` in the current directory, giving each variable
 # it reports as required-but-missing a placeholder, so schema validation

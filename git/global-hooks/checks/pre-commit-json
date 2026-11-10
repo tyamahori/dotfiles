@@ -9,9 +9,10 @@ set -euo pipefail
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
 failed=0
-staged=$(mktemp)
-formatted=$(mktemp)
-trap 'rm -f "$staged" "$formatted"' EXIT
+# Created for the first staged JSON file: most commits stage none.
+staged=
+formatted=
+trap '[[ -z $staged ]] || rm -f "$staged" "$formatted"' EXIT
 while IFS= read -r -d '' file; do
 	case "$file" in
 	*.jsonc | tsconfig*.json | */tsconfig*.json | jsconfig*.json | */jsconfig*.json | .vscode/*.json | */.vscode/*.json | devcontainer.json | */devcontainer.json | .devcontainer/*.json | */.devcontainer/*.json) continue ;;
@@ -26,6 +27,10 @@ while IFS= read -r -d '' file; do
 	if ! command -v jq >/dev/null; then
 		echo "pre-commit: jq is required to validate staged JSON." >&2
 		exit 1
+	fi
+	if [[ -z $staged ]]; then
+		staged=$(mktemp)
+		formatted=$(mktemp)
 	fi
 	git show ":$file" >"$staged"
 	if ! err=$(jq empty "$staged" 2>&1); then

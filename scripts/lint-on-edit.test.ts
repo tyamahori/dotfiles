@@ -84,6 +84,18 @@ test("an edit that adds an oxlint finding is blocked with only the new finding",
   expect(r.reason).not.toContain("a.ts:1 ");
 });
 
+test.skipIf(!Bun.which("shellcheck"))(
+  "a file without an extension is linted only when its first line is a shell shebang",
+  () => {
+    home = mkdtempSync(join(tmpdir(), "lint-on-edit-"));
+    const unquoted = "echo $1\n";
+    writeFileSync(join(home, "tool"), `#!/bin/bash\n${unquoted}`);
+    writeFileSync(join(home, "notes"), unquoted);
+    expect(lintOnEdit(join(home, "tool")).reason).toContain("SC2086");
+    expect(lintOnEdit(join(home, "notes"))).toEqual({ status: 0, reason: "" });
+  },
+);
+
 test("a TS file outside any git repository gets every oxlint finding", () => {
   home = mkdtempSync(join(tmpdir(), "lint-on-edit-"));
   const file = join(home, "loose.ts");

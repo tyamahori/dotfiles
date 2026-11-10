@@ -31,18 +31,22 @@ PostToolUse) failed=0 ;;
 esac
 
 dir=${XDG_CACHE_HOME:-$HOME/.cache}/agent-fail-fast
-mkdir -p "$dir"
-key=$(printf '%s\0%s' "$session_id" "$command" | shasum -a 256 | cut -d ' ' -f 1)
-count_file="$dir/$key.count"
+# This runs on every Bash call. shasum is a Perl script (~20 ms to start);
+# sha256sum prints the same digest, so use it where it exists.
+sha256=(sha256sum)
+command -v sha256sum >/dev/null 2>&1 || sha256=(shasum -a 256)
+key=$(printf '%s\0%s' "$session_id" "$command" | "${sha256[@]}")
+count_file="$dir/${key%% *}.count"
 
 if [ "$failed" = 1 ]; then
+	mkdir -p "$dir"
 	count=$(($(cat "$count_file" 2>/dev/null || echo 0) + 1))
 	printf '%s' "$count" >"$count_file"
 	if [ "$count" -ge 2 ]; then
 		jq -n --arg reason "This exact command has now failed $count times in a row in this session. Per the fail-fast rule: stop retrying, report the root cause and the exact fix needed, then end the turn. Do not run it again unchanged." \
 			'{decision: "block", reason: $reason}'
 	fi
-else
+elif [ -e "$count_file" ] || [ -L "$count_file" ]; then
 	rm -f "$count_file"
 fi
 exit 0

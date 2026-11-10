@@ -10,10 +10,11 @@ set -euo pipefail
 
 payload=$(cat)
 cmd=$(jq -r '.tool_input.command // empty' <<<"$payload")
-cwd=$(jq -r '.cwd // "."' <<<"$payload")
 
 grep -Eq 'git[^;&|]*[[:space:]]worktree[[:space:]]+add([[:space:]]|$)' <<<"$cmd" || exit 0
 command -v git >/dev/null 2>&1 || exit 0
+# Read only after the filter: this runs on every Bash call, and almost none match.
+cwd=$(jq -r '.cwd // "."' <<<"$payload")
 
 copy="$HOME/dotfiles/scripts/worktree-include-copy"
 [ -x "$copy" ] || exit 0

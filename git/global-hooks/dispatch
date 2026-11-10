@@ -9,8 +9,16 @@
 # bypass this file entirely — local git config wins over global.
 set -euo pipefail
 
-hook_name=$(basename "$0")
-hook_dir=$(dirname "$(readlink -f "$0")")
+hook_name=${0##*/}
+# Only the three hooks with a machine-global check need the real directory;
+# git runs the other names on every commit, checkout, and merge just to
+# delegate, so they skip the readlink.
+case $hook_name in
+commit-msg | pre-commit | pre-push)
+	hook_dir=$(readlink -f "$0")
+	hook_dir=${hook_dir%/*}
+	;;
+esac
 
 case $hook_name in
 commit-msg)
