@@ -1,6 +1,6 @@
 ---
 name: nondesigner-design
-description: 人が読む成果物（Claude Artifact に上げる HTML 資料、関係者向けレポート、一枚ものページ、スライド構成）の見た目を「ノンデザイナーズデザインブック」の 4 原則（近接・整列・反復・コントラスト）で監査し、構成を組み直すときに使う。「デザインがいけていない」「配置が変」「横幅を伸ばすか折り返すか」「構成を見直して」と言われたとき、または frontend-design で書いた HTML を仕上げる前に読む。プロジェクトを問わない。改行崩れは ja-html-typography、配色と書体の初期選択は frontend-design。
+description: 人が読む成果物（Claude Artifact に上げる HTML 資料、関係者向けレポート、一枚ものページ、スライド構成）の見た目を「ノンデザイナーズデザインブック」の 4 原則（近接・整列・反復・コントラスト）で監査し、構成を組み直すときに使う。「デザインがいけていない」「配置が変」「横幅を伸ばすか折り返すか」「構成を見直して」と言われたとき、または frontend-design で書いた HTML を仕上げる前に読む。プロジェクトを問わない。改行崩れは ja-html-typography、配色と書体の初期選択は frontend-design、アプリ画面やランディングページの手直しは unslop。
 ---
 
 # nondesigner-design
@@ -78,8 +78,9 @@ h2 .n { display:block; margin-bottom:6px; }             /* 節番号はキッカ
 直し方: 役割ごとに**ラベル族**を 1 つ決め、同じ役割は必ず同じ型にする。節の骨格（例: 式 → 定数 → 計算例 → 注記）も全節で同じ順・同じラベルにする。
 
 ```css
-/* ラベル族: 小さなモノスペース + 字間広め。役割が同じものは書体・サイズ・字間まで同一 */
-.stamp, .n, h3, caption, thead th { font-family:var(--mono); font-size:.74rem; font-weight:500; letter-spacing:.08em; }
+/* ラベル族: 役割が同じものは書体・サイズ・太さ・字間まで同一。書体は frontend-design の計画で決め、
+   小さな文字にモノスペースや広い字間を既定で当てない（テンプレートっぽさの典型） */
+.stamp, .n, h3, caption, thead th { font-family:var(--label-font); font-size:.75rem; font-weight:600; letter-spacing:normal; }
 td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }   /* 数値列は全表で右揃え・等幅数字 */
 ```
 
@@ -91,7 +92,7 @@ td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }   /* 数
 - 強調したい出力（結果・結論のノード）が枠線色だけの差
 - 色が装飾で使われ、意味（負数・警告・結果）と結び付いていない
 
-直し方: 階層が隣り合う要素は、大きさ比 1.25 以上か書体の系統を変える。両方変えれば確実。ラベルは本文より**小さく別書体**に落とし、見出しは本文より**大きく別書体**に上げる。結果には面色を入れる。色は意味にだけ使う。
+直し方: 階層が隣り合う要素は、大きさ比 1.25 以上か書体の系統を変える。両方変えれば確実。ラベルは本文より**小さく太く**落とし、見出しは本文より**大きく別書体**に上げる。結果には面色を入れる。色は意味にだけ使う。
 
 ```css
 h1, h2 { font-family:var(--mincho); }                   /* 見出しは本文（sans）と系統を変える */
@@ -153,4 +154,5 @@ sticky.flatMap(s => { const a = s.getBoundingClientRect();
 
 - 対象は人が読む成果物すべて。HTML が主だが、スライド構成案や Markdown レポートの見出し階層・余白・並列性の判断にも同じ原則を使う（CSS の型は HTML のみ）
 - `visual-html-renderer` と archify の出力は固定テンプレートなので触らない。見た目を直したいなら手書き経路へ切り替える
+- ダッシュボード・アプリ画面・ランディングページの手直しは `unslop` が担う。読ませる資料には `unslop` を当てず、この skill で監査する
 - HTML の配色・書体の初期選択は `frontend-design`、日本語 HTML の改行は `ja-html-typography` を先に読む。Markdown やスライド構成案の監査に、この2つを一律の前提としない。
