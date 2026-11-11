@@ -31,7 +31,16 @@ model_post_turn_compact_threshold_percent = 35
 # profiles can deny paths inside the workspace, and the two styles can't mix,
 # so no layer (including ~/.codex/config.toml, which adds machine-local write
 # roots to this same profile name) may set sandbox_mode. deny blocks read and
-# write, so sandboxed commands never see .env secrets.
+# write for the listed paths only.
+#
+# Exact paths, not `**/.env`: a glob deny also blocks unlinking or renaming
+# every directory its prefix can match (verified 0.167.1 with `codex sandbox
+# -P dev --log-denials`), and `**` matches all of them, which broke rm -rf,
+# pnpm install, and prisma generate. The apps/*/ patterns still block
+# renaming apps/ and apps/<name>. Any other .env (sub/.env, packages/x/.env) is
+# readable by sandboxed commands: the env-file-read rule in
+# agents/command-rules.json only refuses cat/head/tail-style invocations, not
+# node, python, or a script that opens the file.
 approval_policy = "on-request"
 approvals_reviewer = "auto_review"
 default_permissions = "dev"
@@ -40,8 +49,15 @@ default_permissions = "dev"
 extends = ":workspace"
 
 [permissions.dev.filesystem.":workspace_roots"]
-"**/.env" = "deny"
-"**/.env.local" = "deny"
+".env" = "deny"
+".env.local" = "deny"
+"apps/*/.env" = "deny"
+"apps/*/.env.local" = "deny"
+
+# No write grants for tool state outside the workspace (~/.semgrep,
+# ~/.docker/buildx/activity, ~/.cache/*): a sandboxed command can swap the
+# granted file for a symlink (verified 0.167.1), and the allow-ruled
+# semgrep/docker then write through it outside the sandbox.
 
 [permissions.dev.network]
 enabled = true

@@ -380,7 +380,14 @@ user 層でしか効かない（0.153.2 で実測）。`scripts/link` が
 通常は permission profile `dev`（`:workspace` を継承し、ネットワークを許可）を
 `default_permissions` にし、`approval_policy = "on-request"` と
 `approvals_reviewer = "auto_review"` で承認要求を自動レビューへ送る。`dev` は
-workspace 内の `**/.env` と `**/.env.local` を読み書きとも拒否する。machine-local
+workspace 直下と `apps/*/` の `.env`・`.env.local` を読み書きとも拒否する。
+`**/.env` にしないのは、glob の deny がその前方一致に当たる全ディレクトリの
+削除・改名まで止め、`rm -rf` や `pnpm install` が失敗するため。それ以外の場所の
+`.env`（`sub/.env` など）は sandbox 内のコマンドから読める。`agents/command-rules.json`
+の `env-file-read` は `cat` などの呼び出しを止めるだけで、node や python が開くのは
+止めない。ツール状態（`~/.semgrep`、`~/.cache` など）への書き込みは許さない。
+sandbox 内から symlink に差し替えられ、sandbox 外で動く semgrep や docker が
+それ越しに書き込むため。machine-local
 な書き込み先は `~/.codex/config.toml` の `[permissions.dev.filesystem]` に足す
 （profile は層をまたいで名前でマージされる）。どの層にも `sandbox_mode` と
 `[sandbox_workspace_write]` を書かない。書くと旧方式に戻り、`.env` の拒否が外れる。
