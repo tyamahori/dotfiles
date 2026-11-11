@@ -196,8 +196,34 @@ function assistantText(messages: Rec[]): string {
   return "";
 }
 
+function htmlText(fragment: string): string {
+  return fragment
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// omp 18.18.3+: `ask` takes one HTML form (`{ html }`). Use the first
+// legend/label/heading/paragraph text as the question; fall back to the
+// form's visible text.
+function askQuestionFromHtml(html: string): string {
+  const match = /<(legend|label|h[1-6]|p)\b[^>]*>([\s\S]*?)<\/\1>/i.exec(html);
+  const text = htmlText(match?.[2] ?? html);
+  return text.slice(0, 120);
+}
+
 function askQuestion(args: unknown): string {
-  const questions = asRecord(args)?.questions;
+  const record = asRecord(args);
+  const html = asString(record?.html);
+  if (html) return askQuestionFromHtml(html);
+  // Pre-18.18.3 shape: questions[].
+  const questions = record?.questions;
   if (!Array.isArray(questions)) return "";
   for (const entry of questions) {
     const question = asString(asRecord(entry)?.question);
