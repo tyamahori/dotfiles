@@ -359,7 +359,7 @@
     ]
   },
   "sandbox": {
-    "allowUnsandboxedCommands": false,
+    "allowUnsandboxedCommands": true,
     "enabled": true,
     "excludedCommands": [
       "docker *",

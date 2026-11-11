@@ -547,7 +547,9 @@ lists 53 skills (~17k chars, 9 of them name-only at 16k), so
 Claude Code runs Bash inside its OS sandbox (`sandbox.enabled`) so shell
 commands cannot read `.env` files: `sandbox.filesystem.denyRead` plus the
 `Read(...)` deny rules, which the sandbox also enforces. `allowUnsandboxedCommands
-= false` removes the unsandboxed retry. `excludedCommands` keeps a few commands
+= true` keeps the unsandboxed retry: a command that fails in the sandbox may rerun
+outside it through the regular permission flow, where `denyRead` no longer
+applies. `excludedCommands` keeps a few commands
 outside: `docker *` (Docker cannot run in the sandbox) and `make *` (caps
 reaches Docker through `make`), plus `gh *` and `git fetch/pull/push *`, which
 fail inside it (`gh` cannot read its denied `hosts.yml`, and SSH remotes fail
