@@ -377,9 +377,15 @@ user 層でしか効かない（0.153.2 で実測）。`scripts/link` が
 （`~/.agents/skills`）を無効化して codex 版（`~/.codex/skills`）との二重掲載
 を防ぐ。パスは Codex 側で `~` を展開するので home の場所に依存しない。
 
-通常は `workspace-write` とネットワーク許可を維持し、
-`approval_policy = "on-request"` と `approvals_reviewer = "auto_review"` で
-承認要求を自動レビューへ送る。ルールの最終判定が `allow` の操作はレビューを通らない。
+通常は permission profile `dev`（`:workspace` を継承し、ネットワークを許可）を
+`default_permissions` にし、`approval_policy = "on-request"` と
+`approvals_reviewer = "auto_review"` で承認要求を自動レビューへ送る。`dev` は
+workspace 内の `**/.env` と `**/.env.local` を読み書きとも拒否する。machine-local
+な書き込み先は `~/.codex/config.toml` の `[permissions.dev.filesystem]` に足す
+（profile は層をまたいで名前でマージされる）。どの層にも `sandbox_mode` と
+`[sandbox_workspace_write]` を書かない。書くと旧方式に戻り、`.env` の拒否が外れる。
+ルールの最終判定が `allow` の操作（docker、make など）は sandbox の外で動き、
+レビューも通らない。
 自動レビューは許可・拒否をモデルが判断するため、人による確認や拒否を保証しない。
 
 承認なしで sandbox 外実行を許すコマンドは `codex/rules/default.rules`
@@ -537,6 +543,23 @@ Claude Code caps its skill listing at `contextWindow × 4 × 0.01` characters
 lists 53 skills (~17k chars, 9 of them name-only at 16k), so
 `claude/settings.json` raises `skillListingBudgetFraction` to `0.03125`
 (1/32: exact in binary, so every JSON writer prints the same text).
+
+Claude Code runs Bash inside its OS sandbox (`sandbox.enabled`) so shell
+commands cannot read `.env` files: `sandbox.filesystem.denyRead` plus the
+`Read(...)` deny rules, which the sandbox also enforces. `allowUnsandboxedCommands
+= false` removes the unsandboxed retry. `excludedCommands` keeps a few commands
+outside: `docker *` (Docker cannot run in the sandbox) and `make *` (caps
+reaches Docker through `make`), plus `gh *` and `git fetch/pull/push *`, which
+fail inside it (`gh` cannot read its denied `hosts.yml`, and SSH remotes fail
+under the macOS sandbox). Excluded commands follow the regular permission flow:
+those matching a `permissions.allow` rule (`gh api *`, `gh pr *`,
+`git fetch *`, `git pull *`, `docker compose *`, `docker exec *`, ...) run
+unsandboxed with no prompt and no classifier review; the rest go to auto mode's
+classifier. Anything they run (for example `make exec ARGS='-- cat .env'` or
+`docker compose exec api env`) is not covered.
+`Bash(op *)` is denied so agents never drive the 1Password CLI. Sandboxed
+commands also lose direct network access; see the Codex section for the
+matching `.env` deny there.
 
 ### Runtime guard hooks
 

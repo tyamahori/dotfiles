@@ -24,13 +24,27 @@ service_tier = "default"
 model_post_turn_compact_threshold_percent = 35
 
 # Keep workspace isolation while routing approval requests to auto-review.
-# Commands resolved as allow still bypass review.
+# Commands resolved as allow (rules/default.rules: docker, make, ...) run
+# outside the sandbox and bypass review.
+#
+# A permission profile instead of sandbox_mode/[sandbox_workspace_write]: only
+# profiles can deny paths inside the workspace, and the two styles can't mix,
+# so no layer (including ~/.codex/config.toml, which adds machine-local write
+# roots to this same profile name) may set sandbox_mode. deny blocks read and
+# write, so sandboxed commands never see .env secrets.
 approval_policy = "on-request"
 approvals_reviewer = "auto_review"
-sandbox_mode = "workspace-write"
+default_permissions = "dev"
 
-[sandbox_workspace_write]
-network_access = true
+[permissions.dev]
+extends = ":workspace"
+
+[permissions.dev.filesystem.":workspace_roots"]
+"**/.env" = "deny"
+"**/.env.local" = "deny"
+
+[permissions.dev.network]
+enabled = true
 
 [features]
 hooks = true

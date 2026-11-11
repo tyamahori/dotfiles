@@ -350,12 +350,31 @@
       "Bash(gh repo delete *)",
       "Bash(git push *--force*)",
       "Bash(git push -f*)",
+      "Bash(op *)",
       "Read(//**/*.env)",
       "Read(//**/.env.*)",
       "Read(~/.ssh/id_*)",
       "Read(~/.aws/credentials)",
       "Read(~/.config/gh/hosts.yml)"
     ]
+  },
+  "sandbox": {
+    "allowUnsandboxedCommands": false,
+    "enabled": true,
+    "excludedCommands": [
+      "docker *",
+      "gh *",
+      "git fetch *",
+      "git pull *",
+      "git push *",
+      "make *"
+    ],
+    "filesystem": {
+      "denyRead": [
+        "~/**/.env",
+        "~/**/.env.local"
+      ]
+    }
   },
   "skillListingBudgetFraction": 0.03125,
   "skillOverrides": {
