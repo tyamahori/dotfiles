@@ -176,8 +176,11 @@ security:
 features:
   unexpectedStopDetection: smart
 claudeResets:
-  autoRedeem: "yes"
+  autoRedeem5h: "yes"
+  autoRedeemWeekly: "yes"
+  autoRedeemFable: "yes"
 codexResets:
-  autoRedeem: "yes"
+  autoRedeem5h: "yes"
+  autoRedeemWeekly: "yes"
 update:
   auto: true
