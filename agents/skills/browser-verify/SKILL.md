@@ -13,7 +13,7 @@ Codex は公式 Playwright CLI の skill 経由で操作し、OMP は native `br
 |---|---|---|
 | エージェントだけが見る（検証・調査・スクショ証拠） | native `browser` の headless | `playwright-cli` の headless |
 | 人が動きを見たい | 下記の CLI `--headed` で別窓 Chrome | 同左 |
-| ログイン済みセッションが必要 | 明示同意後に `app.relay` | 明示同意後に既存 Chrome 連携 |
+| ログイン済みセッションが必要 | 明示同意後に relay | 明示同意後に既存 Chrome 連携 |
 | 持続的なツールネイティブ探索 | 必要なら Playwright MCP | 必要なら Playwright MCP |
 | ターミナルペインの横に並べて見せて、と明示 | terminal-browser | terminal-browser |
 
@@ -103,13 +103,15 @@ await tab.close();
 
 ### ログイン済み
 
-relay で自分の Chrome に入るのは明示同意後だけにする。`app.target` でタブを選ぶ。
+relay で自分の Chrome に入るのは明示同意後だけにする。トップレベルの `target` でタブを選ぶ。
 無指定では見えているタブを乗っ取り、`url` 付き `open` はそのタブを遷移させる。
+`app` は文字列で渡す。relay を選ぶ値は `browser` ツールの説明で確かめる。
 
 ```js
 const tab = await browser.open({
   name: "existing-chrome",
-  app: { relay: true, target: "github.com" },
+  app: "<relay を選ぶ値>",
+  target: "github.com",
 });
 ```
 
