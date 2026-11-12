@@ -218,9 +218,7 @@ Without a Git toplevel, skip the copy and say so.
   bare interpreters, global pip, pyenv, or asdf. A denied bare invocation
   means switch to uv.
 - `jq` for repo-durable scripts, `jaq` for conversion or in-place edits; never
-  alias one to the other. OMP's built-in `jq` is jaq; use the real binary
-  (`/opt/homebrew/bin/jq` on macOS, devbox's `jq` on Linux) for `--stream`,
-  `--seq`, or `-a`.
+  alias one to the other.
 - Tool ownership: devbox (`scripts/devbox`) for cross-platform toolchains,
   Homebrew (`~/.Brewfile`) for macOS tools, Apple for `curl` and `git`. Edit
   the owning file and run its script; never install ad hoc or duplicate
