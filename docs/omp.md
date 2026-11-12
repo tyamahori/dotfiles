@@ -568,6 +568,11 @@ Anthropic から Codex への退避も、OMP 本体がアカウントごとの�
 その端末の OMP にログインしていない組織は表示されません。
 個人とチームは組織名で判定し、Anthropic 既定の `<メール>'s Organization` を個人、それ以外をチームとみなします。
 
+残量が予備枠（`retry.usageReservePct`）を切ったときに実行中のセッションも別の組織へ移すには、`auth.accountPolicies` に組織ごとの `email` と `orgId` を書きます。
+同じメールの組織を区別するため `orgId` は必須で、`email` だけだと両組織にログインした端末でエラーになります。
+識別子を公開リポジトリに載せないよう、`config.yml` ではなく `~/.omp/agent/config.local.yml` に置きます。
+一致する組織がない端末ではそのポリシーは無視されます。値は `omp usage accounts --json` の `identityKey` から取れます。
+
 有効値の確認には `omp config get` を使います。
 
 ```bash
