@@ -6,6 +6,7 @@
     "phpstorm-plugin@phpstorm-marketplace": true,
     "plannotator@plannotator": true,
     "ponytail@ponytail": true,
+    "pyright-lsp@claude-plugins-official": true,
     "reviewable-html-workbench@reviewable-html-workbench-local": true,
     "typescript-lsp@claude-plugins-official": true,
     "warp@claude-code-warp": true
