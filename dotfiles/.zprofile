@@ -19,13 +19,15 @@ if [[ -z "$CODEX_SHELL" && -z "$CODEX_SANDBOX" ]]; then
   fi
 fi
 
-
+# OrbStack をアンインストールしても ~/.orbstack/bin は壊れた symlink のまま残り、
+# Docker Desktop の docker（/usr/local/bin）より先に解決されてしまう。
+# orb の実体がある（-: symlink をたどる、*: 実行可能）ときだけ足す。
 typeset -U path PATH
 path=(
         $HOME/.npm-global/bin
         $HOME/go/bin
         $HOME/.local/bin
-        $HOME/.orbstack/bin
+        $HOME/.orbstack/bin/orb(N-*:h)
         $HOME/.local/share/devbox/global/default/.devbox/nix/profile/default/bin
         $HOME/.local/share/devbox/global/default/.devbox/virtenv/runx/bin
         $HOME/.bun/bin
@@ -37,7 +39,7 @@ path=(
 
 # Added by OrbStack: command-line tools and integration
 # This won't be added again if you remove it.
-source ~/.orbstack/shell/init.zsh 2>/dev/null || :
+[[ -x ~/.orbstack/bin/orb ]] && source ~/.orbstack/shell/init.zsh 2>/dev/null || :
 
 
 
