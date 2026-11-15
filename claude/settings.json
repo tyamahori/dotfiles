@@ -361,10 +361,12 @@
   },
   "sandbox": {
     "allowUnsandboxedCommands": true,
+    "autoAllowBashIfSandboxed": true,
     "enabled": true,
     "excludedCommands": [
       "docker *",
       "gh *",
+      "git commit *",
       "git fetch *",
       "git pull *",
       "git push *",
