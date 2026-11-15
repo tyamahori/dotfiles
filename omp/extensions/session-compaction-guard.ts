@@ -34,6 +34,7 @@ export default function (pi: ExtensionHandlerApi): void {
   // A runner can remain loaded while the TUI switches sessions.
   pi.on("session_start", reset);
   pi.on("session_switch", reset);
+  pi.on("session_clear", reset);
 
   pi.on("tool_result", (event) => {
     const result = event as { toolName?: string; isError?: boolean };

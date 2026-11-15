@@ -61,6 +61,7 @@ export default function skillTriggerHint(pi: ExtensionApi): void {
   // 文脈から消えるので、セッション切替で空にする。
   const done = new Set<string>();
   pi.on("session_switch", () => done.clear());
+  pi.on("session_clear", () => done.clear());
 
   pi.on("tool_call", (event) => {
     if (event.toolName === "read") {

@@ -16,6 +16,7 @@ export default function failFast(pi: ExtensionHandlerApi): void {
   const reset = () => failures.clear();
   pi.on("session_start", reset);
   pi.on("session_switch", reset);
+  pi.on("session_clear", reset);
 
   pi.on("tool_result", (event) => {
     if (event.toolName !== "bash") return;

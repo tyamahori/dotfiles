@@ -78,6 +78,7 @@ export default function japaneseProse(pi: ExtensionApi): void {
 
   pi.on("session_start", reset);
   pi.on("session_switch", reset);
+  pi.on("session_clear", reset);
 
   pi.on("tool_call", (event, ctx) => {
     if (unreviewed(ctx)) return;
