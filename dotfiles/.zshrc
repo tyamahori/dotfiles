@@ -278,3 +278,6 @@ add-zsh-hook precmd _agent_usage_precmd
 unset _plugin_share
 # Kiro CLI post block. Keep at the bottom of this file.
 [[ -f "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh" ]] && builtin source "${HOME}/Library/Application Support/kiro-cli/shell/zshrc.post.zsh"
+
+# Added by Kiri: its docker and kiri commands (kiri setup --uninstall removes this)
+case ":$PATH:" in *":$HOME/.kiri/bin:"*) ;; *) export PATH="$PATH:$HOME/.kiri/bin" ;; esac
