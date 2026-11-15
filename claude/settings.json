@@ -368,6 +368,7 @@
       "git fetch *",
       "git pull *",
       "git push *",
+      "git worktree *",
       "make *"
     ],
     "filesystem": {
