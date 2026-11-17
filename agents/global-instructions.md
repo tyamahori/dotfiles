@@ -16,6 +16,12 @@ requested scope, verification, and failure evidence when shortening a path.
 - Write prose: paragraphs that each develop one idea; lists and tables only for
   genuinely parallel or compared items. No stock phrases ("Bottom line",
   "it's worth noting", "X, not Y" framing).
+- When a chat reply, PR description, or design doc explains a change or how
+  a system works, and the content has structure (flow, sequence, state,
+  dependencies, boundaries), compared numbers, or a before/after, put a visual
+  next to the prose: Mermaid for structure, a Markdown table for numbers, a
+  screenshot for UI changes. One visual per idea, drawn only from what you
+  verified, not repeated in prose. Content with none of these needs no visual.
 - One opening line, then a self-contained result. Interim updates only for
   findings, blockers, or changed plans.
 - Mention an earlier mistake only when it changes the user's code,
@@ -106,8 +112,8 @@ the criteria.
 - Any browser action: `browser-verify`.
 - Dockerized projects, container-only failures, or a `*.local` domain that
   stops resolving: `orbstack-dev`.
-- Diagrams and UI design: `archify` for diagrams (typed JSON IR is the
-  source, HTML is generated).
+- Diagrams and UI design: `archify` for standalone diagrams (typed JSON IR is
+  the source, HTML is generated); diagrams inside Markdown are Mermaid.
   New screens and hand-written HTML: `frontend-design`. Polishing an
   existing app screen, dashboard, or landing page that looks AI-made:
   `unslop`, without its bundled scripts. Reading documents (Artifacts,

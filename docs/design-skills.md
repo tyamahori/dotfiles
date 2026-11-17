@@ -15,6 +15,7 @@
 | 日本語の HTML | `ja-html-typography` | 上の三つと併用し、和文の改行・字間ではこちらを優先する |
 | 構成案を並べて選ぶ | `prototype` | 明示的に呼び出したときだけ動く |
 | 構造が主役の図 | `archify` | `docs/diagram-workflow.md` の流れに従う |
+| チャット・PR・Markdown の設計資料に埋め込む図 | なし（Mermaid を直書き） | 構造・数値比較・前後差分を説明するときは必須（`agents/global-instructions.md` の「Working style」）。PR は投稿後に描画を確かめる |
 | 文書が主役の HTML、レビュー用の設計資料 | `visual-html-renderer`、`reviewable-design-doc` | 固定テンプレートなので、どのデザイン skill でも見た目を変えない。直したいなら手書きに切り替える |
 | 画面の確認 | `browser-verify` | `unslop` の付属スクリプトは使わない |
 

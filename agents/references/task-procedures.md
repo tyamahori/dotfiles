@@ -17,6 +17,11 @@ loads this file automatically. Its rules bind like the always-loaded ones.
 - `--attach` on `gh pr create|edit|comment` and `gh issue create|edit|comment`
   uploads a local image or video into the body; use it for screenshots instead
   of browser uploads or external hosting.
+- After posting, open the PR page following `browser-verify` and confirm that
+  every Mermaid block and attached image renders, in the body and in Markdown
+  files the PR changes; GitHub shows an error box instead of a diagram it
+  cannot parse. Fix the body with `gh pr edit` or the file with a new commit,
+  then check again. No pre-post render check.
 
 ## Herdr worktree workers
 
