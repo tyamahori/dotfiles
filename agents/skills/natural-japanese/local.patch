@@ -421,10 +421,10 @@ index 0000000..396b81a
 +モードの指定がなければ、上の基準で選ぶ。自然な言葉での依頼も同じように扱う(「〇〇について書いて」は write、「この文章 AI っぽい?」は score)。
 diff --git a/references/revising.md b/references/revising.md
 new file mode 100644
-index 0000000..1d7a509
+index 0000000..481c3f3
 --- /dev/null
 +++ b/references/revising.md
-@@ -0,0 +1,101 @@
+@@ -0,0 +1,104 @@
 +# 詳細手順
 +
 +本文中の `scripts/`、`references/`、`assets/` とコマンドの相対パスは、
@@ -442,7 +442,7 @@ index 0000000..1d7a509
 +- 読み手の手間を増やしている箇所。次の5つは、内容を足さずに直せるので直す
 +  - 冗長な言い回し。情報を増やさずに字数だけを増やしている言い回しを縮める(「〜という形で進めていく予定です」を「〜で進める予定です」にする)
 +  - 主張が二つ以上入った文。主張ごとに分ける
-+  - 何の一覧か、何の話かが後になってから分かる列挙や段落。元の文書の言葉で、先に枠を示す(列挙のあとに「〜といった点に注意した。」とあるなら、列挙の前に「注意したのは次の点だ。」と置く)
++  - 何の一覧か、何の話かが後になってから分かる列挙や段落。元の文書の言葉で、先に枠を示す(列挙のあとに「〜といった点に注意した。」とあるなら、列挙の前に「注意したのは次の点だ。」と置く)。何の列挙かを示さず、証拠の種類や評価だけを言う前置きの文(「数字もある。」「担当は手を抜いていない。」)は枠ではないので、逆に削る(「演出の言葉は、削るだけで外す」の項)
 +  - 「〜について」のように、中身が分からない見出し。本文にある言葉で、その節に何が書いてあるかが分かるようにする。全部の見出しを同じ形にはしない
 +  - 文書の鍵になる用語で、説明がないもの。元の文書から言える範囲で、初出に短い説明を添える(「SLA(サービスの品質を保証する取り決め)」)
 +- 読み手が「具体的に何のこと?」と止まる言い回し(次の項)
@@ -502,6 +502,9 @@ index 0000000..1d7a509
 +- よい例:「設定ファイルの書き方を徹底的に解説する。」を「設定ファイルの書き方を解説する。」にする(「徹底的に」を削るだけ)
 +- よい例:「テストのないプロジェクトは、例外なく保守が難しくなる。」を「テストのないプロジェクトは、保守が難しくなる。」にする(「例外なく」を削るだけ)
 +- してはいけない例:「『どの設定が使われているのか』『どこを直せばよいのか』が一切わからない。」を「どの設定が使われているのか。どこを直せばよいのか。手がかりは何もない。」にする。問いを短い文に割り、元にない決め台詞(「手がかりは何もない。」)で締めていて、演出を外すどころか足している
++- よい例:「調査もある。昨年の利用者調査では、通知を切った人の半数が理由に頻度を挙げた。」を「昨年の利用者調査では、通知を切った人の半数が理由に頻度を挙げた。」にする。段落の頭で証拠の種類を名指すだけの文は、文ごと削る。次の文の事実を評価の言葉で先にまとめるだけの文(「担当は手を抜いていない。」)も同じで、削っても段落の言うことが変わらないなら削る
++
++問いを立てて次の文で自分で答える形(「この手順は本当に要るだろうか。要らないなら、削ったほうがいい。」)も演出である。答えが決まっているのに問いの形にすると、読み手は答えを考える前に書き手の答えを読まされる。これは削るだけでは直らないので、例外として、元の文の言葉だけを使って答えの側の平叙文一つにする(「要らない手順は削ったほうがいい。」)。答えを読み手に任せている問いは残す。
 +
 +エッセイなど、書き手が語り口を意図していることをユーザーが示しているときは、この直しはしない。
 +
@@ -528,10 +531,10 @@ index 0000000..1d7a509
 +- 書き手の癖を均す。話し言葉の引用(「それ先に言ってよ」など)、敬語の度合い(「いたします」「させていただきます」)、絵文字や顔文字、矢印や略記、表記の癖、改行で区切る書き方(行をつないで一文にしない)、節ごとの不揃いは、読解を妨げていない限り残す。こうした痕跡を均すと、誰が書いたのか分からない文書になる
 diff --git a/references/writing.md b/references/writing.md
 new file mode 100644
-index 0000000..9209424
+index 0000000..65b6420
 --- /dev/null
 +++ b/references/writing.md
-@@ -0,0 +1,71 @@
+@@ -0,0 +1,75 @@
 +# 詳細手順
 +
 +本文中の `scripts/`、`references/`、`assets/` とコマンドの相対パスは、
@@ -590,7 +593,7 @@ index 0000000..9209424
 +7. 濃淡をつける(§1)。
 +8. 同じ型を3回続けない。定義文の型、節の中の組み立て、文の書き出しが3回続いたら、少なくとも1つは変える。最初に選んだ構造を繰り返すほうが書きやすいので、この癖は最後まで残りやすい。変えるときは、文の順序や主語を入れ替える、2文を1文にまとめる、のように内容に合わせて変える。疑問形や体言止めを、型を崩すための手段として入れない。
 +9. 打ち消し(「〜ではなく〜」「〜ではない。〜だ。」「〜わけではない」)は、読み手が実際に誤解していそうな場面と、事実や注意として要る場面だけで使う。言い換えや強調のために打ち消すと、内容より構文が目立つ。とくに GPT 系のモデルは、誰も言っていない思い込みを先回りして打ち消す文を多く書く(§3)。
-+10. 確信の度合いは語尾でぼかさず、書き分ける。断定できることは断定し、推定は「〜と推定する」、未確認は【要確認】と書く。「〜と思われます」を全体に散らすと、どこが確かでどこが不確かかが読み手に分からなくなる。
++10. 確信の度合いは語尾でぼかさず、書き分ける。断定できることは断定し、推定は「〜と推定する」、未確認は【要確認】と書く。「〜と思われます」を全体に散らすと、どこが確かでどこが不確かかが読み手に分からなくなる。確かめた範囲に限った断定は、範囲を先に書いてから言い切る。断定したあとに「少なくとも、調べた範囲では」と留保を足すと、読み手は一度受け取った断定を割り引き直すことになる。「障害の報告はない。少なくとも、先月の記録には見つからなかった。」は「先月の記録には、障害の報告は見つからなかった。」にする。lint は、打ち消しで終わる文の直後に「少なくとも」で始まる文が来る形を `trailing_hedge` として指摘する。
 +11. 事実と意見を分ける。事実には出典やデータを添え、意見には「筆者は〜と考える」のように話し手を示す。どちらも「〜だ。」で書けてしまうので、文末だけでは区別がつかない。出典を示せない事実は、事実として書かない。
 +12. 結びでは本文の要約を繰り返さず、要点を1〜2文にまとめる。調査レポートでは、結果から次に何をすべきかを書く。次にすべきことは、素材やユーザーの考えから書く。素材から自分で導いた提案を書くときは、提案であることが分かるように書く(「〜を提案する」)。根拠が支える範囲を超えた提案はしない。ガイドや議事録のように次への導線が別にある文書では、結びの段落自体が要らないこともある。
 +
@@ -602,12 +605,31 @@ index 0000000..9209424
 +- 「手順がずれている、記録がない、と指摘した」→「手順がずれていることと、記録がないことを指摘した」
 +- 「会議では、毎回、同じ質問が出た」→「会議では毎回同じ質問が出た」
 +
++段落の頭に、中身のない短い前置きの文を置かない。証拠の種類を名指すだけの文(「数字もある。」「海外の調査もある。」)と、次の文に書く事実を評価の言葉で先にまとめるだけの文(「担当は手を抜いていない。」)である。どちらも、削っても段落の言うことが変わらず、読み手は中身を次の文まで待たされる。数字や調査の中身から段落を始め、評価が要るなら事実のあとに置く。何の列挙かを示す文(「理由は三つある。」)は、読み手が列挙を受け取る準備になるので残す。段落の結論を先に言う文も、次の事実より先へ進んだことを言っているなら残す。lint は、段落の頭にある12字以下の「〜もある。」を `lead_filler_sentence` として指摘する。評価の言葉だけの前置きは語が決まらないので拾わない。
++
++文頭の接続の言葉は、前の文との関係に合わせて選ぶ。対比なのに「そのうえで」(累加)、言い換えなのに「しかし」(逆接)のように、関係と食い違う言葉を置くと、読み手は前の文を読み直す。「通知は毎朝届いている。そのうえで、週末の分は誰も開いていない。」は、届いていることと開いていないことの対比なので「一方で」にする。関係が前後の文から読み取れるなら、接続の言葉そのものを外す。
++
 +文書のジャンルによって、原則の当てはめ方を変える。技術文書は一文一義と用語の統一をもっとも厳しく守る。ビジネス文書は結論を冒頭に置く構成を優先する。エッセイは、言い切らずに余韻を残す、結論を後に置く、といった逸脱を書き手の意図として認める。公用文や、専門知識のない一般の読み手に向けた文書は、一文を短くし、外来語と二重否定を避け、主語を明示する。
 diff --git a/scripts/calibrate.py b/scripts/calibrate.py
-index 06918ea..e49051b 100644
+index 06918ea..d34a1c4 100644
 --- a/scripts/calibrate.py
 +++ b/scripts/calibrate.py
-@@ -266,6 +266,7 @@ ALL_CATEGORIES = [
+@@ -199,6 +199,7 @@ def run_full_lint(mod, prepared: PreparedDoc) -> None:
+     findings = []
+     findings += mod.detect_forbidden_phrases(prepared.lines, prepared.raw_lines_by_no)
+     findings += mod.detect_translationese(prepared.lines, prepared.raw_lines_by_no)
++    findings += mod.detect_sentence_framing(prepared.lines, prepared.raw_lines_by_no)
+     findings += mod.detect_antithesis_repetition(prepared.lines, prepared.raw_lines_by_no)
+     findings += mod.detect_low_sentence_length_variance(prepared.sentences)
+     findings += mod.detect_english_syntax_smell(prepared.lines, prepared.raw_lines_by_no)
+@@ -262,10 +263,14 @@ ALL_CATEGORIES = [
+     "repeated_syntax_template",
+     "low_lexical_diversity_ttr",
+     "low_lexical_diversity_mtld",
++    "lead_filler_sentence",
++    "trailing_hedge",
++    "self_answered_question",
+     # 構造層検出器（2026-07新設、マスク前の raw テキストが対象）
      "high_bold_density",
      "high_bullet_ratio",
      "boilerplate_heading",
@@ -616,7 +638,7 @@ index 06918ea..e49051b 100644
      "high_emoji_symbol_density",
      "low_specificity",
 diff --git a/scripts/lint.py b/scripts/lint.py
-index 88764b0..a885b29 100644
+index 88764b0..42fe334 100644
 --- a/scripts/lint.py
 +++ b/scripts/lint.py
 @@ -42,6 +42,7 @@ from pathlib import Path
@@ -627,7 +649,53 @@ index 88764b0..a885b29 100644
      _HEADING_RE,
      _LIST_ITEM_RE,
      get_tokenizer,
-@@ -1641,11 +1642,23 @@ EMOJI_SYMBOL_RE = re.compile(
+@@ -757,6 +758,45 @@ def detect_negation_repetition(
+     return findings
+ 
+ 
++# 文の置き方で中身を薄める3つの型。語ではなく、文の並びで拾う。
++# lead_filler_sentence: 段落の頭の短い「〜もある。」(「数字もある。」)。証拠の種類を名指すだけで、中身は次の文にある。
++# trailing_hedge: 「〜ない。」と言い切った直後に「少なくとも、」で範囲を足す。範囲は先に書いて、その範囲で言い切る。
++# self_answered_question: 「〜だろうか。」と問うて、次の文で「〜なら、」「答えは」と自分で答える。
++LEAD_FILLER_MAX_CHARS = 12
++LEAD_FILLER_END_RE = re.compile(r"もある$")
++TRAILING_HEDGE_PREV_RE = re.compile(r"(?:ない|なかった|ません|ませんでした)$")
++TRAILING_HEDGE_NEXT_RE = re.compile(r"^少なくとも")
++SELF_ANSWER_PREV_RE = re.compile(r"(?:だろうか|でしょうか)$")
++SELF_ANSWER_NEXT_RE = re.compile(r"^(?:答えは|[^、。]{0,15}なら、)")
++
++
++def detect_sentence_framing(
++    lines: list[tuple[int, str]], raw_lines_by_no: dict[int, str] | None = None
++) -> list[Finding]:
++    findings = []
++    for para_lines in iter_paragraphs_with_lines(lines):
++        sents = split_sentences_with_lines(para_lines, raw_lines_by_no)
++        bodies = [s.strip().rstrip("。．") for _, s, _ in sents]
++        if len(sents) >= 2 and len(bodies[0]) <= LEAD_FILLER_MAX_CHARS and LEAD_FILLER_END_RE.search(bodies[0]):
++            findings.append(Finding(
++                line=sents[0][0], category="lead_filler_sentence", excerpt=sents[0][2][:60], severity="info",
++                detail="段落の頭の短い前置きの文。何の証拠があるかを言うだけで、中身は次の文にある",
++            ))
++        for i in range(1, len(sents)):
++            prev, cur = bodies[i - 1], bodies[i]
++            if TRAILING_HEDGE_PREV_RE.search(prev) and TRAILING_HEDGE_NEXT_RE.match(cur):
++                category, detail = "trailing_hedge", "言い切ったあとに、確かめた範囲を足している"
++            elif SELF_ANSWER_PREV_RE.search(prev) and SELF_ANSWER_NEXT_RE.match(cur):
++                category, detail = "self_answered_question", "問いを立てて、次の文で自分で答えている"
++            else:
++                continue
++            findings.append(Finding(
++                line=sents[i - 1][0], category=category,
++                excerpt=f"{sents[i - 1][2]}。{sents[i][2]}"[:60], severity="info", detail=detail,
++            ))
++    return findings
++
++
+ def detect_low_sentence_length_variance(
+     sentences: list[tuple[int, str, str]],
+     threshold: float = SENTENCE_VARIANCE_CV_THRESHOLD,
+@@ -1641,11 +1681,23 @@ EMOJI_SYMBOL_RE = re.compile(
  )
  EMOJI_SYMBOL_PER_1000_THRESHOLD = 2.0
  
@@ -653,7 +721,7 @@ index 88764b0..a885b29 100644
      """
      findings: list[Finding] = []
      raw_lines = iter_lines_with_no(raw_text)
-@@ -1751,12 +1764,49 @@ def detect_structural_ai_habits(raw_text: str) -> tuple[list[Finding], dict]:
+@@ -1751,12 +1803,49 @@ def detect_structural_ai_habits(raw_text: str) -> tuple[list[Finding], dict]:
              )
          )
  
@@ -703,7 +771,7 @@ index 88764b0..a885b29 100644
          "numbered_phase_hit_count": len(phase_hits),
          "emoji_symbol_count": len(emoji_hits),
          "emoji_symbol_per_1000_chars": emoji_per_1000,
-@@ -2194,6 +2244,7 @@ HINTS = {
+@@ -2194,6 +2283,7 @@ HINTS = {
      "high_bold_density": "文中の強調の太字は、文書全体で本当に目立たせたい数か所だけに残す。箇条や行の頭の「**ラベル**:」は、項目を探す目印なので残してよい",
      "high_bullet_ratio": "因果や経緯のある箇条書きは地の文に戻す。宿題の一覧のように本当に独立した項目は残す",
      "boilerplate_heading": "「まとめ」「おわりに」のような見出しをやめ、結論そのものを見出しにするか、見出しなしで締める",
@@ -711,6 +779,24 @@ index 88764b0..a885b29 100644
      "numbered_phase_structure": "内容がもともと段階を持つときだけ番号を付ける",
      "high_emoji_symbol_density": "絵文字や装飾記号を外す。区分のラベルとして働いているものだけ残す",
      "sentence_too_long": "主張が二つ以上あれば、主張ごとに文を分ける。分けて字数が増えるのはかまわない。元にない接続の言葉は足さない",
+@@ -2201,6 +2291,9 @@ HINTS = {
+     "buried_list": "箇条書きに開く。各項目を「太字: 説明」の形にはしない",
+     "double_negative": "肯定の形に直すなら、真偽が反転していないかを必ず確かめる（「招かないとは言えない」は「招くことがある」）。控えめに言うことが意図なら触らない",
+     "no_chain": "どこかを動詞に戻す（「上限の設定の検討」→「上限をどう設定するか検討する」）",
++    "lead_filler_sentence": "前置きの文を削り、次の文から段落を始める。何の列挙かを示す枠の文（「理由は三つある。」）なら残す",
++    "trailing_hedge": "確かめた範囲を先に書き、その範囲で言い切る（「〜はない。少なくとも、調べた範囲では見つからなかった。」→「調べた範囲では、〜は見つからなかった。」）",
++    "self_answered_question": "問いと答えを、答えの側の平叙文一つにする。読み手に考えてほしい問いで、答えを読み手に任せているなら残す",
+ }
+ 
+ 
+@@ -2251,6 +2344,7 @@ def run_lint(
+         rate_critical_above=profile.get("antithesis_rate_critical_above", ANTITHESIS_RATE_CRITICAL_ABOVE),
+     )
+     findings += detect_negation_repetition(lines, raw_lines_by_no)
++    findings += detect_sentence_framing(lines, raw_lines_by_no)
+     findings += detect_low_sentence_length_variance(sentences)
+     findings += detect_english_syntax_smell(lines, raw_lines_by_no)
+ 
 diff --git a/scripts/terms.py b/scripts/terms.py
 index 9be7942..3302d44 100644
 --- a/scripts/terms.py

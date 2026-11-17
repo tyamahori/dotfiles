@@ -199,6 +199,7 @@ def run_full_lint(mod, prepared: PreparedDoc) -> None:
     findings = []
     findings += mod.detect_forbidden_phrases(prepared.lines, prepared.raw_lines_by_no)
     findings += mod.detect_translationese(prepared.lines, prepared.raw_lines_by_no)
+    findings += mod.detect_sentence_framing(prepared.lines, prepared.raw_lines_by_no)
     findings += mod.detect_antithesis_repetition(prepared.lines, prepared.raw_lines_by_no)
     findings += mod.detect_low_sentence_length_variance(prepared.sentences)
     findings += mod.detect_english_syntax_smell(prepared.lines, prepared.raw_lines_by_no)
@@ -262,6 +263,9 @@ ALL_CATEGORIES = [
     "repeated_syntax_template",
     "low_lexical_diversity_ttr",
     "low_lexical_diversity_mtld",
+    "lead_filler_sentence",
+    "trailing_hedge",
+    "self_answered_question",
     # 構造層検出器（2026-07新設、マスク前の raw テキストが対象）
     "high_bold_density",
     "high_bullet_ratio",

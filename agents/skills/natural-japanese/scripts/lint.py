@@ -758,6 +758,45 @@ def detect_negation_repetition(
     return findings
 
 
+# 文の置き方で中身を薄める3つの型。語ではなく、文の並びで拾う。
+# lead_filler_sentence: 段落の頭の短い「〜もある。」(「数字もある。」)。証拠の種類を名指すだけで、中身は次の文にある。
+# trailing_hedge: 「〜ない。」と言い切った直後に「少なくとも、」で範囲を足す。範囲は先に書いて、その範囲で言い切る。
+# self_answered_question: 「〜だろうか。」と問うて、次の文で「〜なら、」「答えは」と自分で答える。
+LEAD_FILLER_MAX_CHARS = 12
+LEAD_FILLER_END_RE = re.compile(r"もある$")
+TRAILING_HEDGE_PREV_RE = re.compile(r"(?:ない|なかった|ません|ませんでした)$")
+TRAILING_HEDGE_NEXT_RE = re.compile(r"^少なくとも")
+SELF_ANSWER_PREV_RE = re.compile(r"(?:だろうか|でしょうか)$")
+SELF_ANSWER_NEXT_RE = re.compile(r"^(?:答えは|[^、。]{0,15}なら、)")
+
+
+def detect_sentence_framing(
+    lines: list[tuple[int, str]], raw_lines_by_no: dict[int, str] | None = None
+) -> list[Finding]:
+    findings = []
+    for para_lines in iter_paragraphs_with_lines(lines):
+        sents = split_sentences_with_lines(para_lines, raw_lines_by_no)
+        bodies = [s.strip().rstrip("。．") for _, s, _ in sents]
+        if len(sents) >= 2 and len(bodies[0]) <= LEAD_FILLER_MAX_CHARS and LEAD_FILLER_END_RE.search(bodies[0]):
+            findings.append(Finding(
+                line=sents[0][0], category="lead_filler_sentence", excerpt=sents[0][2][:60], severity="info",
+                detail="段落の頭の短い前置きの文。何の証拠があるかを言うだけで、中身は次の文にある",
+            ))
+        for i in range(1, len(sents)):
+            prev, cur = bodies[i - 1], bodies[i]
+            if TRAILING_HEDGE_PREV_RE.search(prev) and TRAILING_HEDGE_NEXT_RE.match(cur):
+                category, detail = "trailing_hedge", "言い切ったあとに、確かめた範囲を足している"
+            elif SELF_ANSWER_PREV_RE.search(prev) and SELF_ANSWER_NEXT_RE.match(cur):
+                category, detail = "self_answered_question", "問いを立てて、次の文で自分で答えている"
+            else:
+                continue
+            findings.append(Finding(
+                line=sents[i - 1][0], category=category,
+                excerpt=f"{sents[i - 1][2]}。{sents[i][2]}"[:60], severity="info", detail=detail,
+            ))
+    return findings
+
+
 def detect_low_sentence_length_variance(
     sentences: list[tuple[int, str, str]],
     threshold: float = SENTENCE_VARIANCE_CV_THRESHOLD,
@@ -2252,6 +2291,9 @@ HINTS = {
     "buried_list": "箇条書きに開く。各項目を「太字: 説明」の形にはしない",
     "double_negative": "肯定の形に直すなら、真偽が反転していないかを必ず確かめる（「招かないとは言えない」は「招くことがある」）。控えめに言うことが意図なら触らない",
     "no_chain": "どこかを動詞に戻す（「上限の設定の検討」→「上限をどう設定するか検討する」）",
+    "lead_filler_sentence": "前置きの文を削り、次の文から段落を始める。何の列挙かを示す枠の文（「理由は三つある。」）なら残す",
+    "trailing_hedge": "確かめた範囲を先に書き、その範囲で言い切る（「〜はない。少なくとも、調べた範囲では見つからなかった。」→「調べた範囲では、〜は見つからなかった。」）",
+    "self_answered_question": "問いと答えを、答えの側の平叙文一つにする。読み手に考えてほしい問いで、答えを読み手に任せているなら残す",
 }
 
 
@@ -2302,6 +2344,7 @@ def run_lint(
         rate_critical_above=profile.get("antithesis_rate_critical_above", ANTITHESIS_RATE_CRITICAL_ABOVE),
     )
     findings += detect_negation_repetition(lines, raw_lines_by_no)
+    findings += detect_sentence_framing(lines, raw_lines_by_no)
     findings += detect_low_sentence_length_variance(sentences)
     findings += detect_english_syntax_smell(lines, raw_lines_by_no)
 
