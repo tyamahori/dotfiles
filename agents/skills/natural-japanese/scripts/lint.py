@@ -42,6 +42,7 @@ from pathlib import Path
 from textcore import (
     Finding,
     SENTENCE_SPLIT_RE,
+    _CODE_FENCE_RE,
     _HEADING_RE,
     _LIST_ITEM_RE,
     get_tokenizer,
@@ -1641,11 +1642,23 @@ EMOJI_SYMBOL_RE = re.compile(
 )
 EMOJI_SYMBOL_PER_1000_THRESHOLD = 2.0
 
+# 見出しの読点と番号の前置き。見出しは名詞句か短い一文で言い切るもので、読点で
+# 区切ると本文の文を切り出したように読め、「一つめ：」は節の順番しか伝えない。
+# 対象は h2 以下の `#` 見出しと、行頭の `**` を閉じない見出し（はてな匿名ダイアリー
+# などの書き方）。h1 は文書のタイトルで、「在宅勤務、三年やってみて」のような
+# 読点入りの題は普通にあるので数えない。閉じた「**ラベル**:」は見出しではない。
+UNCLOSED_BOLD_HEADING_RE = re.compile(r"^\*\*(?!.*\*\*)(.+)$")
+HEADING_NUMBER_PREFIX_RE = re.compile(
+    r"^(?:[一二三四五六七八九十]+つ[めの目]|[0-9０-９]+つ[めの目]|その[0-9０-９一二三四五六七八九十]+)\s*[：:]"
+)
+HEADING_COMMA_RE = re.compile(r"[、，]")
+
 
 def detect_structural_ai_habits(raw_text: str) -> tuple[list[Finding], dict]:
     """マスク前の raw テキストに対して、Markdown 構造レベルの「教科書的AI癖」を検出する。
-    太字密度・箇条書き行比率・定型見出し・番号付きフェーズ構造・絵文字/装飾記号密度の
-    5種類。すべて severity="info"、EXPERIMENTAL カテゴリ扱い（デフォルト無効）。
+    太字密度・箇条書き行比率・定型見出し・番号付きフェーズ構造・絵文字/装飾記号密度・
+    見出しの読点/番号の前置きの6種類。すべて severity="info"。high_bold_density と
+    heading_punctuation 以外は EXPERIMENTAL カテゴリ扱い（デフォルト無効）。
     """
     findings: list[Finding] = []
     raw_lines = iter_lines_with_no(raw_text)
@@ -1751,12 +1764,49 @@ def detect_structural_ai_habits(raw_text: str) -> tuple[list[Finding], dict]:
             )
         )
 
+    # 6) 見出しの読点・番号の前置き（既定で有効）
+    heading_punct_lines = []
+    in_fence = False
+    for no, line in raw_lines:
+        if _CODE_FENCE_RE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        m = _HEADING_RE.match(line)
+        if m:
+            if line.lstrip().startswith("# ") or line.strip() == "#":
+                continue
+            heading_text = line[m.end() :].strip()
+        else:
+            bm = UNCLOSED_BOLD_HEADING_RE.match(line.strip())
+            if not bm:
+                continue
+            heading_text = bm.group(1).strip()
+        reasons = []
+        if HEADING_COMMA_RE.search(heading_text):
+            reasons.append("読点")
+        if HEADING_NUMBER_PREFIX_RE.match(heading_text):
+            reasons.append("番号の前置き")
+        if reasons:
+            heading_punct_lines.append(no)
+            findings.append(
+                Finding(
+                    line=no,
+                    category="heading_punctuation",
+                    excerpt=line.strip()[:40],
+                    severity="info",
+                    detail=f"見出しに{'と'.join(reasons)}がある",
+                )
+            )
+
     stats = {
         "bold_span_count": len(bold_hits),
         "bold_per_1000_chars": bold_per_1000,
         "bullet_line_count": len(bullet_lines),
         "non_blank_line_count": len(non_blank_lines),
         "boilerplate_heading_count": len(boilerplate_lines),
+        "heading_punctuation_count": len(heading_punct_lines),
         "numbered_phase_hit_count": len(phase_hits),
         "emoji_symbol_count": len(emoji_hits),
         "emoji_symbol_per_1000_chars": emoji_per_1000,
@@ -2194,6 +2244,7 @@ HINTS = {
     "high_bold_density": "文中の強調の太字は、文書全体で本当に目立たせたい数か所だけに残す。箇条や行の頭の「**ラベル**:」は、項目を探す目印なので残してよい",
     "high_bullet_ratio": "因果や経緯のある箇条書きは地の文に戻す。宿題の一覧のように本当に独立した項目は残す",
     "boilerplate_heading": "「まとめ」「おわりに」のような見出しをやめ、結論そのものを見出しにするか、見出しなしで締める",
+    "heading_punctuation": "見出しは読点で区切らず、名詞句か短い一文で言い切る（「在庫は、週に一度だけ数える」→「在庫は週に一度だけ数える」）。「一つめ：」「その1：」のような前置きは外し、中身だけを見出しにする",
     "numbered_phase_structure": "内容がもともと段階を持つときだけ番号を付ける",
     "high_emoji_symbol_density": "絵文字や装飾記号を外す。区分のラベルとして働いているものだけ残す",
     "sentence_too_long": "主張が二つ以上あれば、主張ごとに文を分ける。分けて字数が増えるのはかまわない。元にない接続の言葉は足さない",

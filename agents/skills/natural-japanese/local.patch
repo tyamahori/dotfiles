@@ -528,10 +528,10 @@ index 0000000..1d7a509
 +- 書き手の癖を均す。話し言葉の引用(「それ先に言ってよ」など)、敬語の度合い(「いたします」「させていただきます」)、絵文字や顔文字、矢印や略記、表記の癖、改行で区切る書き方(行をつないで一文にしない)、節ごとの不揃いは、読解を妨げていない限り残す。こうした痕跡を均すと、誰が書いたのか分からない文書になる
 diff --git a/references/writing.md b/references/writing.md
 new file mode 100644
-index 0000000..82d617d
+index 0000000..9209424
 --- /dev/null
 +++ b/references/writing.md
-@@ -0,0 +1,59 @@
+@@ -0,0 +1,71 @@
 +# 詳細手順
 +
 +本文中の `scripts/`、`references/`、`assets/` とコマンドの相対パスは、
@@ -554,6 +554,12 @@ index 0000000..82d617d
 +本文の前に、主メッセージを一文で書く。書けないなら、素材が足りていない(→素材)。
 +
 +見出しには、「背景」「まとめ」のようなラベルでなく、その節の結論を書く。見出しだけを順に読んで論旨が通るかを確かめてから本文に進む。結論が条件つきで、見出しに収まらない節では、条件を落とした結論を書かず、話題を示す見出しにする(§3)。ただし、全部の見出しを「名詞: 結論文」の同じ形にそろえない。同じ形が並ぶと、それ自体が機械的に見えるためだ。短い節はラベルのままでよい。見出しで、本文より確信の度合いを上げない。本文が「予定」と書いていることを、見出しで断定しない。読み手は見出しだけを読んで判断することが多いので、見出しの断定は本文の留保より強く伝わる。
++
++見出しは読点で区切らず、名詞句か短い一文で言い切る。読点の入った見出しは、本文の文を途中で切り出したように読める。「一つめ：」「その1：」のような番号の前置きも付けない。節の順番は並びを見れば分かるので、前置きは情報を増やさない。lint は、h2 以下の見出しと、行頭の `**` を閉じない見出しにある読点と番号の前置きを `heading_punctuation` として指摘する。h1 は文書の題なので数えない。
++
++- 「在庫は、週に一度だけ数える」→「在庫は週に一度だけ数える」
++- 「一つめ：通知が遅れる」→「通知が遅れる」
++- 「それでも、続けるなら」→「それでも続けるなら」
 +
 +### 濃淡
 +
@@ -590,7 +596,121 @@ index 0000000..82d617d
 +
 +文の整え方は次のとおり。です・ます体とである体は、文書の中でそろえる。一文に主張は一つにする。一文の長さは50〜60字を目安にする(lint の `--reading-load` が長すぎる文として指摘するのは、既定では90字から)が、主体や語の関係を明示したために長くなった文を、長さだけを理由に削らない。修飾語は長いものを先に、短いものを後に置く。主語と述語はできるだけ近づける。
 +
++読点は、意味の切れ目と、読み違えを防ぎたい所にだけ打つ。息継ぎのつもりで打たない。打つ前に、語順を変えれば読点が要らなくならないかを見る。「〜して、〜して」と読点で並べた節が三つ以上続くなら、名詞にまとめるか文を分ける。
++
++- 「受ける側にも、担当者はいる」→「担当者は受ける側にもいる」
++- 「手順がずれている、記録がない、と指摘した」→「手順がずれていることと、記録がないことを指摘した」
++- 「会議では、毎回、同じ質問が出た」→「会議では毎回同じ質問が出た」
++
 +文書のジャンルによって、原則の当てはめ方を変える。技術文書は一文一義と用語の統一をもっとも厳しく守る。ビジネス文書は結論を冒頭に置く構成を優先する。エッセイは、言い切らずに余韻を残す、結論を後に置く、といった逸脱を書き手の意図として認める。公用文や、専門知識のない一般の読み手に向けた文書は、一文を短くし、外来語と二重否定を避け、主語を明示する。
+diff --git a/scripts/calibrate.py b/scripts/calibrate.py
+index 06918ea..e49051b 100644
+--- a/scripts/calibrate.py
++++ b/scripts/calibrate.py
+@@ -266,6 +266,7 @@ ALL_CATEGORIES = [
+     "high_bold_density",
+     "high_bullet_ratio",
+     "boilerplate_heading",
++    "heading_punctuation",
+     "numbered_phase_structure",
+     "high_emoji_symbol_density",
+     "low_specificity",
+diff --git a/scripts/lint.py b/scripts/lint.py
+index 88764b0..a885b29 100644
+--- a/scripts/lint.py
++++ b/scripts/lint.py
+@@ -42,6 +42,7 @@ from pathlib import Path
+ from textcore import (
+     Finding,
+     SENTENCE_SPLIT_RE,
++    _CODE_FENCE_RE,
+     _HEADING_RE,
+     _LIST_ITEM_RE,
+     get_tokenizer,
+@@ -1641,11 +1642,23 @@ EMOJI_SYMBOL_RE = re.compile(
+ )
+ EMOJI_SYMBOL_PER_1000_THRESHOLD = 2.0
+ 
++# 見出しの読点と番号の前置き。見出しは名詞句か短い一文で言い切るもので、読点で
++# 区切ると本文の文を切り出したように読め、「一つめ：」は節の順番しか伝えない。
++# 対象は h2 以下の `#` 見出しと、行頭の `**` を閉じない見出し（はてな匿名ダイアリー
++# などの書き方）。h1 は文書のタイトルで、「在宅勤務、三年やってみて」のような
++# 読点入りの題は普通にあるので数えない。閉じた「**ラベル**:」は見出しではない。
++UNCLOSED_BOLD_HEADING_RE = re.compile(r"^\*\*(?!.*\*\*)(.+)$")
++HEADING_NUMBER_PREFIX_RE = re.compile(
++    r"^(?:[一二三四五六七八九十]+つ[めの目]|[0-9０-９]+つ[めの目]|その[0-9０-９一二三四五六七八九十]+)\s*[：:]"
++)
++HEADING_COMMA_RE = re.compile(r"[、，]")
++
+ 
+ def detect_structural_ai_habits(raw_text: str) -> tuple[list[Finding], dict]:
+     """マスク前の raw テキストに対して、Markdown 構造レベルの「教科書的AI癖」を検出する。
+-    太字密度・箇条書き行比率・定型見出し・番号付きフェーズ構造・絵文字/装飾記号密度の
+-    5種類。すべて severity="info"、EXPERIMENTAL カテゴリ扱い（デフォルト無効）。
++    太字密度・箇条書き行比率・定型見出し・番号付きフェーズ構造・絵文字/装飾記号密度・
++    見出しの読点/番号の前置きの6種類。すべて severity="info"。high_bold_density と
++    heading_punctuation 以外は EXPERIMENTAL カテゴリ扱い（デフォルト無効）。
+     """
+     findings: list[Finding] = []
+     raw_lines = iter_lines_with_no(raw_text)
+@@ -1751,12 +1764,49 @@ def detect_structural_ai_habits(raw_text: str) -> tuple[list[Finding], dict]:
+             )
+         )
+ 
++    # 6) 見出しの読点・番号の前置き（既定で有効）
++    heading_punct_lines = []
++    in_fence = False
++    for no, line in raw_lines:
++        if _CODE_FENCE_RE.match(line):
++            in_fence = not in_fence
++            continue
++        if in_fence:
++            continue
++        m = _HEADING_RE.match(line)
++        if m:
++            if line.lstrip().startswith("# ") or line.strip() == "#":
++                continue
++            heading_text = line[m.end() :].strip()
++        else:
++            bm = UNCLOSED_BOLD_HEADING_RE.match(line.strip())
++            if not bm:
++                continue
++            heading_text = bm.group(1).strip()
++        reasons = []
++        if HEADING_COMMA_RE.search(heading_text):
++            reasons.append("読点")
++        if HEADING_NUMBER_PREFIX_RE.match(heading_text):
++            reasons.append("番号の前置き")
++        if reasons:
++            heading_punct_lines.append(no)
++            findings.append(
++                Finding(
++                    line=no,
++                    category="heading_punctuation",
++                    excerpt=line.strip()[:40],
++                    severity="info",
++                    detail=f"見出しに{'と'.join(reasons)}がある",
++                )
++            )
++
+     stats = {
+         "bold_span_count": len(bold_hits),
+         "bold_per_1000_chars": bold_per_1000,
+         "bullet_line_count": len(bullet_lines),
+         "non_blank_line_count": len(non_blank_lines),
+         "boilerplate_heading_count": len(boilerplate_lines),
++        "heading_punctuation_count": len(heading_punct_lines),
+         "numbered_phase_hit_count": len(phase_hits),
+         "emoji_symbol_count": len(emoji_hits),
+         "emoji_symbol_per_1000_chars": emoji_per_1000,
+@@ -2194,6 +2244,7 @@ HINTS = {
+     "high_bold_density": "文中の強調の太字は、文書全体で本当に目立たせたい数か所だけに残す。箇条や行の頭の「**ラベル**:」は、項目を探す目印なので残してよい",
+     "high_bullet_ratio": "因果や経緯のある箇条書きは地の文に戻す。宿題の一覧のように本当に独立した項目は残す",
+     "boilerplate_heading": "「まとめ」「おわりに」のような見出しをやめ、結論そのものを見出しにするか、見出しなしで締める",
++    "heading_punctuation": "見出しは読点で区切らず、名詞句か短い一文で言い切る（「在庫は、週に一度だけ数える」→「在庫は週に一度だけ数える」）。「一つめ：」「その1：」のような前置きは外し、中身だけを見出しにする",
+     "numbered_phase_structure": "内容がもともと段階を持つときだけ番号を付ける",
+     "high_emoji_symbol_density": "絵文字や装飾記号を外す。区分のラベルとして働いているものだけ残す",
+     "sentence_too_long": "主張が二つ以上あれば、主張ごとに文を分ける。分けて字数が増えるのはかまわない。元にない接続の言葉は足さない",
 diff --git a/scripts/terms.py b/scripts/terms.py
 index 9be7942..3302d44 100644
 --- a/scripts/terms.py

@@ -266,6 +266,7 @@ ALL_CATEGORIES = [
     "high_bold_density",
     "high_bullet_ratio",
     "boilerplate_heading",
+    "heading_punctuation",
     "numbered_phase_structure",
     "high_emoji_symbol_density",
     "low_specificity",
