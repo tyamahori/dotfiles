@@ -90,7 +90,7 @@ cask "cursor"
 cask "cursor-cli"
 cask "siketyan/mozc/mozc@pre"
 cask "tabularis"
-cask "penso/tap/herdr-gpui"
+cask "sheprd-labs/tap/sheprd"
 # mas entries disabled: the signed-in Apple Account does not own these apps
 # (redownload refused), and with Spotlight indexing off mas cannot see installed
 # ones. Uncomment once the App Store account owns them.

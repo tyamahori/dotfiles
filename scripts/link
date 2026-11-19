@@ -318,7 +318,7 @@ if command -v herdr >/dev/null 2>&1; then
 		echo "herdr plugin link skipped (server not running?)" >&2
 fi
 
-# Sheprd (herdr-gpui) prompt profiles, read from agent-launcher's directory.
+# Sheprd prompt profiles, read from agent-launcher's directory.
 # "Review with agent" appends the chosen profile to its read-only PR review
 # prompt. Each herdr/agent-launcher/<name>/prompt.md is a hand-written profile
 # (code-review points the agent at agents/skills review criteria); add a
