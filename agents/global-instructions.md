@@ -22,6 +22,9 @@ requested scope, verification, and failure evidence when shortening a path.
   next to the prose: Mermaid for structure, a Markdown table for numbers, a
   screenshot for UI changes. One visual per idea, drawn only from what you
   verified, not repeated in prose. Content with none of these needs no visual.
+  Chat replies in a terminal that shows Mermaid as raw code (Claude Code,
+  Codex) draw structure as a plain-text ASCII diagram instead; OMP renders
+  Mermaid itself, so keep Mermaid there.
 - One opening line, then a self-contained result. Interim updates only for
   findings, blockers, or changed plans.
 - Mention an earlier mistake only when it changes the user's code,
