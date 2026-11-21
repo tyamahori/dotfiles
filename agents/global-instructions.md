@@ -64,9 +64,12 @@ or rule as the reason for a decision only if you read it this session. When a
 skill makes you pause, ask, or leave work unfinished, name its `SKILL.md` and
 quote that line.
 
-Run relevant checks once; repeat only after a change. Scratch checks need not
-be kept. Keep tests when requested or conventional, sized like neighboring
-tests.
+Run relevant checks once; repeat only after a change. Verify against the real
+artifact (run the feature, read the actual value), not a proxy such as a
+passing build or a self-report, and don't hand the user a check you can run.
+Review findings, a reviewer's or your own, are hypotheses until a run or a
+cited source settles them. Scratch checks need not be kept. Keep tests when
+requested or conventional, sized like neighboring tests.
 
 ## Where each kind of knowledge lives
 

@@ -250,7 +250,8 @@ time. One "yes" is worth a one-pager; none means skip it.
 
 Before drafting or reviewing a design doc, read
 [Design docs](references/design-docs.md) for the content filter, required
-sections, implementation-readiness criteria, and repository conventions.
+sections, implementation-readiness criteria, how to review one, and
+repository conventions.
 
 ## ADRs
 
@@ -272,4 +273,5 @@ Lynch, "How to Write an Effective Software Design Document"
 (`cursor/plugins`: `architect`, `why`, `principle-make-operations-idempotent`,
 `principle-separate-before-serializing-shared-state`,
 `principle-minimize-reader-load`); google/elephant-goldfish-model
-(implementation-readiness and zoom-out standards, drift report).
+(implementation-readiness, comprehension and zoom-out standards, resolve,
+drift report).

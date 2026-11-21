@@ -920,8 +920,7 @@ decline or timeout is non-go: panel never silently becomes single.
 
 Shared closure accepts only `closed-pass`, `closed-low`, and `closed-risk`;
 unresolved high/mid needs a user DECISION. Direct message transport is not
-itself mutual review. `adversarial-verification` remains the distinct,
-higher-cost, broader two-pass mode for high-risk work.
+itself mutual review.
 
 - **Then ask in plain words**:
   - 「Codex にレビューさせて」

@@ -7,7 +7,8 @@ description: >
   tests earn their place, the viewpoint walk that finds missing cases, how
   deep to test each kind of code, the behaviour list (opened by a security
   triage) written before implementing, what to assert, the test-double ladder, characterisation
-  tests before refactoring, property-based tests, and the mutation check.
+  tests before refactoring, property-based and differential tests, the blast
+  radius of a diff (what it can break outside itself), and the mutation check.
 ---
 
 # test-design
@@ -227,6 +228,39 @@ Hypothesis, QuickCheck-style ports); do not add one for a single property.
 Keep one concrete example beside the property so a failure reads plainly,
 and let the library shrink the counterexample.
 
+## Differential tests where the old system is the oracle
+
+When a rewrite or migration must keep behaviour and the old implementation
+still runs, feed both the same inputs and diff the outputs: generated inputs
+or a sample of real traffic, not only hand-picked examples. Normalise what
+may legitimately differ (whitespace, ordering, timestamps) and keep the
+intended differences as an explicit list; any other difference is a bug or
+an unannounced breaking change.
+
+## Blast radius of an existing diff
+
+When a diff looks small but you cannot vouch for it, or someone asks what it
+can break, look for breakage grep does not show; listing callers is grep's
+job, not this one.
+
+1. Describe the behaviour the diff adds, changes, or removes, including what
+   the diff does not spell out.
+2. Find the one or two facts that make it safe ("this call only drops caches
+   that are already invalid"). Most scary-looking changes are made safe by
+   one such fact, so spend time here before enumerating risks.
+3. Look where grep does not reach: the source and local patches of the
+   library version in use, timing (microtasks, teardown), the JSON an API
+   returns, DB columns, wire formats and other-language readers of the same
+   bytes, feature flags, consumers several hops downstream.
+4. For each safety fact, state how far you raised it: (1) asserted, worthless
+   alone; (2) cited `file:line` or the library source; (3) traced the failure
+   path step by step to show it is unreachable; (4) ran a script or test that
+   calls the real code; (5) reproduced it in the running app. Raise it to (4)
+   when that is cheap and paste the output; below that, call it unproven.
+
+Report the safety facts with their level and evidence, what you checked and
+found fine, and the smallest test or repro to run before merging.
+
 ## Mutation check before finishing
 
 Mentally mutate the production code and confirm at least one test fails for
@@ -254,4 +288,7 @@ stub over mock, DAMP); Feathers, *Working Effectively with Legacy Code*
 Patterns* (邦訳『単体テストの考え方/使い方』; depth by kind of code); 市川裕也
 「AIがテストを書く中で、『あるべき仕様』を単体テストで担保するために工夫して
 みていること」, future-architect.github.io/articles/20260615a (behaviour
-list before implementing, exclusion vocabulary, readable behaviour items).
+list before implementing, exclusion vocabulary, readable behaviour items);
+poteto's pstack `blast-radius` (`cursor/plugins`); Addy Osmani, "How the
+Claude Code team thinks about verification" (claude.dev, 2026-11-16;
+differential tests).

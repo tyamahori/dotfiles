@@ -49,3 +49,31 @@ this machine), never a photographed whiteboard. Use the repository's
 existing design-doc location and headings; the HTML review workflow is
 `reviewable-design-doc`, which handles rendering and comment threads, not
 content.
+
+## Reviewing a design doc
+
+A design doc has no runtime, so the probe is a reader without your context.
+Give a fresh subagent only the doc and the files it references, never the
+conversation; a decision made only in chat does not exist for it. Ask for
+two concrete readings, not a hunt for faults:
+
+- **Comprehension**: read as someone new to the project; flag undefined
+  terms, missing links, unstated prerequisite steps, and sentences such as
+  "handled automatically" that skip the mechanism.
+- **Readiness**: read as the implementer; flag decisions left to them
+  (schema, API shape, dependency, a new edge case) and steps that only say
+  "update X".
+
+Factual claims (numbers, specs, external facts) are checked against primary
+sources, and what could not be confirmed is marked unverified rather than
+guessed. "No findings" is a valid result.
+
+The author proposes one disposition per finding for the human: **fix**
+(with the replacement text), **rebut** (with evidence the reviewer could
+also read: files, symbols, decisions written in the doc), **confirm** (the
+finding is wrong only because of context the reviewer never got; ask
+whether to write it into the doc), or **defer** (low impact, recorded only).
+"It was intentional" is not evidence. Never rebut a comprehension finding:
+if a reader without context could not follow, the doc lacks context, though
+add it only when a human reader needs it too. Re-review once after fixes and
+record what remains as an accepted trade-off.
