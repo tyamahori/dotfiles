@@ -6,9 +6,11 @@ description: >
   or config, and when deciding whether a change needs a test at all. Which
   tests earn their place, the viewpoint walk that finds missing cases, how
   deep to test each kind of code, the behaviour list (opened by a security
-  triage) written before implementing, what to assert, the test-double ladder, characterisation
-  tests before refactoring, property-based and differential tests, the blast
-  radius of a diff (what it can break outside itself), and the mutation check.
+  triage) written before implementing, the rules that must hold in any
+  order of operations, what to assert, the test-double ladder,
+  characterisation tests before refactoring, property-based, stateful, and
+  differential tests, model checking, the blast radius of a diff (what it can
+  break outside itself), and the mutation check.
 ---
 
 # test-design
@@ -59,7 +61,7 @@ whose depth includes it:
 | Combination | Conditions that change the outcome together: a decision table when two or more flags or inputs interact. |
 | Time | Timezone and DST, month end and leap day, expiry exactly at the boundary, a clock that moved backwards. |
 | Dependencies | Each way a dependency fails: missing, timeout, partial or out-of-order response, permission denied, rate limit. |
-| Concurrency | Two callers at once, a write racing a read, re-entry. |
+| Concurrency | Two callers at once, a write racing a read, re-entry. Check-then-act: a value read when the user confirms (stock, balance, permission) is changed by someone else before the commit. |
 | Authority | Both directions for every actor the feature serves, logged out and the lowest role included: allowed actors still succeed, the rest are refused (unauthenticated, unauthorised, another tenant's or user's resource). After an auth or middleware change, run each feature it now covers as a logged-out visitor. Escaped once: an auth change made a feature meant for logged-out visitors require login, and no test ran logged out. |
 | Environment | OS and version differences, a tool missing from PATH, absent or old-format config and data. |
 | Scale | Zero, one, many, more than fits in memory or on one page. |
@@ -97,6 +99,16 @@ the reply, then proceed.
   of upstream logic; covered by an existing test; out of scope for this
   change. Viewpoint rows marked *covered elsewhere*, *not applicable*, or
   *out of scope* go here.
+
+When the change holds state that several actors or steps touch (stock,
+money, balances, quotas, permissions, a multi-step flow), put first in
+**Behaviours to confirm** the rules that must hold after any sequence of
+operations, by anyone, in any order: 「売れたチケットの枚数は、最初の在庫数を
+超えない。」 Each rule names its source (ticket, spec, the user's words). A
+rule read off the implementation is no oracle: code and tests written from
+the same assumptions miss the same cases and pass together. The rules are
+what the user checks; the cases that exercise them come from a generator
+(stateful property tests, below), not from the agent that wrote the code.
 
 Open the lists with a one-line security triage: does the change touch
 authentication or authorization, secrets, untrusted input, file or command
@@ -228,6 +240,29 @@ Hypothesis, QuickCheck-style ports); do not add one for a single property.
 Keep one concrete example beside the property so a failure reads plainly,
 and let the library shrink the counterexample.
 
+For state that several operations touch, check the behaviour list's rules
+with a stateful property test: the library generates sequences of operations
+(and, for async code, their interleavings), runs them against the real
+implementation, and checks every rule after each step, optionally against a
+simple model of the expected state. fast-check has `fc.commands` with
+`fc.modelRun`, and `fc.scheduler` for async interleavings; Hypothesis has
+`RuleBasedStateMachine` with `@rule` and `@invariant`. Generate at least two
+actors and split each operation where the real one can be interrupted (check,
+then commit); with one actor or atomic steps the generator can never produce
+the interleaving.
+
+When the rules must hold across processes or services (payments,
+replication, a distributed protocol) and the design can still change, a
+model checker visits every reachable state of a small model instead of
+sampling: Quint (TypeScript-like syntax over TLA+) with
+`quint verify --invariant=<rule> --backend=tlc`, which prints the steps that
+lead to a violation. The verdict covers only the small world modelled (three
+users, two tickets), not every size, though most interleaving bugs already
+appear there. To check that the code matches the model, `quint run --mbt`
+writes traces and one test replays each trace against the implementation,
+comparing state after every step. Add Quint only where the project already
+uses it or the user agrees; the stateful property test needs no new tool.
+
 ## Differential tests where the old system is the oracle
 
 When a rewrite or migration must keep behaviour and the old implementation
@@ -291,4 +326,6 @@ Patterns* (邦訳『単体テストの考え方/使い方』; depth by kind of c
 list before implementing, exclusion vocabulary, readable behaviour items);
 poteto's pstack `blast-radius` (`cursor/plugins`); Addy Osmani, "How the
 Claude Code team thinks about verification" (claude.dev, 2026-11-16;
-differential tests).
+differential tests); karamage「【TLA+】AIにテストケースを書かせるな。ルールを
+書け」, zenn.dev/karamage/articles/73027ee36796dc (2026-11-21; rules over
+cases, check-then-act, Quint model checking and model-based testing).
