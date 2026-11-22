@@ -312,6 +312,29 @@ Herdr は手動の compaction を作業中として扱わないので、`/compac
 この手順はサンドボックスではありません。本人の権限で動くので、モデルのシェル実行は一時ディレクトリに閉じ込められず、依頼文と通常のガードで範囲を守らせています。
 既定の設定で `tools.approvalMode` が `yolo` の環境では、実行前の承認もありません。
 
+### セッションの索引
+
+各セッションの transcript の場所を、ローカルの索引に1行ずつ残します。
+索引は `${XDG_STATE_HOME:-~/.local/state}/agent-sessions/sessions.jsonl` にあり、リポジトリの外にあるため公開リポジトリには載りません。
+記録するのは識別子とパスだけで、プロンプト本文、コスト、トークン数は含みません。
+
+1行の形は次のとおりです。
+
+```json
+{"ts":"2026-11-22T04:36:52Z","agent":"claude","session_id":"<セッション ID>","source":"<起動の種類>","cwd":"<作業ディレクトリ>","transcript_path":"<transcript のパス>"}
+```
+
+`agent` は `claude`、`codex`、`omp` のいずれかです。`source` は SessionStart で渡された起動の理由で、渡されなければ `null` になります。`cwd` は記録時の作業ディレクトリです。
+
+書き手は2種類あります。
+
+- Claude と Codex: `claude/settings.json` と `codex/hooks.json` の SessionStart が `scripts/session-index-hook claude`（または `codex`）を呼び、hook が payload の値を書きます。`session_id` がない payload は書きません。
+- OMP: `omp/extensions/session-index.ts` が `session_start` で書きます。transcript のファイルがないセッション（一時セッションなど）は書きません。`session_id` が取れないときは transcript のファイル名から取ります。
+
+書き込みに失敗してもセッションは止めません。Claude と Codex の hook は終了コード 0 で戻り、OMP は書き込みの例外を捨てます。そのため、行がないことはセッションが無かった証拠になりません。確かめるときは、`tail -n 3` で最後の行を見るか、対象の `session_id` を `grep` します。
+
+OMP の拡張は起動時に読み込まれるので、`omp/extensions/session-index.ts` を変えたあとは、稼働中の OMP セッションを再起動してから効きます。
+
 ## この dotfiles でのモデル運用
 
 モデル運用の正本は `omp/config.yml` です。通常の割り当てを決める `modelRoles` と、障害・使用量制限時の退避先を決める `retry` を隣にまとめています。
@@ -804,6 +827,7 @@ omp-review --help
 | debug adapter の差し替え | `omp/dap.json` |
 | OMP にだけ追加する常設指示 | `omp/APPEND_SYSTEM.md` |
 | OMP extension | `omp/extensions/` |
+| Claude / Codex のセッション索引 | `scripts/session-index-hook`、`claude/settings.json`、`codex/hooks.json` |
 | 行動で必要になる Skill の案内 | `omp/extensions/skill-trigger-hint.ts` |
 | 四 CLI の代替ツール誘導ルール | `agents/command-rules.json` |
 | plugin と version | `scripts/omp-plugins` |
