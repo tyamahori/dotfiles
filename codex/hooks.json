@@ -105,6 +105,15 @@
       {
         "hooks": [
           {
+            "command": "\"$HOME/dotfiles/scripts/session-index-hook\" codex",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
             "command": "\"$HOME/dotfiles/scripts/agents-local-context\"",
             "timeout": 10,
             "type": "command"
