@@ -138,7 +138,7 @@ test("shows one widget line per logged-in Claude organisation, then Codex and Gr
   ]);
   await guard.sessionStart();
   const lines = (guard.widgets.at(-1) ?? []).map(stripVTControlCharacters);
-  expect(lines).toEqual(["Claude personal A:10%(60m)", "Claude team A:60%(60m)", "Codex 3%(60m)", "Grok 32%(60m)"]);
+  expect(lines).toEqual(["\uec82  personal A:10%(60m)", "\uec82  team A:60%(60m)", "\uec81  3%(60m)", "𝕏  32%(60m)"]);
 });
 
 test("shows each pool's newest usage sample, not an older higher one", async () => {
@@ -154,7 +154,7 @@ test("shows each pool's newest usage sample, not an older higher one", async () 
   ]);
   await guard.sessionStart();
   const lines = (guard.widgets.at(-1) ?? []).map(stripVTControlCharacters);
-  expect(lines).toEqual(["Claude personal A:10%(60m)"]);
+  expect(lines).toEqual(["\uec82  personal A:10%(60m)"]);
 });
 
 test("warns about the Codex weekly pool once each time it crosses the reserve line", async () => {

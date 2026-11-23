@@ -9,8 +9,9 @@
 //    切替はしない: omp 本体の usage-aware fallback が
 //    retry.fallbackChains（openai-codex/* → anthropic）で退避する。
 // 2. 各 pool の使用率を editor 下の widget に常時表示する。Claude は組織ごとに
-//    `Claude personal` / `Claude team` の行に分け、その後に Codex 週次枠と
-//    Grok 週次クレジットを1行ずつ置く（dotfiles/.zshrc のプロンプト表示と同じ形）。
+//    personal / team の行に分け、その後に Codex 週次枠と Grok 週次クレジットを
+//    1行ずつ置く。ラベルは Symbols Nerd Font（~/.Brewfile）の cod-claude /
+//    cod-openai アイコン。xAI のグリフは Nerd Font に無いので Grok は 𝕏。
 //    データ源は agent.db の最新 usage snapshot で、更新は session_start と
 //    チェック周期（5分毎）に揃う。
 // 3. 両 pool が 98% 以上（実質枯渇）のときだけ、ローカル ollama を probe して
@@ -181,7 +182,8 @@ function claudeLine(rows: UsageRow[], kind: "personal" | "team"): string | null 
     const hits = rows.filter((r) => r.kind === kind && r.limitId.toLowerCase() === limitId);
     return hits.length > 0 ? [`${key}:${tightest(hits)}`] : [];
   });
-  return parts.length > 0 ? `\x1b[38;5;208mClaude\x1b[39m ${kind} ${parts.join(" ")}` : null;
+  // Nerd Font アイコンは Herdr で2セル幅に描かれ直後の空白を覆うため、空白を2つ置く。
+  return parts.length > 0 ? `\x1b[38;5;208m\uec82\x1b[39m  ${kind} ${parts.join(" ")}` : null;
 }
 
 /** 1アカウント1行の使用率。表示対象の枠が無ければ空配列。
@@ -192,8 +194,8 @@ function buildUsageLines(rows: UsageRow[]): string[] {
   // guard の判定も primary（週次）だけを使っている。Grok は Build/API 別枠も
   // あるが、Sheprd の Weekly と同じ全体クレジット枠だけを出す。
   for (const [limitId, label] of [
-    ["openai-codex:primary", "\x1b[36mCodex\x1b[39m"],
-    ["xai-oauth:credits:1w", "\x1b[35mGrok\x1b[39m"],
+    ["openai-codex:primary", "\x1b[36m\uec81\x1b[39m "],
+    ["xai-oauth:credits:1w", "\x1b[35m𝕏\x1b[39m "],
   ]) {
     const hits = rows.filter((r) => r.limitId.toLowerCase() === limitId);
     if (hits.length > 0) lines.push(`${label} ${tightest(hits)}`);
