@@ -11,7 +11,8 @@
 // 2. 各 pool の使用率を editor 下の widget に常時表示する。Claude は組織ごとに
 //    personal / team の行に分け、その後に Codex 週次枠と Grok 週次クレジットを
 //    1行ずつ置く。ラベルは Symbols Nerd Font（~/.Brewfile）の cod-claude /
-//    cod-openai アイコン。xAI のグリフは Nerd Font に無いので Grok は 𝕏。
+//    cod-openai アイコンで、Claude の組織は fa-user（personal）/ fa-users（team）
+//    で区別する。xAI のグリフは Nerd Font に無いので Grok は 𝕏。
 //    データ源は agent.db の最新 usage snapshot で、更新は session_start と
 //    チェック周期（5分毎）に揃う。
 // 3. 両 pool が 98% 以上（実質枯渇）のときだけ、ローカル ollama を probe して
@@ -177,13 +178,15 @@ const CLAUDE_LIMITS: [string, string][] = [
   ["anthropic:5h", "S"],
 ];
 
+const KIND_ICON = { personal: "\uf007", team: "\uf0c0" };
+
 function claudeLine(rows: UsageRow[], kind: "personal" | "team"): string | null {
   const parts = CLAUDE_LIMITS.flatMap(([limitId, key]) => {
     const hits = rows.filter((r) => r.kind === kind && r.limitId.toLowerCase() === limitId);
     return hits.length > 0 ? [`${key}:${tightest(hits)}`] : [];
   });
   // Nerd Font アイコンは Herdr で2セル幅に描かれ直後の空白を覆うため、空白を2つ置く。
-  return parts.length > 0 ? `\x1b[38;5;208m\uec82\x1b[39m  ${kind} ${parts.join(" ")}` : null;
+  return parts.length > 0 ? `\x1b[38;5;208m\uec82\x1b[39m  ${KIND_ICON[kind]}  ${parts.join(" ")}` : null;
 }
 
 /** 1アカウント1行の使用率。表示対象の枠が無ければ空配列。

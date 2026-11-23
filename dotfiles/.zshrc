@@ -125,7 +125,8 @@ unset _fzf_tab
 # 60秒キャッシュし、ANSI 色付きの値だけ環境変数で渡す。
 # Claude は OMP にログイン済みの組織ごとに個人/チームを分けて出し、その端末に
 # ない側（未ログイン・削除済み）は表示しない。ラベルは OMP widget と同じアイコン
-# （cod-claude / cod-openai / 𝕏）。Herdr で2セル幅に描かれるため後ろの空白は2つ。
+# （cod-claude / cod-openai / 𝕏、組織は fa-user / fa-users）。Herdr で2セル幅に
+# 描かれるため後ろの空白は2つ。
 autoload -Uz add-zsh-hook
 
 typeset -gi _agent_usage_refreshed_at=-60
@@ -192,8 +193,8 @@ _agent_usage_refresh() {
              'xai-oauth:credits:1w')
       GROUP BY acct, key
       ORDER BY CASE key WHEN 'F' THEN 0 WHEN 'A' THEN 1 WHEN 'S' THEN 2 ELSE 3 END;" 2>/dev/null)
-    (( $#personal )) && parts+=("%F{208}%f  personal ${(j: :)personal}")
-    (( $#team )) && parts+=("%F{208}%f  team ${(j: :)team}")
+    (( $#personal )) && parts+=("%F{208}%f    ${(j: :)personal}")
+    (( $#team )) && parts+=("%F{208}%f    ${(j: :)team}")
     [[ -n $codex ]] && parts+=("$codex")
     [[ -n $grok ]] && parts+=("$grok")
   fi
