@@ -84,5 +84,5 @@ test.skipIf(!zsh || !sqlite3)("the prompt shows each pool's newest usage sample,
   const r = Bun.spawnSync([zsh!, "-f", "-c", `${fn}_agent_usage_refresh; print -r -- "$STARSHIP_AGENT_USAGE"`], {
     env: { HOME: home, PATH: `${bin}:/usr/bin:/bin` },
   });
-  expect(stripVTControlCharacters(r.stdout.toString())).toBe("Claude personal A:10%(-)\nCodex 3%(-)\nGrok 32%(-)\n");
+  expect(stripVTControlCharacters(r.stdout.toString())).toBe("\uec82  personal A:10%(-)\n\uec81  3%(-)\n𝕏  32%(-)\n");
 });

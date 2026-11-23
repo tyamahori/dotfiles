@@ -124,7 +124,8 @@ unset _fzf_tab
 # Starship は描画ごとに別プロセスになるため、SQLite の読み取りは Zsh 内で
 # 60秒キャッシュし、ANSI 色付きの値だけ環境変数で渡す。
 # Claude は OMP にログイン済みの組織ごとに個人/チームを分けて出し、その端末に
-# ない側（未ログイン・削除済み）は表示しない。
+# ない側（未ログイン・削除済み）は表示しない。ラベルは OMP widget と同じアイコン
+# （cod-claude / cod-openai / 𝕏）。Herdr で2セル幅に描かれるため後ろの空白は2つ。
 autoload -Uz add-zsh-hook
 
 typeset -gi _agent_usage_refreshed_at=-60
@@ -154,8 +155,8 @@ _agent_usage_refresh() {
       case $acct in
         personal) personal+=("${key}:${tok}") ;;
         team) team+=("${key}:${tok}") ;;
-        codex) codex="%F{cyan}Codex%f ${tok}" ;;
-        grok) grok="%F{magenta}Grok%f ${tok}" ;;
+        codex) codex="%F{cyan}%f  ${tok}" ;;
+        grok) grok="%F{magenta}𝕏%f  ${tok}" ;;
       esac
     done < <(sqlite3 -separator ' ' "file:$db?mode=ro" "
       SELECT CASE lower(u.provider) WHEN 'openai-codex' THEN 'codex' WHEN 'xai-oauth' THEN 'grok'
@@ -191,8 +192,8 @@ _agent_usage_refresh() {
              'xai-oauth:credits:1w')
       GROUP BY acct, key
       ORDER BY CASE key WHEN 'F' THEN 0 WHEN 'A' THEN 1 WHEN 'S' THEN 2 ELSE 3 END;" 2>/dev/null)
-    (( $#personal )) && parts+=("%F{208}Claude%f personal ${(j: :)personal}")
-    (( $#team )) && parts+=("%F{208}Claude%f team ${(j: :)team}")
+    (( $#personal )) && parts+=("%F{208}%f  personal ${(j: :)personal}")
+    (( $#team )) && parts+=("%F{208}%f  team ${(j: :)team}")
     [[ -n $codex ]] && parts+=("$codex")
     [[ -n $grok ]] && parts+=("$grok")
   fi
