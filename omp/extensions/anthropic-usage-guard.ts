@@ -8,10 +8,11 @@
 // 1. Codex 週次枠（openai-codex:primary）の残量が20%以下になったら通知する。
 //    切替はしない: omp 本体の usage-aware fallback が
 //    retry.fallbackChains（openai-codex/* → anthropic）で退避する。
-// 2. 両 pool の使用率を editor 下の widget に常時表示する。Claude は組織ごとに
-//    `Claude personal` / `Claude team` の行に分け、Codex 週次枠を最後の行に置く
-//    （dotfiles/.zshrc のプロンプト表示と同じ形）。データ源は agent.db の最新
-//    usage snapshot で、更新は session_start とチェック周期（5分毎）に揃う。
+// 2. 各 pool の使用率を editor 下の widget に常時表示する。Claude は組織ごとに
+//    `Claude personal` / `Claude team` の行に分け、その後に Codex 週次枠と
+//    Grok 週次クレジットを1行ずつ置く（dotfiles/.zshrc のプロンプト表示と同じ形）。
+//    データ源は agent.db の最新 usage snapshot で、更新は session_start と
+//    チェック周期（5分毎）に揃う。
 // 3. 両 pool が 98% 以上（実質枯渇）のときだけ、ローカル ollama を probe して
 //    応答があればメインを qwen へ退避する。ollama 不在なら何もしない。
 //
@@ -187,11 +188,15 @@ function claudeLine(rows: UsageRow[], kind: "personal" | "team"): string | null 
  *  その端末の OMP にログインしていない組織の行は出さない。 */
 function buildUsageLines(rows: UsageRow[]): string[] {
   const lines = [claudeLine(rows, "personal"), claudeLine(rows, "team")];
-  // spark:* は補助枠で常時ほぼ0%のうえ意味が不明瞭なのでノイズとして省く。
-  // guard の判定も primary（週次）だけを使っている。
-  const codex = rows.filter((r) => r.limitId.toLowerCase() === "openai-codex:primary");
-  if (codex.length > 0) {
-    lines.push(`\x1b[36mCodex\x1b[39m ${tightest(codex)}`);
+  // Codex の spark:* は補助枠で常時ほぼ0%のうえ意味が不明瞭なのでノイズとして省く。
+  // guard の判定も primary（週次）だけを使っている。Grok は Build/API 別枠も
+  // あるが、Sheprd の Weekly と同じ全体クレジット枠だけを出す。
+  for (const [limitId, label] of [
+    ["openai-codex:primary", "\x1b[36mCodex\x1b[39m"],
+    ["xai-oauth:credits:1w", "\x1b[35mGrok\x1b[39m"],
+  ]) {
+    const hits = rows.filter((r) => r.limitId.toLowerCase() === limitId);
+    if (hits.length > 0) lines.push(`${label} ${tightest(hits)}`);
   }
   return lines.filter((line): line is string => line !== null);
 }

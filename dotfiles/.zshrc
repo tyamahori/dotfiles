@@ -131,7 +131,7 @@ typeset -gi _agent_usage_refreshed_at=-60
 _agent_usage_refresh() {
   local db="$HOME/.omp/agent/agent.db"
   local -a personal team parts
-  local acct key pct age reset_mins tok reset codex
+  local acct key pct age reset_mins tok reset codex grok
   if [[ -r $db ]] && command -v sqlite3 >/dev/null 2>&1; then
     while read -r acct key pct age reset_mins; do
       tok="${pct}%%"
@@ -155,9 +155,11 @@ _agent_usage_refresh() {
         personal) personal+=("${key}:${tok}") ;;
         team) team+=("${key}:${tok}") ;;
         codex) codex="%F{cyan}Codex%f ${tok}" ;;
+        grok) grok="%F{magenta}Grok%f ${tok}" ;;
       esac
     done < <(sqlite3 -separator ' ' "file:$db?mode=ro" "
-      SELECT CASE WHEN lower(u.provider) <> 'anthropic' THEN 'codex' ELSE COALESCE((
+      SELECT CASE lower(u.provider) WHEN 'openai-codex' THEN 'codex' WHEN 'xai-oauth' THEN 'grok'
+             WHEN 'anthropic' THEN COALESCE((
                -- ponytail: 個人組織は Anthropic 既定名 \"<email>'s Organization\" で判定。
                -- 個人組織を改名したら OMP 認証情報に組織種別が載るまで誤判定する。
                SELECT CASE WHEN json_extract(c.data, '\$.orgName') LIKE '%''s Organization'
@@ -185,12 +187,14 @@ _agent_usage_refresh() {
        AND lower(u.limit_id)=m.l AND u.recorded_at=m.r
       WHERE (u.resets_at IS NULL OR u.resets_at > strftime('%s','now')*1000)
         AND lower(u.limit_id) IN
-            ('anthropic:7d:fable','anthropic:7d','anthropic:5h','openai-codex:primary')
+            ('anthropic:7d:fable','anthropic:7d','anthropic:5h','openai-codex:primary',
+             'xai-oauth:credits:1w')
       GROUP BY acct, key
       ORDER BY CASE key WHEN 'F' THEN 0 WHEN 'A' THEN 1 WHEN 'S' THEN 2 ELSE 3 END;" 2>/dev/null)
     (( $#personal )) && parts+=("%F{208}Claude%f personal ${(j: :)personal}")
     (( $#team )) && parts+=("%F{208}Claude%f team ${(j: :)team}")
     [[ -n $codex ]] && parts+=("$codex")
+    [[ -n $grok ]] && parts+=("$grok")
   fi
   export STARSHIP_AGENT_USAGE="$(print -P -- "${(pj:\n:)parts}")"
 }

@@ -72,6 +72,8 @@ test.skipIf(!zsh || !sqlite3)("the prompt shows each pool's newest usage sample,
   sample.run("anthropic", "oauth|account:a|org:org-p", "anthropic:7d", 0.9, now - 30 * 60_000);
   sample.run("anthropic", "oauth|account:a|org:org-p", "anthropic:7d", 0.1, now);
   sample.run("openai-codex", "codex", "openai-codex:primary", 0.03, now);
+  sample.run("xai-oauth", "grok", "xai-oauth:product:grokbuild:1w", 0.27, now);
+  sample.run("xai-oauth", "grok", "xai-oauth:credits:1w", 0.32, now);
   db.close();
   // Linux keeps sqlite3 in the devbox profile, outside /usr/bin.
   const bin = join(dir, "usage-bin");
@@ -82,5 +84,5 @@ test.skipIf(!zsh || !sqlite3)("the prompt shows each pool's newest usage sample,
   const r = Bun.spawnSync([zsh!, "-f", "-c", `${fn}_agent_usage_refresh; print -r -- "$STARSHIP_AGENT_USAGE"`], {
     env: { HOME: home, PATH: `${bin}:/usr/bin:/bin` },
   });
-  expect(stripVTControlCharacters(r.stdout.toString())).toBe("Claude personal A:10%(-)\nCodex 3%(-)\n");
+  expect(stripVTControlCharacters(r.stdout.toString())).toBe("Claude personal A:10%(-)\nCodex 3%(-)\nGrok 32%(-)\n");
 });

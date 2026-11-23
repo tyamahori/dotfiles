@@ -121,7 +121,7 @@ function usageHarness(
   };
 }
 
-test("shows one widget line per logged-in Claude organisation, then Codex", async () => {
+test("shows one widget line per logged-in Claude organisation, then Codex and Grok", async () => {
   const guard = usageHarness(
     () => ({ provider: "anthropic", id: "claude-opus-5-5" }),
     () => undefined,
@@ -133,10 +133,12 @@ test("shows one widget line per logged-in Claude organisation, then Codex", asyn
     { provider: "anthropic", account: "oauth|account:a|org:org-t", limitId: "anthropic:7d", pct: 60 },
     { provider: "anthropic", account: "oauth|account:a|org:org-gone", limitId: "anthropic:7d", pct: 95 },
     { provider: "openai-codex", account: "codex", limitId: "openai-codex:primary", pct: 3 },
+    { provider: "xai-oauth", account: "grok", limitId: "xai-oauth:product:grokbuild:1w", pct: 27 },
+    { provider: "xai-oauth", account: "grok", limitId: "xai-oauth:credits:1w", pct: 32 },
   ]);
   await guard.sessionStart();
   const lines = (guard.widgets.at(-1) ?? []).map(stripVTControlCharacters);
-  expect(lines).toEqual(["Claude personal A:10%(60m)", "Claude team A:60%(60m)", "Codex 3%(60m)"]);
+  expect(lines).toEqual(["Claude personal A:10%(60m)", "Claude team A:60%(60m)", "Codex 3%(60m)", "Grok 32%(60m)"]);
 });
 
 test("shows each pool's newest usage sample, not an older higher one", async () => {
