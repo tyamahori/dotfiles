@@ -83,36 +83,63 @@ tools:
   xdevNotices: false
   # The idea MCP terminal runs arbitrary shell outside bash.patterns and the
   # deny-commands extension, so it always asks (headless subagents: refused).
+  # Backlog writes are external writes: confirm each one (yolo still asks).
   approval:
     mcp__idea_execute_terminal_command: prompt
+    mcp__backlog_add_category: prompt
+    mcp__backlog_add_issue: prompt
+    mcp__backlog_add_issue_comment: prompt
+    mcp__backlog_add_project: prompt
+    mcp__backlog_add_related_issue: prompt
+    mcp__backlog_add_version_milestone: prompt
+    mcp__backlog_add_watching: prompt
+    mcp__backlog_delete_issue: prompt
+    mcp__backlog_delete_version: prompt
+    mcp__backlog_delete_watching: prompt
+    mcp__backlog_mark_watching_as_read: prompt
+    mcp__backlog_remove_related_issue: prompt
+    mcp__backlog_update_issue: prompt
+    mcp__backlog_update_issue_comment: prompt
+    mcp__backlog_update_project: prompt
+    mcp__backlog_update_version_milestone: prompt
+    mcp__backlog_update_watching: prompt
   restrictedFolders:
     - ~/.ssh
     - ~/.aws
     - ~/.config/gh
     - ~/.gnupg
-# Destructive remote/history operations ask even under the default yolo mode;
-# headless subagents cannot answer, so they are refused there.
+# The harness, not agent judgment, holds the last line: merging, closing a PR,
+# and deleting branches are refused outright (the human runs them); marking a
+# PR ready asks. Force push, reset --hard, repo delete and gh api DELETE are
+# allowed by the user's choice. Patterns do not unwrap `env -u X gh ...`, so
+# gh rules carry an `env *` twin. Headless subagents refuse prompts.
 bash:
   patterns:
-    - match: "git *push *--force*"
+    - match: "gh pr merge*"
+      approval: deny
+    - match: "env * gh pr merge*"
+      approval: deny
+    - match: "gh pr close*"
+      approval: deny
+    - match: "env * gh pr close*"
+      approval: deny
+    - match: "git *branch -D*"
+      approval: deny
+    - match: "git *branch -d*"
+      approval: deny
+    - match: "git *branch *--delete*"
+      approval: deny
+    - match: "git *push *--delete*"
+      approval: deny
+    - match: "git *push * :*"
+      approval: deny
+    - match: "gh pr ready*"
       approval: prompt
-    - match: "git *push -f*"
+    - match: "env * gh pr ready*"
       approval: prompt
-    - match: "git *push * -f*"
-      approval: prompt
-    - match: "git *push * +*"
-      approval: prompt
-    - match: "git *reset *--hard*"
+    - match: "*pr-push.sh --ready*"
       approval: prompt
     - match: "git *clean *-*f*"
-      approval: prompt
-    - match: "gh repo delete*"
-      approval: prompt
-    - match: "gh api *-X DELETE*"
-      approval: prompt
-    - match: "gh api *-XDELETE*"
-      approval: prompt
-    - match: "gh api *--method DELETE*"
       approval: prompt
     - match: "docker volume rm*"
       approval: prompt
