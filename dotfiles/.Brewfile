@@ -91,6 +91,7 @@ cask "cursor-cli"
 cask "siketyan/mozc/mozc@pre"
 cask "tabularis"
 cask "sheprd-labs/tap/sheprd"
+cask "session-manager-plugin"
 # mas entries disabled: the signed-in Apple Account does not own these apps
 # (redownload refused), and with Spotlight indexing off mas cannot see installed
 # ones. Uncomment once the App Store account owns them.
