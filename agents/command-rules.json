@@ -191,7 +191,7 @@
       "replacement": { "type": "native-tool" },
       "reasons": {
         "claude": "In-place shell edits (`sed -i`, `perl -pi`) are blocked. Use Edit/Write; for the same rewrite across many files use ast-grep (`structural-edit` skill).",
-        "omp": "In-place shell edits (`sed -i`, `perl -pi`) are blocked. Use `edit`/`write`; for the same rewrite across many files use `xd://ast_edit`."
+        "omp": "In-place shell edits (`sed -i`, `perl -pi`) are blocked. Use `edit`/`write`; for the same rewrite across many files use the `ast_edit` command."
       }
     },
     {

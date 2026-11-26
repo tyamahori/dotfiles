@@ -42,8 +42,8 @@ that the repository has no matches.
 
 ## OMP: `ast_edit`
 
-OMP exposes ast-grep through the staged `xd://ast_edit` device. Write this JSON
-to the device:
+OMP exposes ast-grep as the staged `ast_edit` bash command. Pass this JSON with
+`-j` (or `@file`):
 
 ```json
 {
@@ -60,8 +60,8 @@ to the device:
 The result is only a proposal. Review every reported file and replacement,
 then finalize exactly once:
 
-- Apply: write a one-sentence reason to `xd://resolve`.
-- Discard: write a one-sentence reason to `xd://reject`.
+- Apply: run `resolve '<one-sentence reason>'`.
+- Discard: run `reject '<one-sentence reason>'`.
 
 Do not edit affected files between proposal and resolution. For multiple
 operations, put independent patterns in one proposal; run dependency-ordered

@@ -79,8 +79,8 @@ prewalk:
   from: "@plan"
   into: "@task"
 tools:
-  xdevDocs: builtins
-  xdevNotices: false
+  commandDocs: builtins
+  commandNotices: false
   # The idea MCP terminal runs arbitrary shell outside bash.patterns and the
   # deny-commands extension, so it always asks (headless subagents: refused).
   # Backlog writes are external writes: confirm each one (yolo still asks).
@@ -192,8 +192,6 @@ dev:
   autoqaConsent: granted
 composer:
   shape: pi
-tui:
-  completeScrollback: true
 browser:
   screenshotDir: .agent-msgs/screenshots
 security:
