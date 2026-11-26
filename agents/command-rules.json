@@ -133,9 +133,9 @@
       "clients": ["claude", "codex", "omp"],
       "replacement": { "type": "native-tool" },
       "reasons": {
-        "claude": "Sleeps of 10s or more are blocked: don't poll. Wait on the event itself in one background command (`run_in_background`): `gh pr checks <PR> --watch --fail-fast`, `gh run watch <id> --exit-status`, or a readiness loop with a short sleep.",
-        "codex": "Sleeps of 10s or more are blocked: don't poll. Wait on the event itself in one command: `gh pr checks <PR> --watch --fail-fast`, `gh run watch <id> --exit-status`, or a readiness loop with a short sleep.",
-        "omp": "Sleeps of 10s or more are blocked: don't poll. Run one async bash that waits on the event itself (`gh pr checks <PR> --watch --fail-fast`, `gh run watch <id> --exit-status`); its result is delivered automatically. For servers use a named bash service with `ready`."
+        "claude": "Sleeps of 10s or more are blocked: don't poll. Wait on the event itself in one background command (`run_in_background`): `gh pr checks <PR> --watch --fail-fast`, `gh run watch <id> --exit-status`, or a readiness loop with a short sleep. For a marker file or pane output: `fswatch -1 <dir>`, or in Herdr `herdr agent wait <name>` / `herdr pane wait-output <pane> --match <text>`.",
+        "codex": "Sleeps of 10s or more are blocked: don't poll. Wait on the event itself in one command: `gh pr checks <PR> --watch --fail-fast`, `gh run watch <id> --exit-status`, or a readiness loop with a short sleep. For a marker file or pane output: `fswatch -1 <dir>`, or in Herdr `herdr agent wait <name>` / `herdr pane wait-output <pane> --match <text>`.",
+        "omp": "Sleeps of 10s or more are blocked: don't poll. Run one async bash that waits on the event itself (`gh pr checks <PR> --watch --fail-fast`, `gh run watch <id> --exit-status`); its result is delivered automatically. For servers use a named bash service with `ready`. For a marker file or pane output: `fswatch -1 <dir>`, or in Herdr `herdr agent wait <name>` / `herdr pane wait-output <pane> --match <text>`."
       }
     },
     {
