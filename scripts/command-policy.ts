@@ -71,7 +71,7 @@ const repoRoot = resolve(import.meta.dir, "..");
 type Operator = ";" | "&" | "&&" | "|" | "|&" | "||" | "(" | ")" | "<" | ">" | "<<" | ">>" | ">&" | "&>" | "newline";
 type Token = { type: "word"; value: string } | { type: "operator"; value: Operator; fd?: string };
 type OperatorToken = Extract<Token, { type: "operator" }>;
-type Segment = { words: string[]; followsPipe: boolean; redirected: boolean };
+type Segment = { words: string[]; followsPipe: boolean; redirected: boolean; separator?: Operator };
 
 // `<<` inside `$((…))` or `((…))` is a left shift, not a heredoc.
 function heredocIndex(tokens: Token[]): number {
@@ -225,8 +225,8 @@ export function segments(command: string): Segment[] {
   let redirected = false;
   let output: OperatorToken | undefined;
 
-  const finish = () => {
-    if (words.length) result.push({ words, followsPipe, redirected });
+  const finish = (separator?: Operator) => {
+    if (words.length) result.push({ words, followsPipe, redirected, separator });
     words = [];
     redirected = false;
   };
@@ -249,22 +249,121 @@ export function segments(command: string): Segment[] {
     }
     output = undefined;
     const continuedPipe: boolean = token.value === "newline" && followsPipe && words.length === 0;
-    finish();
+    finish(token.value);
     followsPipe = token.value === "|" || token.value === "|&" || continuedPipe;
   }
   finish();
   return result;
 }
 
+// Shell state the scratch exemption needs, so `cd <scratch> && tail x` and
+// `S=<scratch>; grep e $S/x` are judged by the path the shell reads: the
+// directory set by `cd`, and variables assigned literal values. Whenever the
+// state is uncertain, operands get only the literal check.
+type PathContext = { cwd?: string; vars: Map<string, string> };
+const LITERAL_ONLY: PathContext = { vars: new Map() };
+// Words that can move the shell somewhere this scanner does not follow.
+const DIRECTORY_CHANGERS = new Set(["cd", "pushd", "popd", "builtin", "command", "eval", "source", ".", "exec"]);
+// Separators after which the next segment always runs in the current shell.
+const LIST_STARTS = new Set<string | undefined>([undefined, ";", "newline", "&"]);
+
+// Only `$NAME` / `${NAME}` with known values; anything else (`${X:-y}`, an
+// unknown name, a brace expansion) leaves the word unresolved.
+function expandVariables(word: string, vars: Map<string, string>): string | undefined {
+  const expanded = word.replace(/\$(?:\{(\w+)\}|(\w+))/g, (whole, braced, bare) => vars.get(braced ?? bare) ?? whole);
+  return /[$`{]/.test(expanded) ? undefined : expanded;
+}
+
+// Joined as text, not path.resolve: a `..` stays visible to operandPattern.
+function joinPath(cwd: string | undefined, path: string): string {
+  return cwd === undefined || /^[/~]/.test(path) ? path : `${cwd}/${path}`;
+}
+
+// A segment of only `NAME=value` words (optionally after `export`) that is
+// sure to run binds them. Any other mention of a name (`unset S`, `read S`,
+// `S[0]=x`, `S+=x`, an assignment after `&&`/`||`) may rebind it, so it is
+// forgotten. Quoting hides whether a word is an assignment at all (`'S=x'`
+// runs a command), and a value with blanks or glob characters splits or
+// expands when used unquoted, so neither is tracked.
+function trackVariables(words: string[], vars: Map<string, string>, reliable: boolean): void {
+  const assignments = words[0] === "export" ? words.slice(1) : words;
+  const isAssignment = assignments.length > 0 && assignments.every((word) => /^[A-Za-z_]\w*=/.test(word));
+  if (!isAssignment || !reliable) {
+    for (const word of words) vars.delete(/^[A-Za-z_]\w*/.exec(word)?.[0] ?? "");
+    return;
+  }
+  for (const word of assignments) bindVariable(word, vars);
+}
+
+function bindVariable(assignment: string, vars: Map<string, string>): void {
+  const name = assignment.slice(0, assignment.indexOf("="));
+  const value = expandVariables(assignment.slice(name.length + 1), vars);
+  if (value === undefined || /[\s*?[]/.test(value)) vars.delete(name);
+  else vars.set(name, value);
+}
+
+// `lost`: an earlier `cd` may or may not have run, so a relative target has
+// no known base. Bare relative targets are never followed: CDPATH may send
+// them elsewhere.
+function followDirectory(
+  words: string[],
+  state: { cwd?: string; lost: boolean },
+  vars: Map<string, string>,
+  reliable: boolean,
+): void {
+  const target = reliable && words[0] === "cd" && words.length === 2 ? expandVariables(words[1], vars) : undefined;
+  if (target !== undefined && (/^(?:\/|~\/|~$)/.test(target) || (!state.lost && target.startsWith("./")))) {
+    state.cwd = joinPath(state.cwd, target);
+    state.lost = false;
+  } else if (words.some((word) => DIRECTORY_CHANGERS.has(word))) {
+    state.cwd = undefined;
+    state.lost = true;
+  }
+}
+
+function pathContexts(command: string, parsed: Segment[]): PathContext[] {
+  // A subshell, function body, or substitution can confine or hide a `cd` or
+  // an assignment; a changed IFS splits expansions differently.
+  if (/[(`]|IFS/.test(command)) return parsed.map(() => LITERAL_ONLY);
+  const quoted = /['"\\]/.test(command);
+  const state: { cwd?: string; lost: boolean } = { lost: false };
+  const vars = new Map<string, string>();
+  let previous: Operator | undefined;
+  return parsed.map(({ words, followsPipe, separator }) => {
+    const context = { cwd: state.cwd, vars: new Map(vars) };
+    // A pipeline member or `&` job runs in a subshell: nothing it sets survives.
+    const inSubshell = followsPipe || separator === "|" || separator === "|&" || separator === "&";
+    // After `||` a segment may be skipped; after `&&` a skipped `cd` also
+    // skips everything chained to it, but a skipped assignment does not.
+    trackVariables(words, vars, !inSubshell && !quoted && LIST_STARTS.has(previous));
+    followDirectory(words, state, vars, !inSubshell && previous !== "||");
+    // Only `&&` guarantees that a `cd` before it ran.
+    if (state.cwd !== undefined && separator !== "&&") {
+      state.cwd = undefined;
+      state.lost = true;
+    }
+    previous = separator;
+    return context;
+  });
+}
+
 // Options and the value right after a value-taking one (`-n 50`, `-t ts`) are
 // not operands; anything else is, including the pattern and a file named `1k`.
 // A pattern given by flag (`-e x`) leaves no pattern operand to skip.
-function operandsMatch(args: string[], match: CompiledMatch): boolean {
+function operandsMatch(args: string[], match: CompiledMatch, context: PathContext): boolean {
   const skip = args.some((word) => match.patternFlags?.test(word)) ? 0 : (match.skipOperands ?? 0);
   const operands = args
     .filter((word, at) => !word.startsWith("-") && !match.valueFlags?.test(args[at - 1] ?? ""))
     .slice(skip);
-  return operands.length > 0 && operands.every((word) => match.operandPattern!.test(word));
+  const pattern = match.operandPattern;
+  return (
+    pattern !== undefined &&
+    operands.length > 0 &&
+    operands.every((word) => {
+      const expanded = expandVariables(word, context.vars);
+      return pattern.test(word) || (expanded !== undefined && pattern.test(joinPath(context.cwd, expanded)));
+    })
+  );
 }
 
 // Flags that cannot widen what a search reads or prints: no -e/-f (a pattern
@@ -459,6 +558,7 @@ function globMatchesSample(word: string, samples: string[] | undefined): boolean
 /** Returns the client-specific denial reason, or undefined when the command is allowed. */
 export function denyCommand(command: string, client: Client): string | undefined {
   const parsed = segments(command);
+  const contexts = pathContexts(command, parsed);
   for (const rule of rules) {
     if (!rule.clients.includes(client)) continue;
     if (rule.requireEnv && Object.entries(rule.requireEnv).some(([name, value]) => process.env[name] !== value))
@@ -485,7 +585,7 @@ export function denyCommand(command: string, client: Client): string | undefined
               .slice(index + 1)
               .some((word) => match.anyArgPattern!.test(word) || globMatchesSample(word, match.anyArgGlobSamples))) &&
           (!match.noArgPattern || !words.slice(index + 1).some((word) => match.noArgPattern!.test(word))) &&
-          (!match.operandPattern || !operandsMatch(words.slice(index + 1), match)) &&
+          (!match.operandPattern || !operandsMatch(words.slice(index + 1), match, contexts[at])) &&
           (!match.requireNoRedirection || !redirected) &&
           (rule.matcher !== "curl-web-fetch" ||
             (!redirected && outputIsRead(parsed[at + 1]) && isSimpleWebFetch(words.slice(index + 1)))) &&

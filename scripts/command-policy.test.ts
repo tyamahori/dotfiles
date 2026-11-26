@@ -97,6 +97,11 @@ test("count/list/quiet greps and reads confined to scratch, /tmp, or logs are al
     "grep -n 404 /tmp/access.log",
     "rg -t ts needle /tmp/a.log",
     "grep -e 404 -e 500 /tmp/a.log",
+    "cd ~/w/.agent-msgs/scratch/run && tail -n 20 out.txt",
+    "S=~/w/.agent-msgs/scratch/run; grep -n err $S/out.txt",
+    "W=~/w; S=$W/.agent-msgs/scratch; tail ${S}/pane.txt",
+    "export D=/tmp/run\nhead -5 $D/x.txt",
+    "cd /tmp/run && cd ./sub && head a.txt",
   ]) {
     expect(denyCommand(command, "omp")).toBeUndefined();
   }
@@ -115,6 +120,29 @@ test("count/list/quiet greps and reads confined to scratch, /tmp, or logs are al
     "grep -e x src/app.ts /tmp/a.log",
     "grep src/app.ts -e /tmp/x",
     "grep -ex src/app.ts /tmp/a.log",
+    "cd .agent-msgs/scratch && head ../../src/app.ts",
+    "S=.agent-msgs/scratch; tail $S/../../src/app.ts",
+    "cd /tmp && head /etc/hosts",
+    "cd /tmp && cd ~/repo && head a.ts",
+    "S=.agent-msgs/scratch tail $S/x",
+    "S=$(pwd)/.agent-msgs/scratch; tail $S/x",
+    "(cd /tmp); head README.md",
+    "cd /tmp; head README.md",
+    "cd /tmp || true; head README.md",
+    "cd /tmp & head README.md",
+    "cd /tmp && command cd ~/repo && head README.md",
+    "cd /tmp && x; cd sub && head a.txt",
+    "S=/tmp/run; unset S; head $S/x",
+    "S=/tmp/run; for S in src; do head $S/x; done",
+    "S=/tmp/run | true; head $S/x",
+    'unset X; cd /tmp && head "${X:-/etc/hosts}"',
+    'S=/etc; true || S=/tmp; head "$S/hosts"',
+    'S=/tmp; S[0]=/etc; head "$S/hosts"',
+    "S='/tmp/ /etc/hosts'; head $S",
+    "S=/etc; 'S=/tmp'; head \"$S/hosts\"",
+    "CDPATH=/; cd /tmp && cd etc && head hosts",
+    "HOME=/etc; cd /tmp && cd -P && head hosts",
+    "S=/tmp/*; head $S",
   ]) {
     expect(denyCommand(command, "omp")).toBeDefined();
   }
