@@ -61,7 +61,7 @@ export default function (pi: ExtensionHandlerApi): void {
         "[session-compaction-guard] この有人TUIセッションでは自動コンパクションが2回完了した。" +
         "現在の依頼を中断せず完了し、完了報告の前に、次のセッションへ必要な未完タスク・決定事項・変更済みファイル・未実行確認を引き継ぎメモへ保存すること" +
         "(置き場はリポジトリが明示的に定義していればそこ、なければ gitignore 済みの .agent-msgs/handoff/)。" +
-        "メモを保存したら未完の todo を todo リストから外し(外せなければ完了にし)、handoff_switch ツールにそのパスを渡して呼ぶこと(未完 todo が残ると停止時の todo リマインダーで作業が再開され切替が着地しない)。呼ぶと応答完了後に自動で新セッションへ切り替わり、メモが読み込まれる。/handoff は同じセッション内の圧縮であり、代わりにならない。";
+        "メモを保存したら未完の todo を todo リストから外し(外せなければ完了にし)、handoff_switch ツールにそのパスを渡して呼ぶこと(未完 todo が残ると停止時の todo リマインダーで作業が再開され切替が着地しない)。呼ぶと応答完了後に入力欄へ切替コマンドが入り、利用者の Enter で新セッションへ切り替わってメモが読み込まれる。/handoff は同じセッション内の圧縮であり、代わりにならない。";
       const repeatedReminder =
         `[session-compaction-guard] 自動コンパクションが${autoCompactionEnds}回完了したが、セッション移行が未完了。` +
         "現在の依頼を完了して引き継ぎメモを保存し、handoff_switch ツールを呼ぶこと。新しい無関係な依頼をこのセッションで始めないこと。";
@@ -80,7 +80,7 @@ export default function (pi: ExtensionHandlerApi): void {
 
     const input = event as { source?: string; text?: string };
     const text = input.text?.trimStart() ?? "";
-    // handoff-switch.ts は /handoff-switch を interactive 入力として注入する。
+    // handoff-switch.ts が入力欄に入れた /handoff-switch は、利用者の Enter で interactive 入力として届く。
     if (input.source !== "interactive" || /^\/(?:new|quit|q|exit|resume|drop|handoff-switch)(?:\s|$)/.test(text))
       return;
 

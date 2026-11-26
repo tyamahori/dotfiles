@@ -109,7 +109,7 @@ test("accepts a memo path written with ~/, as the read and write tools do", asyn
   expect(result.details?.path).toBe(note);
 });
 
-test("injects the switch command only after the agent becomes idle", async () => {
+test("fills the switch command only after the agent becomes idle", async () => {
   const handoff = handoffHarness();
   const result = await handoff
     .tool()
@@ -118,8 +118,7 @@ test("injects the switch command only after the agent becomes idle", async () =>
   let cleared = false;
   let idle = false;
   const editor: string[] = [];
-  const injected: string[] = [];
-  let customCalls = 0;
+  const notifications: string[] = [];
   handoff.agentEnd()(
     {},
     {
@@ -134,17 +133,7 @@ test("injects the switch command only after the agent becomes idle", async () =>
         return "timer";
       },
       ui: {
-        custom: async (
-          render: (tui: unknown, theme: unknown, keys: unknown, done: (value: unknown) => void) => unknown,
-        ) => {
-          customCalls++;
-          const tui = { injectDebugInput: (bytes: string) => injected.push(bytes) };
-          let captured: unknown;
-          render(tui, undefined, undefined, (value) => {
-            captured = value;
-          });
-          return captured;
-        },
+        notify: (message: string) => notifications.push(message),
         setEditorText: (text: string) => editor.push(text),
       },
     },
@@ -153,13 +142,13 @@ test("injects the switch command only after the agent becomes idle", async () =>
   await poll?.();
   expect(result.isError).toBeUndefined();
   expect(cleared).toBe(false);
-  expect(customCalls).toBe(0);
+  expect(editor).toEqual([]);
   idle = true;
   await poll?.();
 
   expect(cleared).toBe(true);
   expect(editor).toEqual([`/handoff-switch ${note}`]);
-  expect(injected).toEqual(["\r"]);
+  expect(notifications).toHaveLength(1);
 });
 
 test("does not prompt a new session when the switch is cancelled", async () => {

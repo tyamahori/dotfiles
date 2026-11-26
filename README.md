@@ -664,8 +664,9 @@ extensions in `omp/extensions/`:
   the shared hook compares it with the transcript's last write. OMP's
   `handoff-switch` extension closes
   the loop: once the agent saves the handoff note and calls the
-  `handoff_switch` tool, the extension opens a fresh session after the
-  current response and feeds it the note.
+  `handoff_switch` tool, the extension fills `/handoff-switch <path>` into
+  the editor after the current response; pressing Enter opens a fresh
+  session and feeds it the note.
 - **personal project rules** — a gitignored `AGENTS.local.md` at a
   repository root (ignored globally via `git/ignore`) holds per-project
   personal rules. OMP loads it natively (`contextFiles.extra` in

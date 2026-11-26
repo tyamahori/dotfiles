@@ -1,11 +1,11 @@
-// 引き継ぎメモ保存後のセッション切替を自動化する。
+// 引き継ぎメモ保存後のセッション切替を半自動化する。
 // エージェントは handoff_switch ツールにメモのパスを渡す → 現在の応答が終わった時点で
-// 拡張が /handoff-switch をエディタに入れて Enter を注入する → command context の
+// 拡張が /handoff-switch <path> を入力欄に入れる → 利用者が Enter を押すと command context の
 // newSession() で空セッションに切り替え、メモを読む prompt を投入する。
 // tool/event context には newSession がなく、pi.sendUserMessage は
 // expandPromptTemplates:false で prompt() を通るので extension command を実行しない。
-// そのため ctx.ui.custom で TUI インスタンスを取り、injectDebugInput("\r") で
-// 人が Enter を押したのと同じ経路に乗せている。
+// omp 19.1 までは ctx.ui.custom の TUI 実体から injectDebugInput("\r") で Enter まで注入していたが、
+// 19.2 で custom に渡るのは requestRender/size/suspend だけの UI host になり、入力を注入する公開 API がない。
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
@@ -22,7 +22,7 @@ export default function handoffSwitch(pi: ExtensionAPI): void {
     name: "handoff_switch",
     label: "Handoff Switch",
     description:
-      "引き継ぎメモを保存し終えたら、そのパスを渡して呼ぶ。現在の応答が完了した後に自動で新しいセッションへ切り替わり、新セッションがメモを読んで作業を続ける。メモには「承認済みでそのまま続ける次の一手」と「本人の確認・判断待ち」を分けて書くこと(新セッションは前者だけを進める)。未完の todo はメモに書いたうえで todo リストから外して(外せなければ完了にして)から呼ぶこと。未完 todo が残っていると停止時の todo リマインダーで作業が再開され、切替が着地しない。呼んだ後は完了報告を短く書いて応答を終えること。",
+      "引き継ぎメモを保存し終えたら、そのパスを渡して呼ぶ。現在の応答が完了すると入力欄に切替コマンドが入り、利用者が Enter を押すと新しいセッションへ切り替わって、新セッションがメモを読んで作業を続ける。メモには「承認済みでそのまま続ける次の一手」と「本人の確認・判断待ち」を分けて書くこと(新セッションは前者だけを進める)。未完の todo はメモに書いたうえで todo リストから外して(外せなければ完了にして)から呼ぶこと。未完 todo が残っていると停止時の todo リマインダーで作業が再開され、切替が着地しない。呼んだ後は完了報告を短く書いて応答を終えること。",
     parameters: pi.zod.object({
       path: pi.zod.string().min(1).describe("保存済みの引き継ぎメモのパス"),
     }),
@@ -36,7 +36,12 @@ export default function handoffSwitch(pi: ExtensionAPI): void {
       }
       pending = path;
       return {
-        content: [{ type: "text", text: `この応答の完了後に新セッションへ切り替え、${path} を読み込ませる` }],
+        content: [
+          {
+            type: "text",
+            text: `この応答の完了後に入力欄へ切替コマンドを入れる。Enter で新セッションへ切り替え、${path} を読み込ませる`,
+          },
+        ],
         details: { path },
       };
     },
@@ -46,16 +51,12 @@ export default function handoffSwitch(pi: ExtensionAPI): void {
     if (!pending || !ctx.hasUI) return;
     const path = pending;
     pending = undefined;
-    // agent_end 時点ではまだ streaming 扱いのことがあるので idle になってから投げる。
-    const poll = ctx.setInterval(async () => {
+    // agent_end 時点ではまだ streaming 扱いのことがあるので idle になってから入れる。
+    const poll = ctx.setInterval(() => {
       if (!ctx.isIdle()) return;
       ctx.clearTimer(poll);
-      const tui = await ctx.ui.custom<{ injectDebugInput(bytes: string): void }>((tui, _theme, _keys, done) => {
-        done(tui as never);
-        return { render: () => [], handleInput: () => {}, invalidate: () => {} } as never;
-      });
       ctx.ui.setEditorText(`/${COMMAND} ${path}`);
-      tui.injectDebugInput("\r");
+      ctx.ui.notify("handoff-switch: Enter で新しいセッションへ切り替える", "info");
     }, 100);
   });
 
