@@ -18,6 +18,7 @@
       "commands": [
         {
           "executables": ["grep", "rg"],
+          "clients": ["omp"],
           "noArgPattern": "^(?:-[A-Za-z]*[clLq][A-Za-z]*|--count|--files-with-matches|--files-without-match|--quiet|--silent)$",
           "operandPattern": "^(?!.*(?:^|/)\\.\\.(?:/|$)).*(?:(?:^|/)\\.agent-msgs/scratch/|^(?:/private)?/tmp/|^/dev/null$|\\.log$)",
           "skipOperands": 1,
@@ -29,7 +30,7 @@
           "operandPattern": "^(?!.*(?:^|/)\\.\\.(?:/|$)).*(?:(?:^|/)\\.agent-msgs/scratch/|^(?:/private)?/tmp/|^/dev/null$|\\.log$)",
           "valueFlags": "^(?:-[A-Za-z]*[nc]|--(?:lines|bytes))$"
         },
-        { "executables": ["find"] },
+        { "executables": ["find"], "clients": ["omp"] },
         { "executables": ["sed"], "nextArgPattern": "^(?:-[A-Za-z]*n[A-Za-z]*|--quiet|--silent)$" },
         { "executables": ["cat"], "requireNoRedirection": true }
       ],
@@ -37,7 +38,7 @@
       "clients": ["claude", "omp"],
       "replacement": { "type": "native-tool" },
       "reasons": {
-        "claude": "Shell read/search commands are blocked on this machine. Use Grep instead of grep/rg, Read with offset/limit instead of cat/head/tail/sed -n, and Glob instead of find. Allowed: mid-pipeline filters, write-mode cat, grep -c/-l/-q, and grep/head/tail on .agent-msgs/scratch/, /tmp/, or *.log.",
+        "claude": "Shell file reads are blocked on this machine. Use Read with offset/limit instead of cat/head/tail/sed -n; search with grep/rg/find, which stay allowed. Also allowed: mid-pipeline filters, write-mode cat, and head/tail on .agent-msgs/scratch/, /tmp/, or *.log.",
         "omp": "Shell read/search commands are blocked on this machine. Use grep instead of shell grep/rg, read with a bounded selector instead of cat/head/tail/sed -n, and glob instead of find. Allowed: mid-pipeline filters, write-mode cat, grep -c/-l/-q, and grep/head/tail on .agent-msgs/scratch/, /tmp/, or *.log."
       }
     },

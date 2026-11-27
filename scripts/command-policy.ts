@@ -5,6 +5,10 @@ import ruleTable from "../agents/command-rules.json";
 type Client = "claude" | "codex" | "omp" | "copilot";
 type CommandMatch = {
   executables: string[];
+  // Narrows this entry to some of the rule's clients. Claude Code's native
+  // build has no Grep/Glob tool (grep and find in its Bash are its embedded
+  // search, verified 2.1.332), so denying them there leaves no way to search.
+  clients?: Client[];
   subcommand?: string;
   nextArgPattern?: string;
   anyArgPattern?: string;
@@ -563,6 +567,7 @@ export function denyCommand(command: string, client: Client): string | undefined
     if (!rule.clients.includes(client)) continue;
     if (rule.requireEnv && Object.entries(rule.requireEnv).some(([name, value]) => process.env[name] !== value))
       continue;
+    const commands = rule.commands.filter((match) => !match.clients || match.clients.includes(client));
     const matched = parsed.some(({ words, followsPipe, redirected }, at) => {
       if (rule.excludeAfterPipe && followsPipe) return false;
       if (rule.matcher === "search-allowlist") {
@@ -575,7 +580,7 @@ export function denyCommand(command: string, client: Client): string | undefined
       }
       const index = commandIndex(words);
       const executable = executableName(words[index]);
-      return rule.commands.some(
+      return commands.some(
         (match) =>
           match.executables.includes(executable) &&
           (!match.subcommand || subcommandMatches(words, index, match.subcommand)) &&

@@ -582,8 +582,11 @@ extensions in `omp/extensions/`:
   (Copilot through `copilot/hooks/dotfiles.json`, sharing Codex's rules), and OMP loads
   `omp/extensions/deny-commands.ts`. The guard redirects bare Python to uv,
   simple curl web fetches to ax, and `brew upgrade` to `scripts/brewUpdate`
-  only when the replacement executable is available. Shell read/search
-  commands redirect to dedicated tools in Claude/OMP, not Codex. `sleep` of
+  only when the replacement executable is available. Shell reads
+  (`cat`/`head`/`tail`/`sed -n`) redirect to the read tool in Claude/OMP, not
+  Codex. Shell search (`grep`/`rg`/`find`) redirects only in OMP: Claude
+  Code's native build has no Grep/Glob tool and searches through Bash, where
+  the sandbox's `.env` read deny above is the guard. `sleep` of
   10 s or more is rejected as polling; agents wait on the event instead
   (`gh pr checks --watch` in a background command). Ad hoc global installs
   (`brew install`, `npm i -g`, `pip install`, `go install`, `cargo install`,

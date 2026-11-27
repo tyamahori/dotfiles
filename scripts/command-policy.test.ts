@@ -36,8 +36,18 @@ test("Python pipelines are denied while read filters and write-mode cat stay all
   expect(denyCommand("cat file", "omp")).toBeDefined();
   expect(denyCommand("sed -n '1,5p' file", "claude")).toBeDefined();
   expect(denyCommand("grep value file", "codex")).toBeUndefined();
-  expect(denyCommand("grep value file", "claude")).toContain("Grep");
+  expect(denyCommand("cat file", "claude")).toContain("Read");
   expect(denyCommand("grep value file", "omp")).toContain("glob");
+});
+
+test("Claude Code searches with shell grep/rg/find, while its file reads and OMP's searches stay denied", () => {
+  for (const command of ["grep value file", "grep -rn needle src", "rg -n needle src", "find . -name '*.ts'"]) {
+    expect(denyCommand(command, "claude")).toBeUndefined();
+    expect(denyCommand(command, "omp")).toBeDefined();
+  }
+  for (const command of ["cat file", "head README.md", "tail -n 5 src/app.ts", "sed -n '1,5p' file"]) {
+    expect(denyCommand(command, "claude")).toBeDefined();
+  }
 });
 
 test("an absolute or relative path to the executable is matched by its name", () => {
