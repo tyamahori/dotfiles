@@ -14,6 +14,8 @@
 | `models>1` | 同一の長大 Claude context で model string が変化。cache reset の候補 | 品質上必要な切替か、別セッションへ分離できるかを確認 |
 | `final_ctx>200k` | コンテキスト肥大のまま完走 | 早期分割、サブエージェント委譲 |
 | `idle_resumes>0` | 1 時間超の中断後、200k 超の context を再開して 100k 超を cache write | handoff を残して新セッションで再開 |
+| `peak_ctx>200k`（Codex） | ターン内で context が膨らみ、compaction 後に小さく終わった。最終値だけでは見えない | 1 ターンの作業量と委譲の単位を確認。compaction 設定の変更は品質の比較材料がある場合だけ |
+| Codex tool 出力の切り詰め率 | `exec` の出力が上限で切られ、まとめ読みの中間が脱落。skill や rule が部分的にしか読まれない | `codex/config.toml` の `developer_instructions`（先頭行の `// @exec` pragma）。比率と pragma 利用数を前回と比べる |
 
 コスト上位セッションも確認する。
 

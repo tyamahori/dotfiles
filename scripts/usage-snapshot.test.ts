@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import ruleTable from "../agents/command-rules.json";
@@ -39,7 +39,8 @@ test("snapshot counts repeated failures per client, class, and session from all 
     // Before the window.
     claudeResult(commitReject, true, old),
   ]);
-  jsonl(".claude/projects/p/b.jsonl", [
+  // A second CLAUDE_CONFIG_DIR profile: its sessions count like the default one's.
+  jsonl(".claude-team/projects/p/b.jsonl", [
     claudeResult(`PreToolUse:Bash hook error: ${reason("shell-read-search", "claude")}`, true),
     claudeResult("<tool_use_error>File has not been read yet. Read it first.</tool_use_error>", true),
   ]);
@@ -232,6 +233,92 @@ test("snapshot marks the ccusage sections unavailable when ccusage prints nothin
     const body = (heading: string) => run.stdout.split(heading)[1].split("\n## ")[0].trim().split("\n").slice(1);
     expect(body("## 日次合計 (agent 別)")).toEqual(["(取得不能: `ccusage daily` が出力を返さない)"]);
     expect(body("## コスト上位セッション")).toEqual(["(取得不能: `ccusage session` が出力を返さない)"]);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+}, 60_000);
+
+test("snapshot flags a Codex session by its peak context and counts truncated tool outputs", () => {
+  const scratch = resolve(root, ".agent-msgs/scratch");
+  mkdirSync(scratch, { recursive: true });
+  const home = mkdtempSync(resolve(scratch, "usage-snapshot-"));
+  const now = new Date().toISOString();
+  const tokens = (input: number) => ({
+    type: "event_msg",
+    timestamp: now,
+    payload: {
+      type: "token_count",
+      info: { last_token_usage: { input_tokens: input, cached_input_tokens: input - 1000, total_tokens: input + 100 } },
+    },
+  });
+  const output = (text: string) => ({
+    type: "response_item",
+    timestamp: now,
+    payload: { type: "custom_tool_call_output", output: [{ type: "input_text", text }] },
+  });
+  const session = (name: string, rows: unknown[]) => {
+    const path = resolve(home, `.codex/sessions/2026/${name}.jsonl`);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, rows.map((row) => JSON.stringify(row)).join("\n") + "\n");
+  };
+  // Grew past 200k inside a turn, then ended small after compaction.
+  session("peaked", [
+    tokens(250_000),
+    tokens(50_000),
+    output("Script completed\nhead…46182 tokens truncated…tail"),
+    output("Script completed\nall of it"),
+  ]);
+  session("steady", [tokens(60_000), tokens(70_000)]);
+
+  const bin = resolve(home, "bin");
+  mkdirSync(bin);
+  symlinkSync(Bun.which("jq")!, resolve(bin, "jq"));
+
+  try {
+    const run = spawnSync(Bun.which("bash")!, [snapshot, "--days", "7"], {
+      env: { HOME: home, PATH: `${bin}:/usr/bin:/bin`, LC_ALL: "C" },
+      encoding: "utf8",
+    });
+    expect(run.status).toBe(0);
+    const body = (heading: string) => run.stdout.split(heading)[1].split("\n## ")[0].trim().split("\n");
+    const flagged = body("## 警告フラグ: Codex セッション").filter((line) => line.includes("\tin="));
+    expect(flagged).toEqual(["peaked\tin=300000\tcached=298000\thit=99%\tfinal_ctx=50100\tpeak_ctx=250000"]);
+    expect(body("## Codex tool 出力の切り詰め").slice(-2)).toEqual([
+      "tool_outputs\ttruncated\ttruncated_share\tdropped_tokens",
+      "2\t1\t50%\t46182",
+    ]);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+}, 60_000);
+
+test("snapshot hands every existing Claude profile to ccusage", () => {
+  const scratch = resolve(root, ".agent-msgs/scratch");
+  mkdirSync(scratch, { recursive: true });
+  const home = mkdtempSync(resolve(scratch, "usage-snapshot-"));
+  // .claude-team is absent on this machine; a missing profile is skipped.
+  for (const profile of [".claude", ".claude-personal"])
+    mkdirSync(resolve(home, profile, "projects"), { recursive: true });
+  const bin = resolve(home, "bin");
+  mkdirSync(bin);
+  symlinkSync(Bun.which("jq")!, resolve(bin, "jq"));
+  writeFileSync(resolve(bin, "ccusage"), '#!/bin/sh\nprintf "%s" "$CLAUDE_CONFIG_DIR" > "$HOME/profiles"\n', {
+    mode: 0o755,
+  });
+
+  try {
+    const run = spawnSync(Bun.which("bash")!, [snapshot, "--days", "7"], {
+      // The caller's own profile must not narrow the scan.
+      env: {
+        HOME: home,
+        PATH: `${bin}:/usr/bin:/bin`,
+        LC_ALL: "C",
+        CLAUDE_CONFIG_DIR: resolve(home, ".claude-personal"),
+      },
+      encoding: "utf8",
+    });
+    expect(run.status).toBe(0);
+    expect(readFileSync(resolve(home, "profiles"), "utf8")).toBe(`${home}/.claude,${home}/.claude-personal`);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

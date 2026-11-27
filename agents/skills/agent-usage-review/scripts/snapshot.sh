@@ -47,11 +47,23 @@ else
 	CCUSAGE="bunx ccusage"
 fi
 
+# Claude Code は CLAUDE_CONFIG_DIR のプロファイルごとに履歴を持つ（dotfiles/.zshrc の
+# alias、scripts/link の claude_homes）。全プロファイルを走査し、ccusage にも渡す。
+# 片方だけだと、実行したプロファイルの合計しか出ず、他プロファイルの警告も消える。
+CLAUDE_PROJECT_DIRS=()
+CLAUDE_PROFILES=""
+for profile in "$HOME/.claude" "$HOME/.claude-team" "$HOME/.claude-personal"; do
+	[ -d "$profile/projects" ] || continue
+	CLAUDE_PROJECT_DIRS+=("$profile/projects")
+	CLAUDE_PROFILES="${CLAUDE_PROFILES:+$CLAUDE_PROFILES,}$profile"
+done
+[ -z "$CLAUDE_PROFILES" ] || export CLAUDE_CONFIG_DIR="$CLAUDE_PROFILES"
+
 # 明示的な skill 起動、または SKILL.md / skill:// の読込だけを発火シグナルとして数える。
 # 会話本文、tool 引数、パス、session ID は集計キーにだけ使い、snapshot へ出力しない。
 claude_skill_activation_records() {
-	[ -d "$HOME/.claude/projects" ] || return
-	find "$HOME/.claude/projects" -name '*.jsonl' -newermt "$CUTOFF" -print0 2>/dev/null |
+	[ "${#CLAUDE_PROJECT_DIRS[@]}" -gt 0 ] || return
+	find "${CLAUDE_PROJECT_DIRS[@]}" -name '*.jsonl' -newermt "$CUTOFF" -print0 2>/dev/null |
 		while IFS= read -r -d '' file; do
 			jq -r --arg session "$file" --argjson cutoff_epoch "$CUTOFF_EPOCH" '
 				def epoch: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
@@ -213,7 +225,7 @@ echo
 echo "## 警告フラグ: Claude セッション"
 echo "# 基準: 人間の入力が日跨ぎ(days>1) / cache 書き込み>1M / 20k 字超の人間入力 / cache read率<${LOW_CACHE_PERCENT}% (input>${LOW_CACHE_MIN_INPUT}) / 同一長大contextで複数model / 最終context>${CONTEXT_PEAK_TOKENS} / 1時間超のidle後に${CONTEXT_PEAK_TOKENS}超contextを再開"
 echo
-find "$HOME/.claude/projects" -name '*.jsonl' -newermt "$CUTOFF" 2>/dev/null | while IFS= read -r f; do
+[ "${#CLAUDE_PROJECT_DIRS[@]}" -eq 0 ] || find "${CLAUDE_PROJECT_DIRS[@]}" -name '*.jsonl' -newermt "$CUTOFF" 2>/dev/null | while IFS= read -r f; do
 	jq -rs --arg f "$(basename "$f" .jsonl)" \
 		--argjson cutoff_epoch "$CUTOFF_EPOCH" \
 		--argjson cache_min "$LOW_CACHE_MIN_INPUT" \
@@ -266,7 +278,7 @@ done
 
 echo
 echo "## 警告フラグ: Codex セッション"
-echo "# 基準: cache hit < ${LOW_CACHE_PERCENT}% (input>${LOW_CACHE_MIN_INPUT}) / 最終コンテキスト > ${CONTEXT_PEAK_TOKENS}"
+echo "# 基準: cache hit < ${LOW_CACHE_PERCENT}% (input>${LOW_CACHE_MIN_INPUT}) / 最終またはピークのコンテキスト > ${CONTEXT_PEAK_TOKENS}"
 echo
 find "$HOME/.codex/sessions" -name '*.jsonl' -newermt "$CUTOFF" 2>/dev/null | while IFS= read -r f; do
 	jq -rs --arg f "$(basename "$f" .jsonl)" \
@@ -282,13 +294,39 @@ find "$HOME/.codex/sessions" -name '*.jsonl' -newermt "$CUTOFF" 2>/dev/null | wh
 		| ([$t[].input_tokens] | add) as $in
 		| ([$t[].cached_input_tokens] | add) as $cached
 		| ($t[-1].total_tokens) as $ctx
+		# 最終値だけでは、ターン内で膨らんで compaction 後に小さく終わったセッションを見逃す。
+		| ([$t[].input_tokens] | max) as $peak
 		| (if $in > 0 then $cached / $in else 1 end) as $hit
-		| select(($in > $cache_min and ($hit * 100) < $low_cache_percent) or $ctx > $context_peak)
-		| "\($f)\tin=\($in)\tcached=\($cached)\thit=\($hit * 100 | round)%\tfinal_ctx=\($ctx)"
+		| select(($in > $cache_min and ($hit * 100) < $low_cache_percent) or $ctx > $context_peak or $peak > $context_peak)
+		| "\($f)\tin=\($in)\tcached=\($cached)\thit=\($hit * 100 | round)%\tfinal_ctx=\($ctx)\tpeak_ctx=\($peak)"
 	' "$f" 2>/dev/null
 done
+
 echo
 echo "(警告フラグゼロの節は空 = 問題なし)"
+
+echo
+echo "## Codex tool 出力の切り詰め"
+echo
+echo "> tool 出力に「N tokens truncated」が残った呼び出しを数える。code-mode の exec は 1 スクリプト 10,000 トークンが既定の上限で、先頭行の // @exec pragma で上げられる（codex/config.toml の developer_instructions）。"
+echo
+find "$HOME/.codex/sessions" -name '*.jsonl' -newermt "$CUTOFF" -print0 2>/dev/null |
+	while IFS= read -r -d '' file; do
+		jq -r --argjson cutoff_epoch "$CUTOFF_EPOCH" '
+			def epoch: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+			select((.payload.type == "custom_tool_call_output" or .payload.type == "function_call_output")
+				and (try (.timestamp | epoch) catch 0) >= $cutoff_epoch)
+			| [.payload.output | tostring | scan("([0-9]+) tokens truncated") | .[0] | tonumber] as $dropped
+			| [(if ($dropped | length) > 0 then 1 else 0 end), ($dropped | add // 0)] | @tsv
+		' "$file" 2>/dev/null
+	done |
+	awk -F'\t' '
+		{ outputs += 1; truncated += $1; dropped += $2 }
+		END {
+			if (outputs == 0) { print "(Codex の tool 出力なし)"; exit }
+			print "tool_outputs\ttruncated\ttruncated_share\tdropped_tokens"
+			printf "%d\t%d\t%d%%\t%d\n", outputs, truncated, truncated * 100 / outputs, dropped
+		}'
 
 echo
 echo "## スキル発火シグナル"
@@ -695,8 +733,8 @@ omp_failure_records() {
 # Claude Code: tool_result のエラー。拒否 hook は "PreToolUse:Bash hook error: " の後ろに理由が続く。
 claude_failure_records() {
 	local rules="$REPO_ROOT/agents/command-rules.json"
-	[ -d "$HOME/.claude/projects" ] && [ -f "$rules" ] || return
-	find "$HOME/.claude/projects" -name '*.jsonl' -newermt "$CUTOFF" -print0 2>/dev/null |
+	[ "${#CLAUDE_PROJECT_DIRS[@]}" -gt 0 ] && [ -f "$rules" ] || return
+	find "${CLAUDE_PROJECT_DIRS[@]}" -name '*.jsonl' -newermt "$CUTOFF" -print0 2>/dev/null |
 		while IFS= read -r -d '' file; do
 			jq -r --arg session "$file" --argjson cutoff_epoch "$CUTOFF_EPOCH" --arg commit_msg "$COMMIT_MSG_REJECT" --slurpfile table "$rules" '
 				def epoch: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
