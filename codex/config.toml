@@ -23,6 +23,15 @@ service_tier = "default"
 # single-turn `codex exec` review would lose the files it already read.
 model_post_turn_compact_threshold_percent = 35
 
+# Codex-only, so it lives here and not in the shared global instructions.
+# The model sets max_output_tokens on each nested exec_command but never the
+# script-level pragma, so batched reads of skills, rules, and diffs lost their
+# middle (measured 2026-11-27, agents/measured-notes.md). tool_output_token_limit
+# does not lift this cap (verified 0.172.0).
+developer_instructions = '''
+Code-mode `exec` returns at most 10,000 tokens per script unless the script's first line is `// @exec: {"max_output_tokens": N}`; a nested `exec_command` `max_output_tokens` does not raise that total. Before a script whose reads add up to more than about 10k tokens (several files, a long skill or rule file, a large diff), set N to cover the sum, or split the reads across scripts. When a result says `tokens truncated`, the middle was dropped: re-read that part before relying on the file.
+'''
+
 # Keep workspace isolation while routing approval requests to auto-review.
 # Commands resolved as allow (rules/default.rules: docker, make, ...) run
 # outside the sandbox and bypass review.

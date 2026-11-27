@@ -107,3 +107,16 @@ minutes by then. No work was lost, only wall time.
 
 Mechanized: no — depends on the agent judging that the work will run
 unattended, and on the user keeping the lid open.
+
+## Codex code-mode `exec` output is capped per script
+
+2026-11-27: over one week of Codex sessions, 505 of 2,765 `exec` calls came
+back truncated at 10,000 tokens (420 of 699 in non-interactive review runs),
+dropping about 5.1M tokens (the sum of the `N tokens truncated` markers). The model set
+`max_output_tokens` on nested `exec_command` calls but used the script-level
+`// @exec` pragma in 0 of 2,681 calls, so batched reads of skills, rules, and
+diffs lost their middle. `tool_output_token_limit` did not lift the cap; the
+pragma did, and with the `developer_instructions` text in `codex/config.toml`
+the model set it unprompted.
+
+Mechanized: no — Codex 0.172.0 has no config key for the script-level budget; `developer_instructions` carries the rule, and the usage snapshot reports the truncation rate each cycle.
